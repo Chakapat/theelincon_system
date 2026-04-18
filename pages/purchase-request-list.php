@@ -50,6 +50,12 @@ Db::sortRows($pr_rows, 'created_at', true);
 <?php include __DIR__ . '/../components/navbar.php'; ?>
 
 <div class="container mt-4 mb-5">
+    <?php if (!empty($_GET['line_error'])): ?>
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            บันทึกใบ PR สำเร็จ แต่ส่งแจ้งเตือน LINE ไม่สำเร็จ (กรุณาตรวจสอบการตั้งค่า LINE API)
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
     <?php if (!empty($_GET['deleted'])): ?>
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             ลบใบขอซื้อเรียบร้อยแล้ว

@@ -4,17 +4,48 @@ declare(strict_types=1);
 
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
+require_once __DIR__ . '/../includes/line_pr_notifier.php';
 
 use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\Purchase;
+
+$action = $_GET['action'] ?? '';
+$type = $_GET['type'] ?? '';
+$id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+
+if ($action === 'line_pr_decision') {
+    $decision = (string) ($_GET['decision'] ?? '');
+    $token = trim((string) ($_GET['token'] ?? ''));
+    $pr = Db::row('purchase_requests', (string) $id);
+
+    $ok = $pr !== null
+        && $token !== ''
+        && hash_equals((string) ($pr['line_approval_token'] ?? ''), $token)
+        && (string) ($pr['status'] ?? '') === 'pending'
+        && in_array($decision, ['approve', 'reject'], true);
+
+    if ($ok) {
+        $nextStatus = $decision === 'approve' ? 'approved' : 'rejected';
+        Db::mergeRow('purchase_requests', (string) $id, [
+            'status' => $nextStatus,
+            'line_decision' => $decision,
+            'line_decided_at' => date('Y-m-d H:i:s'),
+            'line_approval_token' => '',
+        ]);
+        http_response_code(200);
+        echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>บันทึกผลแล้ว</title></head><body style="font-family:sans-serif;padding:24px;"><h2>บันทึกผลเรียบร้อย</h2><p>ระบบได้อัปเดตใบ PR แล้ว: <strong>' . htmlspecialchars(strtoupper($nextStatus), ENT_QUOTES, 'UTF-8') . '</strong></p></body></html>';
+        exit;
+    }
+
+    http_response_code(400);
+    echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>ไม่สามารถดำเนินการได้</title></head><body style="font-family:sans-serif;padding:24px;"><h2>ไม่สามารถดำเนินการได้</h2><p>ลิงก์หมดอายุ หรือรายการนี้ถูกดำเนินการไปแล้ว</p></body></html>';
+    exit;
+}
 
 if (!isset($_SESSION['user_id'])) {
     exit('Access Denied: กรุณาเข้าสู่ระบบ');
 }
 
-$action = $_GET['action'] ?? '';
-$type = $_GET['type'] ?? '';
-$id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $user_role = $_SESSION['role'] ?? 'user';
 
 $admin_actions = ['approve_pr', 'reject_pr', 'delete', 'delete_quotation', 'delete_pr', 'add_member', 'edit_member', 'delete_supplier'];
@@ -84,6 +115,7 @@ if ($action === 'delete_supplier') {
 // --- PR ---
 if ($action === 'save_pr') {
     $pr_number = trim((string) ($_POST['pr_number'] ?? ''));
+    $created_at = trim((string) ($_POST['created_at'] ?? date('Y-m-d')));
     $requested_by = (int) ($_POST['requested_by'] ?? 0);
     $created_by = (int) $_SESSION['user_id'];
     $details = trim((string) ($_POST['details'] ?? ''));
@@ -109,6 +141,7 @@ if ($action === 'save_pr') {
     $pr_row = [
         'id' => $pr_id,
         'pr_number' => $pr_number,
+        'created_at' => $created_at,
         'requested_by' => $requested_by,
         'created_by' => $created_by,
         'details' => $details,
@@ -117,14 +150,17 @@ if ($action === 'save_pr') {
         'vat_enabled' => $vat_enabled,
         'subtotal_amount' => $subtotal,
         'vat_amount' => $vat_amount,
+        'line_approval_token' => bin2hex(random_bytes(24)),
     ];
     Db::setRow('purchase_requests', (string) $pr_id, $pr_row);
 
+    $itemDescriptions = [];
     foreach ($_POST['item_description'] ?? [] as $key => $desc) {
         if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
             continue;
         }
-        if (trim((string) $desc) === '') {
+        $desc = trim((string) $desc);
+        if ($desc === '') {
             continue;
         }
         $iid = Db::nextNumericId('purchase_request_items', 'id');
@@ -141,8 +177,31 @@ if ($action === 'save_pr') {
             'unit_price' => $price,
             'total' => $total,
         ]);
+        $itemDescriptions[] = $desc;
     }
-    header('Location: ' . app_path('pages/purchase-request-list.php') . '?success=1');
+
+    $requester = Db::row('users', (string) $requested_by);
+    $requesterName = trim(((string) ($requester['fname'] ?? '')) . ' ' . ((string) ($requester['lname'] ?? '')));
+    if ($requesterName === '') {
+        $requesterName = 'Unknown User';
+    }
+
+    $itemsPreview = '-';
+    if (count($itemDescriptions) > 0) {
+        $firstItems = array_slice($itemDescriptions, 0, 3);
+        $itemsPreview = implode(', ', $firstItems);
+        if (count($itemDescriptions) > 3) {
+            $itemsPreview .= ' +' . (count($itemDescriptions) - 3) . ' รายการ';
+        }
+    }
+
+    $lineSent = line_send_pr_approval_notification($pr_row, $requesterName, $itemsPreview);
+    $redirect = app_path('pages/purchase-request-list.php') . '?success=1';
+    if (!$lineSent) {
+        $redirect .= '&line_error=1';
+    }
+
+    header('Location: ' . $redirect);
     exit;
 }
 
