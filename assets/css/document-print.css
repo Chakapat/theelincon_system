@@ -1,0 +1,71 @@
+/**
+ * ใช้กับหน้าใบแจ้งหนี้ / ใบกำกับภาษี / ใบเสนอราคา / PO
+ * ช่วยให้ตัวอักษรไทยตอนพิมพ์อ่านชัดขึ้น (น้ำหนักฟอนต์ + fallback ระบบ)
+ */
+@media print {
+    @page {
+        size: A4;
+        margin: 0;
+    }
+
+    html {
+        font-size: 12.5pt;
+    }
+
+    body,
+    .invoice-box,
+    .invoice-box * {
+        font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', 'Tahoma', 'Microsoft Sans Serif', sans-serif !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: #111 !important;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    body,
+    .invoice-box {
+        font-weight: 500;
+    }
+
+    .table-custom thead th,
+    .table-custom td {
+        font-size: 11.5pt !important;
+        font-weight: 500 !important;
+    }
+
+    .table-custom .fw-bold {
+        font-weight: 700 !important;
+    }
+
+    .invoice-title {
+        font-weight: 800 !important;
+    }
+
+    .payment-info-box,
+    .summary-box,
+    .summary-item,
+    .sig-box {
+        font-size: 11pt !important;
+        font-weight: 500 !important;
+    }
+
+    .doc-type-text {
+        font-weight: 700 !important;
+    }
+
+    .small,
+    small,
+    .text-muted {
+        font-weight: 500 !important;
+        color: #333 !important;
+    }
+
+    .company-logo {
+        max-height: 26mm !important;
+        max-width: 70mm !important;
+        width: auto !important;
+        object-fit: contain !important;
+    }
+}

@@ -1,0 +1,10 @@
+# Firebase Admin SDK — ห้าม commit คีย์ลับ
+config/*firebase-adminsdk*.json
+
+/vendor/
+/node_modules/
+
+# ข้อมูลอัปโหลดและ secret ภายในเครื่อง
+/uploads/
+.env
+server/.env

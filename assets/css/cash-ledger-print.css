@@ -1,0 +1,108 @@
+/**
+ * รายงานสรุปรายรับรายจ่าย — พิมพ์จาก cash-ledger-dashboard.php
+ */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 12mm 10mm 14mm 10mm;
+    }
+
+    html {
+        font-size: 11pt;
+    }
+
+    body {
+        font-family: 'Sarabun', 'Leelawadee UI', 'Tahoma', sans-serif !important;
+        background: #fff !important;
+        color: #111 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .no-print,
+    nav,
+    .navbar {
+        display: none !important;
+    }
+
+    .container {
+        max-width: 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    .table-cash-report {
+        font-size: 9.5pt;
+    }
+
+    .table-cash-report thead th {
+        background: #f0f0f0 !important;
+        color: #000 !important;
+        font-weight: 700 !important;
+        border-bottom: 2px solid #333 !important;
+    }
+
+    .table-cash-report td,
+    .table-cash-report th {
+        border-color: #ccc !important;
+        vertical-align: top !important;
+        padding: 0.35rem 0.45rem !important;
+    }
+
+    .table-cash-report tbody tr {
+        page-break-inside: avoid;
+    }
+
+    thead {
+        display: table-header-group;
+    }
+
+    /* สรุปย้ายออกจาก tfoot แล้ว — ไม่ใช้ table-footer-group เพื่อไม่ให้ซ้ำทุกหน้า */
+
+    .cash-report-final-summary {
+        page-break-before: always;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        margin-top: 0;
+        border-top: 2px solid #333 !important;
+        background: #f8f8f8 !important;
+        padding: 0.75rem 0.5rem !important;
+    }
+
+    .cash-report-final-summary h6 {
+        color: #000 !important;
+    }
+
+    .cash-report-final-summary .table {
+        font-size: 10pt;
+    }
+
+    .badge-print {
+        border: 1px solid #333 !important;
+        background: #fff !important;
+        color: #000 !important;
+        font-weight: 600;
+        padding: 0.1rem 0.35rem;
+        font-size: 8.5pt;
+    }
+
+    .report-print-header {
+        page-break-after: avoid;
+    }
+
+    .table-wrap-screen {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    a[href]:after {
+        content: none !important;
+    }
+}
+
+@media screen {
+    .table-wrap-screen {
+        max-height: min(70vh, 560px);
+        overflow: auto;
+    }
+}

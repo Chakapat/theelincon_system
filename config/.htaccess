@@ -1,0 +1,2 @@
+# ป้องกันการเปิดไฟล์ในโฟลเดอร์นี้ผ่านเว็บ (รวม JSON คีย์ Firebase)
+Require all denied
