@@ -19,3 +19,11 @@ if (!defined('LINE_TARGET_USER_ID')) {
     define('LINE_TARGET_USER_ID', getenv('LINE_TARGET_USER_ID') ?: '');
 }
 
+if (!defined('LINE_TARGET_GROUP_ID')) {
+    define('LINE_TARGET_GROUP_ID', getenv('LINE_TARGET_GROUP_ID') ?: '');
+}
+
+if (!defined('LINE_BOT_USER_ID')) {
+    define('LINE_BOT_USER_ID', getenv('LINE_BOT_USER_ID') ?: '');
+}
+

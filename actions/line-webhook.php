@@ -7,6 +7,37 @@ require_once __DIR__ . '/../config/line_settings.php';
 
 header('Content-Type: application/json; charset=UTF-8');
 
+/**
+ * Return true when LINE group/room text explicitly mentions this bot.
+ */
+function line_is_mention_to_bot(array $event): bool
+{
+    $message = $event['message'] ?? null;
+    if (!is_array($message) || (string) ($message['type'] ?? '') !== 'text') {
+        return false;
+    }
+
+    $text = (string) ($message['text'] ?? '');
+    $mention = $message['mention'] ?? null;
+    if (is_array($mention) && isset($mention['mentionees']) && is_array($mention['mentionees'])) {
+        $botUserId = (string) (defined('LINE_BOT_USER_ID') ? LINE_BOT_USER_ID : '');
+        foreach ($mention['mentionees'] as $m) {
+            if (!is_array($m)) {
+                continue;
+            }
+            if (!empty($m['isSelf'])) {
+                return true;
+            }
+            if ($botUserId !== '' && isset($m['userId']) && (string) $m['userId'] === $botUserId) {
+                return true;
+            }
+        }
+    }
+
+    // Fallback text check for clients where mention metadata is missing.
+    return mb_strpos($text, '@') !== false;
+}
+
 $rawBody = file_get_contents('php://input');
 if ($rawBody === false) {
     http_response_code(400);
@@ -38,7 +69,7 @@ if (!is_array($payload)) {
 }
 
 $events = $payload['events'] ?? [];
-$capturedUsers = [];
+$capturedSources = [];
 if (is_array($events)) {
     foreach ($events as $event) {
         if (!is_array($event)) {
@@ -50,14 +81,28 @@ if (is_array($events)) {
         }
 
         $userId = isset($source['userId']) ? trim((string) $source['userId']) : '';
-        if ($userId === '' || strpos($userId, 'U') !== 0) {
+        $groupId = isset($source['groupId']) ? trim((string) $source['groupId']) : '';
+        $roomId = isset($source['roomId']) ? trim((string) $source['roomId']) : '';
+        $sourceType = (string) ($source['type'] ?? '');
+        $eventType = (string) ($event['type'] ?? '');
+
+        // Group/room mode: only process text messages that mention the bot.
+        if (($sourceType === 'group' || $sourceType === 'room') && $eventType === 'message') {
+            if (!line_is_mention_to_bot($event)) {
+                continue;
+            }
+        }
+
+        if ($userId === '' && $groupId === '' && $roomId === '') {
             continue;
         }
 
-        $capturedUsers[] = [
+        $capturedSources[] = [
             'userId' => $userId,
-            'type' => (string) ($source['type'] ?? ''),
-            'event' => (string) ($event['type'] ?? ''),
+            'groupId' => $groupId,
+            'roomId' => $roomId,
+            'type' => $sourceType,
+            'event' => $eventType,
             'timestamp' => date('c'),
         ];
     }
@@ -75,18 +120,45 @@ if (is_file($logPath)) {
     }
 }
 
-foreach ($capturedUsers as $row) {
-    $existing[] = $row;
+// Upsert records by identity so file does not grow on every message.
+$indexByKey = [];
+foreach ($existing as $idx => $row) {
+    if (!is_array($row)) {
+        continue;
+    }
+    $kType = (string) ($row['type'] ?? '');
+    $kUser = (string) ($row['userId'] ?? '');
+    $kGroup = (string) ($row['groupId'] ?? '');
+    $kRoom = (string) ($row['roomId'] ?? '');
+    $key = $kType . '|' . $kUser . '|' . $kGroup . '|' . $kRoom;
+    $indexByKey[$key] = $idx;
 }
 
-if (count($existing) > 100) {
-    $existing = array_slice($existing, -100);
+foreach ($capturedSources as $row) {
+    $key = (string) ($row['type'] ?? '') . '|' . (string) ($row['userId'] ?? '') . '|' . (string) ($row['groupId'] ?? '') . '|' . (string) ($row['roomId'] ?? '');
+    if (isset($indexByKey[$key])) {
+        $at = $indexByKey[$key];
+        $prevCount = (int) ($existing[$at]['seen_count'] ?? 1);
+        $existing[$at] = array_merge($existing[$at], $row, [
+            'seen_count' => $prevCount + 1,
+            'last_seen_at' => date('c'),
+        ]);
+    } else {
+        $row['seen_count'] = 1;
+        $row['last_seen_at'] = date('c');
+        $existing[] = $row;
+        $indexByKey[$key] = count($existing) - 1;
+    }
+}
+
+if (count($existing) > 200) {
+    $existing = array_slice($existing, -200);
 }
 
 file_put_contents($logPath, json_encode($existing, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
 echo json_encode([
     'ok' => true,
-    'captured_count' => count($capturedUsers),
+    'captured_count' => count($capturedSources),
 ], JSON_UNESCAPED_UNICODE);
 

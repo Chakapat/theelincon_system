@@ -51,12 +51,17 @@ function line_send_pr_approval_notification(array $prRow, string $requesterName,
 {
     $channelToken = (string) LINE_MESSAGING_CHANNEL_ACCESS_TOKEN;
     $targetUserId = (string) LINE_TARGET_USER_ID;
-    if ($channelToken === '' || $targetUserId === '') {
+    $targetGroupId = (string) LINE_TARGET_GROUP_ID;
+    $targetId = $targetGroupId !== '' ? $targetGroupId : $targetUserId;
+    $targetType = $targetGroupId !== '' ? 'group' : 'user';
+
+    if ($channelToken === '' || $targetId === '') {
         line_append_debug_log([
             'ok' => false,
             'reason' => 'missing_config',
             'has_token' => $channelToken !== '',
             'has_target_user' => $targetUserId !== '',
+            'has_target_group' => $targetGroupId !== '',
         ]);
         return false;
     }
@@ -99,7 +104,7 @@ function line_send_pr_approval_notification(array $prRow, string $requesterName,
     $itemsPreview = line_mb_truncate($itemsPreview, 120);
 
     $payload = [
-        'to' => $targetUserId,
+        'to' => $targetId,
         'messages' => [[
             'type' => 'flex',
             'altText' => 'PR ' . $prNumber . ' รอการอนุมัติ',
@@ -300,7 +305,8 @@ function line_send_pr_approval_notification(array $prRow, string $requesterName,
         'http_status' => $statusCode,
         'curl_errno' => $curlErrNo,
         'curl_error' => $curlErrMsg,
-        'target_user_id_prefix' => substr($targetUserId, 0, 8),
+        'target_type' => $targetType,
+        'target_id_prefix' => substr($targetId, 0, 8),
         'line_response' => is_string($response) ? $response : '',
     ]);
 
