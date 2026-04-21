@@ -84,9 +84,10 @@ Db::sortRows($suppliers, 'name', false);
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
+const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
 function deleteSup(id) {
     if(confirm('คุณแน่ใจว่าต้องการลบรายชื่อผู้ขายนี้?')) {
-        window.location.href = actionHandlerUrl + '?action=delete_supplier&id=' + id;
+        window.location.href = actionHandlerUrl + '?action=delete_supplier&id=' + id + '&_csrf=' + encodeURIComponent(csrfToken);
     }
 }
 </script>

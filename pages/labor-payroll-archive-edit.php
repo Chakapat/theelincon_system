@@ -93,6 +93,7 @@ $periodHalf = (int) ($head['period_half'] ?? 1) === 2 ? 2 : 1;
         </div>
 
         <form method="post" action="<?= htmlspecialchars($handler, ENT_QUOTES, 'UTF-8') ?>" id="formArchiveSave">
+            <?php csrf_field(); ?>
             <input type="hidden" name="action" value="save">
             <input type="hidden" name="archive_id" value="<?= (int) $head['id'] ?>">
 
@@ -138,6 +139,7 @@ $periodHalf = (int) ($head['period_half'] ?? 1) === 2 ? 2 : 1;
 
         <hr class="my-4">
         <form method="post" action="<?= htmlspecialchars($handler, ENT_QUOTES, 'UTF-8') ?>" id="formArchiveDel" onsubmit="return confirm('ลบเอกสารนี้และรายละเอียดทั้งหมดถาวร — ยืนยัน?');">
+            <?php csrf_field(); ?>
             <input type="hidden" name="action" value="delete">
             <input type="hidden" name="archive_id" value="<?= (int) $head['id'] ?>">
             <button type="submit" class="btn btn-outline-danger rounded-pill"><i class="bi bi-trash3 me-1"></i>ลบเอกสารนี้ทั้งฉบับ</button>

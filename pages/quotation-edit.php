@@ -73,6 +73,7 @@ Db::sortRows($customers, 'name', false);
     </div>
 
     <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=edit_quotation" method="POST" id="quoteForm">
+        <?php csrf_field(); ?>
         <input type="hidden" name="quotation_id" value="<?= $id ?>">
 
         <div class="row g-4">
@@ -133,7 +134,7 @@ Db::sortRows($customers, 'name', false);
                             <td class="ps-4"><input type="text" name="description[]" class="form-control" value="<?= htmlspecialchars((string) $item['description']) ?>" required></td>
                             <td><input type="number" name="quantity[]" class="form-control qty text-center" value="<?= htmlspecialchars((string) $item['quantity']) ?>" step="0.01"></td>
                             <td><input type="text" name="unit[]" class="form-control text-center" value="<?= htmlspecialchars((string) $item['unit']) ?>"></td>
-                            <td><input type="number" name="price[]" class="form-control price text-end" value="<?= htmlspecialchars((string) $item['unit_price']) ?>" step="0.01"></td>
+                            <td><input type="number" name="price[]" class="form-control price text-end" value="<?= ((float) ($item['unit_price'] ?? 0) != 0.0) ? htmlspecialchars((string) $item['unit_price']) : '' ?>" step="0.01"></td>
                             <td><input type="number" name="total[]" class="form-control total text-end fw-bold bg-light" value="<?= htmlspecialchars((string) $item['total']) ?>" readonly></td>
                             <td class="text-center"><i class="bi bi-trash-fill remove-row remove"></i></td>
                         </tr>
@@ -225,7 +226,8 @@ function addRow(){
         const newRow = lastRow.cloneNode(true);
         newRow.querySelectorAll("input").forEach(i => {
             if (i.classList.contains('qty')) i.value = "1";
-            else if (i.classList.contains('price') || i.classList.contains('total')) i.value = "0.00";
+            else if (i.classList.contains('total')) i.value = "0.00";
+            else if (i.classList.contains('price')) i.value = "";
             else i.value = "";
         });
         table.appendChild(newRow);

@@ -7,6 +7,11 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
 
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ' . app_path('sign-in.php'));
+    exit;
+}
+
 $id = (int) ($_GET['id'] ?? 0);
 $print_type = isset($_GET['type']) ? (string) $_GET['type'] : 'original';
 $type_text = ($print_type === 'copy') ? 'สำเนา / COPY' : 'ต้นฉบับ / ORIGINAL';

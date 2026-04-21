@@ -78,6 +78,7 @@ if ($id > 0) {
 
             <div class="card form-card p-4 p-md-5">
                 <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=save_supplier" method="POST">
+                    <?php csrf_field(); ?>
                     <input type="hidden" name="id" value="<?= $id ?>">
 
                     <div class="row g-4">

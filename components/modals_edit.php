@@ -1,6 +1,6 @@
 <?php
 if (!function_exists('app_path')) {
-    require_once __DIR__ . '/../config/bootstrap.php';
+    require_once __DIR__ . '/../config/foundation.php';
 }
 $ah = htmlspecialchars(app_path('actions/action-handler.php'));
 ?>
@@ -8,6 +8,7 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'));
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
             <form action="<?= $ah ?>?action=edit_member" method="POST">
+                <?php csrf_field(); ?>
                 <div class="modal-header border-0 pt-4 px-4">
                     <h5 class="fw-bold text-dark"><i class="bi bi-person-gear me-2 text-warning"></i>แก้ไขสมาชิก</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

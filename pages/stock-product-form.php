@@ -54,6 +54,7 @@ $handler = app_path('actions/stock-handler.php');
     <?php endif; ?>
 
     <form method="post" action="<?= htmlspecialchars($handler) ?>?action=save_product" class="card border-0 shadow-sm rounded-4 p-4">
+        <?php csrf_field(); ?>
         <?php if ($row): ?>
             <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
         <?php endif; ?>

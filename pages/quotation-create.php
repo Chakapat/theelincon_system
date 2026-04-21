@@ -17,6 +17,9 @@ $show_success = false;
 $new_qt_number = "";
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_quotation'])) {
+    if (!csrf_verify_request()) {
+        die('Invalid security token. Please reload the page.');
+    }
     $company_id  = $_POST['company_id'];
     $customer_id = $_POST['customer_id'];
     $issue_date  = $_POST['issue_date']; 
@@ -127,6 +130,7 @@ Db::sortRows($customer_data, 'name', false);
     </div>
 
     <form action="" method="POST">
+        <?php csrf_field(); ?>
         <div class="card mb-4 border-orange shadow-sm border-0">
             <div class="card-body">
                 <label class="form-label fw-bold"><i class="bi bi-calendar-event me-2"></i>วันที่ในใบเสนอราคา</label>
@@ -248,7 +252,7 @@ Db::sortRows($customer_data, 'name', false);
                             <td><input type="text" name="description[]" class="form-control" required></td>
                             <td><input type="number" name="quantity[]" class="form-control qty text-center" value="1" step="0.01"></td>
                             <td><input type="text" name="unit[]" class="form-control text-center"></td>
-                            <td><input type="text" name="price[]" class="form-control price text-end" value="0.00"></td>
+                            <td><input type="text" name="price[]" class="form-control price text-end" value=""></td>
                             <td><input type="number" name="total[]" class="form-control total text-end fw-bold" value="0.00" readonly></td>
                             <td class="text-center"><i class="bi bi-trash-fill text-danger remove" style="cursor:pointer;"></i></td>
                         </tr>
@@ -381,7 +385,10 @@ function addRow(){
     const tbody = document.querySelector("#items_table tbody");
     const row = tbody.rows[0].cloneNode(true);
     row.querySelectorAll("input").forEach(i => {
-        i.value = i.classList.contains('qty') ? "1" : (i.classList.contains('total') || i.classList.contains('price') ? "0.00" : "");
+        i.value = i.classList.contains('qty') ? "1"
+            : i.classList.contains('total') ? "0.00"
+            : i.classList.contains('price') ? ""
+            : "";
     });
     tbody.appendChild(row);
 }

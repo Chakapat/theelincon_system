@@ -17,6 +17,16 @@ $isAdmin = (isset($_SESSION['role']) && $_SESSION['role'] === 'admin');
 $back = app_path('pages/cash-ledger.php');
 $action = $_REQUEST['action'] ?? '';
 
+$cash_mutates = ($action === 'save' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
+    || ($action === 'delete' && isset($_GET['id']));
+if ($cash_mutates && !csrf_verify_request()) {
+    $m = trim((string) ($_GET['month'] ?? ($_POST['redirect_month'] ?? '')));
+    if (!preg_match('/^\d{4}-\d{2}$/', $m)) {
+        $m = '';
+    }
+    cash_ledger_redirect($back, array_filter(['err' => 'csrf', 'month' => $m]));
+}
+
 function cash_ledger_redirect(string $base, array $query): void
 {
     $q = http_build_query($query);

@@ -46,6 +46,11 @@ if (!isset($_SESSION['user_id'])) {
     exit('Access Denied: กรุณาเข้าสู่ระบบ');
 }
 
+if ($action !== 'get_data' && !csrf_verify_request()) {
+    http_response_code(403);
+    exit('Invalid security token. Please refresh the page and try again.');
+}
+
 $user_role = $_SESSION['role'] ?? 'user';
 
 $admin_actions = ['approve_pr', 'reject_pr', 'delete', 'delete_quotation', 'delete_pr', 'add_member', 'edit_member', 'delete_supplier'];
@@ -138,6 +143,59 @@ if ($action === 'save_pr') {
     $total_amount = round($subtotal + $vat_amount, 2);
 
     $pr_id = Db::nextNumericId('purchase_requests', 'id');
+    $quoteAttachmentPath = '';
+    $quoteAttachmentUrl = '';
+    $quoteAttachmentName = '';
+    $quoteAttachmentMime = '';
+    $quoteAttachmentSize = 0;
+
+    if (!empty($_FILES['quotation_file']) && (int) ($_FILES['quotation_file']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        $f = $_FILES['quotation_file'];
+        $err = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($err !== UPLOAD_ERR_OK) {
+            header('Location: ' . app_path('pages/purchase-request-create.php') . '?error=upload_failed');
+            exit;
+        }
+
+        $tmp = (string) ($f['tmp_name'] ?? '');
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            header('Location: ' . app_path('pages/purchase-request-create.php') . '?error=upload_failed');
+            exit;
+        }
+
+        $originalName = trim((string) ($f['name'] ?? 'quotation'));
+        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
+        if (!in_array($ext, $allowedExt, true)) {
+            header('Location: ' . app_path('pages/purchase-request-create.php') . '?error=upload_type');
+            exit;
+        }
+
+        $dirAbs = ROOT_PATH . '/uploads/pr-quotations/' . $pr_id;
+        if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
+            header('Location: ' . app_path('pages/purchase-request-create.php') . '?error=upload_failed');
+            exit;
+        }
+
+        $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
+        $safeBase = trim((string) $safeBase, '._-');
+        if ($safeBase === '') {
+            $safeBase = 'quotation';
+        }
+        $storedName = $safeBase . '_' . date('Ymd_His') . '.' . $ext;
+        $destAbs = $dirAbs . '/' . $storedName;
+        if (!@move_uploaded_file($tmp, $destAbs)) {
+            header('Location: ' . app_path('pages/purchase-request-create.php') . '?error=upload_failed');
+            exit;
+        }
+
+        $quoteAttachmentPath = 'uploads/pr-quotations/' . $pr_id . '/' . $storedName;
+        $quoteAttachmentUrl = app_path($quoteAttachmentPath);
+        $quoteAttachmentName = $originalName;
+        $quoteAttachmentMime = (string) ($f['type'] ?? '');
+        $quoteAttachmentSize = (int) ($f['size'] ?? 0);
+    }
+
     $pr_row = [
         'id' => $pr_id,
         'pr_number' => $pr_number,
@@ -151,10 +209,17 @@ if ($action === 'save_pr') {
         'subtotal_amount' => $subtotal,
         'vat_amount' => $vat_amount,
         'line_approval_token' => bin2hex(random_bytes(24)),
+        'quotation_attachment_path' => $quoteAttachmentPath,
+        'quotation_attachment_url' => $quoteAttachmentUrl,
+        'quotation_attachment_name' => $quoteAttachmentName,
+        'quotation_attachment_mime' => $quoteAttachmentMime,
+        'quotation_attachment_size' => $quoteAttachmentSize,
     ];
     Db::setRow('purchase_requests', (string) $pr_id, $pr_row);
 
-    $itemDescriptions = [];
+    $linePreviewLines = [];
+    $lineItemsTotal = 0;
+    $lineItemsShown = 0;
     foreach ($_POST['item_description'] ?? [] as $key => $desc) {
         if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
             continue;
@@ -163,6 +228,7 @@ if ($action === 'save_pr') {
         if ($desc === '') {
             continue;
         }
+        $lineItemsTotal++;
         $iid = Db::nextNumericId('purchase_request_items', 'id');
         $qty = (float) $_POST['item_qty'][$key];
         $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
@@ -177,7 +243,13 @@ if ($action === 'save_pr') {
             'unit_price' => $price,
             'total' => $total,
         ]);
-        $itemDescriptions[] = $desc;
+        if ($lineItemsShown < 12) {
+            $lineItemsShown++;
+            $linePreviewLines[] = $lineItemsShown . '. '
+                . $desc
+                . ' จำนวน ' . number_format($qty, 2) . ($unit !== '' ? ' ' . $unit : '')
+                . ' x ราคา ' . number_format($price, 2);
+        }
     }
 
     $requester = Db::row('users', (string) $requested_by);
@@ -186,16 +258,15 @@ if ($action === 'save_pr') {
         $requesterName = 'Unknown User';
     }
 
-    $itemsPreview = '-';
-    if (count($itemDescriptions) > 0) {
-        $firstItems = array_slice($itemDescriptions, 0, 3);
-        $itemsPreview = implode(', ', $firstItems);
-        if (count($itemDescriptions) > 3) {
-            $itemsPreview .= ' +' . (count($itemDescriptions) - 3) . ' รายการ';
-        }
+    if ($lineItemsTotal > $lineItemsShown) {
+        $linePreviewLines[] = '... และอีก ' . ($lineItemsTotal - $lineItemsShown) . ' รายการ';
     }
+    $itemsPreview = count($linePreviewLines) > 0 ? implode("\n", $linePreviewLines) : '-';
 
-    $lineSent = line_send_pr_approval_notification($pr_row, $requesterName, $itemsPreview);
+    $lineQuoteText = $quoteAttachmentName !== ''
+        ? 'มีใบเสนอราคา: ' . $quoteAttachmentName
+        : 'ไม่มีใบเสนอราคา';
+    $lineSent = line_send_pr_approval_notification($pr_row, $requesterName, $itemsPreview, $lineQuoteText, $quoteAttachmentUrl);
     $redirect = app_path('pages/purchase-request-list.php') . '?success=1';
     if (!$lineSent) {
         $redirect .= '&line_error=1';
@@ -265,6 +336,8 @@ if ($action === 'create_po_from_pr') {
         'po_number' => $po_number,
         'pr_id' => $pr_id,
         'supplier_id' => $supplier_id,
+        'created_at' => date('Y-m-d'),
+        'issue_date' => date('Y-m-d'),
         'total_amount' => $total_amount,
         'status' => 'ordered',
         'created_by' => $created_by,
@@ -331,6 +404,9 @@ if ($action === 'create_quotation' || $action === 'edit_quotation') {
 
     foreach ($_POST['description'] ?? [] as $key => $desc) {
         $desc = trim((string) $desc);
+        if ($desc === '') {
+            continue;
+        }
         $qty = (float) ($_POST['quantity'][$key] ?? 0);
         $unit = trim((string) ($_POST['unit'][$key] ?? ''));
         $price = (float) ($_POST['price'][$key] ?? 0);
@@ -345,6 +421,7 @@ if ($action === 'create_quotation' || $action === 'edit_quotation') {
             'unit_price' => $price,
             'total' => $total,
         ]);
+
     }
     header('Location: ' . app_path('pages/quotation-list.php') . '?success=1');
     exit;
@@ -448,7 +525,16 @@ if ($action === 'delete_quotation' && $id > 0) {
 if ($action === 'delete' && $id > 0) {
     if ($type === 'invoice') {
         Db::deleteWhereEquals('invoice_items', 'invoice_id', (string) $id);
-        Db::deleteWhereEquals('tax_invoices', 'invoice_id', (string) $id);
+        $taxRows = Db::filter('tax_invoices', static function (array $r) use ($id): bool {
+            return isset($r['invoice_id']) && (int) $r['invoice_id'] === $id;
+        });
+        foreach ($taxRows as $taxRow) {
+            $taxId = (int) ($taxRow['id'] ?? 0);
+            if ($taxId > 0) {
+                Db::deleteWhereEquals('tax_invoice_items', 'tax_invoice_id', (string) $taxId);
+                Db::deleteRow('tax_invoices', (string) $taxId);
+            }
+        }
         Db::deleteRow('invoices', (string) $id);
         header('Location: ' . app_path('index.php') . '?deleted=1');
     } elseif ($type === 'quotation') {
@@ -458,6 +544,14 @@ if ($action === 'delete' && $id > 0) {
     } elseif ($type === 'member') {
         Db::deleteRow('users', (string) $id);
         header('Location: ' . app_path('pages/member-manage.php') . '?deleted=1');
+    } elseif ($type === 'tax_invoice') {
+        Db::deleteWhereEquals('tax_invoice_items', 'tax_invoice_id', (string) $id);
+        Db::deleteRow('tax_invoices', (string) $id);
+        header('Location: ' . app_path('pages/tax-invoice-list.php') . '?deleted=1');
+    } elseif ($type === 'purchase_order') {
+        Db::deleteWhereEquals('purchase_order_items', 'po_id', (string) $id);
+        Db::deleteRow('purchase_orders', (string) $id);
+        header('Location: ' . app_path('pages/purchase-order-list.php') . '?deleted=1');
     } else {
         $table = ($type === 'company') ? 'company' : 'customers';
         $page = ($table === 'company') ? 'pages/company-manage.php' : 'pages/customer-manage.php';

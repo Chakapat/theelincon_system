@@ -172,6 +172,7 @@ $total_quotes = count($list_rows);
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
+const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
 function deleteQuote(id, number) {
     Swal.fire({
         title: 'ยืนยันการลบ?',
@@ -184,7 +185,7 @@ function deleteQuote(id, number) {
         cancelButtonText: 'ยกเลิก'
     }).then((result) => {
         if (result.isConfirmed) {
-            window.location.href = `${actionHandlerUrl}?action=delete_quotation&id=${id}`;
+            window.location.href = `${actionHandlerUrl}?action=delete_quotation&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`;
         }
     })
 }

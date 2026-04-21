@@ -39,7 +39,23 @@ $current_pr_number = Purchase::nextPRNumber();
 <?php include __DIR__ . '/../components/navbar.php'; ?>
 
 <div class="container mt-4">
-    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=save_pr" method="POST">
+    <?php if (!empty($_GET['error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <?php
+            $err = (string) $_GET['error'];
+            if ($err === 'upload_type') {
+                echo 'ชนิดไฟล์แนบไม่รองรับ กรุณาแนบ PDF หรือไฟล์รูปภาพ';
+            } elseif ($err === 'upload_failed') {
+                echo 'อัปโหลดไฟล์แนบไม่สำเร็จ กรุณาลองใหม่';
+            } else {
+                echo 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+            }
+            ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=save_pr" method="POST" enctype="multipart/form-data">
+        <?php csrf_field(); ?>
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h3 class="fw-bold"><i class="bi bi-cart-plus-fill text-warning me-2"></i> สร้างใบขอซื้อ (PR)</h3>
             <div>
@@ -63,6 +79,16 @@ $current_pr_number = Purchase::nextPRNumber();
                         <div class="col-md-12">
                             <label class="form-label fw-bold">รายละเอียด/วัตถุประสงค์</label>
                             <textarea name="details" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold">แนบใบเสนอราคา (ไม่บังคับ)</label>
+                            <input
+                                type="file"
+                                name="quotation_file"
+                                class="form-control"
+                                accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff"
+                            >
+                            <div class="form-text">รองรับไฟล์ PDF และรูปภาพทั่วไป (JPG, PNG, WEBP, GIF, BMP, TIFF)</div>
                         </div>
                     </div>
                 </div>

@@ -17,9 +17,20 @@ $show_success = false;
 $new_inv_number = "";
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_invoice'])) {
+    if (!csrf_verify_request()) {
+        die('Invalid security token. Please reload the page.');
+    }
     $company_id  = $_POST['company_id'];
     $customer_id = $_POST['customer_id'];
     $issue_date  = $_POST['issue_date']; 
+    $rounding_enabled = isset($_POST['rounding_enabled']);
+
+    $money2 = static function (float $value) use ($rounding_enabled): float {
+        if ($rounding_enabled) {
+            return round($value, 2, PHP_ROUND_HALF_UP);
+        }
+        return $value >= 0 ? floor($value * 100) / 100 : ceil($value * 100) / 100;
+    };
     
     // --- 1. คำนวณยอดเงินรวม ---
     $subtotal = 0;
@@ -29,19 +40,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_invoice'])) {
             $qty = floatval($_POST['quantity'][$key]);
             if (strpos($price_val, '%') !== false) {
                 $percent = floatval(str_replace('%', '', $price_val));
-                $item_total = $running_total * ($percent / 100);
+                $item_total = $money2($running_total * ($percent / 100));
             } else {
-                $item_total = $qty * floatval($price_val);
+                $item_total = $money2(floatval($price_val));
             }
             $subtotal += $item_total;
             $running_total += $item_total; 
         }
     }
 
-    $vat_amount = isset($_POST['vat_enabled']) ? ($subtotal * 0.07) : 0; 
-    $wht_amount = isset($_POST['withholding_enabled']) ? ($subtotal * 0.03) : 0; 
+    $vat_amount = isset($_POST['vat_enabled']) ? $money2($subtotal * 0.07) : 0; 
+    $wht_amount = isset($_POST['withholding_enabled']) ? $money2($subtotal * 0.03) : 0; 
     $retention_amount = floatval($_POST['retention_amount'] ?? 0); 
-    $total_amount = ($subtotal + $vat_amount) - $wht_amount - $retention_amount;
+    $total_amount = $money2(($subtotal + $vat_amount) - $wht_amount - $retention_amount);
 
     $new_inv_number = Invoice::nextInvoiceNumber($issue_date);
 
@@ -59,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_invoice'])) {
         'withholding_tax' => $wht_amount,
         'retention_amount' => $retention_amount,
         'total_amount' => $total_amount,
+        'rounding_enabled' => $rounding_enabled ? 1 : 0,
         'status' => 'pending',
         'created_by' => $created_by,
     ];
@@ -72,11 +84,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_invoice'])) {
 
         if (strpos($price_input, '%') !== false) {
             $percent = floatval(str_replace('%', '', $price_input));
-            $row_total = round($current_running * ($percent / 100), 2);
+            $row_total = $money2($current_running * ($percent / 100));
             $final_unit_price = round($row_total / ($qty ?: 1), 4);
         } else {
             $final_unit_price = floatval($price_input);
-            $row_total = round($qty * $final_unit_price, 2);
+            $row_total = $money2($final_unit_price);
         }
 
         $iid = Db::nextNumericId('invoice_items', 'id');
@@ -91,20 +103,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_invoice'])) {
         ]);
         $current_running += $row_total;
     }
-
-    $tax_inv_number = 'TAX-' . $new_inv_number;
-    $tid = Db::nextNumericId('tax_invoices', 'id');
-    Db::setRow('tax_invoices', (string) $tid, [
-        'id' => $tid,
-        'invoice_id' => $invoice_id,
-        'tax_invoice_number' => $tax_inv_number,
-        'tax_date' => $issue_date,
-        'subtotal' => $subtotal,
-        'vat_amount' => $vat_amount,
-        'withholding_tax' => $wht_amount,
-        'retention_amount' => $retention_amount,
-        'grand_total' => $total_amount,
-    ]);
 
     $show_success = true;
 }
@@ -133,6 +131,9 @@ Db::sortRows($customer_data, 'name', false);
     </style>
 </head>
 <body>
+
+<?php include __DIR__ . '/../components/navbar.php'; ?>
+
 <div class="container mt-4 mb-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="fw-bold text-dark">สร้างใบแจ้งหนี้</h3>
@@ -140,6 +141,7 @@ Db::sortRows($customer_data, 'name', false);
     </div>
 
     <form action="" method="POST">
+        <?php csrf_field(); ?>
         <div class="card mb-4 border-orange shadow-sm border-0">
             <div class="card-body">
                 <label class="form-label fw-bold"><i class="bi bi-calendar-event me-2"></i>วันที่ออกใบแจ้งหนี้</label>
@@ -197,7 +199,7 @@ Db::sortRows($customer_data, 'name', false);
                             <th width="40%" class="text-center">รายการ</th>
                             <th width="12%" class="text-center">จำนวน</th>
                             <th width="12%" class="text-center">หน่วย</th>
-                            <th width="15%" class="text-center">ราคา/หน่วย</th>
+                            <th width="15%" class="text-center">ราคา</th>
                             <th width="15%" class="text-center">รวมเงิน</th>
                             <th width="6%"></th>
                         </tr>
@@ -207,7 +209,7 @@ Db::sortRows($customer_data, 'name', false);
                             <td><input type="text" name="description[]" class="form-control" required></td>
                             <td><input type="number" name="quantity[]" class="form-control qty text-center" value="1" step="0.01"></td>
                             <td><input type="text" name="unit[]" class="form-control text-center"></td>
-                            <td><input type="text" name="price[]" class="form-control price text-end" value="0.00"></td>
+                            <td><input type="text" name="price[]" class="form-control price text-end" value=""></td>
                             <td><input type="number" name="total[]" class="form-control total text-end fw-bold" value="0.00" readonly></td>
                             <td class="text-center"><i class="bi bi-trash-fill text-danger remove" style="cursor:pointer;"></i></td>
                         </tr>
@@ -230,6 +232,10 @@ Db::sortRows($customer_data, 'name', false);
                     </div>
                     <label class="form-label text-danger fw-bold">หักประกันผลงาน Retention (บาท)</label>
                     <input type="number" name="retention_amount" id="retentionInput" class="form-control shadow-sm" value="0" step="0.01">
+                    <div class="form-check form-switch mt-3">
+                        <input type="checkbox" name="rounding_enabled" class="form-check-input" id="roundingCheck" checked>
+                        <label class="form-check-label fw-bold text-secondary" for="roundingCheck">ปัดเศษทศนิยม (หลักตัวที่ 3 ตั้งแต่ 5 ขึ้นไป)</label>
+                    </div>
                 </div>
             </div>
             <div class="col-md-6">
@@ -279,7 +285,12 @@ document.getElementById('customer_select').addEventListener('change', function()
 function addRow(){
     const tbody = document.querySelector("#items_table tbody");
     const row = tbody.rows[0].cloneNode(true);
-    row.querySelectorAll("input").forEach(i => i.value = i.classList.contains('qty') ? "1" : (i.classList.contains('total') || i.classList.contains('price') ? "0.00" : ""));
+    row.querySelectorAll("input").forEach(i => {
+        i.value = i.classList.contains('qty') ? "1"
+            : i.classList.contains('total') ? "0.00"
+            : i.classList.contains('price') ? ""
+            : "";
+    });
     tbody.appendChild(row);
 }
 
@@ -292,20 +303,30 @@ document.addEventListener("click", e => {
 document.addEventListener("input", calculate);
 
 function calculate(){
+    const roundingEnabled = document.getElementById("roundingCheck")?.checked ?? true;
+    const money2 = (v) => {
+        const n = Number(v) || 0;
+        if (roundingEnabled) {
+            return Math.round((n + Number.EPSILON) * 100) / 100;
+        }
+        return n >= 0 ? Math.floor(n * 100) / 100 : Math.ceil(n * 100) / 100;
+    };
+
     let subtotal = 0, running = 0;
     document.querySelectorAll("#items_table tbody tr").forEach(row => {
         let qty = parseFloat(row.querySelector(".qty").value) || 0;
         let p_in = row.querySelector(".price").value.trim();
-        let row_t = p_in.includes('%') ? (running * (parseFloat(p_in) / 100)) : (qty * (parseFloat(p_in) || 0));
+        let row_t = p_in.includes('%') ? money2(running * (parseFloat(p_in) / 100)) : money2(parseFloat(p_in) || 0);
         row.querySelector(".total").value = row_t.toFixed(2);
         subtotal += row_t; running += row_t;
     });
-    let vat = document.getElementById("vatCheck").checked ? subtotal * 0.07 : 0;
-    let totalAfterVat = subtotal + vat;
-    let wht = document.getElementById("whtCheck").checked ? subtotal * 0.03 : 0;
-    let afterWht = totalAfterVat - wht;
+    subtotal = money2(subtotal);
+    let vat = document.getElementById("vatCheck").checked ? money2(subtotal * 0.07) : 0;
+    let totalAfterVat = money2(subtotal + vat);
+    let wht = document.getElementById("whtCheck").checked ? money2(subtotal * 0.03) : 0;
+    let afterWht = money2(totalAfterVat - wht);
     let ret = parseFloat(document.getElementById("retentionInput").value) || 0;
-    let grand = afterWht - ret;
+    let grand = money2(afterWht - ret);
 
     const fmt = { minimumFractionDigits: 2 };
     document.getElementById("subtotal_text").innerText = subtotal.toLocaleString(undefined, fmt);

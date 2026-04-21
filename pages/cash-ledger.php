@@ -146,6 +146,7 @@ $defaultLines = count($editLines) > 0 ? $editLines : [['item_description' => '',
                 </form>
             </div>
             <form method="post" action="<?= htmlspecialchars($handler) ?>?action=save" class="row g-3" id="ledgerForm">
+                <?php csrf_field(); ?>
                 <input type="hidden" name="redirect_month" value="<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>">
                 <?php if ($editRow): ?>
                     <input type="hidden" name="id" value="<?= (int) $editRow['id'] ?>">

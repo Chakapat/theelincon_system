@@ -8,7 +8,12 @@ require_once __DIR__ . '/config/connect_database.php';
 use Theelincon\Rtdb\Db;
 
 $login_status = '';
+$user_code = '';
+$password = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!csrf_verify_request()) {
+        $login_status = 'csrf_fail';
+    } else {
     $user_code = trim((string) ($_POST['user_code'] ?? ''));
     $password = (string) ($_POST['password'] ?? '');
 
@@ -40,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } else {
         $login_status = 'fail_user';
+    }
     }
 }
 ?>
@@ -73,13 +79,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <form method="POST" action="<?= htmlspecialchars(app_path('sign-in.php')) ?>">
+                        <?php csrf_field(); ?>
                         <div class="mb-3">
                             <label class="form-label small fw-bold text-dark">ชื่อผู้ใช้งาน</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light border-end-0 text-warning">
                                     <i class="bi bi-person-fill"></i>
                                 </span>
-                                <input type="text" name="user_code" class="form-control bg-light border-start-0 ps-0" placeholder="Username" required>
+                                <input type="text" name="user_code" id="user_code" class="form-control bg-light border-start-0 ps-0" placeholder="Username" required autocomplete="username">
                             </div>
                         </div>
                         
@@ -89,8 +96,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <span class="input-group-text bg-light border-end-0 text-warning">
                                     <i class="bi bi-key-fill"></i>
                                 </span>
-                                <input type="password" name="password" class="form-control bg-light border-start-0 ps-0" placeholder="Password" required>
+                                <input type="password" name="password" id="password" class="form-control bg-light border-start-0 ps-0" placeholder="Password" required autocomplete="current-password">
                             </div>
+                        </div>
+
+                        <div class="mb-4 form-check">
+                            <input type="checkbox" name="remember" value="1" id="rememberCreds" class="form-check-input border-warning">
+                            <label class="form-check-label small text-muted" for="rememberCreds">จดจำชื่อผู้ใช้และรหัสผ่านบนเครื่องนี้</label>
                         </div>
 
                         <button type="submit" class="btn btn-warning btn-lg w-100 fw-bold shadow-sm rounded-3 text-white mb-3" style="background-color: #fd7e14; border: none;">
@@ -111,8 +123,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
+(function () {
+    <?php if ($login_status !== 'success'): ?>
+    var K_USER = 'theelincon_signin_user_code';
+    var K_PASS = 'theelincon_signin_password';
+    try {
+        var u = localStorage.getItem(K_USER);
+        var p = localStorage.getItem(K_PASS);
+        var userEl = document.getElementById('user_code');
+        var passEl = document.getElementById('password');
+        var chk = document.getElementById('rememberCreds');
+        if (u && userEl) userEl.value = u;
+        if (p && passEl) passEl.value = p;
+        if ((u || p) && chk) chk.checked = true;
+    } catch (e) {}
+    <?php endif; ?>
+})();
 
 <?php if ($login_status === 'success'): ?>
+    <?php
+    $remember_creds = isset($_POST['remember']) && (string) $_POST['remember'] === '1';
+    $user_code_js = json_encode($user_code, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
+    $password_js = json_encode($password, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
+    ?>
+    (function () {
+        var K_USER = 'theelincon_signin_user_code';
+        var K_PASS = 'theelincon_signin_password';
+        try {
+            <?php if ($remember_creds): ?>
+            localStorage.setItem(K_USER, <?= $user_code_js ?>);
+            localStorage.setItem(K_PASS, <?= $password_js ?>);
+            <?php else: ?>
+            localStorage.removeItem(K_USER);
+            localStorage.removeItem(K_PASS);
+            <?php endif; ?>
+        } catch (e) {}
+    })();
     let timerInterval;
     Swal.fire({
         title: "เข้าสู่ระบบสำเร็จ!",
@@ -132,6 +178,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }).then(() => {
         window.location.href = "<?= htmlspecialchars(app_path('index.php')) ?>";
     });
+<?php elseif ($login_status === 'csrf_fail'): ?>
+    Swal.fire({ icon: 'error', title: 'เซสชันไม่ปลอดภัย', text: 'กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง', confirmButtonColor: '#fd7e14' });
 <?php elseif ($login_status === 'fail_password'): ?>
     Swal.fire({ icon: 'error', title: 'รหัสผ่านไม่ถูกต้อง', confirmButtonColor: '#fd7e14' });
 <?php elseif ($login_status === 'fail_user'): ?>

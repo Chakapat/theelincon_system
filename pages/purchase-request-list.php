@@ -13,6 +13,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_role = $_SESSION['role'] ?? 'user';
+$csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 
 $users = Db::tableKeyed('users');
 $pr_rows = Db::tableRows('purchase_requests');
@@ -137,19 +138,19 @@ Db::sortRows($pr_rows, 'created_at', true);
 
                                     <?php if ($user_role === 'admin'): ?>
                                         <?php if($row['status'] == 'pending'): ?>
-                                            <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=approve_pr&id=<?= $row['id'] ?>" 
+                                            <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=approve_pr&id=<?= $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" 
                                                class="btn btn-sm btn-white text-success border" 
                                                onclick="return confirm('ยืนยันการอนุมัติใบขอซื้อ <?= $row['pr_number'] ?>?')">
                                                 <i class="bi bi-check-circle-fill"></i>
                                             </a>
-                                            <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=reject_pr&id=<?= $row['id'] ?>" 
+                                            <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=reject_pr&id=<?= $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" 
                                                class="btn btn-sm btn-white text-danger border" 
                                                onclick="return confirm('ยืนยันการปฏิเสธใบขอซื้อ <?= $row['pr_number'] ?>?')">
                                                 <i class="bi bi-x-circle-fill"></i>
                                             </a>
                                         <?php endif; ?>
 
-                                        <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete_pr&id=<?= $row['id'] ?>" 
+                                        <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete_pr&id=<?= $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" 
                                            class="btn btn-sm btn-white text-secondary border" 
                                            onclick="return confirm('ยืนยันการลบข้อมูลถาวร?')">
                                             <i class="bi bi-trash3-fill text-danger"></i>

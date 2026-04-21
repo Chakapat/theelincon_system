@@ -1,6 +1,6 @@
 <?php
 if (!function_exists('app_path')) {
-    require_once __DIR__ . '/../config/bootstrap.php';
+    require_once __DIR__ . '/../config/foundation.php';
 }
 
 $announcement_gate_items = [];
@@ -139,3 +139,52 @@ window.__THEELIN_SOCKET_CFG__ = {
 </script>
 <script src="<?= htmlspecialchars(app_path('assets/js/theelin-socket.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php endif; ?>
+<script>
+(function () {
+    const path = (window.location.pathname || '').toLowerCase();
+    const protectedPages = [
+        '/pages/invoice-create.php',
+        '/pages/invoice-edit.php',
+        '/pages/quotation-create.php',
+        '/pages/quotation-edit.php',
+        '/pages/purchase-request-create.php',
+        '/pages/purchase-order-from-pr.php',
+        '/pages/tax-invoice-receipt.php'
+    ];
+
+    const shouldPreventEnterSubmit = protectedPages.some(function (p) {
+        return path.endsWith(p);
+    });
+
+    if (!shouldPreventEnterSubmit) {
+        return;
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter' || event.isComposing) {
+            return;
+        }
+
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+            return;
+        }
+
+        const form = target.closest('form');
+        if (!form) {
+            return;
+        }
+
+        const tag = (target.tagName || '').toLowerCase();
+        if (tag === 'textarea' || target.isContentEditable) {
+            return;
+        }
+
+        if (target.matches('button, [type="submit"], [data-allow-enter-submit="true"]')) {
+            return;
+        }
+
+        event.preventDefault();
+    });
+})();
+</script>

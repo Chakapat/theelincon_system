@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/foundation.php';
 require_once __DIR__ . '/firebase_settings.php';
 require_once __DIR__ . '/firebase_service_account.php';
 

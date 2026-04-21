@@ -13,6 +13,10 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_name'])) {
+    if (!csrf_verify_request()) {
+        header('Location: ' . app_path('pages/cash-ledger-master-sites.php'));
+        exit;
+    }
     $n = trim((string) $_POST['add_name']);
     if ($n !== '' && strlen($n) <= 200) {
         $nid = Db::nextNumericId('cash_ledger_sites', 'id');
@@ -28,6 +32,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_name'])) {
 }
 
 if (isset($_GET['toggle'])) {
+    if (!csrf_verify_request()) {
+        header('Location: ' . app_path('pages/cash-ledger-master-sites.php'));
+        exit;
+    }
     $id = (int) $_GET['toggle'];
     if ($id > 0) {
         $cur = Db::row('cash_ledger_sites', (string) $id);
@@ -77,6 +85,7 @@ usort($list, static function (array $a, array $b): int {
         <div class="card-body p-4">
             <h6 class="fw-bold mb-3">เพิ่มไซต์ใหม่</h6>
             <form method="post" class="row g-2 align-items-end">
+                <?php csrf_field(); ?>
                 <div class="col-md-8">
                     <label class="form-label small">ชื่อไซต์ / โครงการ</label>
                     <input type="text" name="add_name" class="form-control rounded-3" maxlength="200" required placeholder="เช่น โครงการ ABC">
@@ -97,7 +106,7 @@ usort($list, static function (array $a, array $b): int {
                         <td class="ps-4"><?= htmlspecialchars((string) ($r['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                         <td><?= !empty($r['is_active']) ? '<span class="badge bg-success-subtle text-success">ใช้งาน</span>' : '<span class="badge bg-secondary-subtle text-secondary">ปิด</span>' ?></td>
                         <td class="pe-4 text-end">
-                            <a class="btn btn-sm btn-outline-secondary rounded-3" href="?toggle=<?= (int) ($r['id'] ?? 0) ?>"><?= !empty($r['is_active']) ? 'ปิดการใช้งาน' : 'เปิดใช้งาน' ?></a>
+                            <a class="btn btn-sm btn-outline-secondary rounded-3" href="?toggle=<?= (int) ($r['id'] ?? 0) ?>&amp;_csrf=<?= rawurlencode(csrf_token()) ?>"><?= !empty($r['is_active']) ? 'ปิดการใช้งาน' : 'เปิดใช้งาน' ?></a>
                         </td>
                     </tr>
                     <?php endforeach; ?>

@@ -56,6 +56,7 @@ $po_number = Purchase::generatePONumber();
                 <div class="card p-4">
                     <h4 class="fw-bold text-center mb-4"><i class="bi bi-cart-check text-primary"></i> ออกใบสั่งซื้อ (PO)</h4>
                     <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST">
+                        <?php csrf_field(); ?>
                         <input type="hidden" name="pr_id" value="<?= $pr['id'] ?>">
 
                         <div class="mb-3">

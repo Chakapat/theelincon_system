@@ -12,6 +12,11 @@ if (!isset($_SESSION['user_id'])) {
     exit('Unauthorized');
 }
 
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !csrf_verify_request()) {
+    header('HTTP/1.1 403 Forbidden');
+    exit('Forbidden');
+}
+
 $me = (int) $_SESSION['user_id'];
 $pos = $_SESSION['role'] ?? 'user';
 $canManage = ($pos === 'admin' || $pos === 'Accounting');

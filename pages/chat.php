@@ -139,6 +139,7 @@ $apiUrl = app_path('actions/chat-api.php');
 <script>
 (function () {
     const API = <?= json_encode($apiUrl, JSON_UNESCAPED_SLASHES) ?>;
+    const CSRF = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
     const ME = <?= (int) $me ?>;
 
     const threadList = document.getElementById('threadList');
@@ -245,7 +246,7 @@ $apiUrl = app_path('actions/chat-api.php');
         const r = await fetch(u.toString(), {
             method: 'POST',
             credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
             body: JSON.stringify(body || {})
         });
         return r.json();

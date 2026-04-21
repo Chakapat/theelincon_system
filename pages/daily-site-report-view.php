@@ -120,9 +120,9 @@ $editUrl = htmlspecialchars(app_path('pages/daily-site-report-form.php'), ENT_QU
         }
         .dsr-table thead th { background: #faf8f6; font-weight: 700; }
 
-        .dsr-photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .dsr-photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
         .dsr-photo-wrap { border: 1px solid #e9ecef; border-radius: 6px; overflow: hidden; background: #fafafa; }
-        .dsr-photo-wrap img { width: 100%; height: auto; display: block; max-height: 62mm; object-fit: contain; }
+        .dsr-photo-wrap img { width: 100%; height: auto; display: block; max-height: 95mm; object-fit: contain; }
         .dsr-photo-cap { font-size: 9pt; padding: 6px 8px; color: #444; }
 
         @media print {
@@ -139,7 +139,7 @@ $editUrl = htmlspecialchars(app_path('pages/daily-site-report-form.php'), ENT_QU
                 page-break-after: auto;
             }
             .container.py-4 { padding-top: 0 !important; }
-            .dsr-photo-grid { grid-template-columns: repeat(3, 1fr); }
+            .dsr-photo-grid { grid-template-columns: repeat(2, 1fr); }
             .dsr-work-detail-block .row > .col-lg-6 {
                 flex: 0 0 auto;
                 width: 50%;
@@ -174,6 +174,7 @@ $editUrl = htmlspecialchars(app_path('pages/daily-site-report-form.php'), ENT_QU
             <?php if ($canEdit): ?>
                 <a href="<?= $editUrl ?>" class="btn btn-outline-warning rounded-pill btn-sm fw-bold"><i class="bi bi-pencil me-1"></i>แก้ไข</a>
                 <form method="post" action="<?= htmlspecialchars(app_path('actions/daily-site-report-save.php'), ENT_QUOTES, 'UTF-8') ?>" class="d-inline" onsubmit="return confirm('ลบรายงานนี้ถาวร?');">
+                    <?php csrf_field(); ?>
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="id" value="<?= (int) $id ?>">
                     <button type="submit" class="btn btn-outline-danger rounded-pill btn-sm">ลบ</button>
@@ -278,8 +279,6 @@ $editUrl = htmlspecialchars(app_path('pages/daily-site-report-form.php'), ENT_QU
                 &nbsp;|&nbsp; <strong>แก้ไขล่าสุด:</strong> <?= dsr_esc(date('d/m/Y H:i', strtotime($report['updated_at']))) ?>
             <?php endif; ?>
         </div>
-
-        <p class="small text-muted mt-4 mb-0 no-print" style="font-size:9pt;">พิมพ์ผ่านเมนูเบราว์เซอร์ — เลือก “บันทึกเป็น PDF” หรือเครื่องพิมพ์ได้ตามต้องการ</p>
     </div>
 </div>
 

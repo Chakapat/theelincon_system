@@ -12,6 +12,8 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$csrfQ = '&_csrf=' . rawurlencode(csrf_token());
+
 $pr_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 $pr = Db::row('purchase_requests', (string) $pr_id);
@@ -177,12 +179,12 @@ $existing_po = Db::findFirst('purchase_orders', static function (array $r) use (
             if($pr['status'] == 'pending' && isset($_SESSION['role']) && $_SESSION['role'] == 'admin'): 
             ?>
                 <div class="col-md-5">
-                    <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=approve_pr&id=<?= $pr['id'] ?>" class="btn btn-success w-100 py-2 fw-bold" onclick="return confirm('ยืนยันการอนุมัติ?')">
+                    <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=approve_pr&id=<?= $pr['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-success w-100 py-2 fw-bold" onclick="return confirm('ยืนยันการอนุมัติ?')">
                         <i class="bi bi-check-circle-fill me-2"></i> อนุมัติ (Approve)
                     </a>
                 </div>
                 <div class="col-md-5">
-                    <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=reject_pr&id=<?= $pr['id'] ?>" class="btn btn-danger w-100 py-2 fw-bold" onclick="return confirm('ยืนยันการปฏิเสธ?')">
+                    <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=reject_pr&id=<?= $pr['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-danger w-100 py-2 fw-bold" onclick="return confirm('ยืนยันการปฏิเสธ?')">
                         <i class="bi bi-x-circle-fill me-2"></i> ปฏิเสธ (Reject)
                     </a>
                 </div>

@@ -106,6 +106,7 @@ $pageTitle = $isEdit ? 'แก้ไขรายงานหน้างาน' 
     </div>
 
     <form method="post" action="<?= $saveUrl ?>" enctype="multipart/form-data" id="dsrForm">
+        <?php csrf_field(); ?>
         <input type="hidden" name="action" value="<?= $isEdit ? 'update' : 'create' ?>">
         <?php if ($isEdit): ?>
             <input type="hidden" name="id" value="<?= (int) $id ?>">

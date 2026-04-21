@@ -7,6 +7,11 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
 
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ' . app_path('sign-in.php'));
+    exit;
+}
+
 $id = (int) ($_GET['id'] ?? 0);
 $print_type = isset($_GET['type']) ? (string) $_GET['type'] : 'original';
 $type_text = ($print_type === 'copy') ? 'สำเนา / COPY' : 'ต้นฉบับ / ORIGINAL';
@@ -42,6 +47,15 @@ $items = Db::filter('invoice_items', static function (array $r) use ($id): bool 
 });
 Db::sortRows($items, 'id', false);
 function formatDateThai($date) { return date('d/m/Y', strtotime($date)); }
+function formatQty($qty) {
+    $n = (float) $qty;
+    if (abs($n) <= 0.000001) {
+        return '';
+    }
+    $s = number_format($n, 2, '.', ',');
+    $s = rtrim(rtrim($s, '0'), '.');
+    return $s === '' ? '0' : $s;
+}
 
 // --- ลำดับแสดง: ยอดรวม → VAT → ยอดรวม VAT → หัก ณ ที่จ่าย → หลังหัก ณ ที่จ่าย → retention → สุทธิ ---
 $subtotal = (float) $data['subtotal'];
@@ -135,7 +149,6 @@ $final_grand_total = $after_wht - $retention;
             <div class="invoice-title">INVOICE</div>
             <div class="fw-bold text-muted">ใบแจ้งหนี้</div>
             <div class="fw-bold text-dark" style="margin-top: 5px;">เลขที่: <?= htmlspecialchars($display_number); ?></div>
-            <div class="small text-muted mt-1">ผู้ออกใบ: <?= $issuer_display; ?></div>
         </div>
         <div class="col-6 text-end">
             <?php if(!empty($data['logo'])): ?>
@@ -169,7 +182,7 @@ $final_grand_total = $after_wht - $retention;
                 <tr>
                     <th width="50%">รายละเอียด</th>
                     <th class="text-center">จำนวน</th>
-                    <th class="text-end">ราคา/หน่วย</th>
+                    <th class="text-end">ราคา</th>
                     <th class="text-end">รวมเงิน</th>
                 </tr>
             </thead>
@@ -180,7 +193,7 @@ $final_grand_total = $after_wht - $retention;
                 <tr>
                     <td class="fw-bold text-dark"><?= htmlspecialchars($item['description']); ?></td>
                     
-                    <td class="text-center <?= htmlspecialchars($qty_class) ?>"><?= number_format($item['quantity'], 0); ?> <?= htmlspecialchars($item['unit']); ?></td>
+                    <td class="text-center <?= htmlspecialchars($qty_class) ?>"><?= formatQty($item['quantity']); ?> <?= htmlspecialchars($item['unit']); ?></td>
                     
                     <td class="text-end"><?= number_format($item['unit_price'], 2); ?></td>
                     <td class="text-end fw-bold"><?= number_format($item['total'], 2); ?></td>

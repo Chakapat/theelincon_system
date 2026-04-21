@@ -7,6 +7,11 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
 
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ' . app_path('sign-in.php'));
+    exit;
+}
+
 $id = (int) ($_GET['id'] ?? 0);
 
 $po = Db::row('purchase_orders', (string) $id);
@@ -20,7 +25,8 @@ $issuer = Db::row('users', (string) ($po['created_by'] ?? ''));
 
 $companies = Db::tableRows('company');
 Db::sortRows($companies, 'id', false);
-$com = $companies[0] ?? [];
+$companyRows = array_values($companies);
+$com = $companyRows[0] ?? [];
 
 $data = $po;
 foreach (['name', 'logo', 'address', 'phone', 'tax_id'] as $ck) {
@@ -38,15 +44,48 @@ $data['issuer_lname'] = $issuer['lname'] ?? '';
 $issuer_display = trim(($data['issuer_fname'] ?? '') . ' ' . ($data['issuer_lname'] ?? ''));
 $issuer_display = $issuer_display !== '' ? htmlspecialchars($issuer_display, ENT_QUOTES, 'UTF-8') : 'ไม่ระบุ';
 
-$items = Db::filter('purchase_order_items', static function (array $r) use ($id): bool {
-    return isset($r['po_id']) && (int) $r['po_id'] === $id;
+$prId = (int) ($po['pr_id'] ?? 0);
+$poNumber = trim((string) ($po['po_number'] ?? ''));
+$items = Db::filter('purchase_order_items', static function (array $r) use ($id, $prId, $poNumber): bool {
+    $poId = isset($r['po_id']) ? (int) $r['po_id'] : 0;
+    $purchaseOrderId = isset($r['purchase_order_id']) ? (int) $r['purchase_order_id'] : 0;
+    $rowPrId = isset($r['pr_id']) ? (int) $r['pr_id'] : 0;
+    $poNumberRef = trim((string) ($r['po_number'] ?? ''));
+    return $poId === $id
+        || $purchaseOrderId === $id
+        || ($prId > 0 && $rowPrId === $prId)
+        || ($poNumberRef !== '' && $poNumberRef === $poNumber);
 });
+if (count($items) === 0 && $prId > 0) {
+    // รองรับข้อมูลเก่าที่บางครั้งยังเก็บ item ไว้ใต้ PR
+    $items = Db::filter('purchase_request_items', static function (array $r) use ($prId): bool {
+        return isset($r['pr_id']) && (int) $r['pr_id'] === $prId;
+    });
+}
 Db::sortRows($items, 'id', false);
-function formatDateThai($date) { return date('d/m/Y', strtotime($date)); }
+function formatDateThai($date) {
+    $s = trim((string) $date);
+    if ($s === '') {
+        return '-';
+    }
+    $ts = strtotime($s);
+    if ($ts === false) {
+        return '-';
+    }
+    return date('d/m/Y', $ts);
+}
 
 $po_vat_enabled = (int)($data['vat_enabled'] ?? 0);
 $po_vat_amount = (float)($data['vat_amount'] ?? 0);
 $po_grand_total = (float)$data['total_amount'];
+// วันที่ออกบิลของ PO: ใช้ issue_date ก่อน แล้ว fallback ไป created_at หรือวันที่ PR
+$issueDate = (string) ($data['issue_date'] ?? '');
+if (trim($issueDate) === '') {
+    $issueDate = (string) ($data['created_at'] ?? '');
+}
+if (trim($issueDate) === '' && isset($pr['created_at'])) {
+    $issueDate = (string) $pr['created_at'];
+}
 if (isset($data['subtotal_amount']) && $data['subtotal_amount'] !== null && $data['subtotal_amount'] !== '') {
     $po_subtotal = (float)$data['subtotal_amount'];
 } else {
@@ -156,8 +195,8 @@ if (isset($data['subtotal_amount']) && $data['subtotal_amount'] !== null && $dat
             </div>
         </div>
         <div class="col-5 text-end">
-            <div style="font-size: 10px; color: var(--brand-color); font-weight: bold; text-transform: uppercase;">Date / วันที่</div>
-            <div class="fw-bold" style="font-size: 15px;"><?= formatDateThai($data['created_at']); ?></div>
+            <div style="font-size: 10px; color: var(--brand-color); font-weight: bold; text-transform: uppercase;">Issued Date / วันที่ออกบิล</div>
+            <div class="fw-bold" style="font-size: 15px;"><?= formatDateThai($issueDate); ?></div>
         </div>
     </div>
 
@@ -171,14 +210,20 @@ if (isset($data['subtotal_amount']) && $data['subtotal_amount'] !== null && $dat
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($items as $item): ?>
+            <?php if (count($items) === 0): ?>
             <tr>
-                <td class="fw-bold text-dark text-start"><?= htmlspecialchars($item['description']); ?></td>
-                <td class="text-center"><?= number_format($item['quantity'], 0); ?> <?= $item['unit']; ?></td>
-                <td class="text-end"><?= number_format($item['unit_price'], 2); ?></td>
-                <td class="text-end fw-bold"><?= number_format($item['total'], 2); ?></td>
+                <td colspan="4" class="text-center text-muted py-4">ไม่พบรายการสินค้าในใบสั่งซื้อนี้</td>
             </tr>
-            <?php endforeach; ?>
+            <?php else: ?>
+                <?php foreach ($items as $item): ?>
+                <tr>
+                    <td class="fw-bold text-dark text-start"><?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="text-center"><?= number_format((float) ($item['quantity'] ?? 0), 0); ?> <?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="text-end"><?= number_format((float) ($item['unit_price'] ?? 0), 2); ?></td>
+                    <td class="text-end fw-bold"><?= number_format((float) ($item['total'] ?? 0), 2); ?></td>
+                </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </tbody>
     </table>
 

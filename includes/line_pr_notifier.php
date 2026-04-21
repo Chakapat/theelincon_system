@@ -47,7 +47,13 @@ function line_absolute_app_url(string $path): string
 /**
  * Send PR approval card to LINE user.
  */
-function line_send_pr_approval_notification(array $prRow, string $requesterName, string $itemsPreview = ''): bool
+function line_send_pr_approval_notification(
+    array $prRow,
+    string $requesterName,
+    string $itemsPreview = '',
+    string $quoteText = 'ไม่มีใบเสนอราคา',
+    string $quoteUrl = ''
+): bool
 {
     $channelToken = (string) LINE_MESSAGING_CHANNEL_ACCESS_TOKEN;
     $targetUserId = (string) LINE_TARGET_USER_ID;
@@ -78,12 +84,18 @@ function line_send_pr_approval_notification(array $prRow, string $requesterName,
         return false;
     }
 
-    $approveUrl = line_absolute_app_url(
-        'actions/action-handler.php?action=line_pr_decision&id=' . $prId . '&decision=approve&token=' . rawurlencode($approvalToken)
-    );
-    $rejectUrl = line_absolute_app_url(
-        'actions/action-handler.php?action=line_pr_decision&id=' . $prId . '&decision=reject&token=' . rawurlencode($approvalToken)
-    );
+    $approveData = http_build_query([
+        'action' => 'line_pr_decision',
+        'id' => $prId,
+        'decision' => 'approve',
+        'token' => $approvalToken,
+    ], '', '&', PHP_QUERY_RFC3986);
+    $rejectData = http_build_query([
+        'action' => 'line_pr_decision',
+        'id' => $prId,
+        'decision' => 'reject',
+        'token' => $approvalToken,
+    ], '', '&', PHP_QUERY_RFC3986);
 
     $prNumber = (string) ($prRow['pr_number'] ?? '-');
     $totalAmount = number_format((float) ($prRow['total_amount'] ?? 0), 2);
@@ -100,8 +112,17 @@ function line_send_pr_approval_notification(array $prRow, string $requesterName,
     if ($itemsPreview === '') {
         $itemsPreview = '-';
     }
+    $quoteText = trim($quoteText);
+    if ($quoteText === '') {
+        $quoteText = 'ไม่มีใบเสนอราคา';
+    }
+    $quoteUrl = trim($quoteUrl);
+    if ($quoteUrl !== '' && !preg_match('#^https?://#i', $quoteUrl)) {
+        $quoteUrl = line_absolute_app_url($quoteUrl);
+    }
     $details = line_mb_truncate($details, 120);
-    $itemsPreview = line_mb_truncate($itemsPreview, 120);
+    $itemsPreview = line_mb_truncate($itemsPreview, 460);
+    $quoteText = line_mb_truncate($quoteText, 120);
 
     $payload = [
         'to' => $targetId,
@@ -158,6 +179,28 @@ function line_send_pr_approval_notification(array $prRow, string $requesterName,
                                     'wrap' => true,
                                     'size' => 'sm',
                                     'color' => '#222222',
+                                ],
+                            ],
+                        ],
+                        [
+                            'type' => 'box',
+                            'layout' => 'baseline',
+                            'contents' => [
+                                [
+                                    'type' => 'text',
+                                    'text' => 'ใบเสนอราคา',
+                                    'size' => 'xs',
+                                    'color' => '#8A8A8A',
+                                    'flex' => 3,
+                                ],
+                                [
+                                    'type' => 'text',
+                                    'text' => $quoteText,
+                                    'size' => 'sm',
+                                    'color' => '#222222',
+                                    'align' => 'end',
+                                    'wrap' => true,
+                                    'flex' => 5,
                                 ],
                             ],
                         ],
@@ -245,18 +288,20 @@ function line_send_pr_approval_notification(array $prRow, string $requesterName,
                             'style' => 'primary',
                             'color' => '#1DB446',
                             'action' => [
-                                'type' => 'uri',
+                                'type' => 'postback',
                                 'label' => 'อนุมัติ',
-                                'uri' => $approveUrl,
+                                'data' => $approveData,
+                                'displayText' => 'อนุมัติ PR ' . $prNumber,
                             ],
                         ],
                         [
                             'type' => 'button',
                             'style' => 'secondary',
                             'action' => [
-                                'type' => 'uri',
+                                'type' => 'postback',
                                 'label' => 'ไม่อนุมัติ',
-                                'uri' => $rejectUrl,
+                                'data' => $rejectData,
+                                'displayText' => 'ไม่อนุมัติ PR ' . $prNumber,
                             ],
                         ],
                     ],
@@ -269,6 +314,18 @@ function line_send_pr_approval_notification(array $prRow, string $requesterName,
             ],
         ]],
     ];
+
+    if ($quoteUrl !== '') {
+        $payload['messages'][0]['contents']['footer']['contents'][] = [
+            'type' => 'button',
+            'style' => 'link',
+            'action' => [
+                'type' => 'uri',
+                'label' => 'เปิดไฟล์ใบเสนอราคา',
+                'uri' => $quoteUrl,
+            ],
+        ];
+    }
 
     $ch = curl_init('https://api.line.me/v2/bot/message/push');
     if ($ch === false) {
@@ -302,6 +359,270 @@ function line_send_pr_approval_notification(array $prRow, string $requesterName,
     line_append_debug_log([
         'ok' => $ok,
         'pr_id' => $prId,
+        'http_status' => $statusCode,
+        'curl_errno' => $curlErrNo,
+        'curl_error' => $curlErrMsg,
+        'target_type' => $targetType,
+        'target_id_prefix' => substr($targetId, 0, 8),
+        'line_response' => is_string($response) ? $response : '',
+    ]);
+
+    return $ok;
+}
+
+/**
+ * Send quotation approval card to LINE user/group.
+ */
+function line_send_quote_approval_notification(array $quoteRow, string $creatorName, string $itemsPreview = ''): bool
+{
+    $channelToken = (string) LINE_MESSAGING_CHANNEL_ACCESS_TOKEN;
+    $targetUserId = (string) LINE_TARGET_USER_ID;
+    $targetGroupId = (string) LINE_TARGET_GROUP_ID;
+    $targetId = $targetGroupId !== '' ? $targetGroupId : $targetUserId;
+    $targetType = $targetGroupId !== '' ? 'group' : 'user';
+
+    if ($channelToken === '' || $targetId === '') {
+        line_append_debug_log([
+            'ok' => false,
+            'reason' => 'missing_config',
+            'topic' => 'quotation',
+            'has_token' => $channelToken !== '',
+            'has_target_user' => $targetUserId !== '',
+            'has_target_group' => $targetGroupId !== '',
+        ]);
+        return false;
+    }
+
+    $quoteId = (int) ($quoteRow['id'] ?? 0);
+    $approvalToken = (string) ($quoteRow['line_approval_token'] ?? '');
+    if ($quoteId <= 0 || $approvalToken === '') {
+        line_append_debug_log([
+            'ok' => false,
+            'reason' => 'missing_quote_data',
+            'quote_id' => $quoteId,
+            'has_approval_token' => $approvalToken !== '',
+        ]);
+        return false;
+    }
+
+    $approveUrl = line_absolute_app_url(
+        'actions/action-handler.php?action=line_quote_decision&id=' . $quoteId . '&decision=approve&token=' . rawurlencode($approvalToken)
+    );
+    $rejectUrl = line_absolute_app_url(
+        'actions/action-handler.php?action=line_quote_decision&id=' . $quoteId . '&decision=reject&token=' . rawurlencode($approvalToken)
+    );
+
+    $quoteNumber = (string) ($quoteRow['quote_number'] ?? '-');
+    $issueDate = (string) ($quoteRow['date'] ?? '');
+    $totalAmount = number_format((float) ($quoteRow['grand_total'] ?? 0), 2);
+    $creatorName = trim($creatorName) !== '' ? trim($creatorName) : 'Unknown User';
+    $creatorName = line_mb_truncate($creatorName, 40);
+    $itemsPreview = trim($itemsPreview) !== '' ? trim($itemsPreview) : '-';
+    $itemsPreview = line_mb_truncate($itemsPreview, 460);
+    $issueDateText = trim($issueDate) !== '' ? $issueDate : '-';
+
+    $payload = [
+        'to' => $targetId,
+        'messages' => [[
+            'type' => 'flex',
+            'altText' => 'ใบเสนอราคา ' . $quoteNumber . ' รออนุมัติ',
+            'contents' => [
+                'type' => 'bubble',
+                'header' => [
+                    'type' => 'box',
+                    'layout' => 'vertical',
+                    'backgroundColor' => '#FFF7E8',
+                    'paddingAll' => '16px',
+                    'contents' => [
+                        [
+                            'type' => 'text',
+                            'text' => '[ใบเสนอราคา]',
+                            'size' => 'xs',
+                            'color' => '#C97A00',
+                            'weight' => 'bold',
+                        ],
+                        [
+                            'type' => 'text',
+                            'text' => 'เลขที่ ' . $quoteNumber,
+                            'weight' => 'bold',
+                            'size' => 'lg',
+                            'color' => '#222222',
+                            'wrap' => true,
+                            'margin' => 'sm',
+                        ],
+                    ],
+                ],
+                'body' => [
+                    'type' => 'box',
+                    'layout' => 'vertical',
+                    'spacing' => 'md',
+                    'paddingAll' => '16px',
+                    'contents' => [
+                        [
+                            'type' => 'box',
+                            'layout' => 'baseline',
+                            'contents' => [
+                                [
+                                    'type' => 'text',
+                                    'text' => 'วันที่ออก',
+                                    'size' => 'xs',
+                                    'color' => '#8A8A8A',
+                                    'flex' => 3,
+                                ],
+                                [
+                                    'type' => 'text',
+                                    'text' => $issueDateText,
+                                    'size' => 'sm',
+                                    'weight' => 'bold',
+                                    'color' => '#222222',
+                                    'align' => 'end',
+                                    'flex' => 5,
+                                ],
+                            ],
+                        ],
+                        [
+                            'type' => 'box',
+                            'layout' => 'baseline',
+                            'contents' => [
+                                [
+                                    'type' => 'text',
+                                    'text' => 'ผู้ออกเอกสาร',
+                                    'size' => 'xs',
+                                    'color' => '#8A8A8A',
+                                    'flex' => 3,
+                                ],
+                                [
+                                    'type' => 'text',
+                                    'text' => $creatorName,
+                                    'size' => 'sm',
+                                    'color' => '#222222',
+                                    'align' => 'end',
+                                    'wrap' => true,
+                                    'flex' => 5,
+                                ],
+                            ],
+                        ],
+                        [
+                            'type' => 'separator',
+                        ],
+                        [
+                            'type' => 'box',
+                            'layout' => 'vertical',
+                            'spacing' => 'xs',
+                            'contents' => [
+                                [
+                                    'type' => 'text',
+                                    'text' => 'รายการ',
+                                    'size' => 'xs',
+                                    'color' => '#8A8A8A',
+                                    'weight' => 'bold',
+                                ],
+                                [
+                                    'type' => 'text',
+                                    'text' => $itemsPreview,
+                                    'wrap' => true,
+                                    'size' => 'sm',
+                                    'color' => '#222222',
+                                ],
+                            ],
+                        ],
+                        [
+                            'type' => 'separator',
+                        ],
+                        [
+                            'type' => 'box',
+                            'layout' => 'baseline',
+                            'contents' => [
+                                [
+                                    'type' => 'text',
+                                    'text' => 'ยอดรวมสุทธิ',
+                                    'size' => 'xs',
+                                    'color' => '#8A8A8A',
+                                    'flex' => 3,
+                                ],
+                                [
+                                    'type' => 'text',
+                                    'text' => $totalAmount . ' บาท',
+                                    'size' => 'md',
+                                    'weight' => 'bold',
+                                    'color' => '#0B8043',
+                                    'align' => 'end',
+                                    'flex' => 5,
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'footer' => [
+                    'type' => 'box',
+                    'layout' => 'vertical',
+                    'spacing' => 'sm',
+                    'paddingAll' => '16px',
+                    'contents' => [
+                        [
+                            'type' => 'button',
+                            'style' => 'primary',
+                            'color' => '#1DB446',
+                            'action' => [
+                                'type' => 'uri',
+                                'label' => 'อนุมัติ',
+                                'uri' => $approveUrl,
+                            ],
+                        ],
+                        [
+                            'type' => 'button',
+                            'style' => 'secondary',
+                            'action' => [
+                                'type' => 'uri',
+                                'label' => 'ไม่อนุมัติ',
+                                'uri' => $rejectUrl,
+                            ],
+                        ],
+                    ],
+                ],
+                'styles' => [
+                    'footer' => [
+                        'separator' => true,
+                    ],
+                ],
+            ],
+        ]],
+    ];
+
+    $ch = curl_init('https://api.line.me/v2/bot/message/push');
+    if ($ch === false) {
+        line_append_debug_log([
+            'ok' => false,
+            'reason' => 'curl_init_failed',
+            'topic' => 'quotation',
+            'quote_id' => $quoteId,
+        ]);
+        return false;
+    }
+
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $channelToken,
+        ],
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        CURLOPT_TIMEOUT => 10,
+    ]);
+
+    $response = curl_exec($ch);
+    $statusCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErrNo = curl_errno($ch);
+    $curlErrMsg = curl_error($ch);
+    $hasCurlError = $curlErrNo !== 0;
+    curl_close($ch);
+
+    $ok = !$hasCurlError && $response !== false && $statusCode >= 200 && $statusCode < 300;
+    line_append_debug_log([
+        'ok' => $ok,
+        'topic' => 'quotation',
+        'quote_id' => $quoteId,
         'http_status' => $statusCode,
         'curl_errno' => $curlErrNo,
         'curl_error' => $curlErrMsg,

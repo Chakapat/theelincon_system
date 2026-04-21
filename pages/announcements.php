@@ -93,6 +93,7 @@ foreach (Db::tableRows('announcement_reads') as $r) {
         <div class="card-body p-4">
             <h5 class="fw-bold mb-3"><?= $editRow ? 'แก้ไขประกาศ' : 'ประกาศใหม่' ?></h5>
             <form method="post" action="<?= htmlspecialchars($handler) ?>?action=save">
+                <?php csrf_field(); ?>
                 <?php if ($editRow): ?>
                     <input type="hidden" name="id" value="<?= (int)$editRow['id'] ?>">
                 <?php endif; ?>
@@ -182,7 +183,7 @@ foreach (Db::tableRows('announcement_reads') as $r) {
                         <?php if ($isAdmin): ?>
                             <div class="mt-3 pt-3 border-top d-flex gap-2 flex-wrap">
                                 <a href="<?= htmlspecialchars(app_path('pages/announcements.php')) ?>?edit=<?= $aid ?>" class="btn btn-sm btn-light border rounded-pill">แก้ไข</a>
-                                <a href="<?= htmlspecialchars($handler) ?>?action=delete&id=<?= $aid ?>" class="btn btn-sm btn-outline-danger rounded-pill" onclick="return confirm('ลบประกาศนี้?');">ลบ</a>
+                                <a href="<?= htmlspecialchars($handler) ?>?action=delete&id=<?= $aid ?>&_csrf=<?= rawurlencode(csrf_token()) ?>" class="btn btn-sm btn-outline-danger rounded-pill" onclick="return confirm('ลบประกาศนี้?');">ลบ</a>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -196,6 +197,7 @@ foreach (Db::tableRows('announcement_reads') as $r) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const ackUrl = <?= json_encode($handler . '?action=ack', JSON_UNESCAPED_SLASHES) ?>;
+const csrfAck = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
 document.querySelectorAll('.btn-ack-single').forEach(function (btn) {
     btn.addEventListener('click', function () {
         var id = parseInt(this.getAttribute('data-id'), 10);
@@ -204,7 +206,7 @@ document.querySelectorAll('.btn-ack-single').forEach(function (btn) {
         fetch(ackUrl, {
             method: 'POST',
             credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfAck },
             body: JSON.stringify({ ids: [id] })
         })
             .then(function (r) { return r.json(); })

@@ -75,6 +75,10 @@ function dsr_save_upload(array $file, int $reportId): array
     return [true, $name];
 }
 
+if ($action !== '' && !csrf_verify_request()) {
+    dsr_redirect($listUrl . '?err=forbidden');
+}
+
 if ($action === 'create' || $action === 'update') {
     $reportDate = trim((string) ($_POST['report_date'] ?? ''));
     if ($reportDate === '' || strtotime($reportDate) === false) {

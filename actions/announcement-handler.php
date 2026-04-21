@@ -16,6 +16,19 @@ $me = (int) $_SESSION['user_id'];
 $isAdmin = (isset($_SESSION['role']) && $_SESSION['role'] === 'admin');
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
+$ann_needs_csrf = ($action === 'ack' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
+    || ($action === 'save' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
+    || ($action === 'delete');
+if ($ann_needs_csrf && !csrf_verify_request()) {
+    if ($action === 'ack') {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'error' => 'csrf'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    ann_redirect('pages/announcements.php?error=csrf');
+}
+
 function ann_redirect(string $path): void
 {
     header('Location: ' . app_path($path));

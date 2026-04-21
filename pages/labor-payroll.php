@@ -182,6 +182,7 @@ $halfLabel = $half === 1 ? 'วันที่ 1–15' : ('วันที่ 16
         </div>
 
         <form method="post" action="<?= htmlspecialchars($handler, ENT_QUOTES, 'UTF-8') ?>" id="payrollForm">
+            <?php csrf_field(); ?>
             <input type="hidden" name="action" value="save">
             <input type="hidden" name="year_month" value="<?= htmlspecialchars($ym, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="half" value="<?= (int) $half ?>">
@@ -284,6 +285,7 @@ $halfLabel = $half === 1 ? 'วันที่ 1–15' : ('วันที่ 16
 
         <?php for ($i = 0; $i < $rowIdx; $i++): ?>
         <form id="formRemove<?= $i ?>" method="post" action="<?= htmlspecialchars($handler, ENT_QUOTES, 'UTF-8') ?>" class="d-none">
+            <?php csrf_field(); ?>
             <input type="hidden" name="action" value="remove_row">
             <input type="hidden" name="year_month" value="<?= htmlspecialchars($ym, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="half" value="<?= (int) $half ?>">

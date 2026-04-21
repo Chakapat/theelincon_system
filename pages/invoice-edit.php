@@ -12,6 +12,11 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+if (!user_can_edit_invoice()) {
+    http_response_code(403);
+    exit('ไม่มีสิทธิ์แก้ไขใบแจ้งหนี้');
+}
+
 $id = (int) ($_GET['id'] ?? 0);
 
 $invoice = Db::row('invoices', (string) $id);
@@ -73,6 +78,7 @@ Db::sortRows($customers, 'name', false);
     </div>
 
     <form action="<?= htmlspecialchars(app_path('actions/invoice-update.php')) ?>" method="POST" id="invoiceForm">
+        <?php csrf_field(); ?>
         <input type="hidden" name="invoice_id" value="<?= $id ?>">
 
         <div class="row g-4">
@@ -85,7 +91,7 @@ Db::sortRows($customers, 'name', false);
                         <?php endforeach; ?>
                     </select>
                     <label class="form-label fw-bold text-muted small">เลขที่ใบแจ้งหนี้</label>
-                    <input type="text" class="form-control bg-light" value="<?= htmlspecialchars($invoice['invoice_number']) ?>" readonly>
+                    <input type="text" name="invoice_number" class="form-control" value="<?= htmlspecialchars((string) ($invoice['invoice_number'] ?? '')) ?>" required>
                     <p class="small text-muted mt-2 mb-0">ผู้ออกใบ (ตามระบบ): <?php
                         $cd = trim((string)($invoice['creator_display'] ?? ''));
                         echo $cd !== '' ? htmlspecialchars($cd) : 'ไม่ระบุ';
@@ -112,7 +118,7 @@ Db::sortRows($customers, 'name', false);
 
         <div class="card mt-4 border-orange">
             <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                <span class="fw-bold" style="color: #FF6600;"><i class="bi bi-list-task me-2"></i>รายการสินค้า</span>
+                <span class="fw-bold" style="color: #FF6600;"><i class="bi bi-list-task me-2"></i>รายการสินค้า</span><span class="small text-muted d-none d-md-inline">(พิมพ์ % ในช่องราคาเพื่อคิดจากยอดสะสม)</span>
                 <button type="button" class="btn btn-success btn-sm rounded-pill px-3" onclick="addRow()"><i class="bi bi-plus"></i> เพิ่มรายการ</button>
             </div>
             <div class="table-responsive">
@@ -122,7 +128,7 @@ Db::sortRows($customers, 'name', false);
                             <th width="40%" class="ps-4">รายละเอียด</th>
                             <th width="10%" class="text-center">จำนวน</th>
                             <th width="10%" class="text-center">หน่วย</th>
-                            <th width="15%" class="text-end">ราคา/หน่วย</th>
+                            <th width="15%" class="text-end">ราคา</th>
                             <th width="15%" class="text-end pe-4">รวมเงิน</th>
                             <th width="5%"></th>
                         </tr>
@@ -133,7 +139,7 @@ Db::sortRows($customers, 'name', false);
                             <td class="ps-4"><input type="text" name="description[]" class="form-control" value="<?= htmlspecialchars((string) $item['description']) ?>" required></td>
                             <td><input type="number" name="quantity[]" class="form-control qty text-center" value="<?= htmlspecialchars((string) $item['quantity']) ?>" step="0.01"></td>
                             <td><input type="text" name="unit[]" class="form-control text-center" value="<?= htmlspecialchars((string) $item['unit']) ?>"></td>
-                            <td><input type="number" name="price[]" class="form-control price text-end" value="<?= htmlspecialchars((string) $item['unit_price']) ?>" step="0.01"></td>
+                            <td><input type="text" name="price[]" class="form-control price text-end" value="<?= ((float) ($item['unit_price'] ?? 0) != 0.0) ? htmlspecialchars((string) $item['unit_price']) : '' ?>" placeholder="เช่น 1500 หรือ 10%" inputmode="decimal" autocomplete="off"></td>
                             <td><input type="number" name="total[]" class="form-control total text-end fw-bold bg-light" value="<?= htmlspecialchars((string) $item['total']) ?>" readonly></td>
                             <td class="text-center"><i class="bi bi-trash-fill remove-row remove"></i></td>
                         </tr>
@@ -158,6 +164,11 @@ Db::sortRows($customers, 'name', false);
                     <hr>
                     <label class="form-label text-danger fw-bold">หักประกันผลงาน Retention (บาท)</label>
                     <input type="number" name="retention_amount" id="retentionInput" class="form-control shadow-sm" value="<?= $invoice['retention_amount'] ?>" step="0.01">
+                    <?php $roundingOn = !isset($invoice['rounding_enabled']) || (int) $invoice['rounding_enabled'] === 1; ?>
+                    <div class="form-check form-switch mt-3">
+                        <input type="checkbox" name="rounding_enabled" class="form-check-input" id="roundingCheck" <?= $roundingOn ? 'checked' : '' ?>>
+                        <label class="form-check-label fw-bold text-secondary" for="roundingCheck">ปัดเศษทศนิยม (หลักตัวที่ 3 ตั้งแต่ 5 ขึ้นไป)</label>
+                    </div>
                 </div>
             </div>
 
@@ -214,27 +225,40 @@ const oldData = {
 };
 
 function calculate(){
+    const roundingEnabled = document.getElementById("roundingCheck")?.checked ?? true;
+    const money2 = (v) => {
+        const n = Number(v) || 0;
+        if (roundingEnabled) {
+            return Math.round((n + Number.EPSILON) * 100) / 100;
+        }
+        return n >= 0 ? Math.floor(n * 100) / 100 : Math.ceil(n * 100) / 100;
+    };
+
     let subtotal = 0;
+    let running = 0;
     document.querySelectorAll("#items_table tbody tr").forEach(row => {
         let qty = parseFloat(row.querySelector(".qty").value) || 0;
-        let price = parseFloat(row.querySelector(".price").value) || 0;
-        let total = qty * price;
-        
-        // ในช่อง input แสดงแค่ทศนิยม 2 ตำแหน่ง (ห้ามใส่ Comma ใน input type number)
-        row.querySelector(".total").value = total.toFixed(2);
-        subtotal += total;
+        let pIn = row.querySelector(".price").value.trim();
+        let rowTotal = pIn.includes('%')
+            ? money2(running * ((parseFloat(pIn) || 0) / 100))
+            : money2(parseFloat(pIn) || 0);
+
+        row.querySelector(".total").value = rowTotal.toFixed(2);
+        subtotal += rowTotal;
+        running += rowTotal;
     });
+    subtotal = money2(subtotal);
 
     // ตั้งค่าการแสดงผล Comma และทศนิยม 2 ตำแหน่ง
     const opt = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
     
-    let vat = document.getElementById("vatCheck").checked ? subtotal * 0.07 : 0;
-    let totalAfterVat = subtotal + vat;
-    let wht = document.getElementById("whtCheck").checked ? subtotal * 0.03 : 0;
-    let afterWht = totalAfterVat - wht;
+    let vat = document.getElementById("vatCheck").checked ? money2(subtotal * 0.07) : 0;
+    let totalAfterVat = money2(subtotal + vat);
+    let wht = document.getElementById("whtCheck").checked ? money2(subtotal * 0.03) : 0;
+    let afterWht = money2(totalAfterVat - wht);
 
     let ret = parseFloat(document.getElementById("retentionInput").value) || 0;
-    let grand = afterWht - ret;
+    let grand = money2(afterWht - ret);
 
     document.getElementById("subtotal_text").innerText = subtotal.toLocaleString('th-TH', opt);
     document.getElementById("vat_text").innerText = "+ " + vat.toLocaleString('th-TH', opt);
@@ -260,7 +284,8 @@ function addRow(){
         const newRow = firstRow.cloneNode(true);
         newRow.querySelectorAll("input").forEach(i => {
             if (i.classList.contains('qty')) i.value = "1";
-            else if (i.classList.contains('price') || i.classList.contains('total')) i.value = "0.00";
+            else if (i.classList.contains('total')) i.value = "0.00";
+            else if (i.classList.contains('price')) i.value = "";
             else i.value = "";
         });
         table.appendChild(newRow);

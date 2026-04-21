@@ -8,3 +8,6 @@ config/*firebase-adminsdk*.json
 /uploads/
 .env
 server/.env
+
+# Local LINE user mapping (optional; may contain identifiers)
+line-user-ids.json

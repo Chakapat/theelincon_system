@@ -16,6 +16,11 @@ if (!isset($_SESSION['user_id'])) {
 $back = app_path('pages/labor-payroll.php');
 $action = $_POST['action'] ?? '';
 
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $action !== '' && !csrf_verify_request()) {
+    header('HTTP/1.1 403 Forbidden');
+    exit('Forbidden');
+}
+
 function labor_payroll_redirect(string $base, array $query): void
 {
     $q = http_build_query($query);

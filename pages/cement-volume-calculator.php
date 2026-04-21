@@ -59,7 +59,7 @@ if (!isset($_SESSION['user_id'])) {
                             <div class="alert alert-light border small mb-4">
                                 <strong>สูตร (ปูนเทเสา)</strong>
                                 <div class="formula-box mt-2 mb-0 text-secondary">
-                                    พื้นที่หน้าตัดเสา <em>A</em> (ตร.ม.) = กว้าง<sub>ซม.</sub> × ยาว<sub>ซม.</sub> × 0.0001<br>
+                                    พื้นที่หน้าตัดเสา <em>A</em> (ตร.ม.) = กว้าง<sub>ม.</sub> × ยาว<sub>ม.</sub><br>
                                     ปริมาตรที่ใช้ <em>V</em> (ลบ.ม./คิว) = <em>A</em> × ความสูง<sub>ม.</sub> × จำนวนเสา<br>
                                     ปริมาตรสั่งซื้อ (ก่อนปัดขึ้น) = <em>V</em> × (1 + เปอร์เซ็นต์สำรอง ÷ 100)
                                 </div>
@@ -67,12 +67,12 @@ if (!isset($_SESSION['user_id'])) {
 
                             <div class="row g-3 mb-3">
                                 <div class="col-md-4 col-6">
-                                    <label for="p_w_cm" class="form-label fw-semibold">ด้านกว้างหน้าตัด (ซม.)</label>
-                                    <input type="number" class="form-control form-control-lg pillar-inp" id="p_w_cm" min="0" step="0.01" placeholder="0" inputmode="decimal">
+                                    <label for="p_w_m" class="form-label fw-semibold">ด้านกว้างหน้าตัด (ม.)</label>
+                                    <input type="number" class="form-control form-control-lg pillar-inp" id="p_w_m" min="0" step="0.001" placeholder="0" inputmode="decimal">
                                 </div>
                                 <div class="col-md-4 col-6">
-                                    <label for="p_l_cm" class="form-label fw-semibold">ด้านยาวหน้าตัด (ซม.)</label>
-                                    <input type="number" class="form-control form-control-lg pillar-inp" id="p_l_cm" min="0" step="0.01" placeholder="0" inputmode="decimal">
+                                    <label for="p_l_m" class="form-label fw-semibold">ด้านยาวหน้าตัด (ม.)</label>
+                                    <input type="number" class="form-control form-control-lg pillar-inp" id="p_l_m" min="0" step="0.001" placeholder="0" inputmode="decimal">
                                 </div>
                                 <div class="col-md-4">
                                     <label for="p_h_m" class="form-label fw-semibold">ความสูงเสา (ม.)</label>
@@ -103,9 +103,9 @@ if (!isset($_SESSION['user_id'])) {
                                     </div>
                                 </div>
                                 <hr class="my-3 opacity-50">
-                                <div class="text-muted small mb-1">จำนวนคอนกรีตที่แนะนำให้สั่งซื้อ (ปัดขึ้นเป็นจำนวนเต็มคิว)</div>
+                                <div class="text-muted small mb-1">จำนวนคอนกรีตที่แนะนำให้สั่งซื้อ (หลักปัดเศษ &gt; 0.5 ปัดขึ้น)</div>
                                 <div class="display-6 fw-bold text-success"><span id="p_vol_order_ceil">0</span> <span class="fs-4">คิว</span></div>
-                                <p class="small text-secondary mb-0 mt-3"><i class="bi bi-info-circle me-1"></i>การปัดขึ้นเป็นคิวเต็มใช้เมื่อต้องการสั่งคอนกรีตเป็นหน่วยลูกบาศก์เมตรทั้งก้อน — ปริมาตรจริงที่คำนวณได้ยังแสดงด้านบน</p>
+                                <p class="small text-secondary mb-0 mt-3"><i class="bi bi-info-circle me-1"></i>ปัดเศษเฉพาะเมื่อส่วนทศนิยมมากกว่า 0.5 (เช่น 3.51 ปัดเป็น 4, 3.50 คงเป็น 3)</p>
                             </div>
                         </div>
 
@@ -113,10 +113,10 @@ if (!isset($_SESSION['user_id'])) {
                             <div class="alert alert-light border small mb-4">
                                 <strong>สูตร (ปูนเทพื้น)</strong> — หน่วยตาม <a href="https://aycontento.com/blog/floor-pouring-cement-calculation-program/" target="_blank" rel="noopener noreferrer">บทความอ้างอิง</a>
                                 <div class="formula-box mt-2 mb-0 text-secondary">
-                                    ปริมาตรคอนกรีต (ลบ.ม./คิว) = (ความกว้าง<sub>ม.</sub> × ความยาว<sub>ม.</sub> × ความหนา<sub>ซม.</sub>) ÷ 100<br>
+                                    ปริมาตรคอนกรีต (ลบ.ม./คิว) = ความกว้าง<sub>ม.</sub> × ความยาว<sub>ม.</sub> × ความหนา<sub>ม.</sub><br>
                                     ปริมาตรที่ควรสั่ง (ก่อนปัดขึ้น) = ปริมาตร × (1 + เปอร์เซ็นต์สำรอง ÷ 100)
                                 </div>
-                                <p class="mb-0 mt-2 small text-secondary">การหาร 100 มาจากการแปลงความหนาจากเซนติเมตรเป็นเมตรคูณพื้นที่ (ตร.ม.)</p>
+                                <p class="mb-0 mt-2 small text-secondary">โหมดนี้คิดหน่วยเมตรทั้งหมด (m × m × m)</p>
                             </div>
 
                             <div class="row g-3 mb-3">
@@ -129,8 +129,8 @@ if (!isset($_SESSION['user_id'])) {
                                     <input type="number" class="form-control form-control-lg floor-inp" id="f_l_m" min="0" step="0.001" placeholder="0" inputmode="decimal">
                                 </div>
                                 <div class="col-md-4">
-                                    <label for="f_t_cm" class="form-label fw-semibold">ความหนาพื้น (ซม.)</label>
-                                    <input type="number" class="form-control form-control-lg floor-inp" id="f_t_cm" min="0" step="0.01" placeholder="0" inputmode="decimal">
+                                    <label for="f_t_m" class="form-label fw-semibold">ความหนาพื้น (ม.)</label>
+                                    <input type="number" class="form-control form-control-lg floor-inp" id="f_t_m" min="0" step="0.001" placeholder="0" inputmode="decimal">
                                 </div>
                                 <div class="col-md-4 col-6">
                                     <label for="f_spare" class="form-label fw-semibold">คอนกรีตสำรอง (%)</label>
@@ -150,7 +150,7 @@ if (!isset($_SESSION['user_id'])) {
                                     </div>
                                 </div>
                                 <hr class="my-3 opacity-50">
-                                <div class="text-muted small mb-1">ปริมาตรที่ควรสั่งซื้อ (ปัดขึ้นเป็นจำนวนเต็มคิว)</div>
+                                <div class="text-muted small mb-1">ปริมาตรที่ควรสั่งซื้อ (หลักปัดเศษ &gt; 0.5 ปัดขึ้น)</div>
                                 <div class="display-6 fw-bold text-success"><span id="f_vol_order_ceil">0</span> <span class="fs-4">คิว</span></div>
                                 <p class="small text-secondary mb-0 mt-3"><i class="bi bi-info-circle me-1"></i>โปรแกรมช่วยประมาณการเบื้องต้น — ปริมาณจริงอาจเปลี่ยนตามหน้างานและวิธีเท (ตามคำเตือนในบทความต้นทาง)</p>
                             </div>
@@ -184,9 +184,16 @@ if (!isset($_SESSION['user_id'])) {
         return Math.floor(v);
     }
 
+    function roundUpOnlyWhenGtPointFive(v) {
+        if (!Number.isFinite(v) || v <= 0) return 0;
+        const base = Math.floor(v);
+        const frac = v - base;
+        return frac > 0.5 ? base + 1 : base;
+    }
+
     /* --- Pillar (สูตร aycontento) --- */
-    const pW = document.getElementById('p_w_cm');
-    const pL = document.getElementById('p_l_cm');
+    const pW = document.getElementById('p_w_m');
+    const pL = document.getElementById('p_l_m');
     const pH = document.getElementById('p_h_m');
     const pN = document.getElementById('p_n');
     const pSpare = document.getElementById('p_spare');
@@ -196,16 +203,16 @@ if (!isset($_SESSION['user_id'])) {
     const outOrderCeil = document.getElementById('p_vol_order_ceil');
 
     function recalcPillar() {
-        const Wcm = parseNonNeg(pW, 0);
-        const Lcm = parseNonNeg(pL, 0);
+        const Wm = parseNonNeg(pW, 0);
+        const Lm = parseNonNeg(pL, 0);
         const Hm = parseNonNeg(pH, 0);
         const N = parseNonNegInt(pN, 0);
         const sparePct = parseNonNeg(pSpare, 0);
 
-        const A = Wcm * Lcm * 0.0001;
+        const A = Wm * Lm;
         const V = A * Hm * N;
         const Vspare = V * (1 + sparePct / 100);
-        const Vceil = Vspare > 0 ? Math.ceil(Vspare - 1e-10) : 0;
+        const Vceil = roundUpOnlyWhenGtPointFive(Vspare);
 
         outArea.textContent = fmt4(A);
         outNeed.textContent = fmt3(V);
@@ -218,10 +225,10 @@ if (!isset($_SESSION['user_id'])) {
         el.addEventListener('change', recalcPillar);
     });
 
-    /* --- Floor เทพื้น: V = (W×L×Tcm)/100 --- */
+    /* --- Floor เทพื้น: V = W×L×Tm --- */
     const fW = document.getElementById('f_w_m');
     const fL = document.getElementById('f_l_m');
-    const fT = document.getElementById('f_t_cm');
+    const fT = document.getElementById('f_t_m');
     const fSpare = document.getElementById('f_spare');
     const fOutNeed = document.getElementById('f_vol_need');
     const fOutSpareRaw = document.getElementById('f_vol_spare_raw');
@@ -230,12 +237,12 @@ if (!isset($_SESSION['user_id'])) {
     function recalcFloor() {
         const W = parseNonNeg(fW, 0);
         const L = parseNonNeg(fL, 0);
-        const Tcm = parseNonNeg(fT, 0);
+        const Tm = parseNonNeg(fT, 0);
         const sparePct = parseNonNeg(fSpare, 0);
 
-        const V = (W * L * Tcm) / 100;
+        const V = W * L * Tm;
         const Vspare = V * (1 + sparePct / 100);
-        const Vceil = Vspare > 0 ? Math.ceil(Vspare - 1e-10) : 0;
+        const Vceil = roundUpOnlyWhenGtPointFive(Vspare);
 
         fOutNeed.textContent = fmt3(V);
         fOutSpareRaw.textContent = fmt3(Vspare);

@@ -49,6 +49,7 @@ window.addEventListener('load', function () {
     if (!modalEl) return;
     var ids = <?= json_encode($annGateIds, JSON_UNESCAPED_UNICODE) ?>;
     var url = <?= json_encode(app_path('actions/announcement-handler.php?action=ack'), JSON_UNESCAPED_SLASHES) ?>;
+    var csrfAck = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
     var m = bootstrap.Modal.getOrCreateInstance(modalEl, { backdrop: 'static', keyboard: false });
     m.show();
     document.getElementById('announcementAckBtn').addEventListener('click', function () {
@@ -57,7 +58,7 @@ window.addEventListener('load', function () {
         fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfAck },
             body: JSON.stringify({ ids: ids })
         })
             .then(function (r) { return r.json(); })

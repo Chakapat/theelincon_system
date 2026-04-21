@@ -55,6 +55,7 @@ $handler = app_path('actions/stock-handler.php');
     <?php endif; ?>
 
     <form method="post" action="<?= htmlspecialchars($handler) ?>?action=add_movement" class="card border-0 shadow-sm rounded-4 p-4">
+        <?php csrf_field(); ?>
         <div class="mb-3">
             <label class="form-label fw-bold small">สินค้า</label>
             <select name="product_id" class="form-select rounded-3 border-0 bg-light" required>

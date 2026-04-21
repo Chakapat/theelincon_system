@@ -54,6 +54,7 @@ Db::sortRows($companies, 'id', true);
                         <h5 class="fw-bold mb-0 text-dark">เพิ่มบริษัทใหม่</h5>
                     </div>
                     <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=add_company" method="POST" enctype="multipart/form-data">
+                        <?php csrf_field(); ?>
                         <div class="mb-3">
                             <label class="form-label small fw-bold text-muted">โลโก้บริษัท</label>
                             <input type="file" name="logo" class="form-control border-0 bg-light py-2 rounded-3" accept="image/*">
@@ -145,6 +146,7 @@ Db::sortRows($companies, 'id', true);
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=edit_company" method="POST" enctype="multipart/form-data">
+                <?php csrf_field(); ?>
                 <div class="modal-header border-0 pt-4 px-4">
                     <h5 class="fw-bold"><i class="bi bi-pencil-square me-2 text-warning"></i>แก้ไขข้อมูล</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -172,6 +174,7 @@ Db::sortRows($companies, 'id', true);
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
+const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
 const uploadsLogosBase = <?= json_encode(upload_logos_base_url(), JSON_UNESCAPED_SLASHES) ?>;
 function confirmDelete(id, type) {
     Swal.fire({
@@ -183,7 +186,7 @@ function confirmDelete(id, type) {
         confirmButtonText: 'ยืนยัน',
         cancelButtonText: 'ยกเลิก',
         reverseButtons: true
-    }).then((r) => { if (r.isConfirmed) window.location.href = `${actionHandlerUrl}?action=delete&type=${type}&id=${id}`; });
+    }).then((r) => { if (r.isConfirmed) window.location.href = `${actionHandlerUrl}?action=delete&type=${type}&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`; });
 }
 
 function editCompany(id) {

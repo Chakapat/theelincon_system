@@ -42,6 +42,7 @@ Db::sortRows($userRows, 'userid', true);
                 <div class="card-body p-4">
                     <h5 class="fw-bold mb-4"><i class="bi bi-person-plus-fill me-2 text-warning"></i>เพิ่มสมาชิกใหม่</h5>
                     <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=add_member" method="POST">
+                        <?php csrf_field(); ?>
                         <div class="mb-3">
                             <label class="form-label small fw-bold">รหัสพนักงาน</label>
                             <input type="text" name="user_code" class="form-control bg-light border-0 py-2" placeholder="เช่น EMP01" required>
@@ -146,6 +147,7 @@ Db::sortRows($userRows, 'userid', true);
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
+const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
 // ดึงข้อมูลสมาชิกใส่ Modal
 function editMember(id) {
     fetch(`${actionHandlerUrl}?action=get_data&type=member&id=${id}`)
@@ -181,7 +183,7 @@ function confirmDelete(id, type) {
         confirmButtonColor: '#fd7e14',
         confirmButtonText: 'ลบข้อมูล',
         cancelButtonText: 'ยกเลิก'
-    }).then((r) => r.isConfirmed && (window.location.href = `${actionHandlerUrl}?action=delete&type=${type}&id=${id}`));
+    }).then((r) => r.isConfirmed && (window.location.href = `${actionHandlerUrl}?action=delete&type=${type}&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`));
 }
 </script>
 </body>

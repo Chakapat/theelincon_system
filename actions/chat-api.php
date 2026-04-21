@@ -23,6 +23,11 @@ if (!isset($_SESSION['user_id'])) {
 $me = (int) $_SESSION['user_id'];
 $action = $_REQUEST['action'] ?? '';
 
+$postMutating = ['mark_read', 'send'];
+if (in_array($action, $postMutating, true) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !csrf_verify_request()) {
+    chat_json_out(['ok' => false, 'error' => 'csrf'], 403);
+}
+
 if ($action === 'user') {
     $id = (int) ($_GET['id'] ?? 0);
     if ($id <= 0 || $id === $me) {
