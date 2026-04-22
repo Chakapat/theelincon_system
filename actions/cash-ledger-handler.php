@@ -6,6 +6,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
+require_once __DIR__ . '/../includes/cash_ledger_helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -16,6 +17,8 @@ $me = (int) $_SESSION['user_id'];
 $isAdmin = (isset($_SESSION['role']) && $_SESSION['role'] === 'admin');
 $back = app_path('pages/cash-ledger.php');
 $action = $_REQUEST['action'] ?? '';
+
+cash_ledger_auto_archive_monthly_if_due();
 
 $cash_mutates = ($action === 'save' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
     || ($action === 'delete' && isset($_GET['id']));

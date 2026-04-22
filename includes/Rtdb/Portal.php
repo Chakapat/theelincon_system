@@ -10,10 +10,13 @@ namespace Theelincon\Rtdb;
 final class Portal
 {
     /** @return list<array<string,mixed>> */
-    public static function invoiceSearchRows(string $needle): array
+    public static function invoiceSearchRows(string $needle, int $limit = 80): array
     {
         $like = mb_strtolower(trim($needle));
         $matchAll = ($like === '');
+        if ($limit <= 0) {
+            $limit = 80;
+        }
 
         $invoices = Db::tableRows('invoices');
         $customers = Db::tableKeyed('customers');
@@ -53,6 +56,10 @@ final class Portal
         }
 
         Db::sortRows($out, 'id', true);
+
+        if (count($out) > $limit) {
+            $out = array_slice($out, 0, $limit);
+        }
 
         return $out;
     }

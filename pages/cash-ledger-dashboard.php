@@ -13,6 +13,11 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+$me = (int) $_SESSION['user_id'];
+$isAdmin = isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+$cashHandlerUrl = app_path('actions/cash-ledger-handler.php');
+$csrfQ = '&_csrf=' . rawurlencode(csrf_token());
+
 $month = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['month'] ?? '')) ? $_GET['month'] : date('Y-m');
 $ymStart = $month . '-01';
 $ymEnd = date('Y-m-t', strtotime($ymStart));
@@ -139,6 +144,9 @@ foreach (Db::tableRows('cash_ledger_lines') as $ln) {
             <button type="button" class="btn btn-dark rounded-pill px-3" onclick="window.print()">
                 <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
             </button>
+            <a href="<?= htmlspecialchars(app_path('pages/cash-ledger-site-expenses.php') . '?month=' . urlencode($month), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-warning rounded-pill px-3">
+                <i class="bi bi-geo-alt me-1"></i>ค่าใช้จ่ายแต่ละไซต์
+            </a>
             <a href="<?= htmlspecialchars(app_path('pages/cash-ledger.php') . '?month=' . urlencode($month)) ?>" class="btn text-white rounded-pill px-3" style="background-color:#fd7e14;">
                 <i class="bi bi-pencil-square me-1"></i>บันทึกรายการ
             </a>
@@ -216,14 +224,16 @@ foreach (Db::tableRows('cash_ledger_lines') as $ln) {
                             <th class="py-3">ไซต์งาน</th>
                             <th class="py-3">รายการสินค้า</th>
                             <th class="pe-3 py-3">ผู้บันทึก</th>
+                            <th class="pe-3 py-3 text-center no-print">จัดการ</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if ($rowCount === 0): ?>
-                            <tr><td colspan="10" class="text-center text-muted py-5">ยังไม่มีรายการในเดือนนี้</td></tr>
+                            <tr><td colspan="11" class="text-center text-muted py-5">ยังไม่มีรายการในเดือนนี้</td></tr>
                         <?php else: ?>
                             <?php $n = 0; foreach ($rows as $row): $n++;
                                 $lid = (int) $row['id'];
+                                $canManage = $isAdmin || (int) ($row['created_by'] ?? 0) === $me;
                                 $subLines = $dashLinesByLedger[$lid] ?? [];
                                 $sn = trim((string) ($row['store_name'] ?? ''));
                                 $bf = trim((string) ($row['bought_from'] ?? ''));
@@ -263,6 +273,18 @@ foreach (Db::tableRows('cash_ledger_lines') as $ln) {
                                     <td class="small text-break"><?= htmlspecialchars($siteDisp, ENT_QUOTES, 'UTF-8') ?></td>
                                     <td class="small text-break" style="white-space:pre-wrap;"><?= nl2br(htmlspecialchars($lineText, ENT_QUOTES, 'UTF-8')) ?></td>
                                     <td class="pe-3 small text-secondary"><?= htmlspecialchars(trim($row['author_name'] ?? '') ?: '—', ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="pe-3 text-center no-print">
+                                        <?php if ($canManage): ?>
+                                            <a href="<?= htmlspecialchars(app_path('pages/cash-ledger.php') . '?month=' . urlencode($month) . '&edit=' . $lid, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-warning" title="แก้ไข">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </a>
+                                            <a href="<?= htmlspecialchars($cashHandlerUrl . '?action=delete&id=' . $lid . '&month=' . urlencode($month) . $csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger" title="ลบ" onclick="return confirm('ยืนยันการลบรายการนี้ ?');">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="text-muted small">-</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>

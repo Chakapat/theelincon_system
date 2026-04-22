@@ -165,6 +165,9 @@ $totalCount = count($listRows);
                                     <a href="<?= htmlspecialchars(app_path('pages/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>" class="btn btn-sm btn-outline-success" title="ดูเอกสาร Tax INV">
                                         <i class="bi bi-eye-fill"></i>
                                     </a>
+                                    <a href="<?= htmlspecialchars(app_path('pages/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>&edit=1" class="btn btn-sm btn-outline-info" title="แก้ไข Tax INV">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
                                     <?php if ($is_admin): ?>
                                         <a href="<?= htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-8') ?>?action=delete&type=tax_invoice&id=<?= (int) $row['tax_id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger" title="ลบรายการ Tax INV" onclick="return confirm('ยืนยันการลบ Tax INV <?= htmlspecialchars($row['tax_invoice_number'], ENT_QUOTES, 'UTF-8') ?> ?');">
                                             <i class="bi bi-trash-fill"></i>

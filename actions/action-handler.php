@@ -53,9 +53,31 @@ if ($action !== 'get_data' && !csrf_verify_request()) {
 
 $user_role = $_SESSION['role'] ?? 'user';
 
-$admin_actions = ['approve_pr', 'reject_pr', 'delete', 'delete_quotation', 'delete_pr', 'add_member', 'edit_member', 'delete_supplier'];
+$admin_actions = ['approve_pr', 'reject_pr', 'delete', 'delete_quotation', 'delete_pr', 'delete_leave_request', 'add_member', 'edit_member', 'delete_supplier'];
 if (in_array($action, $admin_actions, true) && $user_role !== 'admin') {
     exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
+}
+
+/**
+ * Generate leave request running number (LR-YYYYMM-XXX).
+ */
+function generateLeaveRequestNumber(string $seedDate = ''): string
+{
+    $baseDate = $seedDate !== '' ? $seedDate : date('Y-m-d');
+    $stamp = date('Ym', strtotime($baseDate));
+    $prefix = 'LR-' . $stamp . '-';
+    $max = 0;
+    foreach (Db::tableRows('leave_requests') as $row) {
+        $num = (string) ($row['leave_number'] ?? '');
+        if (strpos($num, $prefix) !== 0) {
+            continue;
+        }
+        $seq = (int) substr($num, strlen($prefix));
+        if ($seq > $max) {
+            $max = $seq;
+        }
+    }
+    return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
 }
 
 // --- get_data (Modal) ---
@@ -276,6 +298,135 @@ if ($action === 'save_pr') {
     exit;
 }
 
+if ($action === 'save_leave_request') {
+    $requestedBy = (int) $_SESSION['user_id'];
+    $leaveType = trim((string) ($_POST['leave_type'] ?? ''));
+    $reason = trim((string) ($_POST['reason'] ?? ''));
+    $startDate = trim((string) ($_POST['start_date'] ?? ''));
+    $endDate = trim((string) ($_POST['end_date'] ?? ''));
+
+    $validDate = static function (string $v): bool {
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) === 1;
+    };
+    if ($leaveType === '' || $reason === '' || !$validDate($startDate) || !$validDate($endDate) || strtotime($endDate) < strtotime($startDate)) {
+        header('Location: ' . app_path('pages/leave-request-create.php') . '?error=invalid_input');
+        exit;
+    }
+
+    $daysCount = (float) ((int) floor((strtotime($endDate) - strtotime($startDate)) / 86400) + 1);
+    if ($daysCount < 1) {
+        $daysCount = 1.0;
+    }
+
+    $leaveId = Db::nextNumericId('leave_requests', 'id');
+    $leaveNumber = generateLeaveRequestNumber($startDate);
+
+    $attachmentPath = '';
+    $attachmentUrl = '';
+    $attachmentName = '';
+    if (!empty($_FILES['attachment']) && (int) ($_FILES['attachment']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        $f = $_FILES['attachment'];
+        $err = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($err !== UPLOAD_ERR_OK) {
+            header('Location: ' . app_path('pages/leave-request-create.php') . '?error=upload_failed');
+            exit;
+        }
+        $tmp = (string) ($f['tmp_name'] ?? '');
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            header('Location: ' . app_path('pages/leave-request-create.php') . '?error=upload_failed');
+            exit;
+        }
+
+        $originalName = trim((string) ($f['name'] ?? 'leave-image'));
+        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        $allowedExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+        if (!in_array($ext, $allowedExt, true)) {
+            header('Location: ' . app_path('pages/leave-request-create.php') . '?error=upload_type');
+            exit;
+        }
+
+        $dirAbs = ROOT_PATH . '/uploads/leave-requests/' . $leaveId;
+        if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
+            header('Location: ' . app_path('pages/leave-request-create.php') . '?error=upload_failed');
+            exit;
+        }
+
+        $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
+        $safeBase = trim((string) $safeBase, '._-');
+        if ($safeBase === '') {
+            $safeBase = 'leave';
+        }
+        $storedName = $safeBase . '_' . date('Ymd_His') . '.' . $ext;
+        $destAbs = $dirAbs . '/' . $storedName;
+        if (!@move_uploaded_file($tmp, $destAbs)) {
+            header('Location: ' . app_path('pages/leave-request-create.php') . '?error=upload_failed');
+            exit;
+        }
+
+        $attachmentPath = 'uploads/leave-requests/' . $leaveId . '/' . $storedName;
+        $attachmentUrl = $attachmentPath;
+        $attachmentName = $originalName;
+    }
+
+    Db::setRow('leave_requests', (string) $leaveId, [
+        'id' => $leaveId,
+        'leave_number' => $leaveNumber,
+        'requested_by' => $requestedBy,
+        'leave_type' => $leaveType,
+        'reason' => $reason,
+        'start_date' => $startDate,
+        'end_date' => $endDate,
+        'days_count' => $daysCount,
+        'status' => 'draft',
+        'attachment_path' => $attachmentPath,
+        'attachment_url' => $attachmentUrl,
+        'attachment_name' => $attachmentName,
+        'line_approval_token' => '',
+        'line_sent_at' => '',
+        'created_at' => date('Y-m-d H:i:s'),
+    ]);
+
+    header('Location: ' . app_path('pages/leave-request-view.php') . '?id=' . $leaveId);
+    exit;
+}
+
+if ($action === 'send_leave_request') {
+    $leave = Db::row('leave_requests', (string) $id);
+    $uid = (int) $_SESSION['user_id'];
+    if ($leave === null || (int) ($leave['requested_by'] ?? 0) !== $uid) {
+        header('Location: ' . app_path('pages/leave-request-list.php'));
+        exit;
+    }
+
+    if ((string) ($leave['status'] ?? '') !== 'draft') {
+        header('Location: ' . app_path('pages/leave-request-view.php') . '?id=' . $id);
+        exit;
+    }
+
+    $token = bin2hex(random_bytes(24));
+    $leave = array_merge($leave, [
+        'line_approval_token' => $token,
+        'status' => 'pending',
+        'line_sent_at' => date('Y-m-d H:i:s'),
+    ]);
+    Db::setRow('leave_requests', (string) $id, $leave);
+
+    $user = Db::row('users', (string) $uid) ?? [];
+    $requesterName = trim((string) ($user['fname'] ?? '') . ' ' . (string) ($user['lname'] ?? ''));
+    if ($requesterName === '') {
+        $requesterName = (string) ($_SESSION['name'] ?? 'Unknown User');
+    }
+    $lineSent = line_send_leave_approval_notification($leave, $requesterName);
+    if (!$lineSent) {
+        Db::mergeRow('leave_requests', (string) $id, ['status' => 'draft']);
+        header('Location: ' . app_path('pages/leave-request-view.php') . '?id=' . $id . '&line_error=1');
+        exit;
+    }
+
+    header('Location: ' . app_path('pages/leave-request-list.php') . '?sent=1');
+    exit;
+}
+
 if ($action === 'approve_pr') {
     Db::mergeRow('purchase_requests', (string) $id, ['status' => 'approved']);
     header('Location: ' . app_path('pages/purchase-request-list.php') . '?approved=1');
@@ -297,6 +448,28 @@ if ($action === 'delete_pr') {
     Db::deleteWhereEquals('purchase_request_items', 'pr_id', (string) $id);
     Db::deleteRow('purchase_requests', (string) $id);
     header('Location: ' . app_path('pages/purchase-request-list.php') . '?deleted=1');
+    exit;
+}
+
+if ($action === 'delete_leave_request') {
+    if ($id <= 0) {
+        header('Location: ' . app_path('pages/leave-request-list.php') . '?error=invalid_leave');
+        exit;
+    }
+
+    $leave = Db::row('leave_requests', (string) $id);
+    if ($leave !== null) {
+        $attachmentPath = trim((string) ($leave['attachment_path'] ?? ''));
+        if ($attachmentPath !== '') {
+            $abs = ROOT_PATH . '/' . ltrim(str_replace('\\', '/', $attachmentPath), '/');
+            if (is_file($abs)) {
+                @unlink($abs);
+            }
+        }
+        Db::deleteRow('leave_requests', (string) $id);
+    }
+
+    header('Location: ' . app_path('pages/leave-request-list.php') . '?deleted=1&scope=all');
     exit;
 }
 

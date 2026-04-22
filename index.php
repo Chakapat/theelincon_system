@@ -17,7 +17,7 @@ $can_edit_invoice = user_can_edit_invoice();
 
 if (isset($_GET['ajax_search'])) {
     $needle = (string) ($_GET['search'] ?? '');
-    $rows = Portal::invoiceSearchRows($needle);
+    $rows = Portal::invoiceSearchRows($needle, 60);
 
     if (count($rows) > 0) {
         foreach ($rows as $row): ?>
@@ -185,7 +185,7 @@ $stats = Portal::invoiceSummary();
                             <i class="bi bi-plus-lg me-1"></i>สร้างบิลใหม่
                         </a>
                         <a href="<?= htmlspecialchars(app_path('pages/tax-invoice-list.php')) ?>" class="btn btn-outline-success rounded-pill px-4 shadow-sm flex-shrink-0 text-center">
-                            <i class="bi bi-file-earmark-break me-1"></i>TAX INV
+                            <i class="bi bi-file-earmark-break me-1"></i>ใบกำกับภาษี
                         </a>
                     </div>
                 </div>
@@ -295,6 +295,7 @@ $stats = Portal::invoiceSummary();
                     <div class="card-body p-3 d-grid gap-2">
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cement-volume-calculator.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-boxes me-2 text-secondary"></i>คำนวณปริมาตรปูน (คิว)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/daily-site-report-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-journal-text me-2 text-secondary"></i>สมุดรายวันหน้างาน (DSR)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/leave-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calendar-check me-2 text-secondary"></i>ใบลา</a>
                     </div>
                 </div>
             </div>
@@ -324,7 +325,17 @@ function loadTable(query = '') {
     if (table) {
         table.setAttribute('aria-busy', 'true');
     }
-    fetch(`${indexUrl}?ajax_search=1&search=${encodeURIComponent(query)}`, { credentials: 'same-origin' })
+    const normalized = (query || '').trim();
+    if (normalized.length === 1) {
+        if (tableBody) {
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">พิมพ์เพิ่มอีกอย่างน้อย 1 ตัวอักษรเพื่อค้นหา</td></tr>';
+        }
+        if (table) {
+            table.setAttribute('aria-busy', 'false');
+        }
+        return;
+    }
+    fetch(`${indexUrl}?ajax_search=1&search=${encodeURIComponent(normalized)}`, { credentials: 'same-origin' })
         .then(function (res) {
             if (!res.ok) {
                 throw new Error('bad_status');

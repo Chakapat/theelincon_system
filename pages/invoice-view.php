@@ -13,8 +13,10 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $id = (int) ($_GET['id'] ?? 0);
-$print_type = isset($_GET['type']) ? (string) $_GET['type'] : 'original';
-$type_text = ($print_type === 'copy') ? 'สำเนา / COPY' : 'ต้นฉบับ / ORIGINAL';
+$print_modes = [
+    ['key' => 'original', 'text' => 'ต้นฉบับ / ORIGINAL'],
+    ['key' => 'copy', 'text' => 'สำเนา / COPY'],
+];
 
 $inv = Db::row('invoices', (string) $id);
 if (!$inv) {
@@ -79,13 +81,15 @@ $final_grand_total = $after_wht - $retention;
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
     
     <style>
-        :root { --orange: #FF6600; --dark: #333; --green-success: #28a745; }
+        :root { --orange: #FF6600; --dark: #333; }
         body { font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', Tahoma, sans-serif; background: #f4f4f4; color: var(--dark); margin: 0; padding: 0; font-weight: 500; }
         
         .invoice-box { 
             width: 210mm; height: 297mm; margin: 0 auto; background: #fff; padding: 10mm 15mm; 
             position: relative; box-shadow: 0 5px 20px rgba(0,0,0,0.05); border-top: 8px solid var(--orange); overflow: hidden;
         }
+        .invoice-sheet { margin-bottom: 12px; }
+        .invoice-sheet:last-child { margin-bottom: 0; }
 
         .doc-label-container { text-align: right; margin-bottom: 5px; }
         .doc-type-text {
@@ -100,17 +104,11 @@ $final_grand_total = $after_wht - $retention;
         .table-custom thead th { background: #fafafa; border-bottom: 2px solid var(--orange); font-size: 13px; padding: 8px 10px; }
         .table-custom td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f2f2f2; }
         
-        /* ตกแต่งสีตัวอักษรรายการ */
-        .text-qty-zero { color: #dc3545 !important; } /* แดงเมื่อจบ/หมด */
-        .text-qty-plus { color: var(--green-success) !important; } /* เขียวเมื่อมีจำนวน */
-
         .footer-sticky { position: absolute; bottom: 12mm; left: 15mm; right: 15mm; }
         .payment-info-box { border: 1px solid #eee; border-radius: 8px; padding: 10px; background: #fafafa; font-size: 11.5px; line-height: 1.4; }
         
         .summary-item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 13px; }
         .summary-divider { border-top: 1px dashed #ddd; margin: 4px 0; }
-        .text-vat-green { color: var(--green-success) !important; font-weight: 600; }
-        
         .grand-total-row { 
             display: flex; justify-content: space-between; align-items: center; 
             background: var(--orange); color: white; padding: 10px 12px; border-radius: 5px; margin-top: 8px; 
@@ -125,23 +123,23 @@ $final_grand_total = $after_wht - $retention;
             body { background: none; }
             .no-print { display: none; }
             .invoice-box { margin: 0; box-shadow: none; border-top: 8px solid var(--orange); }
+            .invoice-sheet { margin: 0; page-break-after: always; break-after: page; }
+            .invoice-sheet:last-child { page-break-after: auto; break-after: auto; }
         }
     </style>
 </head>
 <body>
 
 <div class="controls-wrapper no-print p-3 text-center bg-dark shadow-sm mb-4">
-    <div class="btn-group me-3">
-        <a href="?id=<?= $id ?>&type=original" class="btn btn-sm <?= ($print_type == 'original') ? 'btn-warning' : 'btn-outline-light' ?>">โหมด: ต้นฉบับ</a>
-        <a href="?id=<?= $id ?>&type=copy" class="btn btn-sm <?= ($print_type == 'copy') ? 'btn-warning' : 'btn-outline-light' ?>">โหมด: สำเนา</a>
-    </div>
-    <button onclick="window.print()" class="btn btn-warning btn-sm fw-bold" style="padding: 5px 30px;">พิมพ์<?= ($print_type == 'copy') ? 'สำเนา' : 'ต้นฉบับ' ?></button>
+    <button onclick="window.print()" class="btn btn-warning btn-sm fw-bold" style="padding: 5px 30px;">พิมพ์ ต้นฉบับ + สำเนา</button>
     <a href="<?= htmlspecialchars(app_path('index.php')) ?>" class="btn btn-outline-danger btn-sm ms-2">กลับหน้าหลัก</a>
 </div>
 
+<?php foreach ($print_modes as $pm): ?>
+<div class="invoice-sheet">
 <div class="invoice-box">
     <div class="doc-label-container">
-        <div class="doc-type-text"><?= $type_text ?></div>
+        <div class="doc-type-text"><?= htmlspecialchars((string) ($pm['text'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
     </div>
 
     <div class="row align-items-start mb-2">
@@ -187,13 +185,11 @@ $final_grand_total = $after_wht - $retention;
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($items as $item):
-                    $qty_class = ((float) ($item['quantity'] ?? 0) <= 0) ? 'text-qty-zero' : 'text-qty-plus';
-                ?>
+                <?php foreach ($items as $item): ?>
                 <tr>
                     <td class="fw-bold text-dark"><?= htmlspecialchars($item['description']); ?></td>
                     
-                    <td class="text-center <?= htmlspecialchars($qty_class) ?>"><?= formatQty($item['quantity']); ?> <?= htmlspecialchars($item['unit']); ?></td>
+                    <td class="text-center"><?= formatQty($item['quantity']); ?> <?= htmlspecialchars($item['unit']); ?></td>
                     
                     <td class="text-end"><?= number_format($item['unit_price'], 2); ?></td>
                     <td class="text-end fw-bold"><?= number_format($item['total'], 2); ?></td>
@@ -216,7 +212,7 @@ $final_grand_total = $after_wht - $retention;
             <div class="col-5">
                 <div class="summary-box">
                     <div class="summary-item"><span>ยอดรวม (Subtotal)</span><span><?= number_format($subtotal, 2); ?></span></div>
-                    <div class="summary-item <?= $vat > 0 ? 'text-vat-green' : 'text-muted' ?>">
+                    <div class="summary-item <?= $vat > 0 ? 'text-primary' : 'text-muted' ?>">
                         <span>ภาษี 7% (VAT) (+)</span>
                         <span><?= number_format($vat, 2); ?></span>
                     </div>
@@ -228,7 +224,7 @@ $final_grand_total = $after_wht - $retention;
                     <div class="summary-divider"></div>
 
                     <div class="summary-item <?= $wht > 0 ? 'text-danger' : 'text-muted' ?>">
-                        <span>หัก ณ ที่จ่าย 3% (-) <small class="text-muted">(คิดจากยอดก่อน VAT)</small></span>
+                        <span>หัก ณ ที่จ่าย 3% (Withholding tax)<small class="text-muted"></small></span>
                         <span><?= number_format($wht, 2); ?></span>
                     </div>
                     <div class="summary-item fw-bold border-bottom pb-1 mb-1" style="font-size: 12px; color: #444;">
@@ -237,7 +233,7 @@ $final_grand_total = $after_wht - $retention;
                     </div>
 
                     <?php if($retention > 0): ?>
-                        <div class="summary-item text-danger"><span>หักประกันผลงาน (-)</span><span><?= number_format($retention, 2); ?></span></div>
+                        <div class="summary-item text-danger"><span>หักประกันผลงาน (Retention) </span><span><?= number_format($retention, 2); ?></span></div>
                     <?php endif; ?>
 
                     <div class="grand-total-row">
@@ -255,6 +251,8 @@ $final_grand_total = $after_wht - $retention;
         <div class="text-center mt-2 small text-muted" style="font-size: 9px;">ขอบคุณที่ใช้บริการ / Thank you for your business</div>
     </div>
 </div>
+</div>
+<?php endforeach; ?>
 
 </body>
 </html>

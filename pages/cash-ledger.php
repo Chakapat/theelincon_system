@@ -6,6 +6,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
+require_once __DIR__ . '/../includes/cash_ledger_helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -15,6 +16,8 @@ if (!isset($_SESSION['user_id'])) {
 $isAdmin = (isset($_SESSION['role']) && $_SESSION['role'] === 'admin');
 $me = (int) $_SESSION['user_id'];
 $handler = app_path('actions/cash-ledger-handler.php');
+
+cash_ledger_auto_archive_monthly_if_due();
 
 $month = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['month'] ?? '')) ? $_GET['month'] : date('Y-m');
 

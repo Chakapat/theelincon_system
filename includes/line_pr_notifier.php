@@ -371,6 +371,241 @@ function line_send_pr_approval_notification(
 }
 
 /**
+ * Send leave request approval card to LINE user/group.
+ */
+function line_send_leave_approval_notification(array $leaveRow, string $requesterName): bool
+{
+    $channelToken = (string) LINE_MESSAGING_CHANNEL_ACCESS_TOKEN;
+    $targetUserId = (string) LINE_TARGET_USER_ID;
+    $targetGroupId = (string) LINE_TARGET_GROUP_ID;
+    $targetId = $targetGroupId !== '' ? $targetGroupId : $targetUserId;
+    $targetType = $targetGroupId !== '' ? 'group' : 'user';
+
+    if ($channelToken === '' || $targetId === '') {
+        line_append_debug_log([
+            'ok' => false,
+            'reason' => 'missing_config',
+            'topic' => 'leave',
+        ]);
+        return false;
+    }
+
+    $leaveId = (int) ($leaveRow['id'] ?? 0);
+    $approvalToken = (string) ($leaveRow['line_approval_token'] ?? '');
+    if ($leaveId <= 0 || $approvalToken === '') {
+        line_append_debug_log([
+            'ok' => false,
+            'reason' => 'missing_leave_data',
+            'leave_id' => $leaveId,
+        ]);
+        return false;
+    }
+
+    $approveData = http_build_query([
+        'action' => 'line_leave_decision',
+        'id' => $leaveId,
+        'decision' => 'approve',
+        'token' => $approvalToken,
+    ], '', '&', PHP_QUERY_RFC3986);
+    $rejectData = http_build_query([
+        'action' => 'line_leave_decision',
+        'id' => $leaveId,
+        'decision' => 'reject',
+        'token' => $approvalToken,
+    ], '', '&', PHP_QUERY_RFC3986);
+
+    $leaveNo = trim((string) ($leaveRow['leave_number'] ?? '-'));
+    $leaveType = line_mb_truncate((string) ($leaveRow['leave_type'] ?? '-'), 80);
+    $reason = line_mb_truncate((string) ($leaveRow['reason'] ?? '-'), 220);
+    $startDate = trim((string) ($leaveRow['start_date'] ?? '-'));
+    $endDate = trim((string) ($leaveRow['end_date'] ?? '-'));
+    $daysCount = number_format((float) ($leaveRow['days_count'] ?? 0), 2);
+    $requesterName = trim($requesterName) !== '' ? trim($requesterName) : 'Unknown User';
+    $requesterName = line_mb_truncate($requesterName, 60);
+
+    $attachmentUrl = trim((string) ($leaveRow['attachment_url'] ?? ''));
+    if ($attachmentUrl !== '' && !preg_match('#^https?://#i', $attachmentUrl)) {
+        $attachmentUrl = line_absolute_app_url($attachmentUrl);
+    }
+
+    $footerContents = [
+        [
+            'type' => 'button',
+            'style' => 'primary',
+            'color' => '#1DB446',
+            'action' => [
+                'type' => 'postback',
+                'label' => 'อนุญาติ',
+                'data' => $approveData,
+                'displayText' => 'อนุญาติใบลา ' . $leaveNo,
+            ],
+        ],
+        [
+            'type' => 'button',
+            'style' => 'secondary',
+            'action' => [
+                'type' => 'postback',
+                'label' => 'ไม่อนุญาติ',
+                'data' => $rejectData,
+                'displayText' => 'ไม่อนุญาติใบลา ' . $leaveNo,
+            ],
+        ],
+    ];
+    if ($attachmentUrl !== '') {
+        $footerContents[] = [
+            'type' => 'button',
+            'style' => 'link',
+            'action' => [
+                'type' => 'uri',
+                'label' => 'ดูรูปภาพ',
+                'uri' => $attachmentUrl,
+            ],
+        ];
+    }
+
+    $messages = [[
+        'type' => 'flex',
+        'altText' => 'มีคำขอใบลารออนุมัติ ' . $leaveNo,
+        'contents' => [
+            'type' => 'bubble',
+            'header' => [
+                'type' => 'box',
+                'layout' => 'vertical',
+                'backgroundColor' => '#E8F4FF',
+                'paddingAll' => '16px',
+                'contents' => [
+                    [
+                        'type' => 'text',
+                        'text' => 'LEAVE APPROVAL',
+                        'size' => 'xs',
+                        'color' => '#0D6EFD',
+                        'weight' => 'bold',
+                    ],
+                    [
+                        'type' => 'text',
+                        'text' => 'ใบลา ' . $leaveNo,
+                        'weight' => 'bold',
+                        'size' => 'lg',
+                        'color' => '#222222',
+                        'wrap' => true,
+                        'margin' => 'sm',
+                    ],
+                ],
+            ],
+            'body' => [
+                'type' => 'box',
+                'layout' => 'vertical',
+                'spacing' => 'sm',
+                'paddingAll' => '16px',
+                'contents' => [
+                    [
+                        'type' => 'box',
+                        'layout' => 'baseline',
+                        'contents' => [
+                            ['type' => 'text', 'text' => 'ผู้ขอ', 'size' => 'xs', 'color' => '#8A8A8A', 'flex' => 3],
+                            ['type' => 'text', 'text' => $requesterName, 'size' => 'sm', 'color' => '#222222', 'align' => 'end', 'wrap' => true, 'flex' => 6],
+                        ],
+                    ],
+                    [
+                        'type' => 'box',
+                        'layout' => 'baseline',
+                        'contents' => [
+                            ['type' => 'text', 'text' => 'ประเภท', 'size' => 'xs', 'color' => '#8A8A8A', 'flex' => 3],
+                            ['type' => 'text', 'text' => $leaveType, 'size' => 'sm', 'color' => '#222222', 'align' => 'end', 'wrap' => true, 'flex' => 6],
+                        ],
+                    ],
+                    [
+                        'type' => 'box',
+                        'layout' => 'baseline',
+                        'contents' => [
+                            ['type' => 'text', 'text' => 'ช่วงวันลา', 'size' => 'xs', 'color' => '#8A8A8A', 'flex' => 3],
+                            ['type' => 'text', 'text' => $startDate . ' - ' . $endDate, 'size' => 'sm', 'color' => '#222222', 'align' => 'end', 'wrap' => true, 'flex' => 6],
+                        ],
+                    ],
+                    [
+                        'type' => 'box',
+                        'layout' => 'baseline',
+                        'contents' => [
+                            ['type' => 'text', 'text' => 'จำนวนวัน', 'size' => 'xs', 'color' => '#8A8A8A', 'flex' => 3],
+                            ['type' => 'text', 'text' => $daysCount . ' วัน', 'size' => 'sm', 'weight' => 'bold', 'color' => '#0B8043', 'align' => 'end', 'flex' => 6],
+                        ],
+                    ],
+                    ['type' => 'separator', 'margin' => 'md'],
+                    [
+                        'type' => 'box',
+                        'layout' => 'vertical',
+                        'spacing' => 'xs',
+                        'contents' => [
+                            ['type' => 'text', 'text' => 'สาเหตุ', 'size' => 'xs', 'color' => '#8A8A8A', 'weight' => 'bold'],
+                            ['type' => 'text', 'text' => $reason !== '' ? $reason : '-', 'size' => 'sm', 'color' => '#222222', 'wrap' => true],
+                        ],
+                    ],
+                ],
+            ],
+            'footer' => [
+                'type' => 'box',
+                'layout' => 'vertical',
+                'spacing' => 'sm',
+                'paddingAll' => '16px',
+                'contents' => $footerContents,
+            ],
+            'styles' => [
+                'footer' => ['separator' => true],
+            ],
+        ],
+    ]];
+
+    $payload = [
+        'to' => $targetId,
+        'messages' => $messages,
+    ];
+
+    $ch = curl_init('https://api.line.me/v2/bot/message/push');
+    if ($ch === false) {
+        line_append_debug_log([
+            'ok' => false,
+            'reason' => 'curl_init_failed',
+            'topic' => 'leave',
+            'leave_id' => $leaveId,
+        ]);
+        return false;
+    }
+
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $channelToken,
+        ],
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        CURLOPT_TIMEOUT => 10,
+    ]);
+
+    $response = curl_exec($ch);
+    $statusCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErrNo = curl_errno($ch);
+    $curlErrMsg = curl_error($ch);
+    $hasCurlError = $curlErrNo !== 0;
+    curl_close($ch);
+
+    $ok = !$hasCurlError && $response !== false && $statusCode >= 200 && $statusCode < 300;
+    line_append_debug_log([
+        'ok' => $ok,
+        'topic' => 'leave',
+        'leave_id' => $leaveId,
+        'http_status' => $statusCode,
+        'curl_errno' => $curlErrNo,
+        'curl_error' => $curlErrMsg,
+        'target_type' => $targetType,
+        'target_id_prefix' => substr($targetId, 0, 8),
+        'line_response' => is_string($response) ? $response : '',
+    ]);
+
+    return $ok;
+}
+
+/**
  * Send quotation approval card to LINE user/group.
  */
 function line_send_quote_approval_notification(array $quoteRow, string $creatorName, string $itemsPreview = ''): bool

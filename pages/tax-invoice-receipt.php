@@ -13,8 +13,10 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $id = (int) ($_GET['id'] ?? 0);
-$print_type = isset($_GET['type']) ? (string) $_GET['type'] : 'original';
-$type_text = ($print_type === 'copy') ? 'สำเนา / COPY' : 'ต้นฉบับ / ORIGINAL';
+$print_modes = [
+    ['key' => 'original', 'text' => 'ต้นฉบับ / ORIGINAL'],
+    ['key' => 'copy', 'text' => 'สำเนา / COPY'],
+];
 $edit_mode = isset($_GET['edit']) && (string) $_GET['edit'] === '1';
 
 function normalizeInvoiceRef(string $input): string
@@ -191,7 +193,9 @@ $input_ref = trim((string) ($_POST['invoice_ref'] ?? $_GET['ref'] ?? ''));
 $message = '';
 $error = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_tax_invoice'])) {
+$isCreateSubmit = isset($_POST['create_tax_invoice']);
+$isUpdateSubmit = isset($_POST['update_tax_invoice']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($isCreateSubmit || $isUpdateSubmit)) {
     if (!csrf_verify_request()) {
         http_response_code(403);
         exit('Invalid security token. Please refresh the page and try again.');
@@ -205,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_tax_invoice'])
         $targetId = (int) ($targetInv['id'] ?? 0);
         $exists = findLatestTaxInvoiceByInvoiceId($targetId);
 
-        if ($exists !== null && !isset($_POST['update_tax_invoice'])) {
+        if ($exists !== null && !$isUpdateSubmit) {
             $id = $targetId;
             $message = 'Invoice นี้มี Tax Invoice แล้ว';
         } else {
@@ -258,7 +262,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_tax_invoice'])
             $grandTotal = round($subtotal + $vatAmount - $withholdingAmount - $retentionAmount, 2);
 
             try {
-                $isUpdate = $exists !== null && isset($_POST['update_tax_invoice']);
+                $isUpdate = $exists !== null && $isUpdateSubmit;
                 if ($isUpdate) {
                     $tid = (int) ($exists['id'] ?? 0);
                     $curTax = Db::row('tax_invoices', (string) $tid) ?? [];
@@ -311,7 +315,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_tax_invoice'])
             }
 
             if ($error === '') {
-                if ($exists !== null && isset($_POST['update_tax_invoice'])) {
+                if ($exists !== null && $isUpdateSubmit) {
                     $q = http_build_query(['id' => $targetId, 'updated' => '1'], '', '&', PHP_QUERY_RFC3986);
                     header('Location: ' . app_path('pages/tax-invoice-receipt.php') . '?' . $q);
                 } else {
@@ -333,24 +337,43 @@ if ($id <= 0 && $input_ref !== '') {
     }
 }
 
-$allInvoices = Db::tableRows('invoices');
-Db::sortRows($allInvoices, 'issue_date', true);
 $autocompleteOptions = [];
-foreach ($allInvoices as $invRow) {
-    $fullNumber = strtolower(trim((string) ($invRow['invoice_number'] ?? '')));
-    if ($fullNumber === '') {
-        continue;
-    }
-    $autocompleteOptions[] = $fullNumber;
-    $shortNumber = toShortInvoiceRef($fullNumber);
-    if ($shortNumber !== '') {
-        $autocompleteOptions[] = $shortNumber;
-    }
-}
-$autocompleteOptions = array_values(array_unique($autocompleteOptions));
-
+$invoiceSearchOptions = [];
 $inv = $id > 0 ? Db::row('invoices', (string) $id) : null;
 if (!$inv) {
+    $allInvoices = Db::tableRows('invoices');
+    Db::sortRows($allInvoices, 'issue_date', true);
+    $customersMap = [];
+    foreach (Db::tableRows('customers') as $cRow) {
+        $cid = (int) ($cRow['id'] ?? 0);
+        if ($cid <= 0) {
+            continue;
+        }
+        $customersMap[$cid] = (string) ($cRow['name'] ?? '');
+    }
+    foreach ($allInvoices as $invRow) {
+        $invId = (int) ($invRow['id'] ?? 0);
+        $fullNumber = strtolower(trim((string) ($invRow['invoice_number'] ?? '')));
+        if ($fullNumber === '' || $invId <= 0) {
+            continue;
+        }
+        $autocompleteOptions[] = $fullNumber;
+        $shortNumber = toShortInvoiceRef($fullNumber);
+        if ($shortNumber !== '') {
+            $autocompleteOptions[] = $shortNumber;
+        }
+        $custName = trim((string) ($customersMap[(int) ($invRow['customer_id'] ?? 0)] ?? ''));
+        $issueDateText = trim((string) ($invRow['issue_date'] ?? ''));
+        $invoiceSearchOptions[] = [
+            'id' => $invId,
+            'invoice_number' => strtoupper($fullNumber),
+            'customer_name' => $custName,
+            'issue_date' => $issueDateText,
+            'search_ref' => $shortNumber !== '' ? $shortNumber : $fullNumber,
+        ];
+    }
+    $autocompleteOptions = array_values(array_unique($autocompleteOptions));
+
     ?>
     <!DOCTYPE html>
     <html lang="th">
@@ -382,6 +405,7 @@ if (!$inv) {
                     <div class="col-12 col-md-4 d-grid">
                         <button type="submit" class="btn btn-primary">ค้นหารายละเอียด Invoice</button>
                     </div>
+                    <div class="col-12"><div class="text-muted small mt-1">พิมพ์เลข Invoice หรือชื่อลูกค้า เพื่อค้นหาและเลือกจากรายการที่เด้งลงมา</div></div>
                 </form>
                 <div class="mt-3">
                     <a href="<?= htmlspecialchars(app_path('index.php')) ?>" class="btn btn-outline-secondary btn-sm">กลับหน้าหลัก</a>
@@ -392,6 +416,7 @@ if (!$inv) {
     <script>
     (function () {
         const allRefs = <?= json_encode($autocompleteOptions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+        const invoiceSearchOptions = <?= json_encode($invoiceSearchOptions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
         const MAX_ITEMS = 8;
 
         function renderSuggestions(input, list) {
@@ -401,19 +426,40 @@ if (!$inv) {
                 list.innerHTML = '';
                 return;
             }
-            const results = allRefs.filter(ref => ref.includes(raw)).slice(0, MAX_ITEMS);
+            const tokenResults = allRefs
+                .filter(ref => ref.includes(raw))
+                .map(ref => ({ text: ref, value: ref }));
+
+            const richResults = invoiceSearchOptions
+                .filter(row => {
+                    const label = (row.invoice_number + ' ' + (row.customer_name || '') + ' ' + (row.issue_date || '')).toLowerCase();
+                    return label.includes(raw);
+                })
+                .map(row => {
+                    let text = row.invoice_number;
+                    if (row.customer_name) text += ' | ' + row.customer_name;
+                    if (row.issue_date) text += ' | ' + row.issue_date;
+                    return { text, value: row.search_ref };
+                });
+
+            const mergedMap = new Map();
+            [...richResults, ...tokenResults].forEach(item => {
+                const key = item.text + '|' + item.value;
+                if (!mergedMap.has(key)) mergedMap.set(key, item);
+            });
+            const results = Array.from(mergedMap.values()).slice(0, MAX_ITEMS);
             if (results.length === 0) {
                 list.style.display = 'none';
                 list.innerHTML = '';
                 return;
             }
-            list.innerHTML = results.map(ref => (
-                '<button type="button" class="list-group-item list-group-item-action py-2">' + ref + '</button>'
+            list.innerHTML = results.map(item => (
+                '<button type="button" class="list-group-item list-group-item-action py-2" data-value="' + String(item.value).replace(/"/g, '&quot;') + '">' + item.text + '</button>'
             )).join('');
             list.style.display = 'block';
             list.querySelectorAll('button').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    input.value = btn.textContent || '';
+                    input.value = btn.getAttribute('data-value') || '';
                     list.style.display = 'none';
                     list.innerHTML = '';
                     input.focus();
@@ -823,6 +869,7 @@ if (!empty($tax['tax_date'])) {
     <meta charset="UTF-8">
     <title>Receipt/Tax Invoice - <?= htmlspecialchars($invoice_number); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -836,6 +883,8 @@ if (!empty($tax['tax_date'])) {
             width: 210mm; height: 297mm; margin: 0 auto; background: #fff; padding: 10mm 15mm; 
             position: relative; box-shadow: 0 5px 20px rgba(0,0,0,0.05); border-top: 8px solid var(--orange); overflow: hidden;
         }
+        .invoice-sheet { margin-bottom: 12px; }
+        .invoice-sheet:last-child { margin-bottom: 0; }
 
         .doc-type-badge { text-align: right; margin-bottom: 5px; }
         .doc-type-text {
@@ -869,6 +918,8 @@ if (!empty($tax['tax_date'])) {
             body { background: none; }
             .no-print { display: none; }
             .invoice-box { margin: 0; box-shadow: none; border-top: 8px solid var(--orange); }
+            .invoice-sheet { margin: 0; page-break-after: always; break-after: page; }
+            .invoice-sheet:last-child { page-break-after: auto; break-after: auto; }
         }
     </style>
 </head>
@@ -885,18 +936,15 @@ if (!empty($tax['tax_date'])) {
     <?php if ($error !== ''): ?>
         <div class="alert alert-danger mb-3 py-2"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
     <?php endif; ?>
-    <div class="btn-group me-3">
-        <a href="?id=<?= $id ?>&type=original" class="btn btn-sm <?= ($print_type == 'original') ? 'btn-warning' : 'btn-outline-light' ?>">โหมด: ต้นฉบับ</a>
-        <a href="?id=<?= $id ?>&type=copy" class="btn btn-sm <?= ($print_type == 'copy') ? 'btn-warning' : 'btn-outline-light' ?>">โหมด: สำเนา</a>
-    </div>
-    <a href="?id=<?= $id ?>&edit=1" class="btn btn-outline-info btn-sm ms-1">แก้ไข Tax INV</a>
-    <button onclick="window.print()" class="btn btn-warning btn-sm fw-bold" style="padding: 5px 30px;">พิมพ์<?= ($print_type == 'copy') ? 'สำเนา' : 'ต้นฉบับ' ?></button>
+    <button onclick="window.print()" class="btn btn-warning btn-sm fw-bold" style="padding: 5px 30px;">พิมพ์ ต้นฉบับ + สำเนา</button>
     <a href="<?= htmlspecialchars(app_path('index.php')) ?>" class="btn btn-outline-danger btn-sm ms-2">กลับหน้าหลัก</a>
 </div>
 
+<?php foreach ($print_modes as $pm): ?>
+<div class="invoice-sheet">
 <div class="invoice-box">
     <div class="doc-type-badge">
-        <div class="doc-type-text"><?= $type_text ?></div>
+        <div class="doc-type-text"><?= htmlspecialchars((string) ($pm['text'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
     </div>
 
     <div class="row align-items-start mb-2">
@@ -959,13 +1007,14 @@ if (!empty($tax['tax_date'])) {
     <div class="footer-sticky">
         <div class="row align-items-end mb-3">
             <div class="col-6">
-                <div class="payment-info-box">
-                    <div style="font-size: 9px; color: var(--orange); font-weight: bold; margin-bottom: 3px; border-bottom: 1px solid #ddd;">PAYMENT INFO</div>
-                    <strong>วิธีชำระ:</strong>
+                <div class="payment-info-box mb-2">
+                    <div style="font-size: 9px; color: var(--orange); font-weight: bold; margin-bottom: 3px; border-bottom: 1px solid #ddd;">Payment method</div>
                     <?= $pmCashMark ?> เงินสด&nbsp;&nbsp;
                     <?= $pmTransferMark ?> เงินโอน&nbsp;&nbsp;
                     <?= $pmChequeMark ?> เช็คธนาคาร (Cheque)
-                    <br>
+                </div>
+                <div class="payment-info-box">
+                    <div style="font-size: 9px; color: var(--orange); font-weight: bold; margin-bottom: 3px; border-bottom: 1px solid #ddd;">PAYMENT INFO</div>
                     <strong>ธนาคาร:</strong> <?= $data['bank_name']; ?><br>
                     <strong>ชื่อบัญชี:</strong> <?= $data['bank_account_name']; ?><br>
                     <strong>เลขที่บัญชี:</strong> <span style="font-family: monospace; font-weight: bold; font-size: 13px;"><?= $data['bank_account_number']; ?></span>
@@ -1021,6 +1070,25 @@ if (!empty($tax['tax_date'])) {
         </div>
     </div>
 </div>
+</div>
+<?php endforeach; ?>
+
+<?php if (isset($_GET['updated']) && $_GET['updated'] === '1'): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    Swal.fire({
+        icon: 'success',
+        title: 'อัปเดตสำเร็จ',
+        text: 'บันทึกการแก้ไข Tax Invoice เรียบร้อยแล้ว',
+        confirmButtonText: 'ไปหน้ารายการ',
+        timer: 1500,
+        timerProgressBar: true
+    }).then(function () {
+        window.location.href = <?= json_encode(app_path('pages/tax-invoice-list.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    });
+});
+</script>
+<?php endif; ?>
 
 </body>
 </html>
