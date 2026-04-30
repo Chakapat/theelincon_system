@@ -23,7 +23,15 @@ if (isset($_GET['ajax_search'])) {
         foreach ($rows as $row): ?>
             <tr>
                 <td class="text-secondary small"><?= date('d/m/Y', strtotime($row['issue_date'])); ?></td>
-                <td><span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3"><?= $row['invoice_number']; ?></span></td>
+                <td><?php
+                    $hasTaxInv = !empty($row['has_tax_invoice']);
+                    $invBadgeClass = $hasTaxInv
+                        ? 'badge rounded-pill inv-badge-tax-issued px-3'
+                        : 'badge rounded-pill inv-badge-tax-pending px-3';
+                    $invBadgeTitle = $hasTaxInv ? 'ออกใบกำกับภาษีแล้ว' : 'ยังไม่ออกใบกำกับภาษี';
+                    ?>
+                    <span class="<?= htmlspecialchars($invBadgeClass, ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars($invBadgeTitle, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($row['invoice_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                </td>
                 <td class="fw-semibold">
                     <div class="d-flex align-items-center gap-2">
                         <?php
@@ -130,6 +138,19 @@ $stats = Portal::invoiceSummary();
         .home-menu-hub .home-hub-link i { opacity: 0.85; }
         /* หน้าแรก: บนมือถือให้ส่วนใบแจ้งหนี้อยู่ก่อนเมนูระบบ */
         .index-page-wrap { display: flex; flex-direction: column; }
+        /* เลขที่ใบแจ้งหนี้: สถานะใบกำกับภาษี */
+        .inv-badge-tax-pending {
+            background-color: rgba(220, 53, 69, 0.14);
+            color: #b02a37;
+            border: 1px solid rgba(220, 53, 69, 0.4);
+            font-weight: 600;
+        }
+        .inv-badge-tax-issued {
+            background-color: rgba(25, 135, 84, 0.14);
+            color: #0f5132;
+            border: 1px solid rgba(25, 135, 84, 0.4);
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -172,6 +193,7 @@ $stats = Portal::invoiceSummary();
             <div class="row align-items-stretch align-items-md-center g-3">
                 <div class="col-12 col-md-4 col-lg-5">
                     <h5 class="fw-bold mb-0 text-dark">รายการใบแจ้งหนี้</h5>
+                    <p class="small text-muted mb-0 mt-1">เลขที่: <span class="text-danger fw-semibold">แดง</span> = ยังไม่ออกใบกำกับ · <span class="text-success fw-semibold">เขียว</span> = ออกแล้ว</p>
                     <p class="small text-muted mb-0 mt-1 d-md-none">ค้นหาเลขที่หรือชื่อลูกค้า</p>
                 </div>
                 <div class="col-12 col-md-8 col-lg-7">

@@ -22,6 +22,18 @@ final class Portal
         $customers = Db::tableKeyed('customers');
         $users = Db::tableKeyed('users');
 
+        $invoiceIdsWithTax = [];
+        foreach (Db::tableRows('tax_invoices') as $tx) {
+            $iid = isset($tx['invoice_id']) ? (int) $tx['invoice_id'] : 0;
+            if ($iid <= 0) {
+                continue;
+            }
+            if (trim((string) ($tx['tax_invoice_number'] ?? '')) === '') {
+                continue;
+            }
+            $invoiceIdsWithTax[$iid] = true;
+        }
+
         $out = [];
         foreach ($invoices as $inv) {
             $cid = isset($inv['customer_id']) ? (string) $inv['customer_id'] : '';
@@ -45,6 +57,7 @@ final class Portal
             $ret = (float) ($inv['retention_amount'] ?? 0);
             $net = $sub + $vat - $wht - $ret;
             $full = $sub + $vat;
+            $invId = isset($inv['id']) ? (int) $inv['id'] : 0;
 
             $out[] = array_merge($inv, [
                 'net_pay' => $net,
@@ -52,6 +65,7 @@ final class Portal
                 'customer_name' => $custName,
                 'customer_logo' => $cust['logo'] ?? '',
                 'creator_name' => $creator,
+                'has_tax_invoice' => $invId > 0 && isset($invoiceIdsWithTax[$invId]),
             ]);
         }
 
