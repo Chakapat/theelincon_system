@@ -112,12 +112,101 @@ if (!function_exists('csrf_verify_request')) {
     }
 }
 
+if (!function_exists('normalized_user_role')) {
+    /**
+     * แปลง role ในฐานข้อมูล/เซสชันเป็นรหัสมาตรฐานตัวพิมพ์ใหญ่ (รองรับค่าเก่า admin, Accounting, user).
+     */
+    function normalized_user_role(?string $role): string
+    {
+        $r = strtoupper(trim((string) $role));
+
+        return $r === '' ? 'USER' : $r;
+    }
+}
+
+if (!function_exists('session_role_normalized')) {
+    function session_role_normalized(): string
+    {
+        return normalized_user_role(isset($_SESSION['role']) ? (string) $_SESSION['role'] : null);
+    }
+}
+
+if (!function_exists('user_is_admin_role')) {
+    /** CEO หรือ ADMIN (รวมค่าเก่า admin) */
+    function user_is_admin_role(): bool
+    {
+        $n = session_role_normalized();
+
+        return $n === 'CEO' || $n === 'ADMIN';
+    }
+}
+
+if (!function_exists('user_is_accounting_role')) {
+    function user_is_accounting_role(): bool
+    {
+        return session_role_normalized() === 'ACCOUNTING';
+    }
+}
+
+if (!function_exists('user_is_finance_role')) {
+    /** CEO, ADMIN หรือ ACCOUNTING — สิทธิ์ฝ่ายการเงิน/อนุมัติ */
+    function user_is_finance_role(): bool
+    {
+        $n = session_role_normalized();
+
+        return $n === 'CEO' || $n === 'ADMIN' || $n === 'ACCOUNTING';
+    }
+}
+
 if (!function_exists('user_can_edit_invoice')) {
     /** แอดมินหรือ Accounting แก้ไขใบแจ้งหนี้ได้ */
     function user_can_edit_invoice(): bool
     {
-        $r = (string) ($_SESSION['role'] ?? '');
-        return $r === 'admin' || $r === 'Accounting';
+        return user_is_finance_role();
+    }
+}
+
+if (!function_exists('member_user_code_prefix')) {
+    /** Prefix รหัสพนักงานอัตโนมัติ เช่น emptnc000 */
+    function member_user_code_prefix(): string
+    {
+        return 'emptnc';
+    }
+}
+
+if (!function_exists('next_sequential_member_user_code')) {
+    /**
+     * รหัสถัดไปจากเลขท้ายที่มีในระบบ (เช่น emptnc000–emptnc005 → emptnc006)
+     *
+     * @param array<int, array<string, mixed>> $userRows
+     */
+    function next_sequential_member_user_code(array $userRows, ?string $prefix = null): string
+    {
+        $prefix = $prefix ?? member_user_code_prefix();
+        $maxNum = -1;
+        $maxWidth = 3;
+        $re = '/^' . preg_quote($prefix, '/') . '(\d+)$/iu';
+        foreach ($userRows as $row) {
+            $code = trim((string) ($row['user_code'] ?? ''));
+            if ($code === '' || !preg_match($re, $code, $m)) {
+                continue;
+            }
+            $n = (int) $m[1];
+            $width = strlen($m[1]);
+            if ($width > $maxWidth) {
+                $maxWidth = $width;
+            }
+            if ($n > $maxNum) {
+                $maxNum = $n;
+            }
+        }
+        $next = $maxNum + 1;
+        if ($maxNum < 0) {
+            $next = 0;
+        }
+        $outW = max($maxWidth, strlen((string) $next));
+
+        return $prefix . str_pad((string) $next, $outW, '0', STR_PAD_LEFT);
     }
 }
 

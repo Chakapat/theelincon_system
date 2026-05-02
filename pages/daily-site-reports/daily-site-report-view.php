@@ -14,7 +14,6 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $userId = (int) $_SESSION['user_id'];
-$role = $_SESSION['role'] ?? '';
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if ($id <= 0) {
@@ -52,7 +51,7 @@ Db::sortRows($companiesAll, 'id', false);
 $companyFallback = $companiesAll[0] ?? [];
 
 $creator = (int) ($report['created_by'] ?? 0);
-$canEdit = ($creator === $userId || $role === 'admin');
+$canEdit = ($creator === $userId || user_is_admin_role());
 
 function dsr_esc(?string $s): string {
     return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');

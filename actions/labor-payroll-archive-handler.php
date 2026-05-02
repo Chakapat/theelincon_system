@@ -62,7 +62,18 @@ if (!$arch) {
     labor_archive_redirect($hist, ['err' => 1]);
 }
 
-$periodHalf = (int) ($arch['period_half'] ?? 1) === 2 ? 2 : 1;
+$ymPost = trim((string) ($_POST['period_ym'] ?? ''));
+$ymNew = preg_match('/^\d{4}-\d{2}$/', $ymPost) ? $ymPost : (string) ($arch['period_ym'] ?? date('Y-m'));
+$tsYm = strtotime($ymNew . '-01');
+if ($tsYm === false) {
+    labor_archive_redirect($hist, ['save_err' => 1, 'edit_open_id' => $aid]);
+}
+$halfNew = (int) ($_POST['period_half'] ?? 0) === 2 ? 2 : 1;
+$dim = (int) date('t', $tsYm);
+$startD = $halfNew === 1 ? 1 : 16;
+$endD = $halfNew === 1 ? min(15, $dim) : $dim;
+
+$periodHalf = $halfNew;
 $linesIn = $_POST['lines'] ?? [];
 if (!is_array($linesIn)) {
     $linesIn = [];
@@ -139,13 +150,17 @@ try {
     $sumNet = round($sumNet, 2);
 
     Db::mergeRow('labor_payroll_archive', (string) $aid, [
+        'period_ym' => $ymNew,
+        'period_half' => $halfNew,
+        'day_start' => $startD,
+        'day_end' => $endD,
         'total_gross' => $sumGross,
         'total_net' => $sumNet,
         'worker_count' => $wcount,
     ]);
 } catch (Throwable $e) {
-    labor_archive_redirect(app_path('pages/labor-payroll/labor-payroll-archive-edit.php'), ['id' => $aid, 'save_err' => 1]);
+    labor_archive_redirect($hist, ['save_err' => 1, 'edit_open_id' => $aid]);
     exit;
 }
 
-labor_archive_redirect(app_path('pages/labor-payroll/labor-payroll-archive-view.php'), ['id' => $aid, 'saved' => 1]);
+labor_archive_redirect($hist, ['saved' => 1, 'open_id' => $aid]);

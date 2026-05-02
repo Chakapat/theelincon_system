@@ -15,7 +15,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $me = (int) $_SESSION['user_id'];
-$isAdmin = isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+$isAdmin = user_is_admin_role();
 if (!$isAdmin) {
     header('Location: ' . app_path('index.php'));
     exit;
@@ -55,6 +55,33 @@ if ($printedBy === '') {
 }
 
 $users = Db::tableKeyed('users');
+
+// ยอดคงเหลือล่าสุด (สะสมทุกรายการ เรียงวันที่แล้ว id — ตรงกับรายการล่าสุดในระบบ)
+$latestBalanceAllTime = 0.0;
+$allLedgerChrono = [];
+foreach (Db::tableRows('cash_ledger') as $cAll) {
+    $edAll = (string) ($cAll['entry_date'] ?? '');
+    if ($edAll === '') {
+        continue;
+    }
+    $allLedgerChrono[] = $cAll;
+}
+usort(
+    $allLedgerChrono,
+    static function (array $a, array $b): int {
+        $cmp = strcmp((string) ($a['entry_date'] ?? ''), (string) ($b['entry_date'] ?? ''));
+        if ($cmp !== 0) {
+            return $cmp;
+        }
+
+        return (int) ($a['id'] ?? 0) <=> (int) ($b['id'] ?? 0);
+    }
+);
+foreach ($allLedgerChrono as $cAll) {
+    $amtAll = (float) ($cAll['amount'] ?? 0);
+    $latestBalanceAllTime += (($cAll['entry_type'] ?? '') === 'income') ? $amtAll : -$amtAll;
+}
+
 // ยอดยกมาต้นเดือน: คำนวณจากรายการก่อนหน้าเดือนที่เลือก
 $openingBalance = 0.0;
 foreach (Db::tableRows('cash_ledger') as $cPrev) {
@@ -259,8 +286,8 @@ $net = $sumIncome - $sumExpense;
                 <span class="fw-bold text-danger d-block">฿<?= number_format($sumExpense, 2) ?></span>
             </div>
             <div class="col-auto border rounded px-3 py-2 mx-1">
-                <span class="text-muted">คงเหลือ</span>
-                <span class="fw-bold d-block">฿<?= number_format($net, 2) ?></span>
+                <span class="text-muted">คงเหลือล่าสุด</span>
+                <span class="fw-bold d-block <?= $latestBalanceAllTime < 0 ? 'text-danger' : '' ?>">฿<?= number_format($latestBalanceAllTime, 2) ?></span>
             </div>
             <div class="col-auto border rounded px-3 py-2 mx-1">
                 <span class="text-muted">จำนวนรายการบันทึก</span>
@@ -284,8 +311,8 @@ $net = $sumIncome - $sumExpense;
         </div>
         <div class="col-md-4">
             <div class="card card-stats border-0 shadow-sm p-3 rounded-4" style="border-left-color: #0d6efd;">
-                <h6 class="text-muted mb-1 small">คงเหลือ (รายรับ − รายจ่าย)</h6>
-                <h3 class="fw-bold mb-0 <?= $net >= 0 ? 'text-dark' : 'text-danger' ?>">฿<?= number_format($net, 2) ?></h3>
+                <h6 class="text-muted mb-1 small">คงเหลือล่าสุด <span class="fw-normal">(สะสมทุกรายการ)</span></h6>
+                <h3 class="fw-bold mb-0 <?= $latestBalanceAllTime >= 0 ? 'text-dark' : 'text-danger' ?>">฿<?= number_format($latestBalanceAllTime, 2) ?></h3>
             </div>
         </div>
     </div>

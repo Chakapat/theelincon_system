@@ -15,7 +15,6 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $userId = (int) $_SESSION['user_id'];
-$role = $_SESSION['role'] ?? '';
 
 $action = $_POST['action'] ?? '';
 $listUrl = app_path('pages/daily-site-reports/daily-site-report-list.php');
@@ -137,7 +136,7 @@ if ($action === 'create' || $action === 'update') {
             dsr_redirect($listUrl . '?err=missing');
         }
         $creator = (int) ($existing['created_by'] ?? 0);
-        if ($creator !== $userId && $role !== 'admin') {
+        if ($creator !== $userId && !user_is_admin_role()) {
             dsr_redirect($listUrl . '?err=forbidden');
         }
 
@@ -246,7 +245,7 @@ if ($action === 'delete') {
         dsr_redirect($listUrl . '?err=missing');
     }
     $creator = (int) ($existing['created_by'] ?? 0);
-    if ($creator !== $userId && $role !== 'admin') {
+    if ($creator !== $userId && !user_is_admin_role()) {
         dsr_redirect($listUrl . '?err=forbidden');
     }
 

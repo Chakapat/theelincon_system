@@ -13,8 +13,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$pos = $_SESSION['role'] ?? 'user';
-$canManage = ($pos === 'admin' || $pos === 'Accounting');
+$canManage = user_is_finance_role();
 if (!$canManage) {
     header('Location: ' . app_path('pages/stock/stock-list.php'));
     exit();

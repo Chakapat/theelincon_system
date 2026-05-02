@@ -19,15 +19,26 @@ $head = null;
 $lines = [];
 
 if ($id > 0) {
-    $head = Db::rowByIdField('labor_payroll_archive', $id);
+    $head = Db::row('labor_payroll_archive', (string) $id)
+        ?? Db::rowByIdField('labor_payroll_archive', $id);
     if ($head) {
-        $aid = (int) ($head['id'] ?? 0);
-        foreach (Db::filter('labor_payroll_archive_lines', static fn ($r) => (int) ($r['archive_id'] ?? 0) === $aid) as $ln) {
+        $aid = (int) ($head['id'] ?? $id);
+        foreach (Db::tableRows('labor_payroll_archive_lines') as $ln) {
+            if (!is_array($ln)) {
+                continue;
+            }
+            $rawArch = $ln['archive_id'] ?? null;
+            if ($rawArch === null || $rawArch === '') {
+                continue;
+            }
+            if ((int) $rawArch !== $aid) {
+                continue;
+            }
             $lines[] = $ln;
         }
         usort(
             $lines,
-            static fn ($a, $b) => ((int) ($a['id'] ?? 0)) <=> ((int) ($b['id'] ?? 0))
+            static fn ($a, $b): int => ((int) ($a['line_no'] ?? $a['id'] ?? 0)) <=> ((int) ($b['line_no'] ?? $b['id'] ?? 0))
         );
         if (count($lines) === 0) {
             $lines = [['worker_id' => 0, 'worker_name' => '', 'days_present' => 0, 'ot_hours' => 0, 'daily_wage' => 0, 'advance_draw' => 0]];
@@ -35,16 +46,22 @@ if ($id > 0) {
     }
 }
 
-$halfLabel = '';
 $docDisplay = '';
+$navYm = date('Y-m');
+$navHalf = 1;
 if ($head) {
     $h = (int) ($head['period_half'] ?? 1);
-    $de = (int) ($head['day_end'] ?? 31);
-    $halfLabel = $h === 1 ? 'วันที่ 1–15' : ('วันที่ 16–' . $de);
     $dn = trim((string) ($head['doc_number'] ?? ''));
     $docDisplay = $dn !== '' ? $dn : ('#' . (int) ($head['id'] ?? 0));
+    $py = (string) ($head['period_ym'] ?? '');
+    if (preg_match('/^\d{4}-\d{2}$/', $py)) {
+        $navYm = $py;
+    }
+    $navHalf = $h === 2 ? 2 : 1;
 }
-$periodHalf = (int) ($head['period_half'] ?? 1) === 2 ? 2 : 1;
+$periodHalf = $head !== null && (int) ($head['period_half'] ?? 1) === 2 ? 2 : 1;
+$tsEdit = strtotime($navYm . '-01');
+$dimEdit = $tsEdit ? (int) date('t', $tsEdit) : 31;
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -66,9 +83,14 @@ $periodHalf = (int) ($head['period_half'] ?? 1) === 2 ? 2 : 1;
 
 <div class="container pb-5">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 mt-2">
-        <a href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll-history.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="bi bi-arrow-left me-1"></i>กลับประวัติ</a>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <a href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll-history.php') . '?month=' . urlencode($navYm) . '&half=' . (int) $navHalf, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="bi bi-arrow-left me-1"></i>กลับประวัติ</a>
+            <?php if ($head): ?>
+            <a href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php') . '?month=' . urlencode($navYm) . '&half=' . (int) $navHalf, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-primary rounded-pill" title="แก้บัตรตอกเดือนเดียวกับเอกสารนี้"><i class="bi bi-calendar3 me-1"></i>บัตรค่าแรงเดือนนี้</a>
+            <?php endif; ?>
+        </div>
         <?php if ($head): ?>
-        <a href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll-archive-view.php') . '?id=' . $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-primary rounded-pill"><i class="bi bi-eye me-1"></i>ดูรายละเอียด</a>
+        <a href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll-history.php') . '?month=' . urlencode($navYm) . '&half=' . (int) $navHalf . '&open_id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-primary rounded-pill"><i class="bi bi-eye me-1"></i>ดูรายละเอียด</a>
         <?php endif; ?>
     </div>
 
@@ -81,22 +103,39 @@ $periodHalf = (int) ($head['period_half'] ?? 1) === 2 ? 2 : 1;
     <?php else: ?>
         <h4 class="fw-bold mb-3"><i class="bi bi-pencil-square me-2 text-warning"></i>แก้ไขประวัติตัดยอด</h4>
 
-        <div class="card card-e mb-3">
-            <div class="card-body small">
-                <div class="row g-2">
-                    <div class="col-md-3"><span class="text-muted">เลขที่เอกสาร</span><br><strong class="font-monospace"><?= htmlspecialchars($docDisplay, ENT_QUOTES, 'UTF-8') ?></strong></div>
-                    <div class="col-md-3"><span class="text-muted">เดือน</span><br><strong><?= htmlspecialchars((string) $head['period_ym'], ENT_QUOTES, 'UTF-8') ?></strong></div>
-                    <div class="col-md-3"><span class="text-muted">บัตรตอก</span><br><strong><?= htmlspecialchars($halfLabel, ENT_QUOTES, 'UTF-8') ?></strong></div>
-                    <div class="col-md-3"><span class="text-muted">วันที่ตัดยอด (เดิม)</span><br><strong><?= htmlspecialchars(date('d/m/Y H:i', strtotime((string) $head['closed_at'])), ENT_QUOTES, 'UTF-8') ?></strong></div>
-                </div>
-                <p class="text-muted small mb-0 mt-2">ยอดรวม / จ่ายจริง จะคำนวณใหม่จากแต่ละแถวตามสูตรเดิม (หักเบิกล่วงหน้าเฉพาะรอบบัตร 16–สิ้นเดือน)</p>
-            </div>
-        </div>
-
         <form method="post" action="<?= htmlspecialchars($handler, ENT_QUOTES, 'UTF-8') ?>" id="formArchiveSave">
             <?php csrf_field(); ?>
             <input type="hidden" name="action" value="save">
             <input type="hidden" name="archive_id" value="<?= (int) $head['id'] ?>">
+
+            <div class="card card-e mb-3">
+                <div class="card-body small">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <span class="text-muted d-block mb-1">เลขที่เอกสาร</span>
+                            <strong class="font-monospace"><?= htmlspecialchars($docDisplay, ENT_QUOTES, 'UTF-8') ?></strong>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label mb-1" for="archivePeriodYm">เดือน (ปี-เดือน)</label>
+                            <input type="month" class="form-control form-control-sm" name="period_ym" id="archivePeriodYm" required
+                                   value="<?= htmlspecialchars($navYm, ENT_QUOTES, 'UTF-8') ?>"
+                                   min="2000-01" max="2099-12">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label mb-1" for="periodHalfSelect">งวดบัตรตอก</label>
+                            <select class="form-select form-select-sm" name="period_half" id="periodHalfSelect">
+                                <option value="1" <?= $periodHalf === 1 ? 'selected' : '' ?>>งวด 1–15</option>
+                                <option value="2" <?= $periodHalf === 2 ? 'selected' : '' ?>>งวด 16–<?= (int) $dimEdit ?> (สิ้นเดือน)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-muted d-block mb-1">วันที่ตัดยอด (เดิม)</span>
+                            <strong><?= htmlspecialchars(date('d/m/Y H:i', strtotime((string) $head['closed_at'])), ENT_QUOTES, 'UTF-8') ?></strong>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-0 mt-3">ยอดรวม / จ่ายจริง จะคำนวณใหม่จากแต่ละแถว — หักเบิกล่วงหน้าเฉพาะเมื่อเลือก <strong>งวด 16–สิ้นเดือน</strong> (ระบบอัปเดตวันสิ้นงวดตามปี-เดือนที่เลือกเมื่อบันทึก)</p>
+                </div>
+            </div>
 
             <div class="table-responsive card card-e">
                 <table class="table table-sm align-middle mb-0" id="lineTable">
@@ -164,8 +203,12 @@ $periodHalf = (int) ($head['period_half'] ?? 1) === 2 ? 2 : 1;
 
         <script>
         (function () {
-            const periodHalf = <?= (int) $periodHalf ?>;
             let idx = <?= count($lines) ?>;
+
+            function getPeriodHalf() {
+                const sel = document.getElementById('periodHalfSelect');
+                return sel && String(sel.value) === '2' ? 2 : 1;
+            }
 
             function parseNum(el) {
                 if (!el) return 0;
@@ -183,7 +226,7 @@ $periodHalf = (int) ($head['period_half'] ?? 1) === 2 ? 2 : 1;
                 const otRate = (daily / 8) * 1.5;
                 const gross = days * daily + ot * otRate;
                 let net = gross;
-                if (periodHalf === 2) net = gross - adv;
+                if (getPeriodHalf() === 2) net = gross - adv;
                 const g = tr.querySelector('.td-gross');
                 const n = tr.querySelector('.td-net');
                 if (g) g.textContent = fmt(gross);
@@ -192,6 +235,7 @@ $periodHalf = (int) ($head['period_half'] ?? 1) === 2 ? 2 : 1;
             function recalcAll() {
                 document.querySelectorAll('#lineBody .line-row').forEach(recalcRow);
             }
+            document.getElementById('periodHalfSelect')?.addEventListener('change', recalcAll);
             document.getElementById('lineBody')?.addEventListener('input', (e) => {
                 if (e.target.closest('.line-row')) recalcAll();
             });

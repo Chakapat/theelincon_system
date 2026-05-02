@@ -13,7 +13,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$is_admin = (isset($_SESSION['role']) && $_SESSION['role'] === 'admin');
+$is_admin = user_is_admin_role();
 
 $companies = Db::tableRows('company');
 Db::sortRows($companies, 'id', true);

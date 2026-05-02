@@ -11,8 +11,7 @@ if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
     exit;
 }
-$isFinanceRole = isset($_SESSION['role']) && in_array((string) $_SESSION['role'], ['admin', 'Accounting'], true);
-if (!$isFinanceRole) {
+if (!user_is_finance_role()) {
     header('Location: ' . app_path('index.php'));
     exit;
 }
@@ -70,7 +69,7 @@ usort($users, static function (array $a, array $b): int {
                             }
                             $name = trim((string) ($u['fname'] ?? '') . ' ' . (string) ($u['lname'] ?? ''));
                             if ($name === '') {
-                                $name = (string) ($u['nickname'] ?? ('USER #' . $uid));
+                                $name = trim((string) ($u['user_code'] ?? '')) ?: ('USER #' . $uid);
                             }
                             ?>
                             <option value="<?= $uid ?>" <?= $uid === $me ? 'selected' : '' ?>><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></option>

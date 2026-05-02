@@ -13,13 +13,11 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$role = (string) ($_SESSION['role'] ?? '');
-$allowed = in_array($role, ['admin', 'Accounting'], true);
-if (!$allowed) {
+if (!user_is_finance_role()) {
     http_response_code(403);
     exit('Access denied');
 }
-$isAdmin = $role === 'admin';
+$isAdmin = user_is_admin_role();
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['delete_attendance_id'])) {
     if (!$isAdmin) {

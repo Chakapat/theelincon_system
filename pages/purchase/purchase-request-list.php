@@ -13,8 +13,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$user_role = $_SESSION['role'] ?? 'user';
-$canApprovePr = in_array((string) $user_role, ['admin', 'Accounting'], true);
+$canApprovePr = user_is_finance_role();
 $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 
 $users = Db::tableKeyed('users');
@@ -172,7 +171,7 @@ Db::sortRows($pr_rows, 'created_at', true);
                                         <?php endif; ?>
                                     <?php endif; ?>
 
-                                    <?php if ($user_role === 'admin'): ?>
+                                    <?php if (user_is_admin_role()): ?>
                                         <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete_pr&id=<?= $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" 
                                            class="btn btn-sm btn-white text-secondary border" 
                                            onclick="return confirm('ยืนยันการลบข้อมูลถาวร?')">

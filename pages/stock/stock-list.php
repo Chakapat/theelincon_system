@@ -13,8 +13,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$pos = $_SESSION['role'] ?? 'user';
-$canManage = ($pos === 'admin' || $pos === 'Accounting');
+$canManage = user_is_finance_role();
 $siteId = isset($_GET['site_id']) ? (int) $_GET['site_id'] : 0;
 $dateFrom = trim((string) ($_GET['date_from'] ?? ''));
 $dateTo = trim((string) ($_GET['date_to'] ?? ''));

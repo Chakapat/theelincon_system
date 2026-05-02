@@ -35,13 +35,31 @@ $workerRows = Db::filter('labor_workers', static function (array $w) use ($selec
     }
     return (int) ($w['group_id'] ?? 0) === $selectedGroupId;
 });
-usort($workerRows, static function (array $a, array $b): int {
+/** ลำดับการบันทึกในเดือนนี้ (เดียวกับบัตรค่าแรง) — labor_month_sheet_workers.sort_order */
+$sheetSortByWorkerId = [];
+foreach (Db::filter('labor_month_sheet_workers', static fn (array $r): bool => (string) ($r['year_month'] ?? '') === $ym) as $r) {
+    $wid = (int) ($r['worker_id'] ?? 0);
+    if ($wid > 0) {
+        $sheetSortByWorkerId[$wid] = (int) ($r['sort_order'] ?? 0);
+    }
+}
+usort($workerRows, static function (array $a, array $b) use ($sheetSortByWorkerId): int {
     $ga = (int) ($a['group_id'] ?? 0);
     $gb = (int) ($b['group_id'] ?? 0);
     if ($ga !== $gb) {
         return $ga <=> $gb;
     }
-    return strcmp((string) ($a['full_name'] ?? ''), (string) ($b['full_name'] ?? ''));
+    $ida = (int) ($a['id'] ?? 0);
+    $idb = (int) ($b['id'] ?? 0);
+    // ไม่มีแถวใน labor_month_sheet_workers เดือนนี้ → ไว้ท้ายรายการ เรียงตาม id
+    $missingRank = 1_000_000;
+    $sa = $sheetSortByWorkerId[$ida] ?? ($missingRank + $ida);
+    $sb = $sheetSortByWorkerId[$idb] ?? ($missingRank + $idb);
+    if ($sa !== $sb) {
+        return $sa <=> $sb;
+    }
+
+    return $ida <=> $idb;
 });
 ?>
 <!DOCTYPE html>
@@ -63,12 +81,22 @@ usort($workerRows, static function (array $a, array $b): int {
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-3 pb-5">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
             <h5 class="fw-bold mb-0"><i class="bi bi-people me-2 text-primary"></i>จัดการกลุ่มและคนงาน</h5>
-            <div class="text-muted small">สร้างกลุ่ม / เพิ่มคนงานใหม่</div>
+            <div class="text-muted small">สร้างกลุ่ม / เพิ่มคนงานใหม่ — เลือกเดือนให้ตรงกับบัตรค่าแรงที่จะแก้</div>
         </div>
-        <a href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php') . '?month=' . urlencode($ym) . '&half=' . $half, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="bi bi-arrow-left me-1"></i>กลับหน้าบัตรค่าแรง</a>
+        <div class="d-flex flex-column align-items-end gap-2">
+            <?php
+            $laborPeriodYm = $ym;
+            $laborPeriodHalf = $half;
+            $laborPeriodAction = app_path('pages/labor-payroll/labor-worker-manage.php');
+            $laborPeriodPreserve = $selectedGroupId > 0 ? ['group_id' => $selectedGroupId] : [];
+            $laborPeriodInputId = 'laborManageMonth';
+            include dirname(__DIR__, 2) . '/components/labor-period-selector.php';
+            ?>
+            <a href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php') . '?month=' . urlencode($ym) . '&half=' . $half, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="bi bi-arrow-left me-1"></i>กลับหน้าบัตรค่าแรง</a>
+        </div>
     </div>
 
     <div class="row g-3 align-items-stretch">
@@ -131,6 +159,44 @@ usort($workerRows, static function (array $a, array $b): int {
                     </form>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-3 mt-3">
+        <div class="card-body">
+            <div class="small fw-semibold mb-2"><i class="bi bi-filetype-csv me-1 text-secondary"></i>นำเข้าจากไฟล์ CSV</div>
+            <form method="post" action="<?= htmlspecialchars($handler, ENT_QUOTES, 'UTF-8') ?>" enctype="multipart/form-data" class="row g-2 align-items-end">
+                <?php csrf_field(); ?>
+                <input type="hidden" name="action" value="import_workers_csv">
+                <input type="hidden" name="year_month" value="<?= htmlspecialchars($ym, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="half" value="<?= (int) $half ?>">
+                <input type="hidden" name="return_to" value="manage">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">กลุ่ม (นำเข้าเข้ากลุ่มนี้)</label>
+                    <select class="form-select form-select-sm" name="group_id" required>
+                        <option value="">เลือกกลุ่ม</option>
+                        <?php foreach ($workerGroups as $g): ?>
+                            <?php $gid = (int) ($g['id'] ?? 0); ?>
+                            <option value="<?= $gid ?>" <?= $selectedGroupId === $gid && $selectedGroupId > 0 ? 'selected' : '' ?>><?= htmlspecialchars((string) ($g['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">เพศ (ทุกแถว)</label>
+                    <select class="form-select form-select-sm" name="import_gender">
+                        <option value="ชาย">ชาย</option>
+                        <option value="หญิง">หญิง</option>
+                        <option value="อื่นๆ">อื่นๆ</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">ไฟล์ .csv</label>
+                    <input type="file" name="workers_csv" class="form-control form-control-sm" accept=".csv,text/csv,text/plain" required>
+                </div>
+                <div class="col-md-3 text-md-end">
+                    <button type="submit" class="btn btn-sm btn-success rounded-pill px-3"><i class="bi bi-upload me-1"></i>นำเข้า</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -256,6 +322,15 @@ usort($workerRows, static function (array $a, array $b): int {
     if (params.get('worker_err') === 'name') toast('warning', 'กรุณากรอกชื่อคนงาน');
     if (params.get('worker_err') === 'group') toast('warning', 'กรุณาเลือกกลุ่มคนงานที่ต้องการ');
     if (params.get('worker_err') === 'missing') toast('warning', 'ไม่พบข้อมูลคนงานที่ต้องการแก้ไข');
+    var csvImported = params.get('csv_imported');
+    if (csvImported) {
+        var sk = params.get('csv_skipped') || '0';
+        toast('success', 'นำเข้า ' + csvImported + ' คนแล้ว' + (Number(sk) > 0 ? ' (ข้ามแถวไม่สมบูรณ์: ' + sk + ')' : ''));
+    }
+    if (params.get('csv_err') === 'group') toast('warning', 'กรุณาเลือกกลุ่มก่อนนำเข้า');
+    if (params.get('csv_err') === 'file') toast('warning', 'อัปโหลดไฟล์ไม่สำเร็จ');
+    if (params.get('csv_err') === 'empty') toast('warning', 'ไฟล์ว่างหรืออ่านไม่ได้');
+    if (params.get('csv_err') === 'norows') toast('warning', 'ไม่มีแถวข้อมูลที่นำเข้าได้ (ตรวจสอบคอลัมน์ชื่อและค่าแรง)');
 
     document.querySelectorAll('.btn-edit-worker').forEach(function (btn) {
         btn.addEventListener('click', async function () {

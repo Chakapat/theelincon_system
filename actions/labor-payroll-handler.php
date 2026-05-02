@@ -47,6 +47,107 @@ function labor_payroll_group_name_normalize(string $name): string
     return substr($name, 0, 120);
 }
 
+function labor_payroll_max_sort_order_for_month(string $ym): int
+{
+    $max = 0;
+    foreach (Db::filter('labor_month_sheet_workers', static fn (array $r): bool => (string) ($r['year_month'] ?? '') === $ym) as $r) {
+        $max = max($max, (int) ($r['sort_order'] ?? 0));
+    }
+
+    return $max;
+}
+
+/** แถวหัวตาราง CSV — พิจารณาเฉพาะบรรทัดแรกของไฟล์ (กันชื่อคนงานที่มีคำว่า "ชื่อ") */
+function labor_payroll_csv_row_is_header(array $cells, bool $isFirstLineOfFile): bool
+{
+    if (!$isFirstLineOfFile) {
+        return false;
+    }
+    $a = trim((string) ($cells[0] ?? ''));
+    $b = trim((string) ($cells[1] ?? ''));
+    if ($a === '' && $b === '') {
+        return true;
+    }
+    $lowerA = function_exists('mb_strtolower') ? mb_strtolower($a, 'UTF-8') : strtolower($a);
+    $nameHeaders = ['ชื่อ', 'ชื่อ-สกุล', 'name', 'fullname', 'full_name'];
+    if (in_array($lowerA, $nameHeaders, true)) {
+        return true;
+    }
+    $lowerB = function_exists('mb_strtolower') ? mb_strtolower($b, 'UTF-8') : strtolower($b);
+    if ($b !== '' && (str_contains($lowerB, 'ค่าแรง') || str_contains($lowerB, 'wage') || str_contains($lowerB, 'daily'))) {
+        return true;
+    }
+    if ($b !== '') {
+        $num = str_replace([',', ' '], '', $b);
+        if (!is_numeric($num)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/** เลือกตัวคั่นจากหลายบรรทัดแรก (บรรทัดหัวบริษัทมักมีคอมมาน้อย) */
+function labor_payroll_csv_detect_delimiter(array $lines): string
+{
+    $commaScore = 0;
+    $semiScore = 0;
+    foreach (array_slice($lines, 0, 30) as $ln) {
+        $commaScore += substr_count((string) $ln, ',');
+        $semiScore += substr_count((string) $ln, ';');
+    }
+
+    return $semiScore > $commaScore ? ';' : ',';
+}
+
+/**
+ * ตารางค่าแรงจาก Excel (หัวหลายแถว + คอลัมน์ เลขที่ | ชื่อ | วัน | ค่าแรง/วัน | ...)
+ * หัวคอลัมน์ "ชื่อ" กับ "ค่าแรง/วัน" อาจอยู่คนละบรรทัดเมื่อมีแถวผสานเซลล์
+ *
+ * @return array{nameCol:int,wageCol:int,firstDataRow:int}|null
+ */
+function labor_payroll_csv_detect_excel_payroll_layout(array $lines, string $delimiter): ?array
+{
+    $nameCol = null;
+    $nameHeaderLine = -1;
+    $wageCol = null;
+    $wageHeaderLine = -1;
+
+    foreach ($lines as $idx => $line) {
+        $cells = str_getcsv((string) $line, $delimiter);
+        foreach ($cells as $i => $raw) {
+            $v = trim((string) $raw);
+            if ($v === '') {
+                continue;
+            }
+            $lv = function_exists('mb_strtolower') ? mb_strtolower($v, 'UTF-8') : strtolower($v);
+            if (($v === 'ชื่อ' || $lv === 'name') && $nameCol === null) {
+                $nameCol = $i;
+                $nameHeaderLine = $idx;
+            }
+            if (str_contains($v, 'ค่าแรง') && (str_contains($v, 'วัน') || str_contains($v, '/'))) {
+                $wageCol = $i;
+                $wageHeaderLine = $idx;
+            }
+        }
+    }
+
+    if ($nameCol !== null && $wageCol !== null && $wageCol > $nameCol) {
+        $lastHeader = max($nameHeaderLine, $wageHeaderLine);
+
+        return ['nameCol' => $nameCol, 'wageCol' => $wageCol, 'firstDataRow' => $lastHeader + 1];
+    }
+
+    // พบแถว "ชื่อ" อย่างเดียว — โครงสร้างมาตรฐาน Excel: ชื่อ (B) แล้ววัน (C) แล้วค่าแรง/วัน (D)
+    if ($nameCol !== null && $nameHeaderLine >= 0) {
+        $guessWage = $nameCol + 2;
+
+        return ['nameCol' => $nameCol, 'wageCol' => $guessWage, 'firstDataRow' => $nameHeaderLine + 1];
+    }
+
+    return null;
+}
+
 if ($action === 'create_group') {
     $back = labor_payroll_back_base((string) ($_POST['return_to'] ?? ''));
     $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_POST['year_month'] ?? '')) ? (string) $_POST['year_month'] : date('Y-m');
@@ -120,10 +221,7 @@ if ($action === 'create_worker') {
         'created_at' => date('Y-m-d H:i:s'),
     ]);
 
-    $sort = 0;
-    foreach (Db::filter('labor_month_sheet_workers', static fn ($r) => (string) ($r['year_month'] ?? '') === $ym) as $r) {
-        $sort = max($sort, (int) ($r['sort_order'] ?? 0) + 1);
-    }
+    $sort = labor_payroll_max_sort_order_for_month($ym) + 1;
     Db::setRow('labor_month_sheet_workers', Db::compositeKey([$ym, (string) $wid]), [
         'year_month' => $ym,
         'worker_id' => $wid,
@@ -137,6 +235,135 @@ if ($action === 'create_worker') {
     ]);
 
     labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'worker_created' => 1]);
+}
+
+if ($action === 'import_workers_csv') {
+    $back = labor_payroll_back_base((string) ($_POST['return_to'] ?? ''));
+    $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_POST['year_month'] ?? '')) ? (string) $_POST['year_month'] : date('Y-m');
+    $half = (int) ($_POST['half'] ?? 1) === 2 ? 2 : 1;
+    $groupFilter = (int) ($_POST['group_id'] ?? 0);
+    $gender = trim((string) ($_POST['import_gender'] ?? 'ชาย'));
+    if (!in_array($gender, ['ชาย', 'หญิง', 'อื่นๆ'], true)) {
+        $gender = 'ชาย';
+    }
+
+    if ($groupFilter <= 0) {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'group']);
+    }
+    $groupRow = Db::rowByIdField('labor_worker_groups', $groupFilter);
+    if (!$groupRow || empty($groupRow['is_active'])) {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'group']);
+    }
+
+    if (empty($_FILES['workers_csv']) || (int) ($_FILES['workers_csv']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'file']);
+    }
+    $f = $_FILES['workers_csv'];
+    $tmp = (string) ($f['tmp_name'] ?? '');
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'file']);
+    }
+    $raw = file_get_contents($tmp);
+    if ($raw === false || $raw === '') {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'empty']);
+    }
+    if (str_starts_with($raw, "\xEF\xBB\xBF")) {
+        $raw = substr($raw, 3);
+    }
+    $lines = preg_split('/\r\n|\r|\n/', $raw);
+    $lines = array_values(array_filter($lines, static fn (string $ln): bool => trim($ln) !== ''));
+    if (count($lines) === 0) {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'empty']);
+    }
+
+    $delimiter = labor_payroll_csv_detect_delimiter($lines);
+    $excelLayout = labor_payroll_csv_detect_excel_payroll_layout($lines, $delimiter);
+    $nameCol = 0;
+    $wageCol = 1;
+    $loopStart = 0;
+    if ($excelLayout !== null) {
+        $nameCol = $excelLayout['nameCol'];
+        $wageCol = $excelLayout['wageCol'];
+        $loopStart = $excelLayout['firstDataRow'];
+    }
+
+    $maxImports = 800;
+    $imported = 0;
+    $skipped = 0;
+    $nextSort = labor_payroll_max_sort_order_for_month($ym) + 1;
+
+    for ($idx = $loopStart; $idx < count($lines); ++$idx) {
+        $line = $lines[$idx];
+        $cells = str_getcsv($line, $delimiter);
+        if ($excelLayout === null && $idx === 0 && labor_payroll_csv_row_is_header($cells, true)) {
+            continue;
+        }
+        $workerName = trim((string) ($cells[$nameCol] ?? ''));
+        if (function_exists('mb_substr')) {
+            $workerName = mb_substr($workerName, 0, 200, 'UTF-8');
+        } else {
+            $workerName = substr($workerName, 0, 200);
+        }
+        $wageRaw = trim((string) ($cells[$wageCol] ?? ''));
+        $dailyWage = (float) str_replace([',', ' '], '', $wageRaw);
+        if ($dailyWage < 0) {
+            $dailyWage = 0;
+        }
+        $lvName = function_exists('mb_strtolower') ? mb_strtolower($workerName, 'UTF-8') : strtolower($workerName);
+        if ($workerName === '' || $workerName === 'ชื่อ' || $lvName === 'name') {
+            ++$skipped;
+            continue;
+        }
+        if ($wageRaw === '' || !is_numeric(str_replace([',', ' '], '', $wageRaw))) {
+            ++$skipped;
+            continue;
+        }
+        // แถวสรุป / หัวซ้ำ
+        $firstCell = trim((string) ($cells[0] ?? ''));
+        $lvFirst = function_exists('mb_strtolower') ? mb_strtolower($firstCell, 'UTF-8') : strtolower($firstCell);
+        if (str_contains($lvFirst, 'รวม') || str_contains($lvFirst, 'total')) {
+            ++$skipped;
+            continue;
+        }
+
+        $wid = Db::nextNumericId('labor_workers');
+        Db::setRow('labor_workers', (string) $wid, [
+            'id' => $wid,
+            'full_name' => $workerName,
+            'group_id' => $groupFilter,
+            'gender' => $gender,
+            'default_daily_wage' => $dailyWage,
+            'is_active' => 1,
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+        Db::setRow('labor_month_sheet_workers', Db::compositeKey([$ym, (string) $wid]), [
+            'year_month' => $ym,
+            'worker_id' => $wid,
+            'sort_order' => $nextSort,
+        ]);
+        ++$nextSort;
+        Db::setRow('labor_worker_month_settings', Db::compositeKey([(string) $wid, $ym]), [
+            'worker_id' => $wid,
+            'year_month' => $ym,
+            'daily_wage' => $dailyWage,
+            'advance_draw' => 0,
+        ]);
+        ++$imported;
+        if ($imported >= $maxImports) {
+            break;
+        }
+    }
+
+    if ($imported === 0) {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'norows']);
+    }
+    labor_payroll_redirect($back, [
+        'month' => $ym,
+        'half' => $half,
+        'group_id' => $groupFilter,
+        'csv_imported' => $imported,
+        'csv_skipped' => $skipped,
+    ]);
 }
 
 if ($action === 'update_worker') {
@@ -219,9 +446,11 @@ if ($action === 'remove_row') {
     labor_payroll_redirect($back, ['month' => $ym, 'half' => (int) ($_POST['half'] ?? 1) === 2 ? 2 : 1]);
 }
 
-if ($action !== 'save') {
+if (!in_array($action, ['save', 'save_draft'], true)) {
     labor_payroll_redirect($back, []);
 }
+
+$wantClose = ($action === 'save');
 
 $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_POST['year_month'] ?? '')) ? $_POST['year_month'] : date('Y-m');
 $half = (int) ($_POST['half'] ?? 1) === 2 ? 2 : 1;
@@ -245,21 +474,25 @@ if (function_exists('mb_substr')) {
     $groupContextName = substr($groupContextName, 0, 160);
 }
 
-$wantClose = true;
-if ($wantClose) {
-    $hasAnyWorker = false;
-    foreach ($workersIn as $rw) {
-        if (!is_array($rw)) {
-            continue;
-        }
-        if ((int) ($rw['id'] ?? 0) > 0 || trim((string) ($rw['new_name'] ?? '')) !== '') {
-            $hasAnyWorker = true;
-            break;
-        }
+$payrollPeriodNote = trim((string) ($_POST['payroll_period_note'] ?? ''));
+if (function_exists('mb_substr')) {
+    $payrollPeriodNote = mb_substr($payrollPeriodNote, 0, 2000, 'UTF-8');
+} else {
+    $payrollPeriodNote = substr($payrollPeriodNote, 0, 2000);
+}
+
+$hasAnyWorker = false;
+foreach ($workersIn as $rw) {
+    if (!is_array($rw)) {
+        continue;
     }
-    if (!$hasAnyWorker) {
-        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'close_err' => 'empty']);
+    if ((int) ($rw['id'] ?? 0) > 0 || trim((string) ($rw['new_name'] ?? '')) !== '') {
+        $hasAnyWorker = true;
+        break;
     }
+}
+if (!$hasAnyWorker) {
+    labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'close_err' => 'empty']);
 }
 
 $dateFrom = $ym . '-' . str_pad((string) $startD, 2, '0', STR_PAD_LEFT);
@@ -320,27 +553,27 @@ try {
             'advance_draw' => $adv,
         ]);
 
-        $days = $row['days'] ?? [];
-        if (!is_array($days)) {
-            $days = [];
+        $periodLen = $endD - $startD + 1;
+        $aggDays = (int) str_replace(',', '', (string) ($row['days_present'] ?? 0));
+        if ($aggDays < 0) {
+            $aggDays = 0;
         }
-        $dayCount = 0;
-        $otSum = 0.0;
+        if ($aggDays > $periodLen) {
+            $aggDays = $periodLen;
+        }
+        $otSum = (float) str_replace(',', '', (string) ($row['ot_total'] ?? 0));
+        if ($otSum < 0) {
+            $otSum = 0;
+        }
+        $otSum = round($otSum, 2);
+        $dayCount = $aggDays;
+        if ($dayCount === 0) {
+            $otSum = 0.0;
+        }
+        $lastPresentD = $dayCount > 0 ? $startD + $dayCount - 1 : $startD - 1;
         for ($d = $startD; $d <= $endD; $d++) {
-            $cell = $days[(string) $d] ?? ($days[$d] ?? null);
-            $present = 0;
-            $ot = 0.0;
-            if (is_array($cell)) {
-                $present = !empty($cell['p']) ? 1 : 0;
-                $ot = (float) str_replace(',', '', (string) ($cell['ot'] ?? 0));
-                if ($ot < 0) {
-                    $ot = 0;
-                }
-            }
-            if ($present) {
-                $dayCount++;
-            }
-            $otSum += $ot;
+            $present = ($dayCount > 0 && $d <= $lastPresentD) ? 1 : 0;
+            $ot = ($present && $d === $lastPresentD) ? $otSum : 0.0;
             $dateStr = $ym . '-' . str_pad((string) $d, 2, '0', STR_PAD_LEFT);
             Db::setRow('labor_attendance_days', Db::compositeKey([(string) $wid, $dateStr]), [
                 'worker_id' => $wid,
@@ -378,6 +611,14 @@ try {
 
         $sort++;
     }
+
+    $notePk = Db::compositeKey([$ym, (string) $half]);
+    Db::setRow('labor_payroll_period_notes', $notePk, [
+        'year_month' => $ym,
+        'period_half' => $half,
+        'note' => $payrollPeriodNote,
+        'updated_at' => date('Y-m-d H:i:s'),
+    ]);
 
     if (count($postedWorkerIds) === 0) {
         foreach (Db::tableKeyed('labor_month_sheet_workers') as $pk => $row) {
@@ -445,6 +686,9 @@ try {
         if ($closedBy > 0) {
             $archRow['closed_by'] = $closedBy;
         }
+        if ($payrollPeriodNote !== '') {
+            $archRow['period_note'] = $payrollPeriodNote;
+        }
         Db::setRow('labor_payroll_archive', (string) $archiveId, $archRow);
 
         $lineBase = Db::nextNumericId('labor_payroll_archive_lines');
@@ -496,6 +740,7 @@ try {
                 Db::deleteRow('labor_month_sheet_workers', (string) $pk);
             }
         }
+        Db::deleteRow('labor_payroll_period_notes', $notePk);
     }
 } catch (Throwable $e) {
     labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'save_err' => 1]);
@@ -506,4 +751,4 @@ if ($wantClose) {
     labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'reset' => 1]);
 }
 
-labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'saved' => 1]);
+labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'draft_saved' => 1]);

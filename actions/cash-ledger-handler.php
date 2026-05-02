@@ -14,7 +14,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $me = (int) $_SESSION['user_id'];
-$isAdmin = (isset($_SESSION['role']) && $_SESSION['role'] === 'admin');
+$isAdmin = user_is_admin_role();
 $back = app_path('pages/cash-ledger/cash-ledger.php');
 $action = $_REQUEST['action'] ?? '';
 

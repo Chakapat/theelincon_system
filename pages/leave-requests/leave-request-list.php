@@ -13,7 +13,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $me = (int) $_SESSION['user_id'];
-$isAdmin = isset($_SESSION['role']) && (string) $_SESSION['role'] === 'admin';
+$isAdmin = user_is_admin_role();
 $showAll = $isAdmin && isset($_GET['scope']) && (string) $_GET['scope'] === 'all';
 $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 $users = Db::tableKeyed('users');

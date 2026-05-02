@@ -12,7 +12,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$isFinanceRole = isset($_SESSION['role']) && in_array((string) $_SESSION['role'], ['admin', 'Accounting'], true);
+$isFinanceRole = user_is_finance_role();
 if (!$isFinanceRole) {
     header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php'));
     exit;
@@ -25,7 +25,10 @@ if ($row === null) {
     exit;
 }
 if ((string) ($row['receipt_status'] ?? 'none') !== 'issued') {
-    header('Location: ' . app_path('pages/advance-cash/advance-cash-view.php') . '?id=' . $id . '&error=receipt_not_issued');
+    header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php') . '?' . http_build_query([
+        'open_id' => $id,
+        'error' => 'receipt_not_issued',
+    ]));
     exit;
 }
 
@@ -153,7 +156,7 @@ $isSlipImage = in_array($slipExt, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'], 
 <body>
 <div class="no-print">
     <button onclick="window.print()" class="btn btn-success btn-sm px-4">พิมพ์ใบเสร็จ</button>
-    <a href="<?= htmlspecialchars(app_path('pages/advance-cash/advance-cash-view.php') . '?id=' . $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-light btn-sm ms-2">กลับหน้ารายละเอียด</a>
+    <a href="<?= htmlspecialchars(app_path('pages/advance-cash/advance-cash-list.php') . '?' . http_build_query(['open_id' => $id]), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-light btn-sm ms-2">กลับรายการ</a>
 </div>
 
 <div class="sheet">

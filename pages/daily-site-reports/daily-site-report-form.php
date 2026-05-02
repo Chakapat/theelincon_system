@@ -16,7 +16,6 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $userId = (int) $_SESSION['user_id'];
-$role = $_SESSION['role'] ?? '';
 
 $projectOptions = daily_site_report_project_options();
 $companies = Db::tableRows('company');
@@ -33,7 +32,7 @@ if ($id > 0) {
         exit;
     }
     $creator = (int) ($report['created_by'] ?? 0);
-    if ($creator !== $userId && $role !== 'admin') {
+    if ($creator !== $userId && !user_is_admin_role()) {
         header('Location: ' . app_path('pages/daily-site-reports/daily-site-report-list.php') . '?err=forbidden');
         exit;
     }

@@ -13,7 +13,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$isAdmin = (($_SESSION['role'] ?? '') === 'admin');
+$isAdmin = user_is_admin_role();
 $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 
 $suppliers = Db::tableKeyed('suppliers');

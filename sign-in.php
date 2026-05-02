@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($password_ok) {
             $_SESSION['user_id'] = (int) ($user['userid'] ?? 0);
             $_SESSION['name'] = trim((string) (($user['fname'] ?? '') . ' ' . ($user['lname'] ?? '')));
-            $_SESSION['role'] = (string) ($user['role'] ?? 'user');
+            $_SESSION['role'] = (string) ($user['role'] ?? 'USER');
             unset($_SESSION['position']);
             $login_status = 'success';
         } else {

@@ -14,8 +14,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
-$userRole = (string) ($_SESSION['role'] ?? 'user');
-$canApprovePr = in_array($userRole, ['admin', 'Accounting'], true);
+$canApprovePr = user_is_finance_role();
 
 $pr_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 

@@ -127,10 +127,12 @@ if ($action !== 'get_data' && !csrf_verify_request()) {
     exit('Invalid security token. Please refresh the page and try again.');
 }
 
-$user_role = $_SESSION['role'] ?? 'user';
-
-$admin_actions = ['approve_pr', 'reject_pr', 'delete', 'delete_quotation', 'delete_pr', 'delete_leave_request', 'delete_purchase_need', 'add_member', 'edit_member', 'delete_supplier'];
-if (in_array($action, $admin_actions, true) && $user_role !== 'admin') {
+$finance_ok_actions = ['approve_pr', 'reject_pr'];
+$admin_only_actions = ['delete', 'delete_quotation', 'delete_pr', 'delete_leave_request', 'delete_purchase_need', 'add_member', 'edit_member', 'delete_supplier'];
+if (in_array($action, $finance_ok_actions, true) && !user_is_finance_role()) {
+    exit('Access Denied: เฉพาะฝ่ายการเงินหรือผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
+}
+if (in_array($action, $admin_only_actions, true) && !user_is_admin_role()) {
     exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
 }
 
@@ -279,7 +281,7 @@ if ($action === 'delete_supplier') {
 
 // --- Advance cash ---
 if (in_array($action, ['save_advance_cash_request', 'approve_advance_cash_request', 'reject_advance_cash_request', 'save_advance_cash_receipt', 'delete_advance_cash_request'], true)) {
-    $isFinanceRole = in_array((string) ($_SESSION['role'] ?? ''), ['admin', 'Accounting'], true);
+    $isFinanceRole = user_is_finance_role();
     if (!$isFinanceRole) {
         exit('Access Denied: เฉพาะฝ่ายการเงิน/ผู้ดูแลระบบเท่านั้น');
     }
@@ -343,7 +345,10 @@ if (($action === 'approve_advance_cash_request' || $action === 'reject_advance_c
         'line_approval_token' => '',
         'updated_at' => date('Y-m-d H:i:s'),
     ]));
-    header('Location: ' . app_path('pages/advance-cash/advance-cash-view.php') . '?id=' . $id . '&' . ($isApprove ? 'approved=1' : 'rejected=1'));
+    header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php') . '?' . http_build_query([
+        'open_id' => $id,
+        $isApprove ? 'approved' : 'rejected' => '1',
+    ]));
     exit;
 }
 
@@ -354,13 +359,20 @@ if ($action === 'save_advance_cash_receipt' && ($_SERVER['REQUEST_METHOD'] ?? ''
         exit;
     }
     if ((string) ($row['status'] ?? '') !== 'approved') {
-        header('Location: ' . app_path('pages/advance-cash/advance-cash-view.php') . '?id=' . $id . '&error=receipt_requires_approved');
+        header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php') . '?' . http_build_query([
+            'open_id' => $id,
+            'error' => 'receipt_requires_approved',
+        ]));
         exit;
     }
     $receiptDate = trim((string) ($_POST['receipt_date'] ?? ''));
     $paymentMethod = trim((string) ($_POST['receipt_payment_method'] ?? ''));
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $receiptDate) || !in_array($paymentMethod, ['cash', 'transfer'], true)) {
-        header('Location: ' . app_path('pages/advance-cash/advance-cash-receipt.php') . '?id=' . $id . '&error=invalid_input');
+        header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php') . '?' . http_build_query([
+            'open_id' => $id,
+            'open_receipt' => '1',
+            'error' => 'invalid_input',
+        ]));
         exit;
     }
 
@@ -371,7 +383,11 @@ if ($action === 'save_advance_cash_receipt' && ($_SERVER['REQUEST_METHOD'] ?? ''
         if ($hasUpload) {
             $f = $_FILES['transfer_slip'];
             if ((int) ($f['error'] ?? 0) !== UPLOAD_ERR_OK) {
-                header('Location: ' . app_path('pages/advance-cash/advance-cash-receipt.php') . '?id=' . $id . '&error=upload_failed');
+                header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php') . '?' . http_build_query([
+                    'open_id' => $id,
+                    'open_receipt' => '1',
+                    'error' => 'upload_failed',
+                ]));
                 exit;
             }
             $tmp = (string) ($f['tmp_name'] ?? '');
@@ -379,24 +395,40 @@ if ($action === 'save_advance_cash_receipt' && ($_SERVER['REQUEST_METHOD'] ?? ''
             $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
             $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif'];
             if ($tmp === '' || !is_uploaded_file($tmp) || !in_array($ext, $allowedExt, true)) {
-                header('Location: ' . app_path('pages/advance-cash/advance-cash-receipt.php') . '?id=' . $id . '&error=upload_type');
+                header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php') . '?' . http_build_query([
+                    'open_id' => $id,
+                    'open_receipt' => '1',
+                    'error' => 'upload_type',
+                ]));
                 exit;
             }
             $dirAbs = ROOT_PATH . '/uploads/advance-cash/' . $id;
             if (!(is_dir($dirAbs) || @mkdir($dirAbs, 0775, true) || is_dir($dirAbs))) {
-                header('Location: ' . app_path('pages/advance-cash/advance-cash-receipt.php') . '?id=' . $id . '&error=upload_failed');
+                header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php') . '?' . http_build_query([
+                    'open_id' => $id,
+                    'open_receipt' => '1',
+                    'error' => 'upload_failed',
+                ]));
                 exit;
             }
             $storedName = 'receipt_slip_' . date('Ymd_His') . '.' . $ext;
             if (!@move_uploaded_file($tmp, $dirAbs . '/' . $storedName)) {
-                header('Location: ' . app_path('pages/advance-cash/advance-cash-receipt.php') . '?id=' . $id . '&error=upload_failed');
+                header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php') . '?' . http_build_query([
+                    'open_id' => $id,
+                    'open_receipt' => '1',
+                    'error' => 'upload_failed',
+                ]));
                 exit;
             }
             $slipPath = 'uploads/advance-cash/' . $id . '/' . $storedName;
             $slipUrl = app_path($slipPath);
         }
         if ($slipUrl === '') {
-            header('Location: ' . app_path('pages/advance-cash/advance-cash-receipt.php') . '?id=' . $id . '&error=slip_required');
+            header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php') . '?' . http_build_query([
+                'open_id' => $id,
+                'open_receipt' => '1',
+                'error' => 'slip_required',
+            ]));
             exit;
         }
     }
@@ -418,7 +450,10 @@ if ($action === 'save_advance_cash_receipt' && ($_SERVER['REQUEST_METHOD'] ?? ''
         'receipt_transfer_slip_url' => $paymentMethod === 'transfer' ? $slipUrl : '',
         'updated_at' => date('Y-m-d H:i:s'),
     ]));
-    header('Location: ' . app_path('pages/advance-cash/advance-cash-view.php') . '?id=' . $id . '&receipt_saved=1');
+    header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php') . '?' . http_build_query([
+        'open_id' => $id,
+        'receipt_saved' => '1',
+    ]));
     exit;
 }
 
@@ -1531,11 +1566,34 @@ if ($action === 'create_quotation' || $action === 'edit_quotation') {
 if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_customer', 'add_member', 'edit_member'], true)) {
     if (strpos($action, 'member') !== false) {
         $page = 'pages/organization/member-manage.php';
-        $u_code = trim((string) ($_POST['user_code'] ?? ''));
+        if ($action === 'add_member') {
+            $dup = null;
+            for ($i = 0; $i < 20; $i++) {
+                $allUsers = Db::tableRows('users');
+                $u_code = next_sequential_member_user_code($allUsers);
+                $dup = Db::findFirst('users', static function (array $r) use ($u_code): bool {
+                    return isset($r['user_code']) && strcasecmp(trim((string) $r['user_code']), $u_code) === 0;
+                });
+                if ($dup === null) {
+                    break;
+                }
+            }
+            if ($dup !== null) {
+                header('Location: ' . app_path($page) . '?error=code_gen');
+                exit;
+            }
+        } else {
+            $u_code = trim((string) ($_POST['user_code'] ?? ''));
+        }
         $fn = trim((string) ($_POST['fname'] ?? ''));
         $ln = trim((string) ($_POST['lname'] ?? ''));
-        $nn = trim((string) ($_POST['nickname'] ?? ''));
+        $line_id = $action === 'add_member' ? '' : trim((string) ($_POST['user_line_id'] ?? ''));
         $role = trim((string) ($_POST['role'] ?? ''));
+        $allowed_roles = ['CEO', 'ADMIN', 'ACCOUNTING', 'USER'];
+        if (!in_array($role, $allowed_roles, true)) {
+            header('Location: ' . app_path($page) . '?error=invalid_role');
+            exit;
+        }
         $job_raw = trim((string) ($_POST['job_title'] ?? ''));
         if (strlen($job_raw) > 160) {
             $job_raw = substr($job_raw, 0, 160);
@@ -1544,6 +1602,9 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
         $salary_raw = str_replace([',', ' '], '', trim((string) ($_POST['salary_base'] ?? '')));
         $has_salary = $salary_raw !== '' && is_numeric($salary_raw);
         $salary_val = $has_salary ? (string) round((float) $salary_raw, 2) : null;
+        if ($action === 'add_member') {
+            $salary_val = null;
+        }
         $bd_raw = trim((string) ($_POST['birth_date'] ?? ''));
         $has_bd = $bd_raw !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $bd_raw);
         $nid_digits = preg_replace('/\D/', '', (string) ($_POST['national_id'] ?? ''));
@@ -1553,7 +1614,8 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
             'user_code' => $u_code,
             'fname' => $fn,
             'lname' => $ln,
-            'nickname' => $nn,
+            'nickname' => '',
+            'user_line_id' => $action === 'add_member' ? null : ($line_id !== '' ? $line_id : null),
             'role' => $role,
             'job_title' => $job_raw,
             'address' => $address,

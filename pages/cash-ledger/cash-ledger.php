@@ -14,7 +14,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$isAdmin = (isset($_SESSION['role']) && $_SESSION['role'] === 'admin');
+$isAdmin = user_is_admin_role();
 if (!$isAdmin) {
     header('Location: ' . app_path('index.php'));
     exit;

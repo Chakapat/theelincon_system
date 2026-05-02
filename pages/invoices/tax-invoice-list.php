@@ -13,7 +13,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$is_admin = (isset($_SESSION['role']) && $_SESSION['role'] === 'admin');
+$is_admin = user_is_admin_role();
 $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 
 $taxRows = Db::tableRows('tax_invoices');

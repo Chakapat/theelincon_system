@@ -14,7 +14,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $me = (int) $_SESSION['user_id'];
-$isAdmin = (isset($_SESSION['role']) && $_SESSION['role'] === 'admin');
+$isAdmin = user_is_admin_role();
 $handler = app_path('actions/action-handler.php');
 $month = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['month'] ?? '')) ? (string) $_GET['month'] : '';
 $siteFilter = trim((string) ($_GET['site_filter'] ?? ''));

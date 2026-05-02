@@ -13,8 +13,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$role = (string) ($_SESSION['role'] ?? 'user');
-if (!in_array($role, ['admin', 'Accounting'], true)) {
+if (!user_is_finance_role()) {
     header('Location: ' . app_path('index.php'));
     exit();
 }

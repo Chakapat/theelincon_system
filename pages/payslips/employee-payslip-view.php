@@ -19,9 +19,8 @@ if ($req === null || (string) ($req['status'] ?? '') !== 'approved') {
 }
 
 $me = (int) ($_SESSION['user_id'] ?? 0);
-$role = (string) ($_SESSION['role'] ?? 'user');
 $ownerId = (int) ($req['employee_user_id'] ?? 0);
-if (!in_array($role, ['admin', 'Accounting'], true) && $me !== $ownerId) {
+if (!user_is_finance_role() && $me !== $ownerId) {
     exit('Access denied');
 }
 

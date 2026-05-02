@@ -73,7 +73,7 @@ if (!function_exists('app_path')) {
                         </span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="min-width: 13rem;" aria-labelledby="userDropdown">
-                        <?php if (isset($_SESSION['role']) && $_SESSION['role'] == 'admin'): ?>
+                        <?php if (user_is_admin_role()): ?>
                         <li>
                             <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/organization/member-manage.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <i class="bi bi-person-gear me-2 text-secondary"></i>จัดการสมาชิก

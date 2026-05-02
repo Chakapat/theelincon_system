@@ -12,7 +12,6 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$user_role = $_SESSION['role'] ?? 'user';
 $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 
 $users = Db::tableKeyed('users');
@@ -224,7 +223,7 @@ $printPageBase = app_path('pages/purchase/purchase-need-print.php');
                                         >
                                             <i class="bi bi-printer-fill"></i>
                                         </button>
-                                        <?php if ($user_role === 'admin'): ?>
+                                        <?php if (user_is_admin_role()): ?>
                                             <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete_purchase_need&id=<?= $needId ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-white text-secondary border shadow-sm" onclick="return confirm('ยืนยันการลบข้อมูลถาวร?')" title="ลบ">
                                                 <i class="bi bi-trash3-fill text-danger"></i>
                                             </a>

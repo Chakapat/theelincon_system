@@ -14,7 +14,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $id = (int) ($_GET['id'] ?? 0);
 $me = (int) $_SESSION['user_id'];
-$isAdmin = isset($_SESSION['role']) && (string) $_SESSION['role'] === 'admin';
+$isAdmin = user_is_admin_role();
 $row = Db::rowByIdField('leave_requests', $id);
 
 if (!$row || (!$isAdmin && (int) ($row['requested_by'] ?? 0) !== $me)) {

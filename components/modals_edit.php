@@ -15,7 +15,6 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'));
                 </div>
                 <div class="modal-body p-4 pt-0">
                     <input type="hidden" name="id" id="edit_member_id">
-                    <input type="hidden" name="nickname" id="edit_nickname">
                     <div class="mb-3">
                         <label class="small fw-bold mb-1">รหัสพนักงาน</label>
                         <input type="text" name="user_code" id="edit_user_code" class="form-control bg-light border-0 py-2" readonly>
@@ -31,11 +30,16 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'));
                         </div>
                     </div>
                     <div class="mb-3">
+                        <label class="small fw-bold mb-1">LINE User ID</label>
+                        <input type="text" name="user_line_id" id="edit_user_line_id" class="form-control bg-light border-0 py-2" placeholder="เช่น Uxxxxxxxx..." autocomplete="off">
+                    </div>
+                    <div class="mb-3">
                         <label class="small fw-bold mb-1">สิทธิ์ระบบ</label>
                         <select name="role" id="edit_role" class="form-select bg-light border-0 py-2">
-                            <option value="user">User</option>
-                            <option value="Accounting">Accounting</option>
-                            <option value="admin">Admin</option>
+                            <option value="USER">USER</option>
+                            <option value="ACCOUNTING">ACCOUNTING</option>
+                            <option value="ADMIN">ADMIN</option>
+                            <option value="CEO">CEO</option>
                         </select>
                     </div>
                     <div class="mb-3">

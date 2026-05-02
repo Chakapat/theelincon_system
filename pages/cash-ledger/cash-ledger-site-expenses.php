@@ -13,7 +13,7 @@ if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
     exit;
 }
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !user_is_admin_role()) {
     header('Location: ' . app_path('index.php'));
     exit;
 }

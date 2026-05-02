@@ -912,7 +912,7 @@ function line_send_advance_cash_notification(array $reqRow, string $requesterNam
     $amount = number_format((float) ($reqRow['amount'] ?? 0), 2);
     $purpose = line_mb_truncate((string) ($reqRow['purpose'] ?? '-'), 180);
     $requesterName = line_mb_truncate(trim($requesterName) !== '' ? trim($requesterName) : 'Unknown User', 60);
-    $viewUrl = line_absolute_app_url('pages/advance-cash/advance-cash-view.php?id=' . $requestId);
+    $viewUrl = line_absolute_app_url('pages/advance-cash/advance-cash-list.php?open_id=' . $requestId);
     $approveData = http_build_query([
         'action' => 'line_advance_cash_decision',
         'id' => $requestId,

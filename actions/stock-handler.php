@@ -18,8 +18,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !csrf_verify_request()) {
 }
 
 $me = (int) $_SESSION['user_id'];
-$pos = $_SESSION['role'] ?? 'user';
-$canManage = ($pos === 'admin' || $pos === 'Accounting');
+$canManage = user_is_finance_role();
 
 function stock_redirect(string $path): void
 {
