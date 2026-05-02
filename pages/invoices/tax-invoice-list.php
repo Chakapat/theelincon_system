@@ -100,10 +100,10 @@ $totalCount = count($listRows);
     <?php endif; ?>
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="fw-bold mb-0">
-            <i class="bi bi-file-earmark-break-fill text-success me-2"></i>รายการ Tax INV
+            <i class="bi bi-file-earmark-break-fill text-success me-2"></i>รายการใบกำกับภาษี
         </h3>
         <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4 shadow-sm">
-            <i class="bi bi-plus-lg me-1"></i>สร้าง Tax INV
+            <i class="bi bi-plus-lg me-1"></i>สร้างใบกำกับภาษี
         </a>
     </div>
 
@@ -113,7 +113,7 @@ $totalCount = count($listRows);
                 <div class="d-flex align-items-center gap-3">
                     <span class="summary-icon bg-success-subtle text-success"><i class="bi bi-receipt"></i></span>
                     <div>
-                        <div class="text-muted small">จำนวน Tax INV ทั้งหมด</div>
+                        <div class="text-muted small">จำนวนใบกำกับภาษีทั้งหมด</div>
                         <div class="fw-bold fs-4"><?= number_format($totalCount) ?></div>
                     </div>
                 </div>
@@ -124,7 +124,7 @@ $totalCount = count($listRows);
                 <div class="d-flex align-items-center gap-3">
                     <span class="summary-icon bg-warning-subtle text-warning"><i class="bi bi-cash-coin"></i></span>
                     <div>
-                        <div class="text-muted small">ยอดรวมสุทธิ (Tax INV ทั้งหมด)</div>
+                        <div class="text-muted small">ยอดเงินรวมใบกำกับภาษี</div>
                         <div class="fw-bold fs-4">฿ <?= number_format($grandTotalSum, 2) ?></div>
                     </div>
                 </div>
@@ -143,9 +143,9 @@ $totalCount = count($listRows);
             <table class="table table-hover align-middle" id="taxTable">
                 <thead class="table-light">
                     <tr>
-                        <th>เลขที่ Tax INV</th>
-                        <th>วันที่ Tax</th>
-                        <th>อ้างอิง Invoice</th>
+                        <th>เลขที่ใบกำกับภาษี</th>
+                        <th>วันที่</th>
+                        <th>อ้างอิงใบแจ้งหนี้</th>
                         <th>ลูกค้า</th>
                         <th>ผู้ออกใบ</th>
                         <th class="text-end">ยอดสุทธิ</th>

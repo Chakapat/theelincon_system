@@ -311,7 +311,7 @@ $index_hub_start_all_collapsed = true;
             <div class="home-hub-section">
                 <button type="button" class="home-hub-toggle<?= $index_hub_start_all_collapsed ? ' collapsed' : '' ?>" data-bs-toggle="collapse" data-bs-target="#hub-collapse-master" aria-expanded="<?= $index_hub_start_all_collapsed ? 'false' : 'true' ?>" aria-controls="hub-collapse-master" id="hub-toggle-master">
                     <span class="home-hub-ico bg-warning-subtle text-warning shadow-sm flex-shrink-0"><i class="bi bi-folder2" aria-hidden="true"></i></span>
-                    <span class="fw-semibold text-dark">ข้อมูลหลัก</span>
+                    <span class="fw-semibold text-dark">ข้อมูลหลัก (Information Data)</span>
                     <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
                 </button>
                 <div id="hub-collapse-master" class="collapse<?= $index_hub_start_all_collapsed ? '' : ' show' ?> home-hub-panel" aria-labelledby="hub-toggle-master">
@@ -326,7 +326,7 @@ $index_hub_start_all_collapsed = true;
             <div class="home-hub-section">
                 <button type="button" class="home-hub-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#hub-collapse-purchase" aria-expanded="false" aria-controls="hub-collapse-purchase" id="hub-toggle-purchase">
                     <span class="home-hub-ico bg-primary-subtle text-primary shadow-sm flex-shrink-0"><i class="bi bi-cart3" aria-hidden="true"></i></span>
-                    <span class="fw-semibold text-dark">จัดซื้อ / จัดจ้าง</span>
+                    <span class="fw-semibold text-dark">จัดซื้อ / จัดจ้าง (Purchase / Hire)</span>
                     <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
                 </button>
                 <div id="hub-collapse-purchase" class="collapse home-hub-panel" aria-labelledby="hub-toggle-purchase">
@@ -335,6 +335,19 @@ $index_hub_start_all_collapsed = true;
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-bag-check me-2 text-secondary"></i>ใบสั่งซื้อ (Purchase Order)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/quotations/quotation-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-ui-checks me-2 text-secondary"></i>ใบเสนอราคา (Quotation)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-ruled me-2 text-secondary"></i>สัญญาจ้าง (Hire Contract)</a>
+                    </div>
+                </div>
+            </div>
+            <div class="home-hub-section">
+                <button type="button" class="home-hub-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#hub-collapse-docs" aria-expanded="false" aria-controls="hub-collapse-docs" id="hub-toggle-docs">
+                    <span class="home-hub-ico bg-info-subtle text-info shadow-sm flex-shrink-0"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
+                    <span class="fw-semibold text-dark">ระบบเอกสาร (Documents)</span>
+                    <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
+                </button>
+                <div id="hub-collapse-docs" class="collapse home-hub-panel" aria-labelledby="hub-toggle-docs">
+                    <div class="home-hub-panel-inner pb-1">
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/leave-requests/leave-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calendar-check me-2 text-secondary"></i>ใบลา (Leave Request)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calculator me-2 text-secondary"></i>บัตรค่าแรงคนงาน (Wage)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-box-seam me-2 text-secondary"></i>คลังสินค้า (Stock)</a>
                     </div>
                 </div>
@@ -342,16 +355,14 @@ $index_hub_start_all_collapsed = true;
             <div class="home-hub-section">
                 <button type="button" class="home-hub-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#hub-collapse-cash" aria-expanded="false" aria-controls="hub-collapse-cash" id="hub-toggle-cash">
                     <span class="home-hub-ico bg-success-subtle text-success shadow-sm flex-shrink-0"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
-                    <span class="fw-semibold text-dark">รายการต่างๆ</span>
+                    <span class="fw-semibold text-dark">ระบบการเงิน (Cash)</span>
                     <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
                 </button>
                 <div id="hub-collapse-cash" class="collapse home-hub-panel" aria-labelledby="hub-toggle-cash">
                     <div class="home-hub-panel-inner pb-1">
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-bill.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-receipt-cutoff me-2 text-secondary"></i>บันทึกบิลซื้อ (Purchase Bill)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/advance-cash/advance-cash-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cash-coin me-2 text-secondary"></i>เบิกเงินล่วงหน้า (Advance Cash)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calculator me-2 text-secondary"></i>บัตรค่าแรงคนงาน (Wage)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/leave-requests/leave-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calendar-check me-2 text-secondary"></i>ใบลา (Leave Request)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-need-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-card-checklist me-2 text-secondary"></i>ใบต้องการซื้อ (Purchase Need)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/advance-cash/advance-cash-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cash-coin me-2 text-secondary"></i>เบิกเงินล่วงหน้า (Advance Cash)</a>
                         <?php if ($is_admin): ?>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-speedometer2 me-2 text-secondary"></i>สดย่อย (Pertty Cash)</a>
                         <?php endif; ?>
