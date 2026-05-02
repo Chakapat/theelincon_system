@@ -3,15 +3,6 @@ if (!function_exists('app_path')) {
     require_once __DIR__ . '/../config/foundation.php';
 }
 
-$announcement_gate_items = [];
-$announcement_unread_nav = 0;
-if (isset($_SESSION['user_id'])) {
-    $meNav = (int) $_SESSION['user_id'];
-    if (is_file(dirname(__DIR__) . '/vendor/autoload.php')) {
-        $announcement_gate_items = \Theelincon\Rtdb\Portal::announcementGateItems($meNav);
-        $announcement_unread_nav = count($announcement_gate_items);
-    }
-}
 ?>
 <style>
     .navbar-hub {
@@ -82,22 +73,7 @@ if (isset($_SESSION['user_id'])) {
                         </span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="min-width: 13rem;" aria-labelledby="userDropdown">
-                        <li>
-                            <a class="dropdown-item rounded-2 mx-1 d-flex justify-content-between align-items-center" href="<?= htmlspecialchars(app_path('pages/internal/announcements.php'), ENT_QUOTES, 'UTF-8') ?>">
-                                <span><i class="bi bi-megaphone me-2 text-warning"></i>ข่าวสารภายใน</span>
-                                <?php if ($announcement_unread_nav > 0): ?>
-                                    <span class="badge bg-warning text-dark rounded-pill"><?= $announcement_unread_nav > 99 ? '99+' : (int) $announcement_unread_nav ?></span>
-                                <?php endif; ?>
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item rounded-2 mx-1 d-flex justify-content-between align-items-center" href="<?= htmlspecialchars(app_path('pages/internal/chat.php'), ENT_QUOTES, 'UTF-8') ?>">
-                                <span><i class="bi bi-chat-dots me-2 text-secondary"></i>แชทภายใน</span>
-                                <span id="chatNavUnread" class="badge bg-danger rounded-pill d-none">0</span>
-                            </a>
-                        </li>
                         <?php if (isset($_SESSION['role']) && $_SESSION['role'] == 'admin'): ?>
-                        <li><hr class="dropdown-divider mx-2 my-1"></li>
                         <li>
                             <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/organization/member-manage.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <i class="bi bi-person-gear me-2 text-secondary"></i>จัดการสมาชิก
@@ -113,8 +89,8 @@ if (isset($_SESSION['user_id'])) {
                                 <i class="bi bi-bell-fill me-2 text-success"></i>ตั้งค่า LINE แจ้งเตือน
                             </a>
                         </li>
-                        <?php endif; ?>
                         <li><hr class="dropdown-divider mx-2 my-1"></li>
+                        <?php endif; ?>
                         <li>
                             <a class="dropdown-item rounded-2 mx-1 text-danger fw-semibold" href="<?= htmlspecialchars(app_path('sign-out.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <i class="bi bi-box-arrow-right me-2"></i>ออกจากระบบ
@@ -133,17 +109,6 @@ if (isset($_SESSION['user_id'])) {
         </div>
     </div>
 </nav>
-<?php include __DIR__ . '/announcement-gate-modal.php'; ?>
-<?php if (isset($_SESSION['user_id'])): ?>
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
-<script>
-window.__THEELIN_SOCKET_CFG__ = {
-    tokenUrl: <?= json_encode(app_path('actions/socket-token.php'), JSON_UNESCAPED_SLASHES) ?>,
-    chatUnreadUrl: <?= json_encode(app_path('actions/chat-api.php') . '?action=unread_total', JSON_UNESCAPED_SLASHES) ?>
-};
-</script>
-<script src="<?= htmlspecialchars(app_path('assets/js/theelin-socket.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
-<?php endif; ?>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 (function () {

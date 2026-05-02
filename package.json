@@ -1,22 +1,15 @@
 {
   "name": "theelincon-system",
   "private": true,
-  "description": "Socket.IO server for internal chat (PHP app remains main stack)",
+  "description": "THEELIN CON office system (PHP) — Node scripts for RTDB migration",
   "scripts": {
-    "start": "node server/socket-server.js",
-    "socket": "node server/socket-server.js",
-    "socket:dev": "node server/socket-server.js",
     "migrate:mysql-to-rtdb": "node scripts/migrate-all-mysql-to-rtdb.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.0",
     "firebase-admin": "^13.8.0",
-    "mysql2": "^3.11.0",
-    "socket.io": "^4.8.1"
+    "mysql2": "^3.11.0"
   }
 }

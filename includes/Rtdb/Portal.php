@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Theelincon\Rtdb;
 
 /**
- * หน้าแรก + navbar — แทน SQL JOIN / aggregate
+ * หน้าแรก — ค้นหาใบแจ้งหนี้ / สรุปยอด (แทน SQL JOIN / aggregate)
  */
 final class Portal
 {
@@ -93,55 +93,5 @@ final class Portal
         }
 
         return ['total_count' => $total, 'final_net_sum' => $sum];
-    }
-
-    /**
-     * navbar — ประกาศที่ต้องรับทราบและยังไม่อ่าน
-     * @return list<array<string,mixed>>
-     */
-    public static function announcementGateItems(int $userId): array
-    {
-        $ann = Db::filter('internal_announcements', static function (array $r): bool {
-            return !empty($r['must_ack']);
-        });
-        Db::sortRows($ann, 'created_at', true);
-
-        $reads = Db::tableKeyed('announcement_reads');
-        $out = [];
-        foreach ($ann as $a) {
-            $aid = (string) ($a['id'] ?? '');
-            if ($aid === '') {
-                continue;
-            }
-            $ck = Db::compositeKey([(string) $aid, (string) $userId]);
-            $found = isset($reads[$ck]);
-            if (!$found) {
-                foreach ($reads as $k => $_r) {
-                    if (isset($_r['announcement_id'], $_r['user_id'])
-                        && (string) $_r['announcement_id'] === $aid
-                        && (string) $_r['user_id'] === (string) $userId) {
-                        $found = true;
-                        break;
-                    }
-                }
-            }
-            if (!$found) {
-                $out[] = $a;
-            }
-        }
-
-        usort($out, static function ($a, $b): int {
-            $pa = !empty($a['is_pinned']) ? 1 : 0;
-            $pb = !empty($b['is_pinned']) ? 1 : 0;
-            if ($pa !== $pb) {
-                return $pb <=> $pa;
-            }
-            $ta = strtotime((string) ($a['created_at'] ?? '')) ?: 0;
-            $tb = strtotime((string) ($b['created_at'] ?? ''));
-
-            return $tb <=> $ta;
-        });
-
-        return $out;
     }
 }
