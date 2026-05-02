@@ -110,11 +110,13 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // POST-only actions: prevent direct GET access to write endpoints.
-if (($action === 'create_po_direct' || $action === 'create_po_from_pr')
+if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status')
     && strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
-    $fallback = $action === 'create_po_direct'
-        ? app_path('pages/purchase/purchase-order-create.php')
-        : app_path('pages/purchase/purchase-request-list.php');
+    $fallback = match ($action) {
+        'create_po_direct' => app_path('pages/purchase/purchase-order-create.php'),
+        'create_po_from_pr' => app_path('pages/purchase/purchase-request-list.php'),
+        default => app_path('pages/purchase/purchase-order-list.php'),
+    };
     http_response_code(200);
     echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>เปิดหน้านี้โดยตรงไม่ได้</title></head><body style="font-family:Arial,sans-serif;padding:24px;"><h3>หน้านี้เป็น endpoint สำหรับบันทึกข้อมูล</h3><p>กรุณาใช้งานผ่านฟอร์มของระบบ</p><p><a href="' . htmlspecialchars($fallback, ENT_QUOTES, 'UTF-8') . '">กลับไปหน้าสร้างเอกสาร</a></p></body></html>';
     exit;
@@ -1090,6 +1092,62 @@ if ($action === 'create_po_direct') {
         Purchase::seedPoPayments($po_id, $total_amount, $hire_contract_id > 0 ? $hire_contract_id : null);
     }
     renderPoCreatedPopupAndRedirect((string) $po_number);
+}
+
+/** รายการ PO: แนบสลิป + ตั้งสถานะจ่ายแล้ว (purchase_orders.payment_slip_path) */
+if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $listUrl = app_path('pages/purchase/purchase-order-list.php');
+    $po_id = (int) ($_POST['po_id'] ?? 0);
+    $payment_status = strtolower(trim((string) ($_POST['payment_status'] ?? '')));
+    if ($po_id <= 0 || $payment_status !== 'paid') {
+        header('Location: ' . $listUrl . '?error=invalid');
+        exit;
+    }
+    $po = Db::row('purchase_orders', (string) $po_id);
+    if ($po === null) {
+        header('Location: ' . $listUrl . '?error=invalid');
+        exit;
+    }
+    if (empty($_FILES['payment_slip']) || (int) ($_FILES['payment_slip']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        header('Location: ' . $listUrl . '?error=payment_slip_required');
+        exit;
+    }
+    $f = $_FILES['payment_slip'];
+    if ((int) ($f['error'] ?? 0) !== UPLOAD_ERR_OK) {
+        header('Location: ' . $listUrl . '?error=upload_failed');
+        exit;
+    }
+    $tmp = (string) ($f['tmp_name'] ?? '');
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        header('Location: ' . $listUrl . '?error=upload_failed');
+        exit;
+    }
+    $originalName = trim((string) ($f['name'] ?? 'slip'));
+    $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    $allowedExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    if (!in_array($ext, $allowedExt, true)) {
+        header('Location: ' . $listUrl . '?error=upload_type');
+        exit;
+    }
+    $dirAbs = ROOT_PATH . '/uploads/po-payment-slips/' . $po_id;
+    if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
+        header('Location: ' . $listUrl . '?error=upload_failed');
+        exit;
+    }
+    $storedName = 'slip_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+    $destAbs = $dirAbs . '/' . $storedName;
+    if (!@move_uploaded_file($tmp, $destAbs)) {
+        header('Location: ' . $listUrl . '?error=upload_failed');
+        exit;
+    }
+    $rel = 'uploads/po-payment-slips/' . $po_id . '/' . $storedName;
+    Db::mergeRow('purchase_orders', (string) $po_id, [
+        'payment_status' => 'paid',
+        'payment_slip_path' => $rel,
+        'payment_marked_paid_at' => date('Y-m-d H:i:s'),
+    ]);
+    header('Location: ' . $listUrl . '?payment_saved=1');
+    exit;
 }
 
 if ($action === 'upload_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
