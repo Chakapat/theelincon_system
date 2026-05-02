@@ -13,8 +13,17 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$back = app_path('pages/labor-payroll.php');
+$back = app_path('pages/labor-payroll/labor-payroll.php');
 $action = $_POST['action'] ?? '';
+
+function labor_payroll_back_base(string $returnTo): string
+{
+    if ($returnTo === 'manage') {
+        return app_path('pages/labor-payroll/labor-worker-manage.php');
+    }
+
+    return app_path('pages/labor-payroll/labor-payroll.php');
+}
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $action !== '' && !csrf_verify_request()) {
     header('HTTP/1.1 403 Forbidden');
@@ -26,6 +35,178 @@ function labor_payroll_redirect(string $base, array $query): void
     $q = http_build_query($query);
     header('Location: ' . $base . ($q !== '' ? '?' . $q : ''));
     exit;
+}
+
+function labor_payroll_group_name_normalize(string $name): string
+{
+    $name = trim($name);
+    if (function_exists('mb_substr')) {
+        return mb_substr($name, 0, 120, 'UTF-8');
+    }
+
+    return substr($name, 0, 120);
+}
+
+if ($action === 'create_group') {
+    $back = labor_payroll_back_base((string) ($_POST['return_to'] ?? ''));
+    $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_POST['year_month'] ?? '')) ? (string) $_POST['year_month'] : date('Y-m');
+    $half = (int) ($_POST['half'] ?? 1) === 2 ? 2 : 1;
+    $groupName = labor_payroll_group_name_normalize((string) ($_POST['group_name'] ?? ''));
+    if ($groupName === '') {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_err' => 'name']);
+    }
+
+    $lower = static function (string $v): string {
+        return function_exists('mb_strtolower') ? mb_strtolower($v, 'UTF-8') : strtolower($v);
+    };
+    $exists = Db::findFirst('labor_worker_groups', static function (array $r) use ($groupName, $lower): bool {
+        $n = trim((string) ($r['name'] ?? ''));
+        return $n !== '' && $lower($n) === $lower($groupName);
+    });
+    if ($exists) {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_exists' => 1]);
+    }
+
+    $gid = Db::nextNumericId('labor_worker_groups');
+    Db::setRow('labor_worker_groups', (string) $gid, [
+        'id' => $gid,
+        'name' => $groupName,
+        'is_active' => 1,
+        'created_at' => date('Y-m-d H:i:s'),
+    ]);
+    labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_created' => 1]);
+}
+
+if ($action === 'create_worker') {
+    $back = labor_payroll_back_base((string) ($_POST['return_to'] ?? ''));
+    $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_POST['year_month'] ?? '')) ? (string) $_POST['year_month'] : date('Y-m');
+    $half = (int) ($_POST['half'] ?? 1) === 2 ? 2 : 1;
+    $workerName = trim((string) ($_POST['worker_name'] ?? ''));
+    if (function_exists('mb_substr')) {
+        $workerName = mb_substr($workerName, 0, 200, 'UTF-8');
+    } else {
+        $workerName = substr($workerName, 0, 200);
+    }
+    $gender = trim((string) ($_POST['gender'] ?? ''));
+    if (!in_array($gender, ['ชาย', 'หญิง', 'อื่นๆ'], true)) {
+        $gender = 'อื่นๆ';
+    }
+    $groupId = (int) ($_POST['group_id'] ?? 0);
+    $dailyWage = (float) str_replace(',', '', (string) ($_POST['daily_wage'] ?? 0));
+    if ($dailyWage < 0) {
+        $dailyWage = 0;
+    }
+
+    if ($workerName === '') {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'worker_err' => 'name']);
+    }
+    if ($groupId <= 0) {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'worker_err' => 'group']);
+    }
+
+    $groupRow = Db::rowByIdField('labor_worker_groups', $groupId);
+    if (!$groupRow || empty($groupRow['is_active'])) {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'worker_err' => 'group']);
+    }
+
+    $wid = Db::nextNumericId('labor_workers');
+    Db::setRow('labor_workers', (string) $wid, [
+        'id' => $wid,
+        'full_name' => $workerName,
+        'group_id' => $groupId,
+        'gender' => $gender,
+        'default_daily_wage' => $dailyWage,
+        'is_active' => 1,
+        'created_at' => date('Y-m-d H:i:s'),
+    ]);
+
+    $sort = 0;
+    foreach (Db::filter('labor_month_sheet_workers', static fn ($r) => (string) ($r['year_month'] ?? '') === $ym) as $r) {
+        $sort = max($sort, (int) ($r['sort_order'] ?? 0) + 1);
+    }
+    Db::setRow('labor_month_sheet_workers', Db::compositeKey([$ym, (string) $wid]), [
+        'year_month' => $ym,
+        'worker_id' => $wid,
+        'sort_order' => $sort,
+    ]);
+    Db::setRow('labor_worker_month_settings', Db::compositeKey([(string) $wid, $ym]), [
+        'worker_id' => $wid,
+        'year_month' => $ym,
+        'daily_wage' => $dailyWage,
+        'advance_draw' => 0,
+    ]);
+
+    labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'worker_created' => 1]);
+}
+
+if ($action === 'update_worker') {
+    $back = labor_payroll_back_base((string) ($_POST['return_to'] ?? ''));
+    $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_POST['year_month'] ?? '')) ? (string) $_POST['year_month'] : date('Y-m');
+    $half = (int) ($_POST['half'] ?? 1) === 2 ? 2 : 1;
+    $groupFilter = (int) ($_POST['group_id'] ?? 0);
+    $wid = (int) ($_POST['worker_id'] ?? 0);
+    $workerName = trim((string) ($_POST['worker_name'] ?? ''));
+    if (function_exists('mb_substr')) {
+        $workerName = mb_substr($workerName, 0, 200, 'UTF-8');
+    } else {
+        $workerName = substr($workerName, 0, 200);
+    }
+    $gender = trim((string) ($_POST['gender'] ?? ''));
+    if (!in_array($gender, ['ชาย', 'หญิง', 'อื่นๆ'], true)) {
+        $gender = 'อื่นๆ';
+    }
+    $dailyWage = (float) str_replace(',', '', (string) ($_POST['daily_wage'] ?? 0));
+    if ($dailyWage < 0) {
+        $dailyWage = 0;
+    }
+
+    if ($wid <= 0 || $workerName === '') {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'worker_err' => 'name']);
+    }
+
+    $cur = Db::rowByIdField('labor_workers', $wid);
+    if (!$cur || empty($cur['is_active'])) {
+        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'worker_err' => 'missing']);
+    }
+
+    $pk = Db::pkForLogicalId('labor_workers', $wid, 'id');
+    Db::mergeRow('labor_workers', $pk, [
+        'full_name' => $workerName,
+        'gender' => $gender,
+        'default_daily_wage' => $dailyWage,
+    ]);
+
+    labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'worker_updated' => 1]);
+}
+
+if ($action === 'delete_worker') {
+    $back = labor_payroll_back_base((string) ($_POST['return_to'] ?? ''));
+    $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_POST['year_month'] ?? '')) ? (string) $_POST['year_month'] : date('Y-m');
+    $half = (int) ($_POST['half'] ?? 1) === 2 ? 2 : 1;
+    $groupFilter = (int) ($_POST['group_id'] ?? 0);
+    $wid = (int) ($_POST['worker_id'] ?? 0);
+    if ($wid > 0) {
+        $pk = Db::pkForLogicalId('labor_workers', $wid, 'id');
+        Db::mergeRow('labor_workers', $pk, ['is_active' => 0]);
+
+        foreach (Db::tableKeyed('labor_month_sheet_workers') as $rowPk => $row) {
+            if ((int) ($row['worker_id'] ?? 0) === $wid) {
+                Db::deleteRow('labor_month_sheet_workers', (string) $rowPk);
+            }
+        }
+        foreach (Db::tableKeyed('labor_worker_month_settings') as $rowPk => $row) {
+            if ((int) ($row['worker_id'] ?? 0) === $wid) {
+                Db::deleteRow('labor_worker_month_settings', (string) $rowPk);
+            }
+        }
+        foreach (Db::tableKeyed('labor_attendance_days') as $rowPk => $row) {
+            if ((int) ($row['worker_id'] ?? 0) === $wid) {
+                Db::deleteRow('labor_attendance_days', (string) $rowPk);
+            }
+        }
+    }
+
+    labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'worker_deleted' => 1]);
 }
 
 if ($action === 'remove_row') {
@@ -57,8 +238,14 @@ $workersIn = $_POST['workers'] ?? [];
 if (!is_array($workersIn)) {
     $workersIn = [];
 }
+$groupContextName = trim((string) ($_POST['group_context_name'] ?? ''));
+if (function_exists('mb_substr')) {
+    $groupContextName = mb_substr($groupContextName, 0, 160, 'UTF-8');
+} else {
+    $groupContextName = substr($groupContextName, 0, 160);
+}
 
-$wantClose = !empty($_POST['close_and_archive']);
+$wantClose = true;
 if ($wantClose) {
     $hasAnyWorker = false;
     foreach ($workersIn as $rw) {
@@ -198,16 +385,6 @@ try {
                 Db::deleteRow('labor_month_sheet_workers', (string) $pk);
             }
         }
-    } else {
-        foreach (Db::tableKeyed('labor_month_sheet_workers') as $pk => $row) {
-            if (($row['year_month'] ?? '') !== $ym) {
-                continue;
-            }
-            $w = (int) ($row['worker_id'] ?? 0);
-            if ($w > 0 && !in_array($w, $postedWorkerIds, true)) {
-                Db::deleteRow('labor_month_sheet_workers', (string) $pk);
-            }
-        }
     }
 
     if ($wantClose) {
@@ -239,6 +416,32 @@ try {
             'worker_count' => $wcount,
             'closed_at' => date('Y-m-d H:i:s'),
         ];
+        if ($groupContextName === '' && count($postedWorkerIds) > 0) {
+            $groupNames = [];
+            foreach ($postedWorkerIds as $widCtx) {
+                $wr = Db::rowByIdField('labor_workers', (int) $widCtx);
+                if (!$wr) {
+                    continue;
+                }
+                $gid = (int) ($wr['group_id'] ?? 0);
+                if ($gid <= 0) {
+                    continue;
+                }
+                $gr = Db::rowByIdField('labor_worker_groups', $gid);
+                $gname = trim((string) ($gr['name'] ?? ''));
+                if ($gname !== '') {
+                    $groupNames[$gname] = true;
+                }
+            }
+            if (count($groupNames) === 1) {
+                $groupContextName = (string) array_key_first($groupNames);
+            } elseif (count($groupNames) > 1) {
+                $groupContextName = 'หลายกลุ่ม';
+            }
+        }
+        if ($groupContextName !== '') {
+            $archRow['worker_group_note'] = $groupContextName;
+        }
         if ($closedBy > 0) {
             $archRow['closed_by'] = $closedBy;
         }
@@ -288,6 +491,11 @@ try {
                 }
             }
         }
+        foreach (Db::tableKeyed('labor_month_sheet_workers') as $pk => $row) {
+            if (($row['year_month'] ?? '') === $ym) {
+                Db::deleteRow('labor_month_sheet_workers', (string) $pk);
+            }
+        }
     }
 } catch (Throwable $e) {
     labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'save_err' => 1]);
@@ -295,7 +503,7 @@ try {
 }
 
 if ($wantClose) {
-    labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'closed' => 1]);
+    labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'reset' => 1]);
 }
 
 labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'saved' => 1]);

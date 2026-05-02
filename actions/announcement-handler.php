@@ -26,7 +26,7 @@ if ($ann_needs_csrf && !csrf_verify_request()) {
         echo json_encode(['ok' => false, 'error' => 'csrf'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    ann_redirect('pages/announcements.php?error=csrf');
+    ann_redirect('pages/internal/announcements.php?error=csrf');
 }
 
 function ann_redirect(string $path): void
@@ -79,7 +79,7 @@ if ($action === 'save' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $editId = (int) ($_POST['id'] ?? 0);
 
     if ($title === '' || $body === '') {
-        ann_redirect('pages/announcements.php?error=required');
+        ann_redirect('pages/internal/announcements.php?error=required');
     }
     if (mb_strlen($title, 'UTF-8') > 255) {
         $title = mb_substr($title, 0, 255, 'UTF-8');
@@ -110,7 +110,7 @@ if ($action === 'save' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             'updated_at' => $now,
         ]);
     }
-    ann_redirect('pages/announcements.php?success=1');
+    ann_redirect('pages/internal/announcements.php?success=1');
 }
 
 if ($action === 'delete' && $isAdmin) {
@@ -119,7 +119,7 @@ if ($action === 'delete' && $isAdmin) {
         Db::deleteWhereEquals('announcement_reads', 'announcement_id', (string) $id);
         Db::deleteRow('internal_announcements', (string) $id);
     }
-    ann_redirect('pages/announcements.php?deleted=1');
+    ann_redirect('pages/internal/announcements.php?deleted=1');
 }
 
 header('HTTP/1.1 400 Bad Request');

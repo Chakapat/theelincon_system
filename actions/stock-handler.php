@@ -58,7 +58,7 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 if ($action === 'save_product' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!$canManage) {
-        stock_redirect('pages/stock-list.php?error=forbidden');
+        stock_redirect('pages/stock/stock-list.php?error=forbidden');
     }
     $id = (int) ($_POST['id'] ?? 0);
     $code = trim((string) ($_POST['code'] ?? ''));
@@ -70,16 +70,16 @@ if ($action === 'save_product' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
     $openingVal = ($opening !== '' && is_numeric($opening)) ? (float) $opening : null;
 
     if ($code === '' || $name === '') {
-        stock_redirect('pages/stock-product-form.php' . ($id ? '?id=' . $id : '') . '&error=required');
+        stock_redirect('pages/stock/stock-product-form.php' . ($id ? '?id=' . $id : '') . '&error=required');
     }
 
     if ($id > 0) {
         $cur = Db::row('stock_products', (string) $id);
         if ($cur === null || empty($cur['is_active'])) {
-            stock_redirect('pages/stock-list.php?error=notfound');
+            stock_redirect('pages/stock/stock-list.php?error=notfound');
         }
         if (stock_code_exists($code, $id)) {
-            stock_redirect('pages/stock-product-form.php?id=' . $id . '&error=duplicate');
+            stock_redirect('pages/stock/stock-product-form.php?id=' . $id . '&error=duplicate');
         }
         $rv = (float) $reorderVal;
         Db::mergeRow('stock_products', (string) $id, [
@@ -88,11 +88,11 @@ if ($action === 'save_product' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
             'unit' => $unit,
             'reorder_level' => $rv,
         ]);
-        stock_redirect('pages/stock-list.php?success=updated');
+        stock_redirect('pages/stock/stock-list.php?success=updated');
     }
 
     if (stock_code_exists($code, null)) {
-        stock_redirect('pages/stock-product-form.php?error=duplicate');
+        stock_redirect('pages/stock/stock-product-form.php?error=duplicate');
     }
 
     $rv = (float) $reorderVal;
@@ -120,12 +120,12 @@ if ($action === 'save_product' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
         ]);
     }
 
-    stock_redirect('pages/stock-list.php?success=1');
+    stock_redirect('pages/stock/stock-list.php?success=1');
 }
 
 if ($action === 'add_movement' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!$canManage) {
-        stock_redirect('pages/stock-list.php?error=forbidden');
+        stock_redirect('pages/stock/stock-list.php?error=forbidden');
     }
     $productId = (int) ($_POST['product_id'] ?? 0);
     $kind = (string) ($_POST['kind'] ?? '');
@@ -134,12 +134,12 @@ if ($action === 'add_movement' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
     $noteEsc = $note === '' ? '' : mb_substr($note, 0, 500, 'UTF-8');
 
     if ($productId <= 0 || !is_numeric($qtyRaw) || (float) $qtyRaw == 0.0) {
-        stock_redirect('pages/stock-adjust.php?error=invalid&product_id=' . $productId);
+        stock_redirect('pages/stock/stock-adjust.php?error=invalid&product_id=' . $productId);
     }
 
     $prod = Db::row('stock_products', (string) $productId);
     if ($prod === null || empty($prod['is_active'])) {
-        stock_redirect('pages/stock-list.php?error=notfound');
+        stock_redirect('pages/stock/stock-list.php?error=notfound');
     }
 
     $qtyAbs = round(abs((float) $qtyRaw), 3);
@@ -156,12 +156,12 @@ if ($action === 'add_movement' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
         $delta = round((float) $qtyRaw, 3);
         $type = 'adjust';
     } else {
-        stock_redirect('pages/stock-adjust.php?error=invalid&product_id=' . $productId);
+        stock_redirect('pages/stock/stock-adjust.php?error=invalid&product_id=' . $productId);
     }
 
     $bal = stock_balance_sum($productId);
     if ($bal + $delta < -0.0001) {
-        stock_redirect('pages/stock-adjust.php?error=insufficient&product_id=' . $productId);
+        stock_redirect('pages/stock/stock-adjust.php?error=insufficient&product_id=' . $productId);
     }
 
     $mid = Db::nextNumericId('stock_movements', 'id');
@@ -175,7 +175,7 @@ if ($action === 'add_movement' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
         'created_at' => date('Y-m-d H:i:s'),
     ]);
 
-    stock_redirect('pages/stock-movements.php?product_id=' . $productId . '&success=1');
+    stock_redirect('pages/stock/stock-movements.php?product_id=' . $productId . '&success=1');
 }
 
 if ($action === 'deactivate' && $canManage) {
@@ -183,7 +183,7 @@ if ($action === 'deactivate' && $canManage) {
     if ($id > 0) {
         Db::mergeRow('stock_products', (string) $id, ['is_active' => 0]);
     }
-    stock_redirect('pages/stock-list.php?deactivated=1');
+    stock_redirect('pages/stock/stock-list.php?deactivated=1');
 }
 
-stock_redirect('pages/stock-list.php?error=bad');
+stock_redirect('pages/stock/stock-list.php?error=bad');

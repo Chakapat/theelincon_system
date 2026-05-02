@@ -32,8 +32,71 @@ if ($action === 'line_pr_decision') {
             'line_decided_at' => date('Y-m-d H:i:s'),
             'line_approval_token' => '',
         ]);
+        if ($nextStatus === 'approved' && method_exists(Purchase::class, 'createHireContractIfNeededForPr')) {
+            Purchase::createHireContractIfNeededForPr($id);
+        }
         http_response_code(200);
         echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>บันทึกผลแล้ว</title></head><body style="font-family:sans-serif;padding:24px;"><h2>บันทึกผลเรียบร้อย</h2><p>ระบบได้อัปเดตใบ PR แล้ว: <strong>' . htmlspecialchars(strtoupper($nextStatus), ENT_QUOTES, 'UTF-8') . '</strong></p></body></html>';
+        exit;
+    }
+
+    http_response_code(400);
+    echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>ไม่สามารถดำเนินการได้</title></head><body style="font-family:sans-serif;padding:24px;"><h2>ไม่สามารถดำเนินการได้</h2><p>ลิงก์หมดอายุ หรือรายการนี้ถูกดำเนินการไปแล้ว</p></body></html>';
+    exit;
+}
+
+if ($action === 'line_quote_decision') {
+    $decision = (string) ($_GET['decision'] ?? '');
+    $token = trim((string) ($_GET['token'] ?? ''));
+    $quote = Db::rowByIdField('quotations', $id);
+
+    $ok = $quote !== null
+        && $token !== ''
+        && hash_equals((string) ($quote['line_approval_token'] ?? ''), $token)
+        && (string) ($quote['status'] ?? '') === 'pending'
+        && in_array($decision, ['approve', 'reject'], true);
+
+    if ($ok) {
+        $nextStatus = $decision === 'approve' ? 'approved' : 'rejected';
+        $qpk = Db::pkForLogicalId('quotations', $id);
+        $cur = Db::row('quotations', $qpk) ?? [];
+        Db::setRow('quotations', $qpk, array_merge($cur, [
+            'status' => $nextStatus,
+            'line_decision' => $decision,
+            'line_decided_at' => date('Y-m-d H:i:s'),
+            'line_approval_token' => '',
+        ]));
+        http_response_code(200);
+        echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>บันทึกผลแล้ว</title></head><body style="font-family:sans-serif;padding:24px;"><h2>บันทึกผลเรียบร้อย</h2><p>ระบบได้อัปเดตใบเสนอราคาแล้ว: <strong>' . htmlspecialchars(strtoupper($nextStatus), ENT_QUOTES, 'UTF-8') . '</strong></p></body></html>';
+        exit;
+    }
+
+    http_response_code(400);
+    echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>ไม่สามารถดำเนินการได้</title></head><body style="font-family:sans-serif;padding:24px;"><h2>ไม่สามารถดำเนินการได้</h2><p>ลิงก์หมดอายุ หรือรายการนี้ถูกดำเนินการไปแล้ว</p></body></html>';
+    exit;
+}
+
+if ($action === 'line_need_decision') {
+    $decision = (string) ($_GET['decision'] ?? '');
+    $token = trim((string) ($_GET['token'] ?? ''));
+    $need = Db::row('purchase_needs', (string) $id);
+
+    $ok = $need !== null
+        && $token !== ''
+        && hash_equals((string) ($need['line_approval_token'] ?? ''), $token)
+        && (string) ($need['status'] ?? '') === 'pending'
+        && in_array($decision, ['approve', 'reject'], true);
+
+    if ($ok) {
+        $nextStatus = $decision === 'approve' ? 'approved' : 'rejected';
+        Db::mergeRow('purchase_needs', (string) $id, [
+            'status' => $nextStatus,
+            'line_decision' => $decision,
+            'line_decided_at' => date('Y-m-d H:i:s'),
+            'line_approval_token' => '',
+        ]);
+        http_response_code(200);
+        echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>บันทึกผลแล้ว</title></head><body style="font-family:sans-serif;padding:24px;"><h2>บันทึกผลเรียบร้อย</h2><p>ใบต้องการซื้ออัปเดตเป็น <strong>' . htmlspecialchars(strtoupper($nextStatus), ENT_QUOTES, 'UTF-8') . '</strong></p></body></html>';
         exit;
     }
 
@@ -46,6 +109,17 @@ if (!isset($_SESSION['user_id'])) {
     exit('Access Denied: กรุณาเข้าสู่ระบบ');
 }
 
+// POST-only actions: prevent direct GET access to write endpoints.
+if (($action === 'create_po_direct' || $action === 'create_po_from_pr')
+    && strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
+    $fallback = $action === 'create_po_direct'
+        ? app_path('pages/purchase/purchase-order-create.php')
+        : app_path('pages/purchase/purchase-request-list.php');
+    http_response_code(200);
+    echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>เปิดหน้านี้โดยตรงไม่ได้</title></head><body style="font-family:Arial,sans-serif;padding:24px;"><h3>หน้านี้เป็น endpoint สำหรับบันทึกข้อมูล</h3><p>กรุณาใช้งานผ่านฟอร์มของระบบ</p><p><a href="' . htmlspecialchars($fallback, ENT_QUOTES, 'UTF-8') . '">กลับไปหน้าสร้างเอกสาร</a></p></body></html>';
+    exit;
+}
+
 if ($action !== 'get_data' && !csrf_verify_request()) {
     http_response_code(403);
     exit('Invalid security token. Please refresh the page and try again.');
@@ -53,7 +127,7 @@ if ($action !== 'get_data' && !csrf_verify_request()) {
 
 $user_role = $_SESSION['role'] ?? 'user';
 
-$admin_actions = ['approve_pr', 'reject_pr', 'delete', 'delete_quotation', 'delete_pr', 'delete_leave_request', 'add_member', 'edit_member', 'delete_supplier'];
+$admin_actions = ['approve_pr', 'reject_pr', 'delete', 'delete_quotation', 'delete_pr', 'delete_leave_request', 'delete_purchase_need', 'add_member', 'edit_member', 'delete_supplier'];
 if (in_array($action, $admin_actions, true) && $user_role !== 'admin') {
     exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
 }
@@ -78,6 +152,68 @@ function generateLeaveRequestNumber(string $seedDate = ''): string
         }
     }
     return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Generate advance cash running number (AC-TNC-YYMM-XXX).
+ */
+function generateAdvanceCashNumber(string $seedDate = ''): string
+{
+    $baseDate = $seedDate !== '' ? $seedDate : date('Y-m-d');
+    $stamp = date('ym', strtotime($baseDate));
+    $prefix = 'AC-TNC-' . $stamp . '-';
+    $max = 0;
+    foreach (Db::tableRows('advance_cash_requests') as $row) {
+        $num = (string) ($row['request_number'] ?? '');
+        if (strpos($num, $prefix) !== 0) {
+            continue;
+        }
+        $seq = (int) substr($num, strlen($prefix));
+        if ($seq > $max) {
+            $max = $seq;
+        }
+    }
+    return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Show success popup with countdown before returning to PO list.
+ */
+function renderPoCreatedPopupAndRedirect(string $poNumber)
+{
+    $target = app_path('pages/purchase/purchase-order-list.php');
+    $safePoNumber = htmlspecialchars($poNumber, ENT_QUOTES, 'UTF-8');
+    ?>
+<!doctype html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สร้าง PO สำเร็จ</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<script>
+(function () {
+    var target = <?= json_encode($target, JSON_UNESCAPED_SLASHES) ?>;
+    Swal.fire({
+        icon: 'success',
+        title: 'สร้าง PO สำเร็จ',
+        html: 'หมายเลข PO : <b><?= $safePoNumber ?></b><br><small>กำลังกลับไปหน้ารายการใน 3 วินาที...</small>',
+        timer: 3000,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        confirmButtonText: 'ไปหน้ารายการทันที'
+    }).then(function () {
+        window.location.href = target;
+    });
+})();
+</script>
+</body>
+</html>
+<?php
+    exit;
 }
 
 // --- get_data (Modal) ---
@@ -122,7 +258,7 @@ if ($action === 'save_supplier') {
         $data['id'] = $nid;
         Db::setRow('suppliers', (string) $nid, $data);
     }
-    header('Location: ' . app_path('pages/supplier-list.php') . '?success=1');
+    header('Location: ' . app_path('pages/suppliers/supplier-list.php') . '?success=1');
     exit;
 }
 
@@ -131,11 +267,166 @@ if ($action === 'delete_supplier') {
         return isset($r['supplier_id']) && (int) $r['supplier_id'] === $id;
     });
     if ($po !== null) {
-        header('Location: ' . app_path('pages/supplier-list.php') . '?error=in_use');
+        header('Location: ' . app_path('pages/suppliers/supplier-list.php') . '?error=in_use');
     } else {
         Db::deleteRow('suppliers', (string) $id);
-        header('Location: ' . app_path('pages/supplier-list.php') . '?deleted=1');
+        header('Location: ' . app_path('pages/suppliers/supplier-list.php') . '?deleted=1');
     }
+    exit;
+}
+
+// --- Advance cash ---
+if (in_array($action, ['save_advance_cash_request', 'approve_advance_cash_request', 'reject_advance_cash_request', 'save_advance_cash_receipt', 'delete_advance_cash_request'], true)) {
+    $isFinanceRole = in_array((string) ($_SESSION['role'] ?? ''), ['admin', 'Accounting'], true);
+    if (!$isFinanceRole) {
+        exit('Access Denied: เฉพาะฝ่ายการเงิน/ผู้ดูแลระบบเท่านั้น');
+    }
+}
+
+if ($action === 'save_advance_cash_request' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $requestedBy = (int) ($_POST['requested_by'] ?? 0);
+    $requestDate = trim((string) ($_POST['request_date'] ?? ''));
+    $amount = round((float) str_replace([',', ' '], '', (string) ($_POST['amount'] ?? '0')), 2);
+    $purpose = trim((string) ($_POST['purpose'] ?? ''));
+    if ($requestedBy <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $requestDate) || $amount <= 0) {
+        header('Location: ' . app_path('pages/advance-cash/advance-cash-create.php') . '?error=invalid_input');
+        exit;
+    }
+    $reqId = Db::nextNumericId('advance_cash_requests', 'id');
+    $reqNo = generateAdvanceCashNumber($requestDate);
+    $now = date('Y-m-d H:i:s');
+    $lineApprovalToken = bin2hex(random_bytes(24));
+    Db::setRow('advance_cash_requests', (string) $reqId, [
+        'id' => $reqId,
+        'request_number' => $reqNo,
+        'requested_by' => $requestedBy,
+        'request_date' => $requestDate,
+        'amount' => $amount,
+        'purpose' => mb_substr($purpose, 0, 2000),
+        'status' => 'pending',
+        'line_approval_token' => $lineApprovalToken,
+        'receipt_status' => 'none',
+        'created_at' => $now,
+        'updated_at' => $now,
+    ]);
+    $u = Db::rowByIdField('users', $requestedBy);
+    $requesterName = trim((string) ($u['fname'] ?? '') . ' ' . (string) ($u['lname'] ?? ''));
+    $lineSent = function_exists('line_send_advance_cash_notification')
+        ? line_send_advance_cash_notification([
+            'id' => $reqId,
+            'request_number' => $reqNo,
+            'request_date' => $requestDate,
+            'amount' => $amount,
+            'purpose' => $purpose,
+            'line_approval_token' => $lineApprovalToken,
+        ], $requesterName)
+        : false;
+    $query = $lineSent ? 'success=1' : 'success=1&line_error=1';
+    header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php') . '?' . $query);
+    exit;
+}
+
+if (($action === 'approve_advance_cash_request' || $action === 'reject_advance_cash_request') && $id > 0) {
+    $row = Db::rowByIdField('advance_cash_requests', $id);
+    if ($row === null) {
+        header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php'));
+        exit;
+    }
+    $pk = Db::pkForLogicalId('advance_cash_requests', $id);
+    $isApprove = $action === 'approve_advance_cash_request';
+    Db::setRow('advance_cash_requests', $pk, array_merge($row, [
+        'status' => $isApprove ? 'approved' : 'rejected',
+        'approved_by' => (int) ($_SESSION['user_id'] ?? 0),
+        'approved_at' => date('Y-m-d H:i:s'),
+        'line_approval_token' => '',
+        'updated_at' => date('Y-m-d H:i:s'),
+    ]));
+    header('Location: ' . app_path('pages/advance-cash/advance-cash-view.php') . '?id=' . $id . '&' . ($isApprove ? 'approved=1' : 'rejected=1'));
+    exit;
+}
+
+if ($action === 'save_advance_cash_receipt' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $id > 0) {
+    $row = Db::rowByIdField('advance_cash_requests', $id);
+    if ($row === null) {
+        header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php'));
+        exit;
+    }
+    if ((string) ($row['status'] ?? '') !== 'approved') {
+        header('Location: ' . app_path('pages/advance-cash/advance-cash-view.php') . '?id=' . $id . '&error=receipt_requires_approved');
+        exit;
+    }
+    $receiptDate = trim((string) ($_POST['receipt_date'] ?? ''));
+    $paymentMethod = trim((string) ($_POST['receipt_payment_method'] ?? ''));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $receiptDate) || !in_array($paymentMethod, ['cash', 'transfer'], true)) {
+        header('Location: ' . app_path('pages/advance-cash/advance-cash-receipt.php') . '?id=' . $id . '&error=invalid_input');
+        exit;
+    }
+
+    $slipPath = trim((string) ($row['receipt_transfer_slip_path'] ?? ''));
+    $slipUrl = trim((string) ($row['receipt_transfer_slip_url'] ?? ''));
+    if ($paymentMethod === 'transfer') {
+        $hasUpload = isset($_FILES['transfer_slip']) && (int) ($_FILES['transfer_slip']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
+        if ($hasUpload) {
+            $f = $_FILES['transfer_slip'];
+            if ((int) ($f['error'] ?? 0) !== UPLOAD_ERR_OK) {
+                header('Location: ' . app_path('pages/advance-cash/advance-cash-receipt.php') . '?id=' . $id . '&error=upload_failed');
+                exit;
+            }
+            $tmp = (string) ($f['tmp_name'] ?? '');
+            $originalName = trim((string) ($f['name'] ?? 'slip'));
+            $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+            $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif'];
+            if ($tmp === '' || !is_uploaded_file($tmp) || !in_array($ext, $allowedExt, true)) {
+                header('Location: ' . app_path('pages/advance-cash/advance-cash-receipt.php') . '?id=' . $id . '&error=upload_type');
+                exit;
+            }
+            $dirAbs = ROOT_PATH . '/uploads/advance-cash/' . $id;
+            if (!(is_dir($dirAbs) || @mkdir($dirAbs, 0775, true) || is_dir($dirAbs))) {
+                header('Location: ' . app_path('pages/advance-cash/advance-cash-receipt.php') . '?id=' . $id . '&error=upload_failed');
+                exit;
+            }
+            $storedName = 'receipt_slip_' . date('Ymd_His') . '.' . $ext;
+            if (!@move_uploaded_file($tmp, $dirAbs . '/' . $storedName)) {
+                header('Location: ' . app_path('pages/advance-cash/advance-cash-receipt.php') . '?id=' . $id . '&error=upload_failed');
+                exit;
+            }
+            $slipPath = 'uploads/advance-cash/' . $id . '/' . $storedName;
+            $slipUrl = app_path($slipPath);
+        }
+        if ($slipUrl === '') {
+            header('Location: ' . app_path('pages/advance-cash/advance-cash-receipt.php') . '?id=' . $id . '&error=slip_required');
+            exit;
+        }
+    }
+
+    $receiptNumber = trim((string) ($row['receipt_number'] ?? ''));
+    if ($receiptNumber === '') {
+        $receiptNumber = 'ACR-TNC-' . date('ym', strtotime($receiptDate)) . '-' . str_pad((string) $id, 4, '0', STR_PAD_LEFT);
+    }
+    $requester = Db::rowByIdField('users', (int) ($row['requested_by'] ?? 0)) ?? [];
+    $receiverName = trim((string) ($requester['fname'] ?? '') . ' ' . (string) ($requester['lname'] ?? ''));
+    $pk = Db::pkForLogicalId('advance_cash_requests', $id);
+    Db::setRow('advance_cash_requests', $pk, array_merge($row, [
+        'receipt_status' => 'issued',
+        'receipt_number' => $receiptNumber,
+        'receipt_date' => $receiptDate,
+        'receipt_payment_method' => $paymentMethod,
+        'receipt_receiver_name' => $receiverName,
+        'receipt_transfer_slip_path' => $paymentMethod === 'transfer' ? $slipPath : '',
+        'receipt_transfer_slip_url' => $paymentMethod === 'transfer' ? $slipUrl : '',
+        'updated_at' => date('Y-m-d H:i:s'),
+    ]));
+    header('Location: ' . app_path('pages/advance-cash/advance-cash-view.php') . '?id=' . $id . '&receipt_saved=1');
+    exit;
+}
+
+if ($action === 'delete_advance_cash_request' && $id > 0) {
+    $row = Db::rowByIdField('advance_cash_requests', $id);
+    if ($row !== null) {
+        $pk = Db::pkForLogicalId('advance_cash_requests', $id);
+        Db::deleteRow('advance_cash_requests', $pk);
+    }
+    header('Location: ' . app_path('pages/advance-cash/advance-cash-list.php') . '?deleted=1');
     exit;
 }
 
@@ -146,23 +437,53 @@ if ($action === 'save_pr') {
     $requested_by = (int) ($_POST['requested_by'] ?? 0);
     $created_by = (int) $_SESSION['user_id'];
     $details = trim((string) ($_POST['details'] ?? ''));
-    $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
-
-    $subtotal = 0.0;
-    foreach ($_POST['item_description'] ?? [] as $key => $desc) {
-        if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
-            continue;
-        }
-        if (trim((string) $desc) === '') {
-            continue;
-        }
-        $qty = (float) $_POST['item_qty'][$key];
-        $price = (float) $_POST['item_price'][$key];
-        $subtotal += $qty * $price;
+    $procurement_type = trim((string) ($_POST['procurement_type'] ?? 'purchase'));
+    if ($procurement_type !== 'hire') {
+        $procurement_type = 'purchase';
     }
-    $subtotal = round($subtotal, 2);
-    $vat_amount = $vat_enabled ? round($subtotal * 0.07, 2) : 0.0;
-    $total_amount = round($subtotal + $vat_amount, 2);
+
+    $hire_contractor_name = '';
+    $hire_employer_company_id = 0;
+    $hire_scope_details = '';
+    $hire_total_value = 0.0;
+    $hire_installment_count = 1;
+
+    if ($procurement_type === 'hire') {
+        $hire_contractor_name = trim((string) ($_POST['hire_contractor_name'] ?? ''));
+        $hire_employer_company_id = (int) ($_POST['hire_employer_company_id'] ?? 0);
+        $hire_scope_details = trim((string) ($_POST['hire_scope_details'] ?? ''));
+        $hire_total_value = round((float) str_replace([',', ' '], '', (string) ($_POST['hire_total_value'] ?? '0')), 2);
+        $hire_installment_count = max(1, min(120, (int) ($_POST['hire_installment_count'] ?? 1)));
+        if ($hire_contractor_name === '' || $hire_employer_company_id <= 0 || $hire_scope_details === '' || $hire_total_value <= 0) {
+            header('Location: ' . app_path('pages/purchase/purchase-request-create.php') . '?error=hire_invalid');
+            exit;
+        }
+        $vat_enabled = 0;
+        $subtotal = $hire_total_value;
+        $vat_amount = 0.0;
+        $total_amount = $hire_total_value;
+    } else {
+        $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
+        $subtotal = 0.0;
+        foreach ($_POST['item_description'] ?? [] as $key => $desc) {
+            if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
+                continue;
+            }
+            if (trim((string) $desc) === '') {
+                continue;
+            }
+            $qty = (float) $_POST['item_qty'][$key];
+            $price = (float) $_POST['item_price'][$key];
+            $subtotal += $qty * $price;
+        }
+        $subtotal = round($subtotal, 2);
+        if ($subtotal <= 0) {
+            header('Location: ' . app_path('pages/purchase/purchase-request-create.php') . '?error=no_items');
+            exit;
+        }
+        $vat_amount = $vat_enabled ? round($subtotal * 0.07, 2) : 0.0;
+        $total_amount = round($subtotal + $vat_amount, 2);
+    }
 
     $pr_id = Db::nextNumericId('purchase_requests', 'id');
     $quoteAttachmentPath = '';
@@ -175,13 +496,13 @@ if ($action === 'save_pr') {
         $f = $_FILES['quotation_file'];
         $err = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
         if ($err !== UPLOAD_ERR_OK) {
-            header('Location: ' . app_path('pages/purchase-request-create.php') . '?error=upload_failed');
+            header('Location: ' . app_path('pages/purchase/purchase-request-create.php') . '?error=upload_failed');
             exit;
         }
 
         $tmp = (string) ($f['tmp_name'] ?? '');
         if ($tmp === '' || !is_uploaded_file($tmp)) {
-            header('Location: ' . app_path('pages/purchase-request-create.php') . '?error=upload_failed');
+            header('Location: ' . app_path('pages/purchase/purchase-request-create.php') . '?error=upload_failed');
             exit;
         }
 
@@ -189,13 +510,13 @@ if ($action === 'save_pr') {
         $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
         $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
         if (!in_array($ext, $allowedExt, true)) {
-            header('Location: ' . app_path('pages/purchase-request-create.php') . '?error=upload_type');
+            header('Location: ' . app_path('pages/purchase/purchase-request-create.php') . '?error=upload_type');
             exit;
         }
 
         $dirAbs = ROOT_PATH . '/uploads/pr-quotations/' . $pr_id;
         if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
-            header('Location: ' . app_path('pages/purchase-request-create.php') . '?error=upload_failed');
+            header('Location: ' . app_path('pages/purchase/purchase-request-create.php') . '?error=upload_failed');
             exit;
         }
 
@@ -207,7 +528,7 @@ if ($action === 'save_pr') {
         $storedName = $safeBase . '_' . date('Ymd_His') . '.' . $ext;
         $destAbs = $dirAbs . '/' . $storedName;
         if (!@move_uploaded_file($tmp, $destAbs)) {
-            header('Location: ' . app_path('pages/purchase-request-create.php') . '?error=upload_failed');
+            header('Location: ' . app_path('pages/purchase/purchase-request-create.php') . '?error=upload_failed');
             exit;
         }
 
@@ -230,6 +551,12 @@ if ($action === 'save_pr') {
         'vat_enabled' => $vat_enabled,
         'subtotal_amount' => $subtotal,
         'vat_amount' => $vat_amount,
+        'procurement_type' => $procurement_type,
+        'hire_contractor_name' => $hire_contractor_name,
+        'hire_employer_company_id' => $hire_employer_company_id,
+        'hire_scope_details' => $hire_scope_details,
+        'hire_total_value' => $hire_total_value,
+        'hire_installment_count' => $hire_installment_count,
         'line_approval_token' => bin2hex(random_bytes(24)),
         'quotation_attachment_path' => $quoteAttachmentPath,
         'quotation_attachment_url' => $quoteAttachmentUrl,
@@ -289,7 +616,7 @@ if ($action === 'save_pr') {
         ? 'มีใบเสนอราคา: ' . $quoteAttachmentName
         : 'ไม่มีใบเสนอราคา';
     $lineSent = line_send_pr_approval_notification($pr_row, $requesterName, $itemsPreview, $lineQuoteText, $quoteAttachmentUrl);
-    $redirect = app_path('pages/purchase-request-list.php') . '?success=1';
+    $redirect = app_path('pages/purchase/purchase-request-list.php') . '?success=1';
     if (!$lineSent) {
         $redirect .= '&line_error=1';
     }
@@ -309,7 +636,7 @@ if ($action === 'save_leave_request') {
         return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) === 1;
     };
     if ($leaveType === '' || $reason === '' || !$validDate($startDate) || !$validDate($endDate) || strtotime($endDate) < strtotime($startDate)) {
-        header('Location: ' . app_path('pages/leave-request-create.php') . '?error=invalid_input');
+        header('Location: ' . app_path('pages/leave-requests/leave-request-create.php') . '?error=invalid_input');
         exit;
     }
 
@@ -328,12 +655,12 @@ if ($action === 'save_leave_request') {
         $f = $_FILES['attachment'];
         $err = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
         if ($err !== UPLOAD_ERR_OK) {
-            header('Location: ' . app_path('pages/leave-request-create.php') . '?error=upload_failed');
+            header('Location: ' . app_path('pages/leave-requests/leave-request-create.php') . '?error=upload_failed');
             exit;
         }
         $tmp = (string) ($f['tmp_name'] ?? '');
         if ($tmp === '' || !is_uploaded_file($tmp)) {
-            header('Location: ' . app_path('pages/leave-request-create.php') . '?error=upload_failed');
+            header('Location: ' . app_path('pages/leave-requests/leave-request-create.php') . '?error=upload_failed');
             exit;
         }
 
@@ -341,13 +668,13 @@ if ($action === 'save_leave_request') {
         $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
         $allowedExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
         if (!in_array($ext, $allowedExt, true)) {
-            header('Location: ' . app_path('pages/leave-request-create.php') . '?error=upload_type');
+            header('Location: ' . app_path('pages/leave-requests/leave-request-create.php') . '?error=upload_type');
             exit;
         }
 
         $dirAbs = ROOT_PATH . '/uploads/leave-requests/' . $leaveId;
         if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
-            header('Location: ' . app_path('pages/leave-request-create.php') . '?error=upload_failed');
+            header('Location: ' . app_path('pages/leave-requests/leave-request-create.php') . '?error=upload_failed');
             exit;
         }
 
@@ -359,7 +686,7 @@ if ($action === 'save_leave_request') {
         $storedName = $safeBase . '_' . date('Ymd_His') . '.' . $ext;
         $destAbs = $dirAbs . '/' . $storedName;
         if (!@move_uploaded_file($tmp, $destAbs)) {
-            header('Location: ' . app_path('pages/leave-request-create.php') . '?error=upload_failed');
+            header('Location: ' . app_path('pages/leave-requests/leave-request-create.php') . '?error=upload_failed');
             exit;
         }
 
@@ -368,7 +695,10 @@ if ($action === 'save_leave_request') {
         $attachmentName = $originalName;
     }
 
-    Db::setRow('leave_requests', (string) $leaveId, [
+    $token = bin2hex(random_bytes(24));
+    $lineSentAt = date('Y-m-d H:i:s');
+
+    $leavePayload = [
         'id' => $leaveId,
         'leave_number' => $leaveNumber,
         'requested_by' => $requestedBy,
@@ -377,83 +707,80 @@ if ($action === 'save_leave_request') {
         'start_date' => $startDate,
         'end_date' => $endDate,
         'days_count' => $daysCount,
-        'status' => 'draft',
+        'status' => 'pending',
         'attachment_path' => $attachmentPath,
         'attachment_url' => $attachmentUrl,
         'attachment_name' => $attachmentName,
-        'line_approval_token' => '',
-        'line_sent_at' => '',
-        'created_at' => date('Y-m-d H:i:s'),
-    ]);
-
-    header('Location: ' . app_path('pages/leave-request-view.php') . '?id=' . $leaveId);
-    exit;
-}
-
-if ($action === 'send_leave_request') {
-    $leave = Db::row('leave_requests', (string) $id);
-    $uid = (int) $_SESSION['user_id'];
-    if ($leave === null || (int) ($leave['requested_by'] ?? 0) !== $uid) {
-        header('Location: ' . app_path('pages/leave-request-list.php'));
-        exit;
-    }
-
-    if ((string) ($leave['status'] ?? '') !== 'draft') {
-        header('Location: ' . app_path('pages/leave-request-view.php') . '?id=' . $id);
-        exit;
-    }
-
-    $token = bin2hex(random_bytes(24));
-    $leave = array_merge($leave, [
         'line_approval_token' => $token,
-        'status' => 'pending',
-        'line_sent_at' => date('Y-m-d H:i:s'),
-    ]);
-    Db::setRow('leave_requests', (string) $id, $leave);
+        'line_sent_at' => $lineSentAt,
+        'created_at' => date('Y-m-d H:i:s'),
+    ];
+    Db::setRow('leave_requests', (string) $leaveId, $leavePayload);
 
-    $user = Db::row('users', (string) $uid) ?? [];
+    $user = Db::row('users', (string) $requestedBy) ?? [];
     $requesterName = trim((string) ($user['fname'] ?? '') . ' ' . (string) ($user['lname'] ?? ''));
     if ($requesterName === '') {
         $requesterName = (string) ($_SESSION['name'] ?? 'Unknown User');
     }
-    $lineSent = line_send_leave_approval_notification($leave, $requesterName);
+
+    $lineSent = line_send_leave_approval_notification($leavePayload, $requesterName);
     if (!$lineSent) {
-        Db::mergeRow('leave_requests', (string) $id, ['status' => 'draft']);
-        header('Location: ' . app_path('pages/leave-request-view.php') . '?id=' . $id . '&line_error=1');
+        Db::mergeRow('leave_requests', (string) $leaveId, [
+            'status' => 'draft',
+            'line_approval_token' => '',
+            'line_sent_at' => '',
+        ]);
+        header('Location: ' . app_path('pages/leave-requests/leave-request-view.php') . '?id=' . $leaveId . '&line_error=1');
         exit;
     }
 
-    header('Location: ' . app_path('pages/leave-request-list.php') . '?sent=1');
+    header('Location: ' . app_path('pages/leave-requests/leave-request-list.php') . '?sent=1');
     exit;
 }
 
 if ($action === 'approve_pr') {
     Db::mergeRow('purchase_requests', (string) $id, ['status' => 'approved']);
-    header('Location: ' . app_path('pages/purchase-request-list.php') . '?approved=1');
+    if (method_exists(Purchase::class, 'createHireContractIfNeededForPr')) {
+        Purchase::createHireContractIfNeededForPr($id);
+    }
+    header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?approved=1');
     exit;
 }
 
 if ($action === 'reject_pr') {
     Db::mergeRow('purchase_requests', (string) $id, ['status' => 'rejected']);
-    header('Location: ' . app_path('pages/purchase-request-list.php') . '?rejected=1');
+    header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?rejected=1');
     exit;
 }
 
 if ($action === 'delete_pr') {
     if ($id <= 0) {
-        header('Location: ' . app_path('pages/purchase-request-list.php') . '?error=invalid_pr');
+        header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?error=invalid_pr');
         exit;
     }
-    Db::deleteWhereEquals('purchase_orders', 'pr_id', (string) $id);
+    foreach (Db::filter('hire_contracts', static fn (array $r): bool => isset($r['pr_id']) && (int) $r['pr_id'] === $id) as $hc) {
+        $hcId = (int) ($hc['id'] ?? 0);
+        if ($hcId > 0) {
+            Db::deleteRow('hire_contracts', (string) $hcId);
+        }
+    }
+    foreach (Db::filter('purchase_orders', static fn (array $r): bool => isset($r['pr_id']) && (int) $r['pr_id'] === $id) as $poDel) {
+        $poid = (int) ($poDel['id'] ?? 0);
+        if ($poid > 0) {
+            Db::deleteWhereEquals('po_payments', 'po_id', (string) $poid);
+            Db::deleteWhereEquals('purchase_order_items', 'po_id', (string) $poid);
+            Db::deleteRow('purchase_orders', (string) $poid);
+        }
+    }
     Db::deleteWhereEquals('purchase_request_items', 'pr_id', (string) $id);
     Db::deleteRow('purchase_requests', (string) $id);
-    header('Location: ' . app_path('pages/purchase-request-list.php') . '?deleted=1');
+    header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?deleted=1');
     exit;
 }
 
 if ($action === 'delete_leave_request') {
     if ($id <= 0) {
-        header('Location: ' . app_path('pages/leave-request-list.php') . '?error=invalid_leave');
+        header('Location: ' . app_path('pages/leave-requests/leave-request-list.php') . '?error=invalid_leave');
         exit;
     }
 
@@ -469,7 +796,140 @@ if ($action === 'delete_leave_request') {
         Db::deleteRow('leave_requests', (string) $id);
     }
 
-    header('Location: ' . app_path('pages/leave-request-list.php') . '?deleted=1&scope=all');
+    header('Location: ' . app_path('pages/leave-requests/leave-request-list.php') . '?deleted=1&scope=all');
+    exit;
+}
+
+if ($action === 'save_purchase_need' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $need_number = trim((string) ($_POST['need_number'] ?? ''));
+    if ($need_number === '') {
+        $need_number = Purchase::nextNeedNumber();
+    }
+
+    $postedDate = trim((string) ($_POST['created_at'] ?? ''));
+    $docDate = $postedDate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $postedDate) === 1
+        ? $postedDate
+        : date('Y-m-d');
+
+    $siteId = (int) ($_POST['site_id'] ?? 0);
+    if ($siteId <= 0) {
+        header('Location: ' . app_path('pages/purchase/purchase-need-create.php') . '?error=need_site');
+        exit;
+    }
+
+    $siteRow = Db::rowByIdField('sites', $siteId);
+    $siteName = $siteRow !== null ? trim((string) ($siteRow['name'] ?? '')) : '';
+    if ($siteName === '') {
+        header('Location: ' . app_path('pages/purchase/purchase-need-create.php') . '?error=need_site');
+        exit;
+    }
+
+    $remarks = trim((string) ($_POST['remarks'] ?? ''));
+
+    $descs = $_POST['need_item_description'] ?? [];
+    $qtys = $_POST['need_item_qty'] ?? [];
+    $units = $_POST['need_item_unit'] ?? [];
+    $lines = [];
+    if (!is_array($descs) || !is_array($qtys)) {
+        header('Location: ' . app_path('pages/purchase/purchase-need-create.php') . '?error=need_no_items');
+        exit;
+    }
+    foreach ($descs as $i => $descRaw) {
+        $desc = trim((string) $descRaw);
+        if ($desc === '') {
+            continue;
+        }
+        $qty = isset($qtys[$i]) ? (float) str_replace([',', ' '], '', (string) $qtys[$i]) : 0.0;
+        if ($qty <= 0) {
+            continue;
+        }
+        $unit = isset($units[$i]) ? trim((string) $units[$i]) : '';
+        $lines[] = ['description' => $desc, 'quantity' => $qty, 'unit' => $unit];
+    }
+
+    if (count($lines) === 0) {
+        header('Location: ' . app_path('pages/purchase/purchase-need-create.php') . '?error=need_no_items');
+        exit;
+    }
+
+    $previewParts = [];
+    foreach (array_slice($lines, 0, 8) as $idx => $ln) {
+        $previewParts[] = ($idx + 1) . '. ' . $ln['description'] . ' × ' . number_format($ln['quantity'], 2) . ($ln['unit'] !== '' ? ' ' . $ln['unit'] : '');
+    }
+    if (count($lines) > 8) {
+        $previewParts[] = '… และอีก ' . (count($lines) - 8) . ' รายการ';
+    }
+    $detailsSummary = implode("\n", $previewParts);
+
+    $requestedBy = (int) $_SESSION['user_id'];
+    $needId = Db::nextNumericId('purchase_needs', 'id');
+    $approvalToken = bin2hex(random_bytes(24));
+
+    $needPayload = [
+        'id' => $needId,
+        'need_number' => $need_number,
+        'created_at' => $docDate,
+        'requested_by' => $requestedBy,
+        'site_id' => $siteId,
+        'site_name' => $siteName,
+        'site_details' => '',
+        'details' => $detailsSummary,
+        'remarks' => $remarks,
+        'status' => 'pending',
+        'line_approval_token' => $approvalToken,
+        'line_sent_at' => '',
+    ];
+    Db::setRow('purchase_needs', (string) $needId, $needPayload);
+
+    $sortSeq = 0;
+    foreach ($lines as $ln) {
+        ++$sortSeq;
+        $itemId = Db::nextNumericId('purchase_need_items', 'id');
+        Db::setRow('purchase_need_items', (string) $itemId, [
+            'id' => $itemId,
+            'need_id' => $needId,
+            'line_no' => $sortSeq,
+            'description' => $ln['description'],
+            'quantity' => $ln['quantity'],
+            'unit' => $ln['unit'],
+        ]);
+    }
+
+    $requester = Db::row('users', (string) $requestedBy) ?? [];
+    $requesterName = trim((string) ($requester['fname'] ?? '') . ' ' . (string) ($requester['lname'] ?? ''));
+    if ($requesterName === '') {
+        $requesterName = (string) ($_SESSION['name'] ?? 'Unknown User');
+    }
+
+    $lineSent = line_send_purchase_need_notification($needPayload, $requesterName, $detailsSummary);
+    if ($lineSent) {
+        Db::mergeRow('purchase_needs', (string) $needId, ['line_sent_at' => date('Y-m-d H:i:s')]);
+    }
+
+    $redirect = app_path('pages/purchase/purchase-need-list.php') . '?need_success=1';
+    if (!$lineSent) {
+        $redirect .= '&line_error=1';
+    }
+
+    header('Location: ' . $redirect);
+    exit;
+}
+
+if ($action === 'delete_purchase_need') {
+    if ($id <= 0) {
+        header('Location: ' . app_path('pages/purchase/purchase-need-list.php') . '?error=invalid_need');
+        exit;
+    }
+    foreach (Db::tableKeyed('purchase_need_items') as $pk => $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        if ((int) ($row['need_id'] ?? 0) === $id) {
+            Db::deleteRow('purchase_need_items', (string) $pk);
+        }
+    }
+    Db::deleteRow('purchase_needs', (string) $id);
+    header('Location: ' . app_path('pages/purchase/purchase-need-list.php') . '?need_deleted=1');
     exit;
 }
 
@@ -477,21 +937,35 @@ if ($action === 'delete_leave_request') {
 if ($action === 'create_po_from_pr') {
     $pr_id = (int) ($_POST['pr_id'] ?? 0);
     $supplier_id = (int) ($_POST['supplier_id'] ?? 0);
+    $hire_contract_id = (int) ($_POST['hire_contract_id'] ?? 0);
     $po_number = Purchase::generatePONumber();
     $created_by = (int) $_SESSION['user_id'];
 
+    if ($supplier_id <= 0) {
+        header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?error=po_supplier');
+        exit;
+    }
+
     $dup = Db::findFirst('purchase_orders', static function (array $r) use ($pr_id): bool {
-        return isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
+        return $pr_id > 0 && isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
     });
     if ($dup !== null) {
-        header('Location: ' . app_path('pages/purchase-request-view.php') . '?id=' . $pr_id . '&error=po_exists');
+        header('Location: ' . app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=po_exists');
         exit;
     }
 
     $pr_row = Db::row('purchase_requests', (string) $pr_id);
     if ($pr_row === null) {
-        header('Location: ' . app_path('pages/purchase-request-list.php') . '?error=pr_not_found');
+        header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?error=pr_not_found');
         exit;
+    }
+
+    if ($hire_contract_id > 0) {
+        $hc = Db::row('hire_contracts', (string) $hire_contract_id);
+        if ($hc === null || (int) ($hc['pr_id'] ?? 0) !== $pr_id) {
+            header('Location: ' . app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&error=contract');
+            exit;
+        }
     }
 
     $total_amount = (float) ($pr_row['total_amount'] ?? 0);
@@ -508,6 +982,7 @@ if ($action === 'create_po_from_pr') {
         'id' => $po_id,
         'po_number' => $po_number,
         'pr_id' => $pr_id,
+        'hire_contract_id' => $hire_contract_id,
         'supplier_id' => $supplier_id,
         'created_at' => date('Y-m-d'),
         'issue_date' => date('Y-m-d'),
@@ -531,7 +1006,401 @@ if ($action === 'create_po_from_pr') {
             'total' => $item['total'] ?? 0,
         ]);
     }
-    header('Location: ' . app_path('pages/purchase-order-list.php') . '?success=1');
+    if (method_exists(Purchase::class, 'seedPoPayments')) {
+        Purchase::seedPoPayments($po_id, $total_amount, $hire_contract_id > 0 ? $hire_contract_id : null);
+    }
+    renderPoCreatedPopupAndRedirect((string) $po_number);
+}
+
+// --- PO โดยตรง (ไม่อิง PR) ---
+if ($action === 'create_po_direct') {
+    $supplier_id = (int) ($_POST['supplier_id'] ?? 0);
+    $hire_contract_id = (int) ($_POST['hire_contract_id'] ?? 0);
+    $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
+    $created_by = (int) $_SESSION['user_id'];
+    $po_number = Purchase::generatePONumber();
+
+    if ($hire_contract_id > 0) {
+        $hc = Db::row('hire_contracts', (string) $hire_contract_id);
+        if ($hc === null) {
+            header('Location: ' . app_path('pages/purchase/purchase-order-create.php') . '?error=contract');
+            exit;
+        }
+    }
+
+    $subtotal = 0.0;
+    foreach ($_POST['item_description'] ?? [] as $key => $desc) {
+        if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
+            continue;
+        }
+        if (trim((string) $desc) === '') {
+            continue;
+        }
+        $subtotal += (float) $_POST['item_qty'][$key] * (float) $_POST['item_price'][$key];
+    }
+    $subtotal = round($subtotal, 2);
+    if ($subtotal <= 0) {
+        header('Location: ' . app_path('pages/purchase/purchase-order-create.php') . '?error=no_items');
+        exit;
+    }
+    $vat_amt = $vat_enabled ? round($subtotal * 0.07, 2) : 0.0;
+    $total_amount = round($subtotal + $vat_amt, 2);
+
+    $po_id = Db::nextNumericId('purchase_orders', 'id');
+    Db::setRow('purchase_orders', (string) $po_id, [
+        'id' => $po_id,
+        'po_number' => $po_number,
+        'pr_id' => 0,
+        'hire_contract_id' => $hire_contract_id,
+        'supplier_id' => $supplier_id,
+        'created_at' => date('Y-m-d'),
+        'issue_date' => date('Y-m-d'),
+        'total_amount' => $total_amount,
+        'status' => 'ordered',
+        'created_by' => $created_by,
+        'vat_enabled' => $vat_enabled,
+        'subtotal_amount' => $subtotal,
+        'vat_amount' => $vat_amt,
+    ]);
+
+    foreach ($_POST['item_description'] ?? [] as $key => $desc) {
+        if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
+            continue;
+        }
+        $desc = trim((string) $desc);
+        if ($desc === '') {
+            continue;
+        }
+        $iid = Db::nextNumericId('purchase_order_items', 'id');
+        $qty = (float) $_POST['item_qty'][$key];
+        $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
+        $price = (float) $_POST['item_price'][$key];
+        $lineTotal = round($qty * $price, 2);
+        Db::setRow('purchase_order_items', (string) $iid, [
+            'id' => $iid,
+            'po_id' => $po_id,
+            'description' => $desc,
+            'quantity' => $qty,
+            'unit' => $unit,
+            'unit_price' => $price,
+            'total' => $lineTotal,
+        ]);
+    }
+    if (method_exists(Purchase::class, 'seedPoPayments')) {
+        Purchase::seedPoPayments($po_id, $total_amount, $hire_contract_id > 0 ? $hire_contract_id : null);
+    }
+    renderPoCreatedPopupAndRedirect((string) $po_number);
+}
+
+if ($action === 'upload_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $po_id = (int) ($_POST['po_id'] ?? 0);
+    $payment_id = (int) ($_POST['payment_id'] ?? 0);
+    $backTo = trim((string) ($_POST['back_to'] ?? ''));
+    if ($payment_id <= 0) {
+        $cand = Db::filter('po_payments', static fn (array $r): bool => isset($r['po_id']) && (int) $r['po_id'] === $po_id);
+        usort($cand, static fn (array $a, array $b): int => ((int) ($a['seq'] ?? 0)) <=> ((int) ($b['seq'] ?? 0)));
+        foreach ($cand as $c) {
+            if (trim((string) ($c['slip_path'] ?? '')) === '') {
+                $payment_id = (int) ($c['id'] ?? 0);
+                break;
+            }
+        }
+        if ($payment_id <= 0 && count($cand) > 0) {
+            $payment_id = (int) ($cand[0]['id'] ?? 0);
+        }
+    }
+    $pay = Db::row('po_payments', (string) $payment_id);
+    if ($pay === null || (int) ($pay['po_id'] ?? 0) !== $po_id) {
+        header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?error=payment');
+        exit;
+    }
+    if (empty($_FILES['slip_file']) || (int) ($_FILES['slip_file']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?id=' . $po_id . '&error=upload_failed');
+        exit;
+    }
+    $f = $_FILES['slip_file'];
+    if ((int) ($f['error'] ?? 0) !== UPLOAD_ERR_OK) {
+        header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?id=' . $po_id . '&error=upload_failed');
+        exit;
+    }
+    $tmp = (string) ($f['tmp_name'] ?? '');
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?id=' . $po_id . '&error=upload_failed');
+        exit;
+    }
+    $originalName = trim((string) ($f['name'] ?? 'slip'));
+    $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif'];
+    if (!in_array($ext, $allowedExt, true)) {
+        header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?id=' . $po_id . '&error=upload_type');
+        exit;
+    }
+    $dirAbs = ROOT_PATH . '/uploads/po-payments/' . $po_id;
+    if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
+        header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?id=' . $po_id . '&error=upload_failed');
+        exit;
+    }
+    $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
+    $safeBase = trim((string) $safeBase, '._-');
+    if ($safeBase === '') {
+        $safeBase = 'slip';
+    }
+    $storedName = 'pay' . $payment_id . '_' . date('Ymd_His') . '.' . $ext;
+    $destAbs = $dirAbs . '/' . $storedName;
+    if (!@move_uploaded_file($tmp, $destAbs)) {
+        header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?id=' . $po_id . '&error=upload_failed');
+        exit;
+    }
+    $rel = 'uploads/po-payments/' . $po_id . '/' . $storedName;
+    Db::mergeRow('po_payments', (string) $payment_id, [
+        'slip_path' => $rel,
+        'slip_url' => app_path($rel),
+        'paid_amount' => (float) str_replace([',', ' '], '', (string) ($_POST['paid_amount'] ?? ($pay['amount'] ?? 0))),
+        'payment_note' => mb_substr(trim((string) ($_POST['payment_note'] ?? '')), 0, 500),
+        'slip_uploaded_at' => date('Y-m-d H:i:s'),
+    ]);
+    if ($backTo === 'po_list') {
+        header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?payment_saved=1');
+    } else {
+        header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?id=' . $po_id . '&payment_saved=1');
+    }
+    exit;
+}
+
+// --- บันทึกบิลซื้อตามโครงการ (ไซต์งาน) ---
+if ($action === 'save_project_purchase_bill' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $bill_id = (int) ($_POST['bill_id'] ?? 0);
+    $editingBill = $bill_id > 0 ? (Db::rowByIdField('purchase_bills', $bill_id) ?? Db::row('purchase_bills', (string) $bill_id)) : null;
+    if ($bill_id > 0 && $editingBill === null) {
+        header('Location: ' . app_path('pages/purchase/purchase-bill.php') . '?error=invalid');
+        exit;
+    }
+    $site_id = (int) ($_POST['site_id'] ?? 0);
+    $bill_date = trim((string) ($_POST['bill_date'] ?? date('Y-m-d')));
+    if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $bill_date, $m) === 1) {
+        $bill_date = $m[3] . '-' . $m[2] . '-' . $m[1];
+    }
+    $supplier_name = trim((string) ($_POST['supplier_name'] ?? ''));
+    $bill_note = trim((string) ($_POST['bill_note'] ?? ''));
+    $vat_mode = trim((string) ($_POST['vat_mode'] ?? 'none'));
+    if (!in_array($vat_mode, ['none', 'exclusive', 'inclusive'], true)) {
+        $vat_mode = 'none';
+    }
+    $vat_rate = (float) str_replace([',', ' '], '', (string) ($_POST['vat_rate'] ?? '7'));
+    if ($vat_rate < 0 || $vat_rate > 100) {
+        $vat_rate = 7.0;
+    }
+    $created_by = (int) $_SESSION['user_id'];
+
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $bill_date)) {
+        header('Location: ' . app_path('pages/purchase/purchase-bill.php') . '?error=invalid');
+        exit;
+    }
+    if ($site_id > 0) {
+        $site = Db::row('sites', (string) $site_id);
+        if ($site === null) {
+            header('Location: ' . app_path('pages/purchase/purchase-bill.php') . '?error=site');
+            exit;
+        }
+    }
+
+    $descs = $_POST['line_description'] ?? ($_POST['item_name'] ?? []);
+    $qtys = $_POST['line_qty'] ?? ($_POST['item_qty'] ?? []);
+    $units = $_POST['line_unit'] ?? ($_POST['item_unit'] ?? []);
+    $prices = $_POST['line_price'] ?? ($_POST['item_price'] ?? []);
+    $discountInputs = $_POST['line_discount'] ?? [];
+    $discountTypes = $_POST['line_discount_type'] ?? [];
+    $discountVals = $_POST['line_discount_value'] ?? [];
+
+    if (!is_array($descs) && $descs !== '') {
+        $descs = [(string) $descs];
+    }
+    if (!is_array($qtys) && $qtys !== '') {
+        $qtys = [(string) $qtys];
+    }
+    if (!is_array($prices) && $prices !== '') {
+        $prices = [(string) $prices];
+    }
+    if (!is_array($units) && $units !== '') {
+        $units = [(string) $units];
+    }
+    if (!is_array($discountInputs) && $discountInputs !== '') {
+        $discountInputs = [(string) $discountInputs];
+    }
+    if (!is_array($discountTypes) && $discountTypes !== '') {
+        $discountTypes = [(string) $discountTypes];
+    }
+    if (!is_array($discountVals) && $discountVals !== '') {
+        $discountVals = [(string) $discountVals];
+    }
+
+    if (!is_array($descs) || !is_array($qtys) || !is_array($prices)) {
+        header('Location: ' . app_path('pages/purchase/purchase-bill.php') . '?error=invalid');
+        exit;
+    }
+
+    $line_rows = [];
+    $subtotal = 0.0;
+    $n = max(
+        count($descs),
+        count($qtys),
+        count($prices),
+        count($units),
+        count($discountInputs),
+        count($discountTypes),
+        count($discountVals)
+    );
+    for ($i = 0; $i < $n; $i++) {
+        $desc = trim((string) ($descs[$i] ?? ''));
+        $qty = (float) str_replace([',', ' '], '', (string) ($qtys[$i] ?? 0));
+        $unit = trim((string) ($units[$i] ?? ''));
+        $price = (float) str_replace([',', ' '], '', (string) ($prices[$i] ?? 0));
+        $discountRaw = trim((string) ($discountInputs[$i] ?? ''));
+        if ($discountRaw === '' && isset($discountTypes[$i], $discountVals[$i])) {
+            $legacyType = (string) $discountTypes[$i];
+            $legacyVal = trim((string) $discountVals[$i]);
+            if ($legacyType === 'percent' && $legacyVal !== '') {
+                $discountRaw = $legacyVal . '%';
+            } elseif ($legacyVal !== '') {
+                $discountRaw = $legacyVal;
+            }
+        }
+
+        if ($desc === '' && $qty == 0.0 && $price == 0.0) {
+            continue;
+        }
+        if ($desc === '' || $qty <= 0 || $price < 0) {
+            continue;
+        }
+
+        $lineBase = round($qty * $price, 2);
+        $discountAmount = 0.0;
+        $discountType = 'amount';
+        $discountValue = 0.0;
+        if ($discountRaw !== '') {
+            $pctMatch = [];
+            if (preg_match('/^([0-9]+(?:\.[0-9]+)?)\s*%$/', $discountRaw, $pctMatch) === 1) {
+                $discountType = 'percent';
+                $discountValue = (float) $pctMatch[1];
+                if ($discountValue < 0) {
+                    $discountValue = 0;
+                } elseif ($discountValue > 100) {
+                    $discountValue = 100;
+                }
+                $discountAmount = round($lineBase * $discountValue / 100, 2);
+            } else {
+                $discountType = 'amount';
+                $discountValue = (float) str_replace([',', ' '], '', $discountRaw);
+                if ($discountValue < 0) {
+                    $discountValue = 0;
+                }
+                $discountAmount = min($lineBase, round($discountValue, 2));
+            }
+        }
+        $lineTotal = round($lineBase - $discountAmount, 2);
+        $subtotal += $lineTotal;
+        $line_rows[] = [
+            'description' => mb_substr($desc, 0, 500),
+            'quantity' => $qty,
+            'unit' => mb_substr($unit, 0, 40),
+            'unit_price' => $price,
+            'discount_input' => mb_substr($discountRaw, 0, 20),
+            'discount_type' => $discountType,
+            'discount_value' => $discountValue,
+            'discount_amount' => $discountAmount,
+            'line_total' => $lineTotal,
+        ];
+    }
+
+    if (count($line_rows) === 0 || $subtotal <= 0) {
+        header('Location: ' . app_path('pages/purchase/purchase-bill.php') . '?error=need_lines');
+        exit;
+    }
+
+    $subtotal = round($subtotal, 2);
+    $vat_amount = 0.0;
+    $grand_total = $subtotal;
+    if ($vat_mode === 'exclusive') {
+        $vat_amount = round($subtotal * $vat_rate / 100, 2);
+        $grand_total = round($subtotal + $vat_amount, 2);
+    } elseif ($vat_mode === 'inclusive') {
+        if ($vat_rate > 0) {
+            $base = round($subtotal / (1 + $vat_rate / 100), 2);
+            $vat_amount = round($subtotal - $base, 2);
+            $subtotal = $base;
+            $grand_total = round($base + $vat_amount, 2);
+        } else {
+            $grand_total = $subtotal;
+            $vat_amount = 0.0;
+        }
+    }
+
+    $bid = $bill_id > 0 ? $bill_id : Db::nextNumericId('purchase_bills', 'id');
+    $attachmentPath = (string) ($editingBill['attachment_path'] ?? '');
+    $attachmentUrl = (string) ($editingBill['attachment_url'] ?? '');
+    if (!empty($_FILES['attachment']) && (int) ($_FILES['attachment']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        $f = $_FILES['attachment'];
+        if ((int) ($f['error'] ?? 0) === UPLOAD_ERR_OK) {
+            $tmp = (string) ($f['tmp_name'] ?? '');
+            $originalName = trim((string) ($f['name'] ?? 'bill'));
+            $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+            $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+            if ($tmp !== '' && is_uploaded_file($tmp) && in_array($ext, $allowedExt, true)) {
+                $dirAbs = ROOT_PATH . '/uploads/project-bills/' . $bid;
+                if (is_dir($dirAbs) || @mkdir($dirAbs, 0775, true) || is_dir($dirAbs)) {
+                    $storedName = 'bill_' . date('Ymd_His') . '.' . $ext;
+                    if (@move_uploaded_file($tmp, $dirAbs . '/' . $storedName)) {
+                        $attachmentPath = 'uploads/project-bills/' . $bid . '/' . $storedName;
+                        $attachmentUrl = app_path($attachmentPath);
+                    }
+                }
+            }
+        }
+    }
+
+    $billPayload = [
+        'id' => $bid,
+        'site_id' => $site_id,
+        'bill_date' => $bill_date,
+        'supplier_name' => $supplier_name,
+        'bill_note' => mb_substr($bill_note, 0, 1000),
+        'vat_mode' => $vat_mode,
+        'vat_rate' => $vat_rate,
+        'subtotal_amount' => $subtotal,
+        'vat_amount' => $vat_amount,
+        'amount' => $grand_total,
+        'attachment_path' => $attachmentPath,
+        'attachment_url' => $attachmentUrl,
+        'updated_at' => date('Y-m-d H:i:s'),
+    ];
+    if ($editingBill === null) {
+        $billPayload['created_by'] = $created_by;
+        $billPayload['created_at'] = date('Y-m-d H:i:s');
+    } else {
+        $billPayload['created_by'] = (int) ($editingBill['created_by'] ?? $created_by);
+        $billPayload['created_at'] = (string) ($editingBill['created_at'] ?? date('Y-m-d H:i:s'));
+    }
+    $billPayload['items'] = array_map(static function (array $line, int $idx): array {
+        return [
+            'line_no' => $idx + 1,
+            'description' => $line['description'],
+            'quantity' => $line['quantity'],
+            'unit' => $line['unit'],
+            'unit_price' => $line['unit_price'],
+            'discount_input' => $line['discount_input'],
+            'discount_type' => $line['discount_type'],
+            'discount_value' => $line['discount_value'],
+            'discount_amount' => $line['discount_amount'],
+            'line_total' => $line['line_total'],
+        ];
+    }, $line_rows, array_keys($line_rows));
+    Db::setRow('purchase_bills', (string) $bid, $billPayload);
+    $resultKey = $editingBill === null ? 'success=1' : 'updated=1';
+    $month = substr($bill_date, 0, 7);
+    if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
+        $month = date('Y-m');
+    }
+    header('Location: ' . app_path('pages/purchase/purchase-bill.php') . '?month=' . rawurlencode($month) . '&site_id=' . $site_id . '&' . $resultKey);
     exit;
 }
 
@@ -596,14 +1465,14 @@ if ($action === 'create_quotation' || $action === 'edit_quotation') {
         ]);
 
     }
-    header('Location: ' . app_path('pages/quotation-list.php') . '?success=1');
+    header('Location: ' . app_path('pages/quotations/quotation-list.php') . '?success=1');
     exit;
 }
 
 // --- company / customer / member ---
 if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_customer', 'add_member', 'edit_member'], true)) {
     if (strpos($action, 'member') !== false) {
-        $page = 'pages/member-manage.php';
+        $page = 'pages/organization/member-manage.php';
         $u_code = trim((string) ($_POST['user_code'] ?? ''));
         $fn = trim((string) ($_POST['fname'] ?? ''));
         $ln = trim((string) ($_POST['lname'] ?? ''));
@@ -657,7 +1526,7 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
         header('Location: ' . app_path($page) . '?success=' . $ok);
     } else {
         $table = (strpos($action, 'company') !== false) ? 'company' : 'customers';
-        $page = ($table === 'company') ? 'pages/company-manage.php' : 'pages/customer-manage.php';
+        $page = ($table === 'company') ? 'pages/organization/company-manage.php' : 'pages/organization/customer-manage.php';
         $name = trim((string) ($_POST['name'] ?? ''));
         $tax = trim((string) ($_POST['tax_id'] ?? ''));
         $addr = trim((string) ($_POST['address'] ?? ''));
@@ -713,21 +1582,28 @@ if ($action === 'delete' && $id > 0) {
     } elseif ($type === 'quotation') {
         Db::deleteWhereEquals('quotation_items', 'quotation_id', (string) $id);
         Db::deleteRow('quotations', (string) $id);
-        header('Location: ' . app_path('pages/quotation-list.php') . '?deleted=1');
+        header('Location: ' . app_path('pages/quotations/quotation-list.php') . '?deleted=1');
     } elseif ($type === 'member') {
         Db::deleteRow('users', (string) $id);
-        header('Location: ' . app_path('pages/member-manage.php') . '?deleted=1');
+        header('Location: ' . app_path('pages/organization/member-manage.php') . '?deleted=1');
     } elseif ($type === 'tax_invoice') {
         Db::deleteWhereEquals('tax_invoice_items', 'tax_invoice_id', (string) $id);
         Db::deleteRow('tax_invoices', (string) $id);
-        header('Location: ' . app_path('pages/tax-invoice-list.php') . '?deleted=1');
+        header('Location: ' . app_path('pages/invoices/tax-invoice-list.php') . '?deleted=1');
     } elseif ($type === 'purchase_order') {
+        Db::deleteWhereEquals('po_payments', 'po_id', (string) $id);
         Db::deleteWhereEquals('purchase_order_items', 'po_id', (string) $id);
         Db::deleteRow('purchase_orders', (string) $id);
-        header('Location: ' . app_path('pages/purchase-order-list.php') . '?deleted=1');
+        header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?deleted=1');
+    } elseif ($type === 'project_purchase_bill') {
+        Db::deleteWhereEquals('purchase_bill_items', 'bill_id', (string) $id);
+        Db::deleteWhereEquals('purchase_bill_items', 'purchase_bill_id', (string) $id);
+        Db::deleteWhereEquals('purchase_bill_items', 'purchase_bills_id', (string) $id);
+        Db::deleteRow('purchase_bills', (string) $id);
+        header('Location: ' . app_path('pages/purchase/purchase-bill.php') . '?deleted=1');
     } else {
         $table = ($type === 'company') ? 'company' : 'customers';
-        $page = ($table === 'company') ? 'pages/company-manage.php' : 'pages/customer-manage.php';
+        $page = ($table === 'company') ? 'pages/organization/company-manage.php' : 'pages/organization/customer-manage.php';
         Db::deleteRow($table, (string) $id);
         header('Location: ' . app_path($page) . '?deleted=1');
     }

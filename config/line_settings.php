@@ -15,22 +15,13 @@ if (!defined('LINE_TARGET_USER_ID')) {
 }
 
 if (!defined('LINE_TARGET_GROUP_ID')) {
-    define('LINE_TARGET_GROUP_ID', getenv('LINE_TARGET_GROUP_ID') ?: 'C6bda6fbecd62df0c3d1048051e1733a5');
+    define('LINE_TARGET_GROUP_ID', getenv('LINE_TARGET_GROUP_ID') ?: '');
 }
-
-// if (!defined('LINE_TARGET_GROUP_ID')) {
-//     define('LINE_TARGET_GROUP_ID', getenv('LINE_TARGET_GROUP_ID') ?: 'C5edf5836ea02dd7075878c50688de17a'); ตัวทดสอบ
-// }
-
 
 if (!defined('LINE_BOT_USER_ID')) {
     define('LINE_BOT_USER_ID', getenv('LINE_BOT_USER_ID') ?: '');
 }
 
 if (!defined('LINE_APPROVER_USER_ID')) {
-    define('LINE_APPROVER_USER_ID', getenv('LINE_APPROVER_USER_ID') ?: 'Ua0ce1416d25e68624cfbbf9e9fc6a8a5');
+    define('LINE_APPROVER_USER_ID', getenv('LINE_APPROVER_USER_ID') ?: '');
 }
-
-// if (!defined('LINE_APPROVER_USER_ID')) {
-//     define('LINE_APPROVER_USER_ID', getenv('LINE_APPROVER_USER_ID') ?: 'Uaa8a919a8f19cf53a3026f4abd91326d'); ตัวทดสอบ
-// }

@@ -37,7 +37,7 @@ $annGateIds = array_values(array_filter(array_map(static function ($r) {
                 <button type="button" class="btn btn-warning text-white fw-bold w-100 py-2 rounded-3" id="announcementAckBtn">
                     รับทราบทั้งหมด
                 </button>
-                <a class="small text-muted" href="<?= htmlspecialchars(app_path('pages/announcements.php'), ENT_QUOTES, 'UTF-8') ?>">ไปที่กระดานประกาศ</a>
+                <a class="small text-muted" href="<?= htmlspecialchars(app_path('pages/internal/announcements.php'), ENT_QUOTES, 'UTF-8') ?>">ไปที่กระดานประกาศ</a>
             </div>
         </div>
     </div>

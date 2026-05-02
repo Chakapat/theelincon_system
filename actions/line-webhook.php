@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../config/connect_database.php';
-require_once __DIR__ . '/../config/line_settings.php';
+require_once __DIR__ . '/../includes/line_notify_runtime.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -103,7 +103,16 @@ if (!is_array($payload)) {
 $events = $payload['events'] ?? [];
 $capturedSources = [];
 $channelToken = (string) LINE_MESSAGING_CHANNEL_ACCESS_TOKEN;
-$onlyApproverUserId = trim((string) (defined('LINE_APPROVER_USER_ID') ? LINE_APPROVER_USER_ID : ''));
+$onlyApproverRaw = trim(line_effective_approver_user_id());
+$onlyApproverUserIds = [];
+if ($onlyApproverRaw !== '') {
+    $parts = array_map('trim', explode(',', $onlyApproverRaw));
+    foreach ($parts as $part) {
+        if ($part !== '') {
+            $onlyApproverUserIds[] = $part;
+        }
+    }
+}
 if (is_array($events)) {
     foreach ($events as $event) {
         if (!is_array($event)) {
@@ -140,7 +149,7 @@ if (is_array($events)) {
                     $pbDecision = (string) ($pb['decision'] ?? '');
                     $pbToken = trim((string) ($pb['token'] ?? ''));
 
-                    if ($onlyApproverUserId !== '' && $userId !== $onlyApproverUserId) {
+                    if (count($onlyApproverUserIds) > 0 && !in_array($userId, $onlyApproverUserIds, true)) {
                         line_reply_text($channelToken, $replyToken, 'ไม่มีสิทธิ์อนุมัติรายการนี้');
                         continue;
                     }
@@ -172,7 +181,7 @@ if (is_array($events)) {
                     $pbDecision = (string) ($pb['decision'] ?? '');
                     $pbToken = trim((string) ($pb['token'] ?? ''));
 
-                    if ($onlyApproverUserId !== '' && $userId !== $onlyApproverUserId) {
+                    if (count($onlyApproverUserIds) > 0 && !in_array($userId, $onlyApproverUserIds, true)) {
                         line_reply_text($channelToken, $replyToken, 'ไม่มีสิทธิ์อนุมัติรายการนี้');
                         continue;
                     }
@@ -194,6 +203,107 @@ if (is_array($events)) {
                             'line_approval_token' => '',
                         ]);
                         line_reply_text($channelToken, $replyToken, 'บันทึกผลใบลาเรียบร้อย: ' . strtoupper($nextStatus));
+                    } else {
+                        line_reply_text($channelToken, $replyToken, 'ไม่สามารถดำเนินการได้ (ลิงก์หมดอายุหรือมีการตัดสินใจไปแล้ว)');
+                    }
+                    continue;
+                }
+                if ($pbAction === 'line_quote_decision') {
+                    $pbId = (int) ($pb['id'] ?? 0);
+                    $pbDecision = (string) ($pb['decision'] ?? '');
+                    $pbToken = trim((string) ($pb['token'] ?? ''));
+
+                    if (count($onlyApproverUserIds) > 0 && !in_array($userId, $onlyApproverUserIds, true)) {
+                        line_reply_text($channelToken, $replyToken, 'ไม่มีสิทธิ์อนุมัติรายการนี้');
+                        continue;
+                    }
+
+                    $quote = Db::rowByIdField('quotations', $pbId);
+                    $ok = $quote !== null
+                        && $pbToken !== ''
+                        && hash_equals((string) ($quote['line_approval_token'] ?? ''), $pbToken)
+                        && (string) ($quote['status'] ?? '') === 'pending'
+                        && in_array($pbDecision, ['approve', 'reject'], true);
+
+                    if ($ok) {
+                        $nextStatus = $pbDecision === 'approve' ? 'approved' : 'rejected';
+                        $qpk = Db::pkForLogicalId('quotations', $pbId);
+                        $cur = Db::row('quotations', $qpk) ?? [];
+                        Db::setRow('quotations', $qpk, array_merge($cur, [
+                            'status' => $nextStatus,
+                            'line_decision' => $pbDecision,
+                            'line_decided_at' => date('Y-m-d H:i:s'),
+                            'line_decided_by_line_user_id' => $userId,
+                            'line_approval_token' => '',
+                        ]));
+                        line_reply_text($channelToken, $replyToken, 'บันทึกผลใบเสนอราคาเรียบร้อย: ' . strtoupper($nextStatus));
+                    } else {
+                        line_reply_text($channelToken, $replyToken, 'ไม่สามารถดำเนินการได้ (ลิงก์หมดอายุหรือมีการตัดสินใจไปแล้ว)');
+                    }
+                    continue;
+                }
+                if ($pbAction === 'line_advance_cash_decision') {
+                    $pbId = (int) ($pb['id'] ?? 0);
+                    $pbDecision = (string) ($pb['decision'] ?? '');
+                    $pbToken = trim((string) ($pb['token'] ?? ''));
+
+                    if (count($onlyApproverUserIds) > 0 && !in_array($userId, $onlyApproverUserIds, true)) {
+                        line_reply_text($channelToken, $replyToken, 'ไม่มีสิทธิ์อนุมัติรายการนี้');
+                        continue;
+                    }
+
+                    $req = Db::rowByIdField('advance_cash_requests', $pbId);
+                    $ok = $req !== null
+                        && $pbToken !== ''
+                        && hash_equals((string) ($req['line_approval_token'] ?? ''), $pbToken)
+                        && (string) ($req['status'] ?? '') === 'pending'
+                        && in_array($pbDecision, ['approve', 'reject'], true);
+
+                    if ($ok) {
+                        $nextStatus = $pbDecision === 'approve' ? 'approved' : 'rejected';
+                        $pk = Db::pkForLogicalId('advance_cash_requests', $pbId);
+                        $cur = Db::row('advance_cash_requests', $pk) ?? [];
+                        Db::setRow('advance_cash_requests', $pk, array_merge($cur, [
+                            'status' => $nextStatus,
+                            'line_decision' => $pbDecision,
+                            'line_decided_at' => date('Y-m-d H:i:s'),
+                            'line_decided_by_line_user_id' => $userId,
+                            'line_approval_token' => '',
+                            'updated_at' => date('Y-m-d H:i:s'),
+                        ]));
+                        line_reply_text($channelToken, $replyToken, 'บันทึกผลคำขอเบิกเงินล่วงหน้าเรียบร้อย: ' . strtoupper($nextStatus));
+                    } else {
+                        line_reply_text($channelToken, $replyToken, 'ไม่สามารถดำเนินการได้ (ลิงก์หมดอายุหรือมีการตัดสินใจไปแล้ว)');
+                    }
+                    continue;
+                }
+                if ($pbAction === 'line_need_decision') {
+                    $pbId = (int) ($pb['id'] ?? 0);
+                    $pbDecision = (string) ($pb['decision'] ?? '');
+                    $pbToken = trim((string) ($pb['token'] ?? ''));
+
+                    if (count($onlyApproverUserIds) > 0 && !in_array($userId, $onlyApproverUserIds, true)) {
+                        line_reply_text($channelToken, $replyToken, 'ไม่มีสิทธิ์อนุมัติรายการนี้');
+                        continue;
+                    }
+
+                    $need = Db::row('purchase_needs', (string) $pbId);
+                    $ok = $need !== null
+                        && $pbToken !== ''
+                        && hash_equals((string) ($need['line_approval_token'] ?? ''), $pbToken)
+                        && (string) ($need['status'] ?? '') === 'pending'
+                        && in_array($pbDecision, ['approve', 'reject'], true);
+
+                    if ($ok) {
+                        $nextStatus = $pbDecision === 'approve' ? 'approved' : 'rejected';
+                        Db::mergeRow('purchase_needs', (string) $pbId, [
+                            'status' => $nextStatus,
+                            'line_decision' => $pbDecision,
+                            'line_decided_at' => date('Y-m-d H:i:s'),
+                            'line_decided_by_line_user_id' => $userId,
+                            'line_approval_token' => '',
+                        ]);
+                        line_reply_text($channelToken, $replyToken, 'บันทึกผลใบต้องการซื้อเรียบร้อย: ' . strtoupper($nextStatus));
                     } else {
                         line_reply_text($channelToken, $replyToken, 'ไม่สามารถดำเนินการได้ (ลิงก์หมดอายุหรือมีการตัดสินใจไปแล้ว)');
                     }

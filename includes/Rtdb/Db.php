@@ -98,7 +98,9 @@ final class Db
     /** คีย์ผสมเหมือนสคริปต์ migrate */
     public static function compositeKey(array $parts): string
     {
-        return implode('__', array_map(fn ($p) => self::sanitizeKeyPart((string) $p), $parts));
+        return implode('__', array_map(static function ($p): string {
+            return self::sanitizeKeyPart((string) $p);
+        }, $parts));
     }
 
     /** หาเลข pk ใหม่ (ดูจากคีย์และฟิลด์) */
@@ -126,10 +128,71 @@ final class Db
         return null;
     }
 
+    /**
+     * Backward-compatible lookup by an id-like field.
+     *
+     * @param string|int $id
+     * @return array<string, mixed>|null
+     */
+    public static function rowByIdField(string $table, $id, string $field = 'id'): ?array
+    {
+        $needle = (string) $id;
+
+        foreach (self::tableRows($table) as $row) {
+            if (!array_key_exists($field, $row)) {
+                continue;
+            }
+
+            $value = $row[$field];
+            if (is_numeric($value) && is_numeric($needle)) {
+                if ((float) $value === (float) $needle) {
+                    return $row;
+                }
+                continue;
+            }
+
+            if ((string) $value === $needle) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
     /** @param callable(array<string,mixed>):bool $fn */
     public static function filter(string $table, callable $fn): array
     {
         return array_values(array_filter(self::tableRows($table), $fn));
+    }
+
+    /**
+     * Resolve Firebase PK from logical numeric/string id in row data.
+     * Falls back to the provided id value when no matching row is found.
+     *
+     * @param string|int $id
+     */
+    public static function pkForLogicalId(string $table, $id, string $field = 'id'): string
+    {
+        $needle = (string) $id;
+        foreach (self::tableKeyed($table) as $pk => $row) {
+            if (!array_key_exists($field, $row)) {
+                continue;
+            }
+
+            $value = $row[$field];
+            if (is_numeric($value) && is_numeric($needle)) {
+                if ((float) $value === (float) $needle) {
+                    return (string) $pk;
+                }
+                continue;
+            }
+
+            if ((string) $value === $needle) {
+                return (string) $pk;
+            }
+        }
+
+        return $needle;
     }
 
     /** usort ช่วย ORDER BY */

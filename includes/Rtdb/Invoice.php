@@ -9,13 +9,12 @@ final class Invoice
 {
     public static function nextInvoiceNumber(string $issueDate): string
     {
-        $month = date('m', strtotime($issueDate));
-        $year = date('y', strtotime($issueDate));
-        $prefix = "INV-TNC-$month$year-";
+        $stamp = date('ym', strtotime($issueDate));
+        $prefix = "INV-TNC-$stamp-";
         $max = 0;
         foreach (Db::tableRows('invoices') as $r) {
             $inv = (string) ($r['invoice_number'] ?? '');
-            if (str_starts_with($inv, $prefix)) {
+            if (strncmp($inv, $prefix, strlen($prefix)) === 0) {
                 $tail = substr($inv, -3);
                 $max = max($max, (int) $tail);
             }
@@ -26,13 +25,12 @@ final class Invoice
 
     public static function nextQuotationNumber(string $issueDate): string
     {
-        $month = date('m', strtotime($issueDate));
-        $year = date('y', strtotime($issueDate));
-        $prefix = "QT-TNC-$month$year-";
+        $stamp = date('ym', strtotime($issueDate));
+        $prefix = "QT-TNC-$stamp-";
         $max = 0;
         foreach (Db::tableRows('quotations') as $r) {
             $qn = (string) ($r['quote_number'] ?? '');
-            if (str_starts_with($qn, $prefix)) {
+            if (strncmp($qn, $prefix, strlen($prefix)) === 0) {
                 $tail = substr($qn, -3);
                 $max = max($max, (int) $tail);
             }

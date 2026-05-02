@@ -29,7 +29,7 @@ if (!defined('BASE_URL')) {
 
 if (!function_exists('app_path')) {
     /**
-     * Absolute URL path from site root (e.g. /theelincon_system/pages/invoice-view.php).
+     * Absolute URL path from site root (e.g. /theelincon_system/pages/invoice.php).
      */
     function app_path(string $path): string
     {
@@ -118,5 +118,24 @@ if (!function_exists('user_can_edit_invoice')) {
     {
         $r = (string) ($_SESSION['role'] ?? '');
         return $r === 'admin' || $r === 'Accounting';
+    }
+}
+
+if (!function_exists('format_thai_doc_date')) {
+    /**
+     * แสดงวันที่เอกสารแบบ วัน/เดือน/ปี (รับค่า Y-m-d หรือสตริงที่ strtotime แปลงได้).
+     */
+    function format_thai_doc_date(string $raw): string
+    {
+        $raw = trim($raw);
+        if ($raw === '' || $raw === '-') {
+            return '-';
+        }
+        $ts = strtotime($raw);
+        if ($ts === false) {
+            return $raw;
+        }
+
+        return date('d/m/Y', $ts);
     }
 }

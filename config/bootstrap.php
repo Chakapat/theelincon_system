@@ -25,7 +25,7 @@ if (!defined('BASE_URL')) {
 
 if (!function_exists('app_path')) {
     /**
-     * Absolute URL path from site root (e.g. /theelincon_system/pages/invoice-view.php).
+     * Absolute URL path from site root (e.g. /theelincon_system/pages/invoice.php).
      */
     function app_path(string $path): string
     {

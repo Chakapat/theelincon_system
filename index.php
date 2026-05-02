@@ -56,12 +56,12 @@ if (isset($_GET['ajax_search'])) {
                 </td>
                 <td class="text-end pe-4">
                     <div class="btn-group shadow-sm rounded-3">
-                        <a href="<?= htmlspecialchars(app_path('pages/invoice-view.php')) ?>?id=<?= $row['id']; ?>" class="btn btn-sm btn-white border text-warning" title="ดูใบแจ้งหนี้"><i class="bi bi-eye-fill"></i></a>
+                        <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=view&amp;id=<?= $row['id']; ?>" class="btn btn-sm btn-white border text-warning" title="ดูใบแจ้งหนี้"><i class="bi bi-eye-fill"></i></a>
                         
-                        <a href="<?= htmlspecialchars(app_path('pages/tax-invoice-receipt.php')) ?>?id=<?= $row['id']; ?>" class="btn btn-sm btn-white border text-success" title="ใบกำกับภาษี/ใบเสร็จ"><i class="bi bi-file-earmark-check-fill"></i></a>
+                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php')) ?>?id=<?= $row['id']; ?>" class="btn btn-sm btn-white border text-success" title="ใบกำกับภาษี/ใบเสร็จ"><i class="bi bi-file-earmark-check-fill"></i></a>
                         
                         <?php if ($can_edit_invoice): ?>
-                            <a href="<?= htmlspecialchars(app_path('pages/invoice-edit.php')) ?>?id=<?= $row['id']; ?>" class="btn btn-sm btn-white border text-secondary" title="แก้ไข"><i class="bi bi-pencil-square"></i></a>
+                            <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=edit&amp;id=<?= $row['id']; ?>" class="btn btn-sm btn-white border text-secondary" title="แก้ไข"><i class="bi bi-pencil-square"></i></a>
                         <?php endif; ?>
                         <?php if ($is_admin): ?>
                             <button onclick="deleteItem(<?= $row['id']; ?>, 'invoice')" class="btn btn-sm btn-white border text-danger" title="ลบ"><i class="bi bi-trash3-fill"></i></button>
@@ -77,6 +77,9 @@ if (isset($_GET['ajax_search'])) {
 }
 
 $stats = Portal::invoiceSummary();
+
+/** เมนูหมวดซ้ายหน้าแรก: true = ปิดทุกหมวดตอนโหลดเสมอ, false = เปิดหมวด «ข้อมูลหลัก» ไว้ */
+$index_hub_start_all_collapsed = true;
 ?>
 
 <!DOCTYPE html>
@@ -136,8 +139,148 @@ $stats = Portal::invoiceSummary();
             color: #c2410c;
         }
         .home-menu-hub .home-hub-link i { opacity: 0.85; }
-        /* หน้าแรก: บนมือถือให้ส่วนใบแจ้งหนี้อยู่ก่อนเมนูระบบ */
-        .index-page-wrap { display: flex; flex-direction: column; }
+        .home-menu-hub-single .home-hub-section + .home-hub-section {
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        .home-menu-hub-single .home-hub-toggle {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            text-align: left;
+            padding: 0.85rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font: inherit;
+            color: inherit;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .home-menu-hub-single .home-hub-toggle:hover,
+        .home-menu-hub-single .home-hub-toggle:focus-visible {
+            background: rgba(253, 126, 20, 0.06);
+            outline: none;
+        }
+        .home-menu-hub-single .home-hub-toggle .home-hub-chevron {
+            margin-left: auto;
+            font-size: 1.1rem;
+            opacity: 0.65;
+            transition: transform 0.2s ease;
+        }
+        .home-menu-hub-single .home-hub-toggle:not(.collapsed) .home-hub-chevron {
+            transform: rotate(180deg);
+        }
+        .home-menu-hub-single .home-hub-panel {
+            padding: 0 1rem 1rem 1rem;
+        }
+        .home-menu-hub-single .home-hub-panel-inner {
+            display: grid;
+            gap: 0.5rem;
+            padding-left: 0.25rem;
+        }
+        /* หน้าแรก: จำกัดความกว้างให้อยู่กึ่งกลาง ไม่ยืดเต็มจอใหญ่ */
+        .index-page-wrap {
+            max-width: 1540px;
+        }
+        /* หน้าแรก: เมนูซ้าย (จอใหญ่) · มือถือแสดงเนื้อหาหลักก่อน */
+        .index-layout-row { align-items: flex-start; }
+        .index-sidebar-wrap {
+            position: relative;
+        }
+        .index-main-col {
+            min-width: 0;
+        }
+        @media (min-width: 992px) {
+            .index-sidebar-wrap {
+                flex: 0 0 320px;
+                max-width: 320px;
+            }
+            .index-main-col {
+                flex: 1 1 auto;
+                max-width: calc(100% - 320px);
+            }
+            .index-sidebar-sticky {
+                position: sticky;
+                top: 1rem;
+                max-height: calc(100vh - 1.25rem);
+            }
+            .index-sidebar-scroll {
+                max-height: calc(100vh - 1.25rem);
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding-right: 0.2rem;
+                scrollbar-width: thin;
+                scrollbar-color: rgba(253, 126, 20, 0.45) transparent;
+            }
+            .index-sidebar-scroll::-webkit-scrollbar { width: 6px; }
+            .index-sidebar-scroll::-webkit-scrollbar-thumb {
+                background: rgba(253, 126, 20, 0.35);
+                border-radius: 999px;
+            }
+        }
+        .home-menu-hub.index-sidebar .index-sidebar-scroll {
+            padding-bottom: 0.5rem;
+        }
+        .index-sidebar-card {
+            border: 1px solid rgba(253, 126, 20, 0.18) !important;
+            box-shadow: 0 0.35rem 1.1rem rgba(0, 0, 0, 0.06) !important;
+            border-left: 4px solid #fd7e14 !important;
+            background: #fff;
+        }
+        .home-menu-hub.index-sidebar .home-menu-hub-single {
+            border-radius: 0 0 1rem 1rem !important;
+            border: 0 !important;
+            box-shadow: none !important;
+        }
+        .home-menu-hub.index-sidebar .home-hub-toggle {
+            padding: 0.7rem 0.9rem;
+            font-size: 0.95rem;
+        }
+        .home-menu-hub.index-sidebar .home-hub-ico {
+            width: 2.15rem;
+            height: 2.15rem;
+            font-size: 1.05rem;
+        }
+        .home-menu-hub.index-sidebar .home-hub-link {
+            padding: 0.45rem 0.7rem;
+            font-size: 0.92rem;
+        }
+        .home-menu-hub.index-sidebar .home-hub-panel {
+            padding: 0 0.85rem 0.75rem;
+        }
+        @media (min-width: 1200px) {
+            .index-sidebar-wrap {
+                flex-basis: 340px;
+                max-width: 340px;
+            }
+            .index-main-col {
+                max-width: calc(100% - 340px);
+            }
+            .home-menu-hub.index-sidebar .home-hub-toggle {
+                padding: 0.58rem 0.5rem;
+                font-size: 0.88rem;
+                gap: 0.45rem;
+            }
+            .home-menu-hub.index-sidebar .home-hub-toggle > .fw-semibold {
+                min-width: 0;
+                line-height: 1.3;
+            }
+            .home-menu-hub.index-sidebar .home-hub-ico {
+                width: 1.85rem;
+                height: 1.85rem;
+                font-size: 0.92rem;
+            }
+            .home-menu-hub.index-sidebar .home-hub-link {
+                padding: 0.38rem 0.55rem;
+                font-size: 0.86rem;
+            }
+            .home-menu-hub.index-sidebar .home-hub-panel {
+                padding: 0 0.55rem 0.6rem;
+            }
+            .home-menu-hub.index-sidebar .home-hub-chevron {
+                font-size: 0.9rem;
+            }
+        }
         /* เลขที่ใบแจ้งหนี้: สถานะใบกำกับภาษี */
         .inv-badge-tax-pending {
             background-color: rgba(220, 53, 69, 0.14);
@@ -158,7 +301,68 @@ $stats = Portal::invoiceSummary();
 <?php include __DIR__ . '/components/navbar.php'; ?>
 
 <div class="container pb-5 index-page-wrap">
-    <div class="index-dashboard-block order-1 order-lg-2">
+    <div class="row g-4 index-layout-row">
+    <aside class="col-lg-4 col-xl-3 index-sidebar-wrap order-2 order-lg-1" aria-label="เมนูนำทางระบบ">
+        <div class="index-sidebar-sticky">
+            <div class="card index-sidebar-card rounded-4 overflow-hidden mb-0">
+                <section class="home-menu-hub index-sidebar mb-0" aria-label="เมนูระบบ">
+                    <div class="index-sidebar-scroll">
+                    <div class="card home-menu-hub-single home-hub-card border-0 shadow-none rounded-0 overflow-hidden">
+            <div class="home-hub-section">
+                <button type="button" class="home-hub-toggle<?= $index_hub_start_all_collapsed ? ' collapsed' : '' ?>" data-bs-toggle="collapse" data-bs-target="#hub-collapse-master" aria-expanded="<?= $index_hub_start_all_collapsed ? 'false' : 'true' ?>" aria-controls="hub-collapse-master" id="hub-toggle-master">
+                    <span class="home-hub-ico bg-warning-subtle text-warning shadow-sm flex-shrink-0"><i class="bi bi-folder2" aria-hidden="true"></i></span>
+                    <span class="fw-semibold text-dark">ข้อมูลหลัก</span>
+                    <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
+                </button>
+                <div id="hub-collapse-master" class="collapse<?= $index_hub_start_all_collapsed ? '' : ' show' ?> home-hub-panel" aria-labelledby="hub-toggle-master">
+                    <div class="home-hub-panel-inner pb-1">
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/customer-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-people me-2 text-secondary"></i>ลูกค้า (Customer)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/company-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-building me-2 text-secondary"></i>บริษัท (Company)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-geo-alt me-2 text-secondary"></i>ไซต์งาน (Sites)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-truck me-2 text-secondary"></i>ผู้ขาย (Suppliers)</a>
+                    </div>
+                </div>
+            </div>
+            <div class="home-hub-section">
+                <button type="button" class="home-hub-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#hub-collapse-purchase" aria-expanded="false" aria-controls="hub-collapse-purchase" id="hub-toggle-purchase">
+                    <span class="home-hub-ico bg-primary-subtle text-primary shadow-sm flex-shrink-0"><i class="bi bi-cart3" aria-hidden="true"></i></span>
+                    <span class="fw-semibold text-dark">จัดซื้อ / จัดจ้าง</span>
+                    <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
+                </button>
+                <div id="hub-collapse-purchase" class="collapse home-hub-panel" aria-labelledby="hub-toggle-purchase">
+                    <div class="home-hub-panel-inner pb-1">
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cart-plus me-2 text-secondary"></i>ใบขอซื้อ (Purchase Request)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-bag-check me-2 text-secondary"></i>ใบสั่งซื้อ (Purchase Order)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/quotations/quotation-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-ui-checks me-2 text-secondary"></i>ใบเสนอราคา (Quotation)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-ruled me-2 text-secondary"></i>สัญญาจ้าง (Hire Contract)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-box-seam me-2 text-secondary"></i>คลังสินค้า (Stock)</a>
+                    </div>
+                </div>
+            </div>
+            <div class="home-hub-section">
+                <button type="button" class="home-hub-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#hub-collapse-cash" aria-expanded="false" aria-controls="hub-collapse-cash" id="hub-toggle-cash">
+                    <span class="home-hub-ico bg-success-subtle text-success shadow-sm flex-shrink-0"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
+                    <span class="fw-semibold text-dark">รายการต่างๆ</span>
+                    <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
+                </button>
+                <div id="hub-collapse-cash" class="collapse home-hub-panel" aria-labelledby="hub-toggle-cash">
+                    <div class="home-hub-panel-inner pb-1">
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-bill.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-receipt-cutoff me-2 text-secondary"></i>บันทึกบิลซื้อ (Purchase Bill)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/advance-cash/advance-cash-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cash-coin me-2 text-secondary"></i>เบิกเงินล่วงหน้า (Advance Cash)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calculator me-2 text-secondary"></i>บัตรค่าแรงคนงาน (Wage)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/leave-requests/leave-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calendar-check me-2 text-secondary"></i>ใบลา (Leave Request)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-need-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-card-checklist me-2 text-secondary"></i>ใบต้องการซื้อ (Purchase Need)</a>
+                        <?php if ($is_admin): ?>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-speedometer2 me-2 text-secondary"></i>สดย่อย (Pertty Cash)</a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="col-lg-8 col-xl-9 index-main-col order-1 order-lg-2 min-w-0" id="main-content">
+    <div class="index-dashboard-block">
     <div class="row g-4 mb-4">
         <div class="col-md-4">
             <div class="card card-stats border-0 shadow-sm p-3 rounded-4">
@@ -188,12 +392,11 @@ $stats = Portal::invoiceSummary();
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-0">
         <div class="card-header bg-white border-0 py-4 px-3 px-md-4">
             <div class="row align-items-stretch align-items-md-center g-3">
                 <div class="col-12 col-md-4 col-lg-5">
-                    <h5 class="fw-bold mb-0 text-dark">รายการใบแจ้งหนี้</h5>
-                    <p class="small text-muted mb-0 mt-1">เลขที่: <span class="text-danger fw-semibold">แดง</span> = ยังไม่ออกใบกำกับ · <span class="text-success fw-semibold">เขียว</span> = ออกแล้ว</p>
+                    <h1 class="h5 fw-bold mb-0 text-dark">รายการใบแจ้งหนี้</h1>
                     <p class="small text-muted mb-0 mt-1 d-md-none">ค้นหาเลขที่หรือชื่อลูกค้า</p>
                 </div>
                 <div class="col-12 col-md-8 col-lg-7">
@@ -203,10 +406,10 @@ $stats = Portal::invoiceSummary();
                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" aria-hidden="true"></i>
                             <input type="search" id="search_invoice" autocomplete="off" class="form-control ps-5 rounded-pill border-light-subtle bg-light" placeholder="เลขที่ใบแจ้งหนี้หรือชื่อลูกค้า">
                         </div>
-                        <a href="<?= htmlspecialchars(app_path('pages/invoice-create.php')) ?>" class="btn btn-orange rounded-pill px-4 shadow-sm flex-shrink-0 text-center">
+                        <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=create" class="btn btn-orange rounded-pill px-4 shadow-sm flex-shrink-0 text-center">
                             <i class="bi bi-plus-lg me-1"></i>สร้างบิลใหม่
                         </a>
-                        <a href="<?= htmlspecialchars(app_path('pages/tax-invoice-list.php')) ?>" class="btn btn-outline-success rounded-pill px-4 shadow-sm flex-shrink-0 text-center">
+                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-list.php')) ?>" class="btn btn-outline-success rounded-pill px-4 shadow-sm flex-shrink-0 text-center">
                             <i class="bi bi-file-earmark-break me-1"></i>ใบกำกับภาษี
                         </a>
                     </div>
@@ -238,92 +441,9 @@ $stats = Portal::invoiceSummary();
         </div>
     </div>
     </div>
+    </main>
 
-    <section class="home-menu-hub mb-4 order-2 order-lg-1" aria-label="เมนูระบบ">
-        <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
-            <div>
-                <h4 class="fw-bold text-dark mb-1">เมนูระบบ</h4>
-            </div>
-        </div>
-        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
-            <div class="col">
-                <div class="card home-hub-card border-0 shadow-sm h-100 rounded-4 overflow-hidden">
-                    <div class="home-hub-head px-3 py-3 d-flex align-items-center gap-3 bg-warning-subtle">
-                        <span class="home-hub-ico bg-white text-warning shadow-sm"><i class="bi bi-folder2" aria-hidden="true"></i></span>
-                        <span class="fw-semibold text-dark">ข้อมูลหลัก</span>
-                    </div>
-                    <div class="card-body p-3 d-grid gap-2">
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/customer-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-people me-2 text-secondary"></i>ลูกค้า</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/company-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-building me-2 text-secondary"></i>บริษัท</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col">
-                <div class="card home-hub-card border-0 shadow-sm h-100 rounded-4 overflow-hidden">
-                    <div class="home-hub-head px-3 py-3 d-flex align-items-center gap-3" style="background: rgba(13, 110, 253, 0.09);">
-                        <span class="home-hub-ico bg-white text-primary shadow-sm"><i class="bi bi-cart3" aria-hidden="true"></i></span>
-                        <span class="fw-semibold text-dark">ซื้อ / คลัง</span>
-                    </div>
-                    <div class="card-body p-3 d-grid gap-2">
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/supplier-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-truck me-2 text-secondary"></i>ผู้ขาย</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cart-plus me-2 text-secondary"></i>ใบขอซื้อ (PR)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-bag-check me-2 text-secondary"></i>ใบสั่งซื้อ (PO)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/stock-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-box-seam me-2 text-secondary"></i>คลังสินค้า</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col">
-                <div class="card home-hub-card border-0 shadow-sm h-100 rounded-4 overflow-hidden">
-                    <div class="home-hub-head px-3 py-3 d-flex align-items-center gap-3 bg-success-subtle">
-                        <span class="home-hub-ico bg-white text-success shadow-sm"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
-                        <span class="fw-semibold text-dark">รับ — จ่าย</span>
-                    </div>
-                    <div class="card-body p-3 d-grid gap-2">
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cash-ledger-dashboard.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-speedometer2 me-2 text-secondary"></i>บันทึกรายการ</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cash-ledger-master-stores.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-shop me-2 text-secondary"></i>เพิ่มร้านค้า</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cash-ledger-master-sites.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-geo-alt me-2 text-secondary"></i>เพิ่มไซต์งาน</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col">
-                <div class="card home-hub-card border-0 shadow-sm h-100 rounded-4 overflow-hidden">
-                    <div class="home-hub-head px-3 py-3 d-flex align-items-center gap-3" style="background: rgba(111, 66, 193, 0.1);">
-                        <span class="home-hub-ico bg-white shadow-sm" style="color: #6f42c1;"><i class="bi bi-person-workspace" aria-hidden="true"></i></span>
-                        <span class="fw-semibold text-dark">ค่าแรง</span>
-                    </div>
-                    <div class="card-body p-3 d-grid gap-2">
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/labor-payroll.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calculator me-2 text-secondary"></i>บัตรค่าแรงคนงาน</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/labor-payroll-history.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-archive me-2 text-secondary"></i>ประวัติรายการ</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col">
-                <div class="card home-hub-card border-0 shadow-sm h-100 rounded-4 overflow-hidden">
-                    <div class="home-hub-head px-3 py-3 d-flex align-items-center gap-3 bg-secondary-subtle">
-                        <span class="home-hub-ico bg-white text-secondary shadow-sm"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
-                        <span class="fw-semibold text-dark">เสนอราคา</span>
-                    </div>
-                    <div class="card-body p-3 d-grid gap-2">
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/quotation-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-ui-checks me-2 text-secondary"></i>ใบเสนอราคา</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col">
-                <div class="card home-hub-card border-0 shadow-sm h-100 rounded-4 overflow-hidden">
-                    <div class="home-hub-head px-3 py-3 d-flex align-items-center gap-3" style="background: rgba(92, 77, 51, 0.1);">
-                        <span class="home-hub-ico bg-white shadow-sm" style="color: #5c4d33;"><i class="bi bi-tools" aria-hidden="true"></i></span>
-                        <span class="fw-semibold text-dark">เครื่องมือทั่วไป</span>
-                    </div>
-                    <div class="card-body p-3 d-grid gap-2">
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cement-volume-calculator.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-boxes me-2 text-secondary"></i>คำนวณปริมาตรปูน (คิว)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/daily-site-report-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-journal-text me-2 text-secondary"></i>สมุดรายวันหน้างาน (DSR)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/leave-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calendar-check me-2 text-secondary"></i>ใบลา</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

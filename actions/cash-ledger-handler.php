@@ -15,7 +15,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $me = (int) $_SESSION['user_id'];
 $isAdmin = (isset($_SESSION['role']) && $_SESSION['role'] === 'admin');
-$back = app_path('pages/cash-ledger.php');
+$back = app_path('pages/cash-ledger/cash-ledger.php');
 $action = $_REQUEST['action'] ?? '';
 
 cash_ledger_auto_archive_monthly_if_due();
@@ -159,6 +159,9 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         cash_ledger_redirect($back, array_filter(['err' => 'invalid_type', 'month' => $retMonth]));
     }
     $entryDate = trim((string) ($_POST['entry_date'] ?? ''));
+    if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $entryDate, $dm) === 1) {
+        $entryDate = $dm[3] . '-' . $dm[2] . '-' . $dm[1];
+    }
     if ($entryDate === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $entryDate)) {
         cash_ledger_redirect($back, array_filter(['err' => 'date', 'month' => $retMonth]));
     }
@@ -184,6 +187,19 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $lines = cash_ledger_parse_lines($_POST);
+    // รองรับฟอร์มย่อ: กรอกแค่ description + amount โดยไม่มี line_*[]
+    if (count($lines) === 0) {
+        $amountInput = (float) str_replace(',', '', (string) ($_POST['amount'] ?? 0));
+        if ($amountInput > 0) {
+            $lines[] = [
+                'desc' => $description !== '' ? $description : (($entryType === 'income') ? 'รายรับ' : 'รายจ่าย'),
+                'unit' => '',
+                'qty' => 1.0,
+                'price' => round($amountInput, 2),
+                'total' => round($amountInput, 2),
+            ];
+        }
+    }
     if (count($lines) === 0) {
         cash_ledger_redirect($back, array_filter(['err' => 'need_lines', 'month' => $retMonth]));
     }

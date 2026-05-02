@@ -12,7 +12,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$hist = app_path('pages/labor-payroll-history.php');
+$hist = app_path('pages/labor-payroll/labor-payroll-history.php');
 $action = $_POST['action'] ?? '';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $action !== '' && !csrf_verify_request()) {
@@ -144,8 +144,8 @@ try {
         'worker_count' => $wcount,
     ]);
 } catch (Throwable $e) {
-    labor_archive_redirect(app_path('pages/labor-payroll-archive-edit.php'), ['id' => $aid, 'save_err' => 1]);
+    labor_archive_redirect(app_path('pages/labor-payroll/labor-payroll-archive-edit.php'), ['id' => $aid, 'save_err' => 1]);
     exit;
 }
 
-labor_archive_redirect(app_path('pages/labor-payroll-archive-view.php'), ['id' => $aid, 'saved' => 1]);
+labor_archive_redirect(app_path('pages/labor-payroll/labor-payroll-archive-view.php'), ['id' => $aid, 'saved' => 1]);

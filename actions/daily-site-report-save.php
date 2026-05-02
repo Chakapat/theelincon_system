@@ -18,8 +18,8 @@ $userId = (int) $_SESSION['user_id'];
 $role = $_SESSION['role'] ?? '';
 
 $action = $_POST['action'] ?? '';
-$listUrl = app_path('pages/daily-site-report-list.php');
-$formBase = app_path('pages/daily-site-report-form.php');
+$listUrl = app_path('pages/daily-site-reports/daily-site-report-list.php');
+$formBase = app_path('pages/daily-site-reports/daily-site-report-form.php');
 
 function dsr_redirect(string $url): void
 {

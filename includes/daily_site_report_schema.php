@@ -11,7 +11,7 @@ function daily_site_report_next_number(): string
     $max = 0;
     foreach (Db::tableRows('daily_site_reports') as $r) {
         $no = (string) ($r['report_no'] ?? '');
-        if (str_starts_with($no, $prefix) && preg_match('/-(\d+)$/', $no, $m)) {
+        if (strncmp($no, $prefix, strlen($prefix)) === 0 && preg_match('/-(\d+)$/', $no, $m)) {
             $max = max($max, (int) $m[1]);
         }
     }

@@ -59,7 +59,7 @@ if ($action === 'users') {
             $hay = mb_strtolower(
                 ($u['fname'] ?? '') . ' ' . ($u['lname'] ?? '') . ' ' . ($u['user_code'] ?? '')
             );
-            if (!str_contains($hay, $q)) {
+            if (strpos($hay, $q) === false) {
                 continue;
             }
         }

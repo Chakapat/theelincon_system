@@ -83,7 +83,7 @@ if (isset($_SESSION['user_id'])) {
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="min-width: 13rem;" aria-labelledby="userDropdown">
                         <li>
-                            <a class="dropdown-item rounded-2 mx-1 d-flex justify-content-between align-items-center" href="<?= htmlspecialchars(app_path('pages/announcements.php'), ENT_QUOTES, 'UTF-8') ?>">
+                            <a class="dropdown-item rounded-2 mx-1 d-flex justify-content-between align-items-center" href="<?= htmlspecialchars(app_path('pages/internal/announcements.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <span><i class="bi bi-megaphone me-2 text-warning"></i>ข่าวสารภายใน</span>
                                 <?php if ($announcement_unread_nav > 0): ?>
                                     <span class="badge bg-warning text-dark rounded-pill"><?= $announcement_unread_nav > 99 ? '99+' : (int) $announcement_unread_nav ?></span>
@@ -91,7 +91,7 @@ if (isset($_SESSION['user_id'])) {
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item rounded-2 mx-1 d-flex justify-content-between align-items-center" href="<?= htmlspecialchars(app_path('pages/chat.php'), ENT_QUOTES, 'UTF-8') ?>">
+                            <a class="dropdown-item rounded-2 mx-1 d-flex justify-content-between align-items-center" href="<?= htmlspecialchars(app_path('pages/internal/chat.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <span><i class="bi bi-chat-dots me-2 text-secondary"></i>แชทภายใน</span>
                                 <span id="chatNavUnread" class="badge bg-danger rounded-pill d-none">0</span>
                             </a>
@@ -99,13 +99,18 @@ if (isset($_SESSION['user_id'])) {
                         <?php if (isset($_SESSION['role']) && $_SESSION['role'] == 'admin'): ?>
                         <li><hr class="dropdown-divider mx-2 my-1"></li>
                         <li>
-                            <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/member-manage.php'), ENT_QUOTES, 'UTF-8') ?>">
+                            <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/organization/member-manage.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <i class="bi bi-person-gear me-2 text-secondary"></i>จัดการสมาชิก
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/employment-certificate.php'), ENT_QUOTES, 'UTF-8') ?>">
+                            <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/tools/employment-certificate.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <i class="bi bi-file-earmark-medical me-2 text-secondary"></i>หนังสือรับรองการทำงาน
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/internal/line-notify-config.php'), ENT_QUOTES, 'UTF-8') ?>">
+                                <i class="bi bi-bell-fill me-2 text-success"></i>ตั้งค่า LINE แจ้งเตือน
                             </a>
                         </li>
                         <?php endif; ?>
@@ -139,17 +144,17 @@ window.__THEELIN_SOCKET_CFG__ = {
 </script>
 <script src="<?= htmlspecialchars(app_path('assets/js/theelin-socket.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php endif; ?>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 (function () {
     const path = (window.location.pathname || '').toLowerCase();
     const protectedPages = [
-        '/pages/invoice-create.php',
-        '/pages/invoice-edit.php',
-        '/pages/quotation-create.php',
-        '/pages/quotation-edit.php',
-        '/pages/purchase-request-create.php',
-        '/pages/purchase-order-from-pr.php',
-        '/pages/tax-invoice-receipt.php'
+        '/pages/invoices/invoice.php',
+        '/pages/quotations/quotation-create.php',
+        '/pages/quotations/quotation-edit.php',
+        '/pages/purchase/purchase-request-create.php',
+        '/pages/purchase/purchase-order-from-pr.php',
+        '/pages/invoices/tax-invoice-receipt.php'
     ];
 
     const shouldPreventEnterSubmit = protectedPages.some(function (p) {
@@ -186,5 +191,139 @@ window.__THEELIN_SOCKET_CFG__ = {
 
         event.preventDefault();
     });
+})();
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var alerts = Array.from(document.querySelectorAll('.alert.alert-success, .alert.alert-warning, .alert.alert-danger, .alert.alert-info'));
+    if (alerts.length === 0 || typeof Swal === 'undefined') {
+        return;
+    }
+
+    var toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2400,
+        timerProgressBar: true
+    });
+
+    alerts.forEach(function (el, idx) {
+        if (el.getAttribute('data-no-swal') === '1') {
+            return;
+        }
+        var title = (el.textContent || '').trim();
+        if (title === '') {
+            return;
+        }
+        var icon = 'info';
+        if (el.classList.contains('alert-success')) icon = 'success';
+        else if (el.classList.contains('alert-warning')) icon = 'warning';
+        else if (el.classList.contains('alert-danger')) icon = 'error';
+        else if (el.classList.contains('alert-info')) icon = 'info';
+
+        setTimeout(function () {
+            toast.fire({ icon: icon, title: title });
+        }, idx * 240);
+        el.remove();
+    });
+});
+</script>
+<script>
+(function () {
+    if (typeof Swal === 'undefined') {
+        return;
+    }
+
+    function extractConfirmMessage(code) {
+        if (!code) return '';
+        var m = String(code).match(/confirm\((['"])([\s\S]*?)\1\)/i);
+        return m ? m[2] : '';
+    }
+
+    function askConfirm(message, onYes) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'ยืนยันการทำรายการ',
+            text: message || 'ต้องการดำเนินการต่อใช่หรือไม่?',
+            showCancelButton: true,
+            confirmButtonText: 'ยืนยัน',
+            cancelButtonText: 'ยกเลิก',
+            confirmButtonColor: '#d33'
+        }).then(function (res) {
+            if (res.isConfirmed) {
+                onYes();
+            }
+        });
+    }
+
+    function prepareInlineConfirmHooks() {
+        document.querySelectorAll('[onclick*="confirm("]').forEach(function (el) {
+            var code = el.getAttribute('onclick') || '';
+            var msg = extractConfirmMessage(code);
+            if (!msg) return;
+            el.setAttribute('data-swal-confirm-click', msg);
+            el.removeAttribute('onclick');
+        });
+        document.querySelectorAll('form[onsubmit*="confirm("]').forEach(function (form) {
+            var code = form.getAttribute('onsubmit') || '';
+            var msg = extractConfirmMessage(code);
+            if (!msg) return;
+            form.setAttribute('data-swal-confirm-submit', msg);
+            form.removeAttribute('onsubmit');
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', prepareInlineConfirmHooks);
+    } else {
+        prepareInlineConfirmHooks();
+    }
+
+    document.addEventListener('click', function (event) {
+        var target = event.target;
+        if (!(target instanceof Element)) return;
+        var trigger = target.closest('[data-swal-confirm-click]');
+        if (!trigger) return;
+        var msg = trigger.getAttribute('data-swal-confirm-click') || '';
+        if (!msg) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        askConfirm(msg, function () {
+            if (trigger.tagName === 'A') {
+                var href = trigger.getAttribute('href');
+                if (href) window.location.href = href;
+                return;
+            }
+            var form = trigger.closest('form');
+            if (form) {
+                form.dataset.swalBypass = '1';
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit(trigger);
+                } else {
+                    form.submit();
+                }
+            }
+        });
+    }, true);
+
+    document.addEventListener('submit', function (event) {
+        var form = event.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        if (form.dataset.swalBypass === '1') {
+            form.dataset.swalBypass = '';
+            return;
+        }
+        var msg = form.getAttribute('data-swal-confirm-submit') || '';
+        if (!msg) return;
+
+        event.preventDefault();
+        askConfirm(msg, function () {
+            form.dataset.swalBypass = '1';
+            form.submit();
+        });
+    }, true);
 })();
 </script>
