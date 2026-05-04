@@ -35,7 +35,7 @@ $workerRows = Db::filter('labor_workers', static function (array $w) use ($selec
     }
     return (int) ($w['group_id'] ?? 0) === $selectedGroupId;
 });
-/** ลำดับการบันทึกในเดือนนี้ (เดียวกับบัตรค่าแรง) — labor_month_sheet_workers.sort_order */
+/** ลำดับการบันทึกในเดือนนี้ (เดียวกับหน้าคำนวณค่าแรง) — labor_month_sheet_workers.sort_order */
 $sheetSortByWorkerId = [];
 foreach (Db::filter('labor_month_sheet_workers', static fn (array $r): bool => (string) ($r['year_month'] ?? '') === $ym) as $r) {
     $wid = (int) ($r['worker_id'] ?? 0);
@@ -84,7 +84,7 @@ usort($workerRows, static function (array $a, array $b) use ($sheetSortByWorkerI
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
             <h5 class="fw-bold mb-0"><i class="bi bi-people me-2 text-primary"></i>จัดการกลุ่มและคนงาน</h5>
-            <div class="text-muted small">สร้างกลุ่ม / เพิ่มคนงานใหม่ — เลือกเดือนให้ตรงกับบัตรค่าแรงที่จะแก้</div>
+            <div class="text-muted small">สร้างกลุ่ม / เพิ่มคนงานใหม่ — เลือกเดือนให้ตรงกับหน้าคำนวณค่าแรงที่จะแก้</div>
         </div>
         <div class="d-flex flex-column align-items-end gap-2">
             <?php
@@ -95,7 +95,7 @@ usort($workerRows, static function (array $a, array $b) use ($sheetSortByWorkerI
             $laborPeriodInputId = 'laborManageMonth';
             include dirname(__DIR__, 2) . '/components/labor-period-selector.php';
             ?>
-            <a href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php') . '?month=' . urlencode($ym) . '&half=' . $half, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="bi bi-arrow-left me-1"></i>กลับหน้าบัตรค่าแรง</a>
+            <a href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php') . '?month=' . urlencode($ym) . '&half=' . $half, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="bi bi-arrow-left me-1"></i>กลับหน้าคำนวณค่าแรง</a>
         </div>
     </div>
 
@@ -222,7 +222,7 @@ usort($workerRows, static function (array $a, array $b) use ($sheetSortByWorkerI
             </div>
 
             <div class="table-responsive">
-                <table class="table table-sm table-bordered align-middle mb-0">
+                <table class="table table-sm table-bordered align-middle mb-0" id="tncWorkerManageTable">
                     <thead class="table-light">
                         <tr>
                             <th style="width: 60px;" class="text-center">#</th>
@@ -298,6 +298,16 @@ usort($workerRows, static function (array $a, array $b) use ($sheetSortByWorkerI
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
+<script>
+(function ($) {
+    if (typeof window.TncLiveDT === 'undefined' || !$ || !$.fn.DataTable) return;
+    var $t = $('#tncWorkerManageTable');
+    if (!$t.length) return;
+    if ($t.find('tbody tr').length === 1 && $t.find('tbody td[colspan]').length) return;
+    TncLiveDT.init('#tncWorkerManageTable', { order: [[1, 'asc']], columnDefs: [{ orderable: false, targets: [0, 4] }] });
+})(jQuery);
+</script>
 <script>
 (function () {
     function toast(icon, title) {

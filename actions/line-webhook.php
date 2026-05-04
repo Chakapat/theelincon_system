@@ -176,38 +176,6 @@ if (is_array($events)) {
                     }
                     continue;
                 }
-                if ($pbAction === 'line_leave_decision') {
-                    $pbId = (int) ($pb['id'] ?? 0);
-                    $pbDecision = (string) ($pb['decision'] ?? '');
-                    $pbToken = trim((string) ($pb['token'] ?? ''));
-
-                    if (count($onlyApproverUserIds) > 0 && !in_array($userId, $onlyApproverUserIds, true)) {
-                        line_reply_text($channelToken, $replyToken, 'ไม่มีสิทธิ์อนุมัติรายการนี้');
-                        continue;
-                    }
-
-                    $leave = Db::row('leave_requests', (string) $pbId);
-                    $ok = $leave !== null
-                        && $pbToken !== ''
-                        && hash_equals((string) ($leave['line_approval_token'] ?? ''), $pbToken)
-                        && (string) ($leave['status'] ?? '') === 'pending'
-                        && in_array($pbDecision, ['approve', 'reject'], true);
-
-                    if ($ok) {
-                        $nextStatus = $pbDecision === 'approve' ? 'approved' : 'rejected';
-                        Db::mergeRow('leave_requests', (string) $pbId, [
-                            'status' => $nextStatus,
-                            'line_decision' => $pbDecision,
-                            'line_decided_at' => date('Y-m-d H:i:s'),
-                            'line_decided_by_line_user_id' => $userId,
-                            'line_approval_token' => '',
-                        ]);
-                        line_reply_text($channelToken, $replyToken, 'บันทึกผลใบลาเรียบร้อย: ' . strtoupper($nextStatus));
-                    } else {
-                        line_reply_text($channelToken, $replyToken, 'ไม่สามารถดำเนินการได้ (ลิงก์หมดอายุหรือมีการตัดสินใจไปแล้ว)');
-                    }
-                    continue;
-                }
                 if ($pbAction === 'line_quote_decision') {
                     $pbId = (int) ($pb['id'] ?? 0);
                     $pbDecision = (string) ($pb['decision'] ?? '');
@@ -237,41 +205,6 @@ if (is_array($events)) {
                             'line_approval_token' => '',
                         ]));
                         line_reply_text($channelToken, $replyToken, 'บันทึกผลใบเสนอราคาเรียบร้อย: ' . strtoupper($nextStatus));
-                    } else {
-                        line_reply_text($channelToken, $replyToken, 'ไม่สามารถดำเนินการได้ (ลิงก์หมดอายุหรือมีการตัดสินใจไปแล้ว)');
-                    }
-                    continue;
-                }
-                if ($pbAction === 'line_advance_cash_decision') {
-                    $pbId = (int) ($pb['id'] ?? 0);
-                    $pbDecision = (string) ($pb['decision'] ?? '');
-                    $pbToken = trim((string) ($pb['token'] ?? ''));
-
-                    if (count($onlyApproverUserIds) > 0 && !in_array($userId, $onlyApproverUserIds, true)) {
-                        line_reply_text($channelToken, $replyToken, 'ไม่มีสิทธิ์อนุมัติรายการนี้');
-                        continue;
-                    }
-
-                    $req = Db::rowByIdField('advance_cash_requests', $pbId);
-                    $ok = $req !== null
-                        && $pbToken !== ''
-                        && hash_equals((string) ($req['line_approval_token'] ?? ''), $pbToken)
-                        && (string) ($req['status'] ?? '') === 'pending'
-                        && in_array($pbDecision, ['approve', 'reject'], true);
-
-                    if ($ok) {
-                        $nextStatus = $pbDecision === 'approve' ? 'approved' : 'rejected';
-                        $pk = Db::pkForLogicalId('advance_cash_requests', $pbId);
-                        $cur = Db::row('advance_cash_requests', $pk) ?? [];
-                        Db::setRow('advance_cash_requests', $pk, array_merge($cur, [
-                            'status' => $nextStatus,
-                            'line_decision' => $pbDecision,
-                            'line_decided_at' => date('Y-m-d H:i:s'),
-                            'line_decided_by_line_user_id' => $userId,
-                            'line_approval_token' => '',
-                            'updated_at' => date('Y-m-d H:i:s'),
-                        ]));
-                        line_reply_text($channelToken, $replyToken, 'บันทึกผลคำขอเบิกเงินล่วงหน้าเรียบร้อย: ' . strtoupper($nextStatus));
                     } else {
                         line_reply_text($channelToken, $replyToken, 'ไม่สามารถดำเนินการได้ (ลิงก์หมดอายุหรือมีการตัดสินใจไปแล้ว)');
                     }

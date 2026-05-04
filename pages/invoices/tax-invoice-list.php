@@ -133,14 +133,8 @@ $totalCount = count($listRows);
     </div>
 
     <div class="card table-card p-3 p-md-4">
-        <div class="row g-2 mb-3">
-            <div class="col-md-6">
-                <label class="visually-hidden" for="taxSearch">ค้นหา Tax INV</label>
-                <input type="search" id="taxSearch" class="form-control" placeholder="ค้นหาเลข Tax INV, เลข Invoice, หรือชื่อลูกค้า">
-            </div>
-        </div>
         <div class="table-responsive">
-            <table class="table table-hover align-middle" id="taxTable">
+            <table class="table table-hover align-middle" id="taxTable" style="width:100%">
                 <thead class="table-light">
                     <tr>
                         <th>เลขที่ใบกำกับภาษี</th>
@@ -188,20 +182,29 @@ $totalCount = count($listRows);
     </div>
 </div>
 
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-const searchInput = document.getElementById('taxSearch');
-const tableBodyRows = document.querySelectorAll('#taxTable tbody tr');
-
-if (searchInput) {
-    searchInput.addEventListener('input', function () {
-        const q = (searchInput.value || '').trim().toLowerCase();
-        tableBodyRows.forEach(function (row) {
-            const text = (row.innerText || '').toLowerCase();
-            row.style.display = text.includes(q) ? '' : 'none';
+(function ($) {
+    if ($('#taxTable tbody tr td[colspan]').length === 0 && $('#taxTable tbody tr').length) {
+        $('#taxTable').DataTable({
+            order: [[1, 'desc']],
+            pageLength: 25,
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+            columnDefs: [{ targets: [6], orderable: false, searchable: false }]
         });
-    });
-}
+    }
+    var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=tax_invoices'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var c = '';
+    setInterval(function () {
+        if (document.hidden) return;
+        fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d || !d.ok) return;
+            if (c === '') { c = d.checksum; return; }
+            if (d.checksum !== c) window.location.reload();
+        }).catch(function () {});
+    }, 6000);
+})(jQuery);
 </script>
 
 </body>

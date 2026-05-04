@@ -81,7 +81,7 @@ $rows = Dsr::listRowsForListPage();
 
     <div class="card card-main">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0" id="dsrListTable" style="width:100%">
                 <thead class="table-light">
                     <tr>
                         <th class="ps-4">เลขที่</th>
@@ -123,7 +123,20 @@ $rows = Dsr::listRowsForListPage();
     </div>
 </div>
 
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function ($) {
+    if ($('#dsrListTable tbody tr td[colspan]').length === 0 && $('#dsrListTable tbody tr').length) {
+        $('#dsrListTable').DataTable({
+            order: [[5, 'desc']],
+            pageLength: 25,
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+            columnDefs: [{ targets: [6], orderable: false, searchable: false }]
+        });
+    }
+})(jQuery);
+</script>
 <?php if (!empty($_GET['saved'])): ?>
 <script>
 (function () {

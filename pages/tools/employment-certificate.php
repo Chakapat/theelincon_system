@@ -8,9 +8,15 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 
-if (!isset($_SESSION['user_id']) || !user_is_admin_role()) {
-    header('Location: ' . app_path('index.php'));
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ' . app_path('sign-in.php'));
     exit();
+}
+if (!user_is_admin_role()) {
+    $access_denied_title = 'หนังสือรับรองการทำงาน';
+    $access_denied_text = 'เข้าใช้งานได้เฉพาะผู้ใช้ที่มีสิทธิ์ ADMIN หรือ CEO เท่านั้น';
+    require dirname(__DIR__, 2) . '/includes/page_access_denied_swal.php';
+    exit;
 }
 
 $users_for_select = Db::tableRows('users');
@@ -236,7 +242,6 @@ $issue_thai = thai_date_issue();
 <div class="container py-4 no-print">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <h4 class="fw-bold mb-0"><i class="bi bi-file-earmark-medical text-warning me-2"></i>หนังสือรับรองการทำงาน</h4>
-        <a href="<?= htmlspecialchars(app_path('pages/organization/member-manage.php')) ?>" class="btn btn-outline-secondary btn-sm">จัดการสมาชิก</a>
     </div>
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-4">
@@ -256,7 +261,7 @@ $issue_thai = thai_date_issue();
                     <button type="submit" class="btn btn-warning text-white fw-bold w-100">แสดงตัวอย่าง</button>
                 </div>
             </form>
-            <p class="small text-muted mb-0 mt-3">ข้อมูลที่อยู่ / ตำแหน่งในการทำงาน (สำหรับหนังสือรับรอง) / เงินเดือน / วันเกิด / เลขบัตรประชาชน ตั้งได้ที่เมนูจัดการสมาชิก</p>
+            <p class="small text-muted mb-0 mt-3">ข้อมูลที่อยู่ / ตำแหน่งในการทำงาน (สำหรับหนังสือรับรอง) / เงินเดือน / วันเกิด / เลขบัตรประชาชน กำหนดได้จากข้อมูลผู้ใช้ในระบบหรือให้ผู้ดูแลระบบช่วยอัปเดต</p>
         </div>
     </div>
 </div>

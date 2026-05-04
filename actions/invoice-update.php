@@ -6,6 +6,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
+require_once __DIR__ . '/../includes/tnc_action_response.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -100,5 +101,4 @@ Db::setRow('invoices', (string) $invoice_id, array_merge($cur, [
     'rounding_enabled' => $rounding_enabled ? 1 : 0,
 ]));
 
-header('Location: ' . app_path('index.php') . '?invoice_updated=1');
-exit;
+tnc_action_redirect(app_path('index.php') . '?invoice_updated=1');

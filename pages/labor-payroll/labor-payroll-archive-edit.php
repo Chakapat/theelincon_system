@@ -62,6 +62,9 @@ if ($head) {
 $periodHalf = $head !== null && (int) ($head['period_half'] ?? 1) === 2 ? 2 : 1;
 $tsEdit = strtotime($navYm . '-01');
 $dimEdit = $tsEdit ? (int) date('t', $tsEdit) : 31;
+$startDEdit = $periodHalf === 1 ? 1 : 16;
+$endDEdit = $periodHalf === 1 ? min(15, $dimEdit) : $dimEdit;
+$editPeriodDaysMax = $endDEdit - $startDEdit + 1;
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -86,7 +89,7 @@ $dimEdit = $tsEdit ? (int) date('t', $tsEdit) : 31;
         <div class="d-flex flex-wrap align-items-center gap-2">
             <a href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll-history.php') . '?month=' . urlencode($navYm) . '&half=' . (int) $navHalf, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="bi bi-arrow-left me-1"></i>กลับประวัติ</a>
             <?php if ($head): ?>
-            <a href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php') . '?month=' . urlencode($navYm) . '&half=' . (int) $navHalf, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-primary rounded-pill" title="แก้บัตรตอกเดือนเดียวกับเอกสารนี้"><i class="bi bi-calendar3 me-1"></i>บัตรค่าแรงเดือนนี้</a>
+            <a href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php') . '?month=' . urlencode($navYm) . '&half=' . (int) $navHalf, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-primary rounded-pill" title="แก้ตารางค่าแรงเดือนเดียวกับเอกสารนี้"><i class="bi bi-calendar3 me-1"></i>คำนวณค่าแรงเดือนนี้</a>
             <?php endif; ?>
         </div>
         <?php if ($head): ?>
@@ -158,7 +161,7 @@ $dimEdit = $tsEdit ? (int) date('t', $tsEdit) : 31;
                                 <input type="hidden" name="lines[<?= (int) $idx ?>][worker_id]" value="<?= (int) ($ln['worker_id'] ?? 0) ?>">
                                 <input type="text" class="form-control form-control-sm" name="lines[<?= (int) $idx ?>][worker_name]" maxlength="200" value="<?= htmlspecialchars((string) $ln['worker_name'], ENT_QUOTES, 'UTF-8') ?>">
                             </td>
-                            <td><input type="number" class="form-control form-control-sm inp-days" name="lines[<?= (int) $idx ?>][days_present]" min="0" step="1" value="<?= (int) $ln['days_present'] ?>"></td>
+                            <td><input type="number" class="form-control form-control-sm inp-days" name="lines[<?= (int) $idx ?>][days_present]" min="0" max="<?= (int) $editPeriodDaysMax ?>" step="0.5" value="<?= htmlspecialchars(rtrim(rtrim(number_format(round((float) ($ln['days_present'] ?? 0) * 2) / 2, 2, '.', ''), '0'), '.') ?: '0', ENT_QUOTES, 'UTF-8') ?>"></td>
                             <td><input type="number" class="form-control form-control-sm inp-ot" name="lines[<?= (int) $idx ?>][ot_hours]" min="0" step="0.25" value="<?= htmlspecialchars(rtrim(rtrim(number_format((float) $ln['ot_hours'], 2, '.', ''), '0'), '.'), ENT_QUOTES, 'UTF-8') ?>"></td>
                             <td><input type="number" class="form-control form-control-sm inp-daily" name="lines[<?= (int) $idx ?>][daily_wage]" min="0" step="0.01" value="<?= htmlspecialchars((string) $ln['daily_wage'], ENT_QUOTES, 'UTF-8') ?>"></td>
                             <td><input type="number" class="form-control form-control-sm inp-adv" name="lines[<?= (int) $idx ?>][advance_draw]" min="0" step="0.01" value="<?= htmlspecialchars((string) $ln['advance_draw'], ENT_QUOTES, 'UTF-8') ?>"></td>
@@ -191,7 +194,7 @@ $dimEdit = $tsEdit ? (int) date('t', $tsEdit) : 31;
                     <input type="hidden" name="lines[__I__][worker_id]" value="0">
                     <input type="text" class="form-control form-control-sm" name="lines[__I__][worker_name]" maxlength="200" placeholder="ชื่อคนงาน">
                 </td>
-                <td><input type="number" class="form-control form-control-sm inp-days" name="lines[__I__][days_present]" min="0" step="1" value="0"></td>
+                <td><input type="number" class="form-control form-control-sm inp-days" name="lines[__I__][days_present]" min="0" max="<?= (int) $editPeriodDaysMax ?>" step="0.5" value="0"></td>
                 <td><input type="number" class="form-control form-control-sm inp-ot" name="lines[__I__][ot_hours]" min="0" step="0.25" value=""></td>
                 <td><input type="number" class="form-control form-control-sm inp-daily" name="lines[__I__][daily_wage]" min="0" step="0.01" value=""></td>
                 <td><input type="number" class="form-control form-control-sm inp-adv" name="lines[__I__][advance_draw]" min="0" step="0.01" value=""></td>
@@ -221,8 +224,10 @@ $dimEdit = $tsEdit ? (int) date('t', $tsEdit) : 31;
             function recalcRow(tr) {
                 const daily = parseNum(tr.querySelector('.inp-daily'));
                 const adv = parseNum(tr.querySelector('.inp-adv'));
-                const days = parseInt(String(tr.querySelector('.inp-days')?.value || '0'), 10) || 0;
-                const ot = parseNum(tr.querySelector('.inp-ot'));
+                let days = parseNum(tr.querySelector('.inp-days'));
+                days = Math.round(Math.max(0, days) * 2) / 2;
+                let ot = parseNum(tr.querySelector('.inp-ot'));
+                if (days <= 0) ot = 0;
                 const otRate = (daily / 8) * 1.5;
                 const gross = days * daily + ot * otRate;
                 let net = gross;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
+require_once __DIR__ . '/../includes/tnc_action_response.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -23,15 +24,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $action !== '' && !csrf_ver
 function labor_archive_redirect(string $base, array $query): void
 {
     $q = http_build_query($query);
-    header('Location: ' . $base . ($q !== '' ? '?' . $q : ''));
-    exit;
+    $url = $base . ($q !== '' ? '?' . $q : '');
+    tnc_action_redirect($url);
+}
+
+function labor_archive_parse_half_days_present(string $raw, int $periodLen): float
+{
+    $v = (float) str_replace([',', ' ', "\u{00A0}"], '', $raw);
+    if (!is_finite($v) || $v < 0) {
+        $v = 0.0;
+    }
+    $v = round($v * 2) / 2.0;
+    $cap = (float) max(0, $periodLen);
+
+    return $v > $cap ? $cap : $v;
 }
 
 /**
  * @return array{0: float, 1: float} [gross, net]
  */
-function labor_archive_calc_line(float $daily, float $adv, int $days, float $ot, int $periodHalf): array
+function labor_archive_calc_line(float $daily, float $adv, float $days, float $ot, int $periodHalf): array
 {
+    if ($days <= 0) {
+        $ot = 0.0;
+    }
     $otRate = ($daily / 8) * 1.5;
     $gross = round($days * $daily + $ot * $otRate, 2);
     $net = $periodHalf === 2 ? round($gross - $adv, 2) : $gross;
@@ -79,6 +95,8 @@ if (!is_array($linesIn)) {
     $linesIn = [];
 }
 
+$periodLenArchive = $endD - $startD + 1;
+
 try {
     Db::deleteWhereEquals('labor_payroll_archive_lines', 'archive_id', (string) $aid);
 
@@ -103,10 +121,7 @@ try {
             $wname = substr($wname, 0, 200);
         }
         $wid = (int) ($row['worker_id'] ?? 0);
-        $days = (int) ($row['days_present'] ?? 0);
-        if ($days < 0) {
-            $days = 0;
-        }
+        $days = labor_archive_parse_half_days_present((string) ($row['days_present'] ?? ''), $periodLenArchive);
         $ot = (float) str_replace(',', '', (string) ($row['ot_hours'] ?? 0));
         if ($ot < 0) {
             $ot = 0;

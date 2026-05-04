@@ -31,7 +31,7 @@ Db::sortRows($rows, 'id', true);
 <div class="container py-4">
     <h4 class="fw-bold mb-3">สลิปเงินเดือนของฉัน</h4>
     <div class="table-responsive">
-        <table class="table table-bordered align-middle">
+        <table class="table table-bordered align-middle" id="tncPayslipMyTable">
             <thead class="table-light"><tr><th>#</th><th>งวด</th><th>วันที่จ่าย</th><th class="text-end">ยอดสุทธิ</th><th>สถานะ</th><th class="text-end">เอกสาร</th></tr></thead>
             <tbody>
             <?php foreach ($rows as $r): $status=(string)($r['status']??'draft'); ?>
@@ -55,5 +55,13 @@ Db::sortRows($rows, 'id', true);
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
+<script>
+(function ($) {
+    if (typeof window.TncLiveDT === 'undefined' || !$ || !$.fn.DataTable) return;
+    if (!$('#tncPayslipMyTable').length) return;
+    TncLiveDT.init('#tncPayslipMyTable', { order: [[0, 'desc']], columnDefs: [{ orderable: false, targets: 5 }] });
+})(jQuery);
+</script>
 </body>
 </html>

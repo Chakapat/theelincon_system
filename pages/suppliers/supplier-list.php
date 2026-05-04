@@ -49,7 +49,7 @@ Db::sortRows($suppliers, 'name', false);
 
     <div class="card main-card p-4">
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle" id="supplierTable" style="width:100%">
                 <thead class="table-light">
                     <tr>
                         <th>ชื่อบริษัท/ร้านค้า</th>
@@ -82,7 +82,9 @@ Db::sortRows($suppliers, 'name', false);
     </div>
 </div>
 
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
 const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
@@ -101,6 +103,28 @@ function deleteSup(id) {
         }
     });
 }
+</script>
+<script>
+(function ($) {
+    if ($('#supplierTable tbody tr td[colspan]').length === 0 && $('#supplierTable tbody tr').length) {
+        $('#supplierTable').DataTable({
+            order: [[0, 'asc']],
+            pageLength: 25,
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+            columnDefs: [{ targets: [-1], orderable: false, searchable: false }]
+        });
+    }
+    var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=suppliers'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var c = '';
+    setInterval(function () {
+        if (document.hidden) return;
+        fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d || !d.ok) return;
+            if (c === '') { c = d.checksum; return; }
+            if (d.checksum !== c) window.location.reload();
+        }).catch(function () {});
+    }, 6000);
+})(jQuery);
 </script>
 </body>
 </html>

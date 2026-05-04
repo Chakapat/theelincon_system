@@ -13,6 +13,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $is_admin = user_is_admin_role();
+$is_admin_only = user_is_admin_only_role();
 $can_edit_invoice = user_can_edit_invoice();
 
 if (isset($_GET['ajax_search'])) {
@@ -56,12 +57,12 @@ if (isset($_GET['ajax_search'])) {
                 </td>
                 <td class="text-end pe-4">
                     <div class="btn-group shadow-sm rounded-3">
-                        <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=view&amp;id=<?= $row['id']; ?>" class="btn btn-sm btn-white border text-warning" title="ดูใบแจ้งหนี้"><i class="bi bi-eye-fill"></i></a>
+                        <button type="button" class="btn btn-sm btn-white border text-warning" data-tnc-invoice="view" data-invoice-id="<?= (int) $row['id']; ?>" title="ดูใบแจ้งหนี้"><i class="bi bi-eye-fill"></i></button>
                         
                         <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php')) ?>?id=<?= $row['id']; ?>" class="btn btn-sm btn-white border text-success" title="ใบกำกับภาษี/ใบเสร็จ"><i class="bi bi-file-earmark-check-fill"></i></a>
                         
                         <?php if ($can_edit_invoice): ?>
-                            <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=edit&amp;id=<?= $row['id']; ?>" class="btn btn-sm btn-white border text-secondary" title="แก้ไข"><i class="bi bi-pencil-square"></i></a>
+                            <button type="button" class="btn btn-sm btn-white border text-secondary" data-tnc-invoice="edit" data-invoice-id="<?= (int) $row['id']; ?>" title="แก้ไข"><i class="bi bi-pencil-square"></i></button>
                         <?php endif; ?>
                         <?php if ($is_admin): ?>
                             <button onclick="deleteItem(<?= $row['id']; ?>, 'invoice')" class="btn btn-sm btn-white border text-danger" title="ลบ"><i class="bi bi-trash3-fill"></i></button>
@@ -319,6 +320,7 @@ $index_hub_start_all_collapsed = true;
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/customer-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-people me-2 text-secondary"></i>ลูกค้า (Customer)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/company-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-building me-2 text-secondary"></i>บริษัท (Company)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-geo-alt me-2 text-secondary"></i>ไซต์งาน (Sites)</a>
+                        <a class="home-hub-link d-flex align-items-center js-hub-member-manage<?= $is_admin_only ? '' : ' text-muted' ?>" href="<?= htmlspecialchars(app_path('pages/organization/member-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-person-gear me-2 text-secondary"></i>จัดการสมาชิก (Members)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-truck me-2 text-secondary"></i>ผู้ขาย (Suppliers)</a>
                     </div>
                 </div>
@@ -334,7 +336,6 @@ $index_hub_start_all_collapsed = true;
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cart-plus me-2 text-secondary"></i>ใบขอซื้อ (Purchase Request)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-bag-check me-2 text-secondary"></i>ใบสั่งซื้อ (Purchase Order)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/quotations/quotation-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-ui-checks me-2 text-secondary"></i>ใบเสนอราคา (Quotation)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-ruled me-2 text-secondary"></i>สัญญาจ้าง (Hire Contract)</a>
                     </div>
                 </div>
             </div>
@@ -346,9 +347,12 @@ $index_hub_start_all_collapsed = true;
                 </button>
                 <div id="hub-collapse-docs" class="collapse home-hub-panel" aria-labelledby="hub-toggle-docs">
                     <div class="home-hub-panel-inner pb-1">
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/leave-requests/leave-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calendar-check me-2 text-secondary"></i>ใบลา (Leave Request)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calculator me-2 text-secondary"></i>บัตรค่าแรงคนงาน (Wage)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-ruled me-2 text-secondary"></i>สัญญาจ้าง (Hire Contract)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calculator me-2 text-secondary"></i>คำนวณค่าแรง (Wage)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-box-seam me-2 text-secondary"></i>คลังสินค้า (Stock)</a>
+                        <?php if ($is_admin): ?>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/tools/employment-certificate.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-medical me-2 text-secondary"></i>หนังสือรับรองการทำงาน (Employment Certificate)</a>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -362,10 +366,7 @@ $index_hub_start_all_collapsed = true;
                     <div class="home-hub-panel-inner pb-1">
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-bill.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-receipt-cutoff me-2 text-secondary"></i>บันทึกบิลซื้อ (Purchase Bill)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-need-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-card-checklist me-2 text-secondary"></i>ใบต้องการซื้อ (Purchase Need)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/advance-cash/advance-cash-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cash-coin me-2 text-secondary"></i>เบิกเงินล่วงหน้า (Advance Cash)</a>
-                        <?php if ($is_admin): ?>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-speedometer2 me-2 text-secondary"></i>สดย่อย (Petty Cash)</a>
-                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -452,21 +453,75 @@ $index_hub_start_all_collapsed = true;
         </div>
     </div>
     </div>
+
+    <div class="modal fade" id="tncInvoiceModal" tabindex="-1" aria-labelledby="tncInvoiceModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content bg-light" style="min-height: 100vh;">
+                <div class="modal-header py-2 bg-dark text-white align-items-center">
+                    <h6 class="modal-title fw-semibold mb-0" id="tncInvoiceModalTitle">ใบแจ้งหนี้</h6>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-warning btn-sm fw-bold" id="tncInvoiceModalPrint">พิมพ์</button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                    </div>
+                </div>
+                <div class="modal-body p-0 flex-grow-1" style="min-height: calc(100vh - 52px);">
+                    <iframe id="tncInvoiceModalFrame" class="w-100 border-0 d-block" style="min-height: calc(100vh - 52px); height: calc(100vh - 52px);" title="Invoice"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
     </main>
 
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php include __DIR__ . '/includes/datatables_bundle.php'; ?>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
+const invoicePhpUrl = <?= json_encode(app_path('pages/invoices/invoice.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
+const indexUserIsAdminOnly = <?= $is_admin_only ? 'true' : 'false' ?>;
+document.querySelector('.js-hub-member-manage')?.addEventListener('click', function (e) {
+    if (indexUserIsAdminOnly) {
+        return;
+    }
+    e.preventDefault();
+    Swal.fire({
+        icon: 'warning',
+        title: 'ไม่มีสิทธิ์เข้าใช้งาน',
+        text: 'เมนูจัดการสมาชิกใช้ได้เฉพาะผู้ใช้ที่มีบทบาท ADMIN เท่านั้น',
+        confirmButtonText: 'ตกลง',
+        confirmButtonColor: '#fd7e14'
+    });
+});
 
 const loadingRowHtml = '<tr><td colspan="6" class="text-center py-5 text-muted">' +
     '<span class="spinner-border spinner-border-sm text-warning me-2" role="status" aria-hidden="true"></span>' +
     '<span class="align-middle">กำลังโหลดรายการใบแจ้งหนี้…</span></td></tr>';
 const errorRowHtml = '<tr><td colspan="6" class="text-center py-5 text-danger">' +
     'โหลดข้อมูลไม่สำเร็จ — ลองโหลดหน้าใหม่หรือตรวจสอบการเชื่อมต่อ</td></tr>';
+
+function refreshInvoiceDataTable() {
+    if (typeof jQuery === 'undefined' || !jQuery.fn.DataTable || typeof window.TncLiveDT === 'undefined') {
+        return;
+    }
+    var $t = jQuery('#invoice_table');
+    if (!$t.length) {
+        return;
+    }
+    if (jQuery.fn.DataTable.isDataTable($t)) {
+        $t.DataTable().destroy();
+    }
+    var $rows = $t.find('tbody tr');
+    if ($rows.length === 1 && $rows.find('td[colspan]').length) {
+        return;
+    }
+    TncLiveDT.init('#invoice_table', {
+        order: [],
+        columnDefs: [{ orderable: false, targets: [0, 5] }]
+    });
+}
 
 function loadTable(query = '') {
     const tableBody = document.getElementById('invoice_table_body');
@@ -478,6 +533,7 @@ function loadTable(query = '') {
     if (table) {
         table.setAttribute('aria-busy', 'true');
     }
+    refreshInvoiceDataTable();
     const normalized = (query || '').trim();
     if (normalized.length === 1) {
         if (tableBody) {
@@ -486,6 +542,7 @@ function loadTable(query = '') {
         if (table) {
             table.setAttribute('aria-busy', 'false');
         }
+        refreshInvoiceDataTable();
         return;
     }
     fetch(`${indexUrl}?ajax_search=1&search=${encodeURIComponent(normalized)}`, { credentials: 'same-origin' })
@@ -509,6 +566,7 @@ function loadTable(query = '') {
             if (table) {
                 table.setAttribute('aria-busy', 'false');
             }
+            refreshInvoiceDataTable();
         });
 }
 
@@ -522,6 +580,54 @@ if (searchInput) {
         }, 300);
     });
 }
+
+let tncInvoiceModalInstance = null;
+function tncOpenInvoiceModal(action, id) {
+    const frame = document.getElementById('tncInvoiceModalFrame');
+    const titleEl = document.getElementById('tncInvoiceModalTitle');
+    const modalEl = document.getElementById('tncInvoiceModal');
+    if (!frame || !modalEl || !window.bootstrap || !window.bootstrap.Modal) {
+        return;
+    }
+    const u = invoicePhpUrl + '?action=' + encodeURIComponent(action) + '&id=' + encodeURIComponent(String(id)) + '&embed=1';
+    frame.src = u;
+    if (titleEl) {
+        titleEl.textContent = action === 'edit' ? 'แก้ไขใบแจ้งหนี้' : 'ดูใบแจ้งหนี้';
+    }
+    if (!tncInvoiceModalInstance) {
+        tncInvoiceModalInstance = new bootstrap.Modal(modalEl);
+    }
+    tncInvoiceModalInstance.show();
+}
+
+document.getElementById('tncInvoiceModalPrint')?.addEventListener('click', function () {
+    const frame = document.getElementById('tncInvoiceModalFrame');
+    try {
+        if (frame && frame.contentWindow) {
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+        }
+    } catch (e) {}
+});
+
+document.getElementById('tncInvoiceModal')?.addEventListener('hidden.bs.modal', function () {
+    const frame = document.getElementById('tncInvoiceModalFrame');
+    if (frame) {
+        frame.src = 'about:blank';
+    }
+});
+
+document.getElementById('invoice_table_body')?.addEventListener('click', function (ev) {
+    const btn = ev.target.closest('[data-tnc-invoice]');
+    if (!btn) {
+        return;
+    }
+    const act = btn.getAttribute('data-tnc-invoice');
+    const iid = btn.getAttribute('data-invoice-id');
+    if (act && iid) {
+        tncOpenInvoiceModal(act, iid);
+    }
+});
 
 function deleteItem(id, type) {
     Swal.fire({

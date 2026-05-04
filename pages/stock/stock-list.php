@@ -96,6 +96,7 @@ foreach (Db::tableRows('stock_movements') as $m) {
         $totalOut += abs($qty);
     }
 
+    $tref = trim((string) ($m['transfer_ref'] ?? ''));
     $movements[] = [
         'id' => (int) ($m['id'] ?? 0),
         'product_id' => $pid,
@@ -108,6 +109,12 @@ foreach (Db::tableRows('stock_movements') as $m) {
         'person_name' => $personName !== '' ? $personName : '—',
         'note' => $note,
         'photo_path' => $photoPath,
+        'transfer_ref' => $tref,
+        'source_site_name' => trim((string) ($m['source_site_name'] ?? '')),
+        'source_site_id' => (int) ($m['source_site_id'] ?? 0),
+        'counter_site_name' => trim((string) ($m['counter_site_name'] ?? '')),
+        'counter_site_id' => (int) ($m['counter_site_id'] ?? 0),
+        'is_transfer' => $tref !== '',
     ];
 }
 
@@ -239,7 +246,7 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
             </button>
             <?php if ($canManage): ?>
                 <a href="<?= htmlspecialchars(app_path('pages/stock/stock-adjust.php')) ?>?site_id=<?= $siteId ?>" class="btn btn-warning text-white fw-bold rounded-pill">
-                    <i class="bi bi-plus-lg me-1"></i>บันทึกรายการเข้า-ออก
+                    <i class="bi bi-plus-lg me-1"></i>บันทึกรายการ / โอนไซต์
                 </a>
             <?php endif; ?>
         </div>
@@ -257,6 +264,9 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
     <?php endif; ?>
     <?php if (!empty($_GET['deleted'])): ?>
         <div class="alert alert-success rounded-3">ลบรายการเรียบร้อยแล้ว</div>
+    <?php endif; ?>
+    <?php if (!empty($_GET['error']) && (string) $_GET['error'] === 'transfer_locked'): ?>
+        <div class="alert alert-warning rounded-3">รายการโอนระหว่างไซต์แก้ไขแยกทีละรายการไม่ได้ ให้ลบคู่รายการแล้วบันทึกใหม่</div>
     <?php endif; ?>
     <?php if (!empty($_GET['product_added'])): ?>
         <div class="alert alert-success rounded-3">เพิ่มประเภทสินค้า/วัสดุเรียบร้อยแล้ว</div>
@@ -315,12 +325,13 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
 
     <div class="stock-card bg-white mb-4 no-print">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 mobile-stack" id="stockMovementsTable">
+            <table class="table table-hover align-middle mb-0 mobile-stack" id="stockMovementsTable" style="width:100%">
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">วันที่</th>
                         <th>ชื่อคน</th>
                         <th>อุปกรณ์</th>
+                        <th>ต้นทาง / ปลายทาง</th>
                         <th>ประเภท</th>
                         <th class="text-end">จำนวน</th>
                         <th>รูป</th>
@@ -330,7 +341,7 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
                 </thead>
                 <tbody>
                     <?php if (!$movements): ?>
-                        <tr><td colspan="<?= $canManage ? '8' : '7' ?>" class="text-center text-muted py-5">ไม่พบรายการตามตัวกรอง</td></tr>
+                        <tr><td colspan="<?= $canManage ? '9' : '8' ?>" class="text-center text-muted py-5">ไม่พบรายการตามตัวกรอง</td></tr>
                     <?php else: ?>
                         <?php foreach ($movements as $m): ?>
                         <tr
@@ -347,6 +358,17 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
                                     <?= htmlspecialchars((string) ($m['product_code'] !== '' ? $m['product_code'] . ' | ' : '')) ?>
                                     <?= htmlspecialchars((string) $m['unit']) ?>
                                 </div>
+                            </td>
+                            <td class="small text-muted">
+                                <?php
+                                $route = '—';
+                                if ((string) $m['movement_type'] === 'in' && ((string) $m['source_site_name'] !== '' || (int) $m['source_site_id'] > 0)) {
+                                    $route = 'จาก ' . ((string) $m['source_site_name'] !== '' ? (string) $m['source_site_name'] : ('ไซต์ #' . (int) $m['source_site_id']));
+                                } elseif ((string) $m['movement_type'] === 'out' && ((string) $m['counter_site_name'] !== '' || (int) $m['counter_site_id'] > 0)) {
+                                    $route = 'ไป ' . ((string) $m['counter_site_name'] !== '' ? (string) $m['counter_site_name'] : ('ไซต์ #' . (int) $m['counter_site_id']));
+                                }
+                                echo htmlspecialchars($route, ENT_QUOTES, 'UTF-8');
+                                ?>
                             </td>
                             <td>
                                 <?php if ((string) $m['movement_type'] === 'out'): ?>
@@ -370,19 +392,23 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
                             <td class="pe-3 small"><?= htmlspecialchars((string) ($m['note'] !== '' ? $m['note'] : '—'), ENT_QUOTES, 'UTF-8') ?></td>
                             <?php if ($canManage): ?>
                                 <td class="text-end pe-3 text-nowrap">
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm btn-outline-primary stock-edit-btn"
-                                        data-id="<?= (int) $m['id'] ?>"
-                                        data-product-id="<?= (int) $m['product_id'] ?>"
-                                        data-date="<?= htmlspecialchars(substr((string) $m['created_at'], 0, 10), ENT_QUOTES, 'UTF-8') ?>"
-                                        data-person="<?= htmlspecialchars((string) $m['person_name'], ENT_QUOTES, 'UTF-8') ?>"
-                                        data-type="<?= htmlspecialchars((string) $m['movement_type'], ENT_QUOTES, 'UTF-8') ?>"
-                                        data-qty="<?= htmlspecialchars((string) abs((float) $m['qty']), ENT_QUOTES, 'UTF-8') ?>"
-                                        data-note="<?= htmlspecialchars((string) $m['note'], ENT_QUOTES, 'UTF-8') ?>"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#editMovementModal"
-                                    >แก้ไข</button>
+                                    <?php if (!empty($m['is_transfer'])): ?>
+                                        <span class="small text-muted me-1">โอนไซต์</span>
+                                    <?php else: ?>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary stock-edit-btn"
+                                            data-id="<?= (int) $m['id'] ?>"
+                                            data-product-id="<?= (int) $m['product_id'] ?>"
+                                            data-date="<?= htmlspecialchars(substr((string) $m['created_at'], 0, 10), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-person="<?= htmlspecialchars((string) $m['person_name'], ENT_QUOTES, 'UTF-8') ?>"
+                                            data-type="<?= htmlspecialchars((string) $m['movement_type'], ENT_QUOTES, 'UTF-8') ?>"
+                                            data-qty="<?= htmlspecialchars((string) abs((float) $m['qty']), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-note="<?= htmlspecialchars((string) $m['note'], ENT_QUOTES, 'UTF-8') ?>"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#editMovementModal"
+                                        >แก้ไข</button>
+                                    <?php endif; ?>
                                     <a
                                         href="<?= htmlspecialchars(app_path('actions/stock-handler.php')) ?>?action=delete_transaction&id=<?= (int) $m['id'] ?>&site_id=<?= $siteId ?>&_csrf=<?= rawurlencode(csrf_token()) ?>"
                                         class="btn btn-sm btn-outline-danger"
@@ -396,20 +422,11 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
                 </tbody>
             </table>
         </div>
-        <?php if (!empty($movements)): ?>
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 p-3 pager-wrap no-print">
-                <div class="small text-muted" id="stockPagerInfo">แสดงรายการ</div>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="stockPrevBtn">ก่อนหน้า</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="stockNextBtn">ถัดไป</button>
-                </div>
-            </div>
-        <?php endif; ?>
     </div>
 
-    <div class="stock-card bg-white print-balance-only">
+    <div class="stock-card bg-white print-balance-only no-print">
         <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
+            <table class="table table-sm align-middle mb-0 w-100" id="stockBalanceTable" style="width:100%">
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">รหัส</th>
@@ -493,181 +510,70 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
     <?php endif; ?>
 </div>
 
+<?php if ($selectedSite !== null): ?>
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-(function () {
-    var table = document.getElementById('stockMovementsTable');
-    if (!table) {
-        return;
-    }
-    var tbody = table.querySelector('tbody');
-    if (!tbody) {
-        return;
-    }
-    var allRows = Array.prototype.slice.call(tbody.querySelectorAll('tr.stock-row'));
-    if (!allRows.length) {
-        return;
-    }
-    var filteredRows = allRows.slice();
-    var noResultRow = null;
-    var filterForm = document.getElementById('stockFilterForm');
-    var dateFromInput = filterForm ? filterForm.querySelector('input[name="date_from"]') : null;
-    var dateToInput = filterForm ? filterForm.querySelector('input[name="date_to"]') : null;
-    var productCodeInput = filterForm ? filterForm.querySelector('input[name="product_code"]') : null;
-    var personInput = filterForm ? filterForm.querySelector('input[name="person"]') : null;
-
-    var prevBtn = document.getElementById('stockPrevBtn');
-    var nextBtn = document.getElementById('stockNextBtn');
-    var infoEl = document.getElementById('stockPagerInfo');
-    if (!prevBtn || !nextBtn || !infoEl) {
-        return;
-    }
-
-    var pageSize = 5;
-    var page = 1;
-    var totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
-
-    function ensureNoResultRow() {
-        if (noResultRow) {
-            return noResultRow;
-        }
-        noResultRow = document.createElement('tr');
-        var td = document.createElement('td');
-        td.colSpan = <?= $canManage ? '8' : '7' ?>;
-        td.className = 'text-center text-muted py-5';
-        td.textContent = 'ไม่พบรายการตามตัวกรอง';
-        noResultRow.appendChild(td);
-        return noResultRow;
-    }
-
-    function normalize(value) {
-        return String(value || '').trim().toLowerCase();
-    }
-
-    function applyTableFilter() {
-        var dateFrom = dateFromInput ? dateFromInput.value : '';
-        var dateTo = dateToInput ? dateToInput.value : '';
-        var productCodeQuery = normalize(productCodeInput ? productCodeInput.value : '');
-        var personQuery = normalize(personInput ? personInput.value : '');
-
-        filteredRows = allRows.filter(function (row) {
-            var rowDate = String(row.getAttribute('data-date') || '');
-            if (dateFrom && rowDate && rowDate < dateFrom) {
-                return false;
-            }
-            if (dateTo && rowDate && rowDate > dateTo) {
-                return false;
-            }
-            var rowCode = normalize(row.getAttribute('data-product-code'));
-            if (productCodeQuery && rowCode.indexOf(productCodeQuery) === -1) {
-                return false;
-            }
-            var rowPerson = normalize(row.getAttribute('data-person-name'));
-            if (personQuery && rowPerson.indexOf(personQuery) === -1) {
-                return false;
-            }
-            return true;
+(function ($) {
+    var $mov = $('#stockMovementsTable');
+    if ($mov.length && $mov.find('tbody tr.stock-row').length) {
+        $mov.DataTable({
+            order: [[0, 'desc']],
+            pageLength: 25,
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+            columnDefs: <?= json_encode(array_merge(
+                [['targets' => [6, 7], 'orderable' => false]],
+                $canManage ? [['targets' => [8], 'orderable' => false, 'searchable' => false]] : []
+            ), JSON_UNESCAPED_UNICODE) ?>
         });
-
-        page = 1;
-        totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
-        renderPage();
     }
 
-    function renderPage() {
-        var start = (page - 1) * pageSize;
-        var end = start + pageSize;
-        allRows.forEach(function (row) {
-            row.style.display = 'none';
+    var $bal = $('#stockBalanceTable');
+    if ($bal.length) {
+        $bal.DataTable({
+            paging: false,
+            searching: true,
+            info: false,
+            order: [[0, 'asc']],
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' }
         });
-
-        if (filteredRows.length === 0) {
-            tbody.appendChild(ensureNoResultRow());
-            infoEl.textContent = 'แสดง 0-0 จาก 0 รายการ';
-            prevBtn.disabled = true;
-            nextBtn.disabled = true;
-            return;
-        }
-
-        if (noResultRow && noResultRow.parentNode) {
-            noResultRow.parentNode.removeChild(noResultRow);
-        }
-
-        filteredRows.forEach(function (row, idx) {
-            row.style.display = idx >= start && idx < end ? '' : 'none';
-        });
-
-        var shownStart = start + 1;
-        var shownEnd = Math.min(end, filteredRows.length);
-        infoEl.textContent = 'แสดง ' + shownStart + '-' + shownEnd + ' จาก ' + filteredRows.length + ' รายการ';
-        prevBtn.disabled = page <= 1;
-        nextBtn.disabled = page >= totalPages;
     }
 
-    prevBtn.addEventListener('click', function () {
-        if (page > 1) {
-            page -= 1;
-            renderPage();
-        }
-    });
-    nextBtn.addEventListener('click', function () {
-        if (page < totalPages) {
-            page += 1;
-            renderPage();
-        }
-    });
-
-    if (filterForm) {
-        filterForm.addEventListener('submit', function (event) {
-            event.preventDefault();
-            applyTableFilter();
-        });
-
-        var timer = null;
-        [dateFromInput, dateToInput, productCodeInput, personInput].forEach(function (inputEl) {
-            if (!inputEl) {
-                return;
-            }
-            var eventName = inputEl.getAttribute('type') === 'date' ? 'change' : 'input';
-            inputEl.addEventListener(eventName, function () {
-                if (timer) {
-                    clearTimeout(timer);
+    var liveUrl = <?= json_encode(app_path('actions/live-datasets.php?dataset=stock_movements_site&site_id=' . $siteId), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var lastCs = '';
+    setInterval(function () {
+        if (document.hidden) return;
+        fetch(liveUrl, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d || !d.ok || !d.checksum) return;
+                if (lastCs === '') {
+                    lastCs = d.checksum;
+                    return;
                 }
-                timer = window.setTimeout(applyTableFilter, 180);
-            });
-        });
-    }
+                if (d.checksum !== lastCs) {
+                    window.location.reload();
+                }
+            })
+            .catch(function () {});
+    }, 5000);
 
-    renderPage();
-})();
-
-(function () {
-    var buttons = document.querySelectorAll('.stock-edit-btn');
-    if (!buttons.length) {
-        return;
-    }
-    var idEl = document.getElementById('editMovementId');
-    var dateEl = document.getElementById('editTxnDate');
-    var personEl = document.getElementById('editPersonName');
-    var productEl = document.getElementById('editProductId');
-    var typeEl = document.getElementById('editMovementType');
-    var qtyEl = document.getElementById('editQty');
-    var noteEl = document.getElementById('editNote');
-    if (!idEl || !dateEl || !personEl || !productEl || !typeEl || !qtyEl || !noteEl) {
-        return;
-    }
-    buttons.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            idEl.value = btn.getAttribute('data-id') || '';
-            dateEl.value = btn.getAttribute('data-date') || '';
-            personEl.value = btn.getAttribute('data-person') || '';
-            productEl.value = btn.getAttribute('data-product-id') || '';
-            typeEl.value = btn.getAttribute('data-type') || 'in';
-            qtyEl.value = btn.getAttribute('data-qty') || '';
-            noteEl.value = btn.getAttribute('data-note') || '';
+    $('.stock-edit-btn').each(function () {
+        $(this).on('click', function () {
+            var btn = $(this);
+            $('#editMovementId').val(btn.data('id'));
+            $('#editTxnDate').val(btn.data('date'));
+            $('#editPersonName').val(btn.data('person'));
+            $('#editProductId').val(btn.attr('data-product-id'));
+            $('#editMovementType').val(btn.data('type'));
+            $('#editQty').val(btn.data('qty'));
+            $('#editNote').val(btn.data('note'));
         });
     });
-})();
+})(jQuery);
 </script>
+<?php else: ?>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php endif; ?>
 </body>
 </html>

@@ -56,6 +56,23 @@ final class Purchase
         return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
     }
 
+    /** HC-TNC-YYMM-xxx — เลขที่สัญญาจ้างอิสระ (ไม่อิง PR) */
+    public static function nextHireContractNumber(): string
+    {
+        $suffix = date('ym');
+        $prefix = 'HC-TNC-' . $suffix . '-';
+        $max = 0;
+        foreach (Db::tableRows('hire_contracts') as $r) {
+            $pn = (string) ($r['pr_number'] ?? '');
+            if (strncmp($pn, $prefix, strlen($prefix)) === 0) {
+                $tail = substr($pn, -3);
+                $max = max($max, (int) $tail);
+            }
+        }
+
+        return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
+    }
+
     public static function createHireContractIfNeededForPr(int $prId): void
     {
         if ($prId <= 0) {

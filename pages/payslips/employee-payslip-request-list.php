@@ -38,7 +38,7 @@ $users = Db::tableKeyed('users');
     </div>
     <?php if (isset($_GET['created'])): ?><div class="alert alert-success">เพิ่มคำขอสำเร็จ และพร้อมพิมพ์ได้ทันที</div><?php endif; ?>
     <div class="table-responsive">
-        <table class="table table-bordered align-middle">
+        <table class="table table-bordered align-middle" id="payslipReqTable" style="width:100%">
             <thead class="table-light">
                 <tr>
                     <th>#</th><th>พนักงาน</th><th>งวด</th><th>วันที่จ่าย</th><th class="text-end">ยอดสุทธิ</th><th>สถานะ</th><th class="text-end">จัดการ</th>
@@ -73,6 +73,29 @@ $users = Db::tableKeyed('users');
         </table>
     </div>
 </div>
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function ($) {
+    if ($('#payslipReqTable tbody tr').length) {
+        $('#payslipReqTable').DataTable({
+            order: [[0, 'desc']],
+            pageLength: 25,
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+            columnDefs: [{ targets: [6], orderable: false, searchable: false }]
+        });
+    }
+    var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=employee_payslip_requests'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var c = '';
+    setInterval(function () {
+        if (document.hidden) return;
+        fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d || !d.ok) return;
+            if (c === '') { c = d.checksum; return; }
+            if (d.checksum !== c) window.location.reload();
+        }).catch(function () {});
+    }, 6000);
+})(jQuery);
+</script>
 </body>
 </html>

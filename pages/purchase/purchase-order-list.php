@@ -144,11 +144,6 @@ $poCount = count($po_rows);
     </div>
 
     <div class="card main-card p-4">
-        <div class="d-flex justify-content-end mb-3">
-            <div style="max-width: 420px; width: 100%;">
-                <input id="poSearch" type="search" class="form-control" placeholder="ค้นหา">
-            </div>
-        </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle" id="poTable">
                 <thead class="table-light">
@@ -299,39 +294,29 @@ $poCount = count($po_rows);
     </div>
 </div>
 
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-(function() {
-    const input = document.getElementById('poSearch');
-    const tbody = document.getElementById('poTableBody');
-    if (!input || !tbody) return;
-
-    const noDataRow = () => {
-        const tr = document.createElement('tr');
-        tr.id = 'poNoResult';
-            tr.innerHTML = "<td colspan=\"8\" class=\"text-center py-4 text-muted\">ไม่พบรายการที่ค้นหา</td>";
-        return tr;
-    };
-
-    input.addEventListener('input', function () {
-        const q = (input.value || '').trim().toLowerCase();
-        const rows = Array.from(tbody.querySelectorAll('tr'));
-        let visible = 0;
-        rows.forEach((row) => {
-            if (row.id === 'poNoResult') return;
-            const txt = (row.textContent || '').toLowerCase();
-            const show = q === '' || txt.includes(q);
-            row.style.display = show ? '' : 'none';
-            if (show) visible++;
+(function ($) {
+    if ($('#poTable tbody tr').length && $('#poTable tbody tr td[colspan]').length === 0) {
+        $('#poTable').DataTable({
+            order: [[1, 'desc']],
+            pageLength: 25,
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+            columnDefs: [{ targets: [7], orderable: false, searchable: false }]
         });
-
-        const oldNoResult = document.getElementById('poNoResult');
-        if (oldNoResult) oldNoResult.remove();
-        if (q !== '' && visible === 0) {
-            tbody.appendChild(noDataRow());
-        }
-    });
-})();
+    }
+    var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_orders'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var c = '';
+    setInterval(function () {
+        if (document.hidden) return;
+        fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d || !d.ok) return;
+            if (c === '') { c = d.checksum; return; }
+            if (d.checksum !== c) window.location.reload();
+        }).catch(function () {});
+    }, 6000);
+})(jQuery);
 
 (function () {
     const markPaidModalEl = document.getElementById('markPaidModal');

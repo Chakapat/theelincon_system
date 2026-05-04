@@ -87,13 +87,13 @@ $payDate = (string) ($req['pay_date'] ?? '');
     </div>
     <div class="row g-3">
         <div class="col-6">
-            <table class="table table-bordered">
+            <table class="table table-bordered" id="tncPsIncomeTable">
                 <thead><tr><th>รายได้</th><th class="text-end">จำนวนเงิน</th></tr></thead>
                 <tbody><tr><td>เงินเดือน</td><td class="text-end"><?= number_format($salaryBase,2) ?></td></tr><tr><td class="fw-bold">รวมรายได้</td><td class="text-end fw-bold"><?= number_format($incomeTotal,2) ?></td></tr></tbody>
             </table>
         </div>
         <div class="col-6">
-            <table class="table table-bordered">
+            <table class="table table-bordered" id="tncPsDeductTable">
                 <thead><tr><th>รายการหัก</th><th class="text-end">จำนวนเงิน</th></tr></thead>
                 <tbody><tr><td>เงินประกันสังคม</td><td class="text-end"><?= number_format($socialSecurity,2) ?></td></tr><tr><td class="fw-bold">รวมหัก</td><td class="text-end fw-bold"><?= number_format($deductTotal,2) ?></td></tr></tbody>
             </table>
@@ -101,5 +101,15 @@ $payDate = (string) ($req['pay_date'] ?? '');
     </div>
     <div class="net"><div class="fw-bold fs-5">ยอดรวมสุทธิ</div><div class="fw-bold fs-3">฿ <?= number_format($netTotal,2) ?></div></div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
+<script>
+(function ($) {
+    if (typeof window.TncLiveDT === 'undefined' || !$ || !$.fn.DataTable) return;
+    var mini = { paging: false, searching: false, info: false, lengthChange: false, ordering: false };
+    if ($('#tncPsIncomeTable').length) TncLiveDT.init('#tncPsIncomeTable', mini);
+    if ($('#tncPsDeductTable').length) TncLiveDT.init('#tncPsDeductTable', mini);
+})(jQuery);
+</script>
 </body>
 </html>

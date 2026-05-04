@@ -88,7 +88,7 @@ $printUrl = app_path('pages/purchase/purchase-need-print.php') . '?id=' . $id;
     <div class="card border-0 shadow-sm p-4 mb-3 need-items-card">
         <h5 class="fw-bold mb-3 need-items-title"><i class="bi bi-list-check me-1 text-primary"></i>รายการที่ต้องการ</h5>
         <div class="table-responsive">
-            <table class="table table-hover align-middle need-items-table">
+            <table class="table table-hover align-middle need-items-table" id="tncNeedItemsTable">
                 <thead class="table-light">
                     <tr>
                         <th style="width:4rem;">#</th>
@@ -137,5 +137,15 @@ $printUrl = app_path('pages/purchase/purchase-need-print.php') . '?id=' . $id;
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
+<script>
+(function ($) {
+    if (typeof window.TncLiveDT === 'undefined' || !$ || !$.fn.DataTable) return;
+    var $t = $('#tncNeedItemsTable');
+    if (!$t.length) return;
+    if ($t.find('tbody tr').length === 1 && $t.find('tbody td[colspan]').length) return;
+    TncLiveDT.init('#tncNeedItemsTable', { order: [[0, 'asc']], columnDefs: [{ orderable: false, targets: 0 }] });
+})(jQuery);
+</script>
 </body>
 </html>

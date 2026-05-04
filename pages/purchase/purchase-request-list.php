@@ -42,12 +42,21 @@ Db::sortRows($pr_rows, 'created_at', true);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
     <style>
         body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
         .table-card { border: none; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
         .btn-orange { background-color: #fd7e14; color: white; border: none; }
         .btn-orange:hover { background-color: #e86c00; color: white; }
         .badge { font-weight: 500; }
+        .pr-print-head { border-bottom: 2px solid #fd7e14; padding-bottom: 0.75rem; margin-bottom: 1rem; }
+        @media print {
+            nav, .navbar, .no-print { display: none !important; }
+            body { background: #fff !important; font-size: 11pt; }
+            .table-card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
+            .table { font-size: 10pt; }
+            a[href]:after { content: none !important; }
+        }
     </style>
 </head>
 <body>
@@ -55,6 +64,7 @@ Db::sortRows($pr_rows, 'created_at', true);
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-4 mb-5">
+    <div class="no-print">
     <?php if (!empty($_GET['line_error'])): ?>
         <div class="alert alert-warning alert-dismissible fade show" role="alert">
             ส่งแจ้งเตือน LINE ไม่สำเร็จ (กรุณาตรวจสอบการตั้งค่า LINE API)
@@ -94,14 +104,25 @@ Db::sortRows($pr_rows, 'created_at', true);
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
+    </div>
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <h3 class="fw-bold mb-0">
             <i class="bi bi-cart-check-fill text-warning me-2"></i> รายการใบขอซื้อ (PR List)
         </h3>
-        <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4 shadow-sm">
-            <i class="bi bi-plus-lg"></i> สร้างใบ PR ใหม่
-        </a>
+        <div class="d-flex flex-wrap gap-2 no-print">
+            <button type="button" class="btn btn-dark rounded-pill px-3 shadow-sm" onclick="window.print()" title="พิมพ์รายการ">
+                <i class="bi bi-printer me-1"></i> พิมพ์รายการ
+            </button>
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4 shadow-sm">
+                <i class="bi bi-plus-lg"></i> สร้างใบ PR ใหม่
+            </a>
+        </div>
+    </div>
+
+    <div class="pr-print-head d-none d-print-block">
+        <div class="fw-bold fs-5"><?= htmlspecialchars($companyName !== '' ? $companyName : 'THEELIN CON', ENT_QUOTES, 'UTF-8') ?></div>
+        <div class="text-muted small">รายการใบขอซื้อ (PR) — พิมพ์เมื่อ <?= date('d/m/Y H:i') ?></div>
     </div>
 
     <div class="card table-card p-4">
@@ -194,7 +215,29 @@ Db::sortRows($pr_rows, 'created_at', true);
 
 </div>
 
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function ($) {
+    if ($('#prTable tbody tr td[colspan]').length === 0 && $('#prTable tbody tr').length) {
+        $('#prTable').DataTable({
+            order: [[0, 'desc']],
+            pageLength: 25,
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' }
+        });
+    }
+    var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_requests'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var c = '';
+    setInterval(function () {
+        if (document.hidden) return;
+        fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d || !d.ok) return;
+            if (c === '') { c = d.checksum; return; }
+            if (d.checksum !== c) window.location.reload();
+        }).catch(function () {});
+    }, 6000);
+})(jQuery);
+</script>
 
 </body>
 </html>

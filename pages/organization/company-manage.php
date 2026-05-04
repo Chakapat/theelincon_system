@@ -54,7 +54,7 @@ Db::sortRows($companies, 'id', true);
                         <i class="bi bi-plus-circle-fill fs-4 me-2"></i>
                         <h5 class="fw-bold mb-0 text-dark">เพิ่มบริษัทใหม่</h5>
                     </div>
-                    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=add_company" method="POST" enctype="multipart/form-data">
+                    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=add_company" method="POST" enctype="multipart/form-data" data-tnc-soft-reload="1">
                         <?php csrf_field(); ?>
                         <div class="mb-3">
                             <label class="form-label small fw-bold text-muted">โลโก้บริษัท</label>
@@ -92,7 +92,7 @@ Db::sortRows($companies, 'id', true);
             <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                 <div class="p-4 border-bottom bg-white"><h5 class="fw-bold mb-0">รายชื่อบริษัททั้งหมด</h5></div>
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0" id="companyTable" width="100%">
                         <thead class="bg-light text-muted small">
                             <tr>
                                 <th class="ps-4 border-0">บริษัท</th>
@@ -146,7 +146,7 @@ Db::sortRows($companies, 'id', true);
 <div class="modal fade" id="editCompanyModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
-            <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=edit_company" method="POST" enctype="multipart/form-data">
+            <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=edit_company" method="POST" enctype="multipart/form-data" data-tnc-soft-reload="1">
                 <?php csrf_field(); ?>
                 <div class="modal-header border-0 pt-4 px-4">
                     <h5 class="fw-bold"><i class="bi bi-pencil-square me-2 text-warning"></i>แก้ไขข้อมูล</h5>
@@ -172,6 +172,7 @@ Db::sortRows($companies, 'id', true);
     </div>
 </div>
 
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
@@ -187,7 +188,21 @@ function confirmDelete(id, type) {
         confirmButtonText: 'ยืนยัน',
         cancelButtonText: 'ยกเลิก',
         reverseButtons: true
-    }).then((r) => { if (r.isConfirmed) window.location.href = `${actionHandlerUrl}?action=delete&type=${type}&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`; });
+    }).then(function (r) {
+        if (!r.isConfirmed) return;
+        var url = actionHandlerUrl + '?action=delete&type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(String(id)) + '&_csrf=' + encodeURIComponent(csrfToken) + '&_tnc_ajax=1';
+        fetch(url, { headers: { 'X-Tnc-Ajax': '1', Accept: 'application/json' } })
+            .then(function (res) { return res.json(); })
+            .then(function (j) {
+                if (j.ok) {
+                    Swal.fire({ icon: 'success', title: j.message || 'ลบแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+                    setTimeout(function () { window.location.reload(); }, 500);
+                } else {
+                    Swal.fire({ icon: 'error', title: j.message || 'ลบไม่สำเร็จ' });
+                }
+            })
+            .catch(function () { Swal.fire({ icon: 'error', title: 'เครือข่ายผิดพลาด' }); });
+    });
 }
 
 function editCompany(id) {
@@ -202,6 +217,10 @@ function editCompany(id) {
 const params = new URLSearchParams(window.location.search);
 if (params.get('success')) Swal.fire({ icon: 'success', title: 'สำเร็จ!', confirmButtonColor: '#fd7e14' });
 if (params.has('deleted')) Swal.fire({ icon: 'success', title: 'ลบเรียบร้อย!', confirmButtonColor: '#fd7e14' });
+(function () {
+    if (typeof $ === 'undefined' || !$.fn.DataTable) return;
+    $('#companyTable').DataTable({ order: [[0, 'asc']] });
+})();
 </script>
 </body>
 </html>

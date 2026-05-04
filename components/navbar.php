@@ -75,16 +75,6 @@ if (!function_exists('app_path')) {
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="min-width: 13rem;" aria-labelledby="userDropdown">
                         <?php if (user_is_admin_role()): ?>
                         <li>
-                            <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/organization/member-manage.php'), ENT_QUOTES, 'UTF-8') ?>">
-                                <i class="bi bi-person-gear me-2 text-secondary"></i>จัดการสมาชิก
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/tools/employment-certificate.php'), ENT_QUOTES, 'UTF-8') ?>">
-                                <i class="bi bi-file-earmark-medical me-2 text-secondary"></i>หนังสือรับรองการทำงาน
-                            </a>
-                        </li>
-                        <li>
                             <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/internal/line-notify-config.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <i class="bi bi-bell-fill me-2 text-success"></i>ตั้งค่า LINE แจ้งเตือน
                             </a>
@@ -292,3 +282,4 @@ document.addEventListener('DOMContentLoaded', function () {
     }, true);
 })();
 </script>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-ajax-form.js'), ENT_QUOTES, 'UTF-8') ?>"></script>

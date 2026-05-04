@@ -124,7 +124,7 @@ if (!in_array($paymentMethod, ['cash', 'transfer', 'cheque'], true)) {
         </div>
     </div>
 
-    <table class="table table-bordered align-middle bill-table">
+    <table class="table table-bordered align-middle bill-table" id="tncPoPayDocTable">
         <thead class="table-light">
             <tr>
                 <th>รายละเอียด</th>
@@ -206,5 +206,14 @@ if (!in_array($paymentMethod, ['cash', 'transfer', 'cheque'], true)) {
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
+<script>
+(function ($) {
+    if (typeof window.TncLiveDT === 'undefined' || !$ || !$.fn.DataTable) return;
+    if (!$('#tncPoPayDocTable').length) return;
+    if ($('#tncPoPayDocTable tbody tr').length === 1 && $('#tncPoPayDocTable tbody td[colspan]').length) return;
+    TncLiveDT.init('#tncPoPayDocTable', { order: [], columnDefs: [{ orderable: false, targets: '_all' }] });
+})(jQuery);
+</script>
 </body>
 </html>

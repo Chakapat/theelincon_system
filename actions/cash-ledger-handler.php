@@ -6,6 +6,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
+require_once __DIR__ . '/../includes/tnc_action_response.php';
 require_once __DIR__ . '/../includes/cash_ledger_helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -14,7 +15,13 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $me = (int) $_SESSION['user_id'];
-$isAdmin = user_is_admin_role();
+$isAdmin = user_is_admin_only_role();
+if (!$isAdmin) {
+    $access_denied_title = 'สดย่อย (Petty Cash)';
+    $access_denied_text = 'เข้าใช้งานได้เฉพาะผู้ใช้ที่มีสิทธิ์ ADMIN เท่านั้น';
+    require __DIR__ . '/../includes/page_access_denied_swal.php';
+    exit;
+}
 $back = app_path('pages/cash-ledger/cash-ledger.php');
 $action = $_REQUEST['action'] ?? '';
 
@@ -33,8 +40,8 @@ if ($cash_mutates && !csrf_verify_request()) {
 function cash_ledger_redirect(string $base, array $query): void
 {
     $q = http_build_query($query);
-    header('Location: ' . $base . ($q !== '' ? '?' . $q : ''));
-    exit;
+    $url = $base . ($q !== '' ? '?' . $q : '');
+    tnc_action_redirect($url);
 }
 
 /**

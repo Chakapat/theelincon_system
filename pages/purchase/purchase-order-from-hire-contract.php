@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-
 use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\Purchase;
 
@@ -14,73 +13,60 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$pr_id = isset($_GET['pr_id']) ? (int) $_GET['pr_id'] : 0;
-
-$pr = Db::findFirst('purchase_requests', static function (array $r) use ($pr_id): bool {
-    return isset($r['id']) && (int) $r['id'] === $pr_id;
-});
-if (!$pr || ($pr['status'] ?? '') !== 'approved') {
-    echo "<script>alert('ไม่พบข้อมูลหรือ PR ยังไม่อนุมัติ'); window.location.href='" . htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES) . "';</script>";
+$hire_contract_id = isset($_GET['hire_contract_id']) ? (int) $_GET['hire_contract_id'] : 0;
+$hc = $hire_contract_id > 0 ? Db::row('hire_contracts', (string) $hire_contract_id) : null;
+if ($hc === null) {
+    echo "<script>alert('ไม่พบสัญญาจ้าง'); window.location.href='" . htmlspecialchars(app_path('pages/hire-contracts/hire-contract-list.php'), ENT_QUOTES) . "';</script>";
+    exit();
+}
+if ((int) ($hc['pr_id'] ?? 0) > 0) {
+    $rid = (int) ($hc['pr_id'] ?? 0);
+    header('Location: ' . app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $rid);
     exit();
 }
 
-$requestType = trim((string) ($pr['request_type'] ?? 'purchase'));
-if (!in_array($requestType, ['purchase', 'hire'], true)) {
-    $requestType = 'purchase';
-}
-$contractorName = trim((string) ($pr['contractor_name'] ?? ''));
-$installmentTotal = (int) ($pr['installment_total'] ?? 1);
+$contractorName = trim((string) ($hc['contractor_name'] ?? ''));
+$installmentTotal = (int) ($hc['installment_total'] ?? 1);
 if ($installmentTotal < 1) {
     $installmentTotal = 1;
 }
 
-$dup = Db::findFirst('purchase_orders', static function (array $r) use ($pr_id): bool {
-    return isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
-});
-if ($requestType !== 'hire' && $dup !== null) {
-    $msg = 'ใบขอซื้อนี้ออกใบสั่งซื้อ (PO) เลขที่ ' . ($dup['po_number'] ?? '') . ' แล้ว ไม่สามารถออกซ้ำได้';
-    $view = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php?id=' . (int) ($dup['id'] ?? 0)), ENT_QUOTES);
-    echo "<script>alert(" . json_encode($msg, JSON_UNESCAPED_UNICODE) . "); window.location.href='" . $view . "';</script>";
-    exit();
-}
-
 $issuedInstallments = [];
 $paidAmountSoFar = 0.0;
-$hireContract = null;
-$hirePaymentRows = [];
-if ($requestType === 'hire') {
-    foreach (Db::tableRows('purchase_orders') as $row) {
-        if ((int) ($row['pr_id'] ?? 0) !== $pr_id) {
-            continue;
-        }
-        $paidAmountSoFar += (float) (($row['subtotal_amount'] ?? '') !== '' ? $row['subtotal_amount'] : ($row['payable_amount'] ?? 0));
-        $no = (int) ($row['installment_no'] ?? 0);
-        if ($no > 0) {
-            $issuedInstallments[$no] = true;
-        }
+foreach (Db::tableRows('purchase_orders') as $row) {
+    if ((int) ($row['hire_contract_id'] ?? 0) !== $hire_contract_id) {
+        continue;
     }
-    $hireContract = Db::findFirst('hire_contracts', static function (array $r) use ($pr_id): bool {
-        return (int) ($r['pr_id'] ?? 0) === $pr_id;
-    });
-    $hirePaymentRows = Db::filter('hire_contract_payments', static function (array $r) use ($pr_id): bool {
-        return (int) ($r['pr_id'] ?? 0) === $pr_id;
-    });
-    Db::sortRows($hirePaymentRows, 'installment_no', false);
+    if (trim((string) ($row['order_type'] ?? 'purchase')) !== 'hire') {
+        continue;
+    }
+    $paidAmountSoFar += (float) (($row['subtotal_amount'] ?? '') !== '' ? $row['subtotal_amount'] : ($row['payable_amount'] ?? 0));
+    $no = (int) ($row['installment_no'] ?? 0);
+    if ($no > 0) {
+        $issuedInstallments[$no] = true;
+    }
 }
-$remainingInstallments = $requestType === 'hire' ? max(0, $installmentTotal - count($issuedInstallments)) : 0;
+$hirePaymentRows = Db::filter('hire_contract_payments', static function (array $r) use ($hire_contract_id): bool {
+    return (int) ($r['hire_contract_id'] ?? 0) === $hire_contract_id;
+});
+Db::sortRows($hirePaymentRows, 'installment_no', false);
+
+$remainingInstallments = max(0, $installmentTotal - count($issuedInstallments));
 
 $supplier_rows = Db::tableRows('suppliers');
 Db::sortRows($supplier_rows, 'name', false);
 
 $po_number = Purchase::generatePONumber();
 $errorCode = trim((string) ($_GET['error'] ?? ''));
+$listUrl = app_path('pages/hire-contracts/hire-contract-list.php');
+$viewHcUrl = app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . $hire_contract_id;
 ?>
 
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title><?= $requestType === 'hire' ? 'ใบสั่งจ่าย PO' : 'ผูก QT และสร้างใบ PO จาก PR' ?></title>
+    <title>ใบสั่งจ่าย PO (สัญญาจ้างอิสระ)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
@@ -96,68 +82,66 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
 <body>
     <div class="container mt-5">
         <div class="row justify-content-center">
-            <div class="<?= $requestType === 'hire' ? 'col-lg-10' : 'col-md-6' ?>">
+            <div class="col-lg-10">
                 <div class="card p-4">
                     <h4 class="fw-bold text-center mb-4">
-                        <i class="bi bi-link-45deg text-primary"></i>
-                        <?= $requestType === 'hire' ? 'ใบสั่งจ่าย PO' : 'ผูก QT และออกใบสั่งซื้อ (PO)' ?>
+                        <i class="bi bi-cash-coin text-primary"></i>
+                        ใบสั่งจ่าย PO (สัญญาจ้าง HC)
                     </h4>
+                    <?php if ($errorCode === 'contract'): ?>
+                        <div class="alert alert-warning py-2">ไม่พบสัญญาจ้าง</div>
+                    <?php endif; ?>
+                    <?php if ($errorCode === 'po_supplier'): ?>
+                        <div class="alert alert-warning py-2">กรุณาเลือกผู้ขาย / ผู้รับจ้างในระบบ Supplier</div>
+                    <?php endif; ?>
                     <?php if ($errorCode === 'invalid_installment'): ?>
                         <div class="alert alert-warning py-2">งวดที่เลือกไม่ถูกต้อง</div>
                     <?php endif; ?>
                     <?php if ($errorCode === 'duplicate_installment'): ?>
-                        <div class="alert alert-warning py-2">งวดนี้ถูกออกเอกสารแล้ว กรุณาเลือกงวดอื่น</div>
+                        <div class="alert alert-warning py-2">งวดนี้ถูกออกเอกสารแล้ว</div>
+                    <?php endif; ?>
+                    <?php if ($errorCode === 'no_items' || $errorCode === 'invalid_hire_rows'): ?>
+                        <div class="alert alert-warning py-2">กรุณากรอกรายการสั่งจ่ายอย่างน้อย 1 รายการ</div>
                     <?php endif; ?>
                     <?php if ($errorCode === 'invalid_installment_amount'): ?>
-                        <div class="alert alert-warning py-2">มูลค่างวดต้องมากกว่า 0</div>
+                        <div class="alert alert-warning py-2">ยอดสุทธิหลังหักประกันต้องมากกว่า 0</div>
                     <?php endif; ?>
-                    <?php if ($errorCode === 'invalid_installment_description'): ?>
-                        <div class="alert alert-warning py-2">กรุณากรอกรายละเอียดการสั่งจ่ายงวดนี้</div>
-                    <?php endif; ?>
-                    <?php if ($errorCode === 'invalid_hire_rows'): ?>
-                        <div class="alert alert-warning py-2">กรุณากรอกรายการสั่งจ่ายอย่างน้อย 1 รายการให้ถูกต้อง</div>
-                    <?php endif; ?>
-                    <?php if ($requestType === 'hire' && $remainingInstallments === 0): ?>
+                    <?php if ($remainingInstallments === 0): ?>
                         <div class="alert alert-info py-2">ออกใบสั่งจ่ายครบทุกงวดแล้ว</div>
                     <?php endif; ?>
-                    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST">
+                    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_direct" method="POST">
                         <?php csrf_field(); ?>
-                        <input type="hidden" name="pr_id" value="<?= $pr['id'] ?>">
-                        <?php if ($requestType === 'hire' && $hireContract !== null): ?>
-                        <input type="hidden" name="hire_contract_id" value="<?= (int) ($hireContract['id'] ?? 0) ?>">
-                        <?php endif; ?>
+                        <input type="hidden" name="hire_contract_id" value="<?= $hire_contract_id ?>">
+                        <input type="hidden" name="installment_no" value="<?php for ($i = 1; $i <= $installmentTotal; $i++) { if (!isset($issuedInstallments[$i])) { echo $i; break; } } ?>">
 
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">อ้างอิงใบขอซื้อ (PR)</label>
-                                <input type="text" class="form-control bg-light" value="<?= $pr['pr_number'] ?>" readonly>
+                                <label class="form-label fw-bold">อ้างอิงสัญญาจ้าง (HC)</label>
+                                <input type="text" class="form-control bg-light" value="<?= htmlspecialchars((string) ($hc['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" readonly>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">เลขที่ใบสั่งซื้อ (อัตโนมัติ)</label>
-                                <input type="text" name="po_number" class="form-control bg-light" value="<?= $po_number ?>" readonly>
+                                <input type="text" name="po_number" class="form-control bg-light" value="<?= htmlspecialchars($po_number, ENT_QUOTES, 'UTF-8') ?>" readonly>
                             </div>
                         </div>
                         <div class="alert alert-light border small">
                             <div class="d-flex flex-wrap gap-3">
-                                <span><strong>ประเภทคำขอ:</strong> <?= $requestType === 'hire' ? 'จัดจ้าง' : 'จัดซื้อ' ?></span>
-                                <?php if ($requestType === 'hire'): ?>
-                                    <span><strong>ผู้รับจ้าง:</strong> <?= htmlspecialchars($contractorName !== '' ? $contractorName : '-', ENT_QUOTES, 'UTF-8') ?></span>
-                                    <span><strong>จำนวนงวด:</strong> <?= number_format($installmentTotal) ?> งวด</span>
-                                <?php endif; ?>
+                                <span><strong>ประเภท:</strong> จัดจ้าง (อิสระจาก PR)</span>
+                                <span><strong>ผู้รับจ้าง:</strong> <?= htmlspecialchars($contractorName !== '' ? $contractorName : '-', ENT_QUOTES, 'UTF-8') ?></span>
+                                <span><strong>จำนวนงวด:</strong> <?= number_format($installmentTotal) ?> งวด</span>
                             </div>
                         </div>
 
-                        <?php if ($requestType === 'hire'): ?>
                         <div class="border rounded-3 p-3 mb-4 bg-white">
-                            <h6 class="fw-bold mb-2 text-primary"><i class="bi bi-journal-text me-1"></i>รายละเอียด PR (งานจัดจ้าง)</h6>
-                            <div class="small text-muted" style="white-space: pre-wrap;"><?= htmlspecialchars((string) ($pr['details'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
+                            <h6 class="fw-bold mb-2 text-primary"><i class="bi bi-journal-text me-1"></i>รายละเอียดสัญญา</h6>
+                            <div class="small text-muted" style="white-space: pre-wrap;"><?= htmlspecialchars((string) ($hc['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
                         </div>
 
                         <div class="border rounded-3 p-3 mb-4 bg-light">
                             <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-file-earmark-ruled me-1"></i>ตารางสัญญาจ้าง</h6>
                             <?php
-                                $paidInstallmentsDisplay = (int) ($hireContract['paid_installments'] ?? count($issuedInstallments));
-                                $paidAmountDisplay = (float) (($hireContract['paid_amount'] ?? '') !== '' ? $hireContract['paid_amount'] : $paidAmountSoFar);
+                                $paidInstallmentsDisplay = (int) ($hc['paid_installments'] ?? count($issuedInstallments));
+                                $paidAmountDisplay = (float) (($hc['paid_amount'] ?? '') !== '' ? $hc['paid_amount'] : $paidAmountSoFar);
                             ?>
                             <div class="row g-3 mb-2 small">
                                 <div class="col-md-6"><strong>จ่ายแล้ว:</strong> <?= number_format($paidAmountDisplay, 2) ?> บาท</div>
@@ -194,11 +178,10 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                                 </table>
                             </div>
                         </div>
-                        <?php endif; ?>
 
-                        <div class="mb-4<?= $requestType === 'hire' ? ' d-none' : '' ?>">
+                        <div class="mb-4">
                             <label class="form-label fw-bold text-danger">เลือกผู้ขาย (Supplier) *</label>
-                            <input type="text" id="supplier_search" class="form-control form-control-lg border-primary" list="supplier_list" placeholder="พิมพ์ชื่อผู้ขายเพื่อค้นหา"<?= $requestType === 'hire' ? '' : ' required' ?>>
+                            <input type="text" id="supplier_search" class="form-control form-control-lg border-primary" list="supplier_list" placeholder="พิมพ์ชื่อผู้ขายเพื่อค้นหา" required>
                             <datalist id="supplier_list">
                                 <?php foreach ($supplier_rows as $s): ?>
                                     <option
@@ -207,30 +190,9 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                                     ></option>
                                 <?php endforeach; ?>
                             </datalist>
-                            <input type="hidden" name="supplier_id" id="supplier_id"<?= $requestType === 'hire' ? '' : ' required' ?>>
+                            <input type="hidden" name="supplier_id" id="supplier_id" required>
                             <div class="form-text">เลือกจากรายการที่ตรงกัน ระบบจะผูกเป็น Supplier อัตโนมัติ</div>
                         </div>
-
-                        <div class="border rounded-3 p-3 mb-4 bg-light<?= $requestType === 'hire' ? ' d-none' : '' ?>">
-                            <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-file-earmark-text me-1"></i>ข้อมูลใบเสนอราคา (QT)</h6>
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">เลขที่ใบเสนอราคา (QT No.)</label>
-                                <input type="text" name="quotation_number" class="form-control" maxlength="120" placeholder="เช่น QT-2026-015 (ไม่กรอกก็ได้)">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">วันที่ใบเสนอราคา</label>
-                                <input type="date" name="quotation_date" class="form-control" value="">
-                            </div>
-                            <div>
-                                <label class="form-label fw-bold">หมายเหตุ QT (ถ้ามี)</label>
-                                <textarea name="quotation_note" class="form-control" rows="2" maxlength="500" placeholder="รายละเอียดเพิ่มเติมของใบเสนอราคา"></textarea>
-                            </div>
-                        </div>
-
-                        <?php if ($requestType === 'hire'): ?>
-                        <input type="hidden" name="installment_no" value="<?php for ($i = 1; $i <= $installmentTotal; $i++) { if (!isset($issuedInstallments[$i])) { echo $i; break; } } ?>">
-                        <input type="hidden" name="installment_amount" id="installment_amount" value="0">
-                        <input type="hidden" name="installment_description" id="installment_description" value="">
 
                         <div class="section-card p-3 mb-3">
                             <div class="section-title"><i class="bi bi-1-circle me-1"></i>ตารางรายละเอียดสั่งจ่าย</div>
@@ -249,9 +211,9 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                                             </thead>
                                             <tbody>
                                                 <tr>
-                                                    <td><input type="text" name="hire_description[]" class="form-control hire-desc" required placeholder="เช่น ค่าแรง DC"></td>
-                                                    <td><input type="number" name="hire_qty[]" class="form-control hire-qty text-end" min="0" step="0.01" value="1"></td>
-                                                    <td><input type="number" name="hire_unit_price[]" class="form-control hire-price text-end" min="0" step="0.01" value="0"></td>
+                                                    <td><input type="text" name="item_description[]" class="form-control hire-desc" required placeholder="เช่น ค่าแรง DC"></td>
+                                                    <td><input type="number" name="item_qty[]" class="form-control hire-qty text-end" min="0" step="0.01" value="1"></td>
+                                                    <td><input type="number" name="item_price[]" class="form-control hire-price text-end" min="0" step="0.01" value="0"></td>
                                                     <td><input type="text" class="form-control hire-line-total text-end bg-light" readonly value="0.00"></td>
                                                     <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger hire-remove-row" disabled><i class="bi bi-trash"></i></button></td>
                                                 </tr>
@@ -290,36 +252,11 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                                 </div>
                             </div>
                         </div>
-                        <?php else: ?>
-                        <input type="hidden" name="withholding_type" value="none">
-                        <?php endif; ?>
-
-                        <?php
-                        $pr_vat_on = (int) ($pr['vat_enabled'] ?? 0);
-                        $pr_vat = (float)($pr['vat_amount'] ?? 0);
-                        $pr_grand = (float)$pr['total_amount'];
-                        if (isset($pr['subtotal_amount']) && $pr['subtotal_amount'] !== null && $pr['subtotal_amount'] !== '') {
-                            $pr_sub = (float)$pr['subtotal_amount'];
-                        } else {
-                            $pr_sub = round($pr_grand - $pr_vat, 2);
-                        }
-                        ?>
-                        <?php if ($requestType !== 'hire'): ?>
-                        <div class="alert alert-info py-3 small">
-                            <div class="d-flex justify-content-between"><span>ยอดรายการ (ก่อน VAT)</span><strong><?= number_format($pr_sub, 2) ?> บาท</strong></div>
-                            <?php if ($pr_vat_on): ?>
-                            <div class="d-flex justify-content-between text-success"><span>VAT 7%</span><strong><?= number_format($pr_vat, 2) ?> บาท</strong></div>
-                            <?php else: ?>
-                            <div class="text-muted">ไม่รวม VAT</div>
-                            <?php endif; ?>
-                            <hr class="my-2">
-                            <div class="d-flex justify-content-between fs-6"><span>ยอดรวมสุทธิ</span><strong><?= number_format($pr_grand, 2) ?> บาท</strong></div>
-                        </div>
-                        <?php endif; ?>
 
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary btn-lg shadow"<?= $requestType === 'hire' && $remainingInstallments === 0 ? ' disabled' : '' ?>><?= $requestType === 'hire' ? 'ยืนยันสร้างใบสั่งจ่ายงวดนี้' : 'ยืนยันผูก QT และสร้างใบ PO' ?></button>
-                            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $pr_id ?>" class="btn btn-light">ยกเลิก</a>
+                            <button type="submit" class="btn btn-primary btn-lg shadow"<?= $remainingInstallments === 0 ? ' disabled' : '' ?>>ยืนยันสร้างใบสั่งจ่ายงวดนี้</button>
+                            <a href="<?= htmlspecialchars($viewHcUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light">กลับไปดูสัญญา</a>
+                            <a href="<?= htmlspecialchars($listUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary">รายการสัญญาจ้าง</a>
                         </div>
                     </form>
                 </div>
@@ -366,12 +303,11 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
     searchInput.addEventListener('input', syncSupplierId);
     searchInput.addEventListener('change', syncSupplierId);
 
-    const supplierRequired = <?= $requestType === 'hire' ? 'false' : 'true' ?>;
     const form = searchInput.closest('form');
     if (form) {
         form.addEventListener('submit', function (event) {
             syncSupplierId();
-            if (supplierRequired && !supplierIdInput.value) {
+            if (!supplierIdInput.value) {
                 event.preventDefault();
                 alert('กรุณาเลือกผู้ขายจากรายการที่ระบบแนะนำ');
                 searchInput.focus();
@@ -381,7 +317,6 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
 })();
 
 (function () {
-    const installmentAmountInput = document.getElementById('installment_amount');
     const subtotalTextEl = document.getElementById('subtotal_text');
     const vatTextEl = document.getElementById('vat_text');
     const totalAfterVatTextEl = document.getElementById('total_after_vat_text');
@@ -391,20 +326,17 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
     const withholdingTypeEl = document.getElementById('withholding_type');
     const retentionTypeEl = document.getElementById('retention_type');
     const retentionValueEl = document.getElementById('retention_value');
-    const installmentDescriptionEl = document.getElementById('installment_description');
     const vatEnabledEl = document.getElementById('vat_enabled');
     const table = document.getElementById('hireInstallmentTable');
     const addRowBtn = document.getElementById('addHireRowBtn');
-    if (!installmentAmountInput || !subtotalTextEl || !table) {
+    if (!subtotalTextEl || !table) {
         return;
     }
 
     const recalc = () => {
         let subtotal = 0;
-        let firstDescription = '';
         const rows = table.querySelectorAll('tbody tr');
         rows.forEach((row) => {
-            const descEl = row.querySelector('.hire-desc');
             const qtyEl = row.querySelector('.hire-qty');
             const priceEl = row.querySelector('.hire-price');
             const lineTotalEl = row.querySelector('.hire-line-total');
@@ -415,21 +347,14 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
             if (lineTotalEl) {
                 lineTotalEl.value = lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
-            if (firstDescription === '' && (descEl?.value || '').trim() !== '') {
-                firstDescription = (descEl?.value || '').trim();
-            }
         });
-        if (installmentDescriptionEl) {
-            installmentDescriptionEl.value = firstDescription !== '' ? firstDescription : 'สั่งจ่ายตามตารางรายการ';
-        }
         subtotal = Math.round(subtotal * 100) / 100;
-        installmentAmountInput.value = subtotal > 0 ? String(subtotal) : '';
 
         const vat = vatEnabledEl?.checked ? Math.round(subtotal * 0.07 * 100) / 100 : 0;
-        const whtType = 'none';
         if (withholdingTypeEl) {
-            withholdingTypeEl.value = whtType;
+            withholdingTypeEl.value = 'none';
         }
+        const whtType = 'none';
         const whtRate = whtType === 'wht3' ? 0.03 : 0;
         const wht = Math.round(subtotal * whtRate * 100) / 100;
 
@@ -489,9 +414,9 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
         if (!tbody) return;
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><input type="text" name="hire_description[]" class="form-control hire-desc" required placeholder="เช่น ค่าแรง DC"></td>
-            <td><input type="number" name="hire_qty[]" class="form-control hire-qty text-end" min="0" step="0.01" value="1"></td>
-            <td><input type="number" name="hire_unit_price[]" class="form-control hire-price text-end" min="0" step="0.01" value="0"></td>
+            <td><input type="text" name="item_description[]" class="form-control hire-desc" required placeholder="เช่น ค่าแรง DC"></td>
+            <td><input type="number" name="item_qty[]" class="form-control hire-qty text-end" min="0" step="0.01" value="1"></td>
+            <td><input type="number" name="item_price[]" class="form-control hire-price text-end" min="0" step="0.01" value="0"></td>
             <td><input type="text" class="form-control hire-line-total text-end bg-light" readonly value="0.00"></td>
             <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger hire-remove-row"><i class="bi bi-trash"></i></button></td>
         `;
@@ -501,19 +426,9 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
         recalc();
     });
 
-    withholdingTypeEl?.addEventListener('change', recalc);
     retentionTypeEl?.addEventListener('change', recalc);
     retentionValueEl?.addEventListener('input', recalc);
     vatEnabledEl?.addEventListener('change', recalc);
-    const form = document.querySelector('form[action*="create_po_from_pr"]');
-    form?.addEventListener('submit', () => {
-        if (installmentDescriptionEl && installmentDescriptionEl.value.trim() === '') {
-            installmentDescriptionEl.value = 'สั่งจ่ายตามตารางรายการ';
-        }
-        if (withholdingTypeEl) withholdingTypeEl.value = 'none';
-        if (retentionTypeEl) retentionTypeEl.value = 'fixed';
-    });
-
     updateRemoveButtons();
     recalc();
 })();

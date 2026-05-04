@@ -13,8 +13,14 @@ if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
     exit;
 }
-if (!isset($_SESSION['user_id']) || !user_is_admin_role()) {
-    header('Location: ' . app_path('index.php'));
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ' . app_path('sign-in.php'));
+    exit;
+}
+if (!user_is_admin_only_role()) {
+    $access_denied_title = 'สดย่อย (Petty Cash)';
+    $access_denied_text = 'เข้าใช้งานได้เฉพาะผู้ใช้ที่มีสิทธิ์ ADMIN เท่านั้น';
+    require dirname(__DIR__, 2) . '/includes/page_access_denied_swal.php';
     exit;
 }
 
@@ -185,7 +191,7 @@ foreach ($siteRows as $siteRow) {
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0" id="tncSiteExpensesTable">
                     <thead class="table-light">
                         <tr>
                             <th class="ps-4" style="width:4rem;">#</th>
@@ -217,6 +223,16 @@ foreach ($siteRows as $siteRow) {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
+<script>
+(function ($) {
+    if (typeof window.TncLiveDT === 'undefined' || !$ || !$.fn.DataTable) return;
+    var $t = $('#tncSiteExpensesTable');
+    if (!$t.length) return;
+    if ($t.find('tbody tr').length === 1 && $t.find('tbody td[colspan]').length) return;
+    TncLiveDT.init('#tncSiteExpensesTable', { order: [[3, 'desc']], columnDefs: [{ orderable: false, targets: 0 }] });
+})(jQuery);
+</script>
 </body>
 </html>
 

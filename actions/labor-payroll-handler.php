@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
+require_once __DIR__ . '/../includes/tnc_action_response.php';
 
 use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\LaborPayroll;
@@ -33,8 +34,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $action !== '' && !csrf_ver
 function labor_payroll_redirect(string $base, array $query): void
 {
     $q = http_build_query($query);
-    header('Location: ' . $base . ($q !== '' ? '?' . $q : ''));
-    exit;
+    $url = $base . ($q !== '' ? '?' . $q : '');
+    tnc_action_redirect($url);
+}
+
+/** วันมาในรอบ — รองรับครึ่งวัน (ทศนิยม .5 เท่านั้น) คล้มกับฝั่ง JS */
+function labor_payroll_parse_half_days_present(string $raw, int $periodLen): float
+{
+    $v = (float) str_replace([',', ' ', "\u{00A0}"], '', $raw);
+    if (!is_finite($v) || $v < 0) {
+        $v = 0.0;
+    }
+    $v = round($v * 2) / 2.0;
+    $cap = (float) max(0, $periodLen);
+
+    return $v > $cap ? $cap : $v;
 }
 
 function labor_payroll_group_name_normalize(string $name): string
@@ -438,12 +452,29 @@ if ($action === 'delete_worker') {
 
 if ($action === 'remove_row') {
     $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_POST['year_month'] ?? '')) ? $_POST['year_month'] : date('Y-m');
+    $halfRm = (int) ($_POST['half'] ?? 1) === 2 ? 2 : 1;
     $wid = (int) ($_POST['worker_id'] ?? 0);
     if ($wid > 0) {
         $pk = Db::compositeKey([$ym, (string) $wid]);
         Db::deleteRow('labor_month_sheet_workers', $pk);
+        Db::deleteRow('labor_worker_month_settings', Db::compositeKey([(string) $wid, $ym]));
+        $tsRm = strtotime($ym . '-01');
+        $dimRm = $tsRm !== false ? (int) date('t', $tsRm) : 31;
+        $startRm = $halfRm === 1 ? 1 : 16;
+        $endRm = $halfRm === 1 ? min(15, $dimRm) : $dimRm;
+        $dateFromRm = $ym . '-' . str_pad((string) $startRm, 2, '0', STR_PAD_LEFT);
+        $dateToRm = $ym . '-' . str_pad((string) $endRm, 2, '0', STR_PAD_LEFT);
+        foreach (Db::tableKeyed('labor_attendance_days') as $pkAtt => $att) {
+            if ((int) ($att['worker_id'] ?? 0) !== $wid) {
+                continue;
+            }
+            $wd = (string) ($att['work_date'] ?? '');
+            if ($wd >= $dateFromRm && $wd <= $dateToRm) {
+                Db::deleteRow('labor_attendance_days', (string) $pkAtt);
+            }
+        }
     }
-    labor_payroll_redirect($back, ['month' => $ym, 'half' => (int) ($_POST['half'] ?? 1) === 2 ? 2 : 1]);
+    labor_payroll_redirect($back, ['month' => $ym, 'half' => $halfRm]);
 }
 
 if (!in_array($action, ['save', 'save_draft'], true)) {
@@ -546,33 +577,30 @@ try {
             'sort_order' => $sort,
         ]);
 
+        $periodLen = $endD - $startD + 1;
+        $aggDays = labor_payroll_parse_half_days_present((string) ($row['days_present'] ?? ''), $periodLen);
+
         Db::setRow('labor_worker_month_settings', Db::compositeKey([(string) $wid, $ym]), [
             'worker_id' => $wid,
             'year_month' => $ym,
             'daily_wage' => $daily,
             'advance_draw' => $adv,
+            'card_days_present' => $aggDays,
         ]);
 
-        $periodLen = $endD - $startD + 1;
-        $aggDays = (int) str_replace(',', '', (string) ($row['days_present'] ?? 0));
-        if ($aggDays < 0) {
-            $aggDays = 0;
-        }
-        if ($aggDays > $periodLen) {
-            $aggDays = $periodLen;
-        }
         $otSum = (float) str_replace(',', '', (string) ($row['ot_total'] ?? 0));
         if ($otSum < 0) {
             $otSum = 0;
         }
         $otSum = round($otSum, 2);
         $dayCount = $aggDays;
-        if ($dayCount === 0) {
+        if ($dayCount <= 0) {
             $otSum = 0.0;
         }
-        $lastPresentD = $dayCount > 0 ? $startD + $dayCount - 1 : $startD - 1;
+        $nFull = (int) floor($dayCount);
+        $lastPresentD = $nFull > 0 ? $startD + $nFull - 1 : $startD - 1;
         for ($d = $startD; $d <= $endD; $d++) {
-            $present = ($dayCount > 0 && $d <= $lastPresentD) ? 1 : 0;
+            $present = ($nFull > 0 && $d <= $lastPresentD) ? 1 : 0;
             $ot = ($present && $d === $lastPresentD) ? $otSum : 0.0;
             $dateStr = $ym . '-' . str_pad((string) $d, 2, '0', STR_PAD_LEFT);
             Db::setRow('labor_attendance_days', Db::compositeKey([(string) $wid, $dateStr]), [
@@ -600,7 +628,7 @@ try {
             $archiveSnapshots[] = [
                 'worker_id' => $wid,
                 'worker_name' => $snapName,
-                'days_present' => $dayCount,
+                'days_present' => round($dayCount, 2),
                 'ot_hours' => round($otSum, 2),
                 'daily_wage' => $daily,
                 'advance_draw' => $adv,
@@ -701,7 +729,7 @@ try {
             } else {
                 $wname = substr($wname, 0, 200);
             }
-            $dp = (int) $ln['days_present'];
+            $dp = round((float) $ln['days_present'] * 2) / 2;
             $oth = (float) $ln['ot_hours'];
             $dw = (float) $ln['daily_wage'];
             $ad = (float) $ln['advance_draw'];

@@ -18,7 +18,7 @@ require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 
 
 
-if (!isset($_SESSION['user_id']) || !user_is_admin_role()) {
+if (!isset($_SESSION['user_id']) || !user_is_admin_only_role()) {
 
     header('Location: ' . app_path('index.php'));
 
@@ -110,7 +110,7 @@ function member_role_badge_class(array $row): string
 
                     <h5 class="fw-bold mb-4"><i class="bi bi-person-plus-fill me-2 text-warning"></i>เพิ่มสมาชิกใหม่</h5>
 
-                    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=add_member" method="POST">
+                    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=add_member" method="POST" data-tnc-soft-reload="1">
 
                         <?php csrf_field(); ?>
 
@@ -226,7 +226,7 @@ function member_role_badge_class(array $row): string
 
                     <div class="table-responsive">
 
-                        <table class="table table-hover align-middle">
+                        <table class="table table-hover align-middle" id="memberTable" width="100%">
 
                             <thead class="bg-light">
 
@@ -300,7 +300,7 @@ function member_role_badge_class(array $row): string
 
 <?php include dirname(__DIR__, 2) . '/components/modals_edit.php'; ?>
 
-
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -402,9 +402,45 @@ function confirmDelete(id, type) {
 
         cancelButtonText: 'ยกเลิก'
 
-    }).then((r) => r.isConfirmed && (window.location.href = `${actionHandlerUrl}?action=delete&type=${type}&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`));
+    }).then(function (r) {
+
+        if (!r.isConfirmed) return;
+
+        var url = actionHandlerUrl + '?action=delete&type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(String(id)) + '&_csrf=' + encodeURIComponent(csrfToken) + '&_tnc_ajax=1';
+
+        fetch(url, { headers: { 'X-Tnc-Ajax': '1', Accept: 'application/json' } })
+
+            .then(function (res) { return res.json(); })
+
+            .then(function (j) {
+
+                if (j.ok) {
+
+                    Swal.fire({ icon: 'success', title: j.message || 'ลบแล้ว', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+
+                    setTimeout(function () { window.location.reload(); }, 500);
+
+                } else {
+
+                    Swal.fire({ icon: 'error', title: j.message || 'ลบไม่สำเร็จ' });
+
+                }
+
+            })
+
+            .catch(function () { Swal.fire({ icon: 'error', title: 'เครือข่ายผิดพลาด' }); });
+
+    });
 
 }
+
+(function () {
+
+    if (typeof $ === 'undefined' || !$.fn.DataTable) return;
+
+    $('#memberTable').DataTable({ order: [[0, 'asc']] });
+
+})();
 
 </script>
 

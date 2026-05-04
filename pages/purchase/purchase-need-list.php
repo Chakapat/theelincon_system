@@ -146,7 +146,7 @@ $printPageBase = app_path('pages/purchase/purchase-need-print.php');
 
     <div class="card table-card p-4">
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle" id="needListTable" style="width:100%">
                 <thead class="table-light">
                     <tr>
                         <th>เลขที่เอกสาร</th>
@@ -295,6 +295,7 @@ $printPageBase = app_path('pages/purchase/purchase-need-print.php');
     </div>
 </div>
 
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function () {
@@ -339,6 +340,28 @@ $printPageBase = app_path('pages/purchase/purchase-need-print.php');
         });
     }
 })();
+</script>
+<script>
+(function ($) {
+    if ($('#needListTable tbody tr td[colspan]').length === 0 && $('#needListTable tbody tr').length) {
+        $('#needListTable').DataTable({
+            order: [[1, 'desc']],
+            pageLength: 25,
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+            columnDefs: [{ targets: [5], orderable: false, searchable: false }]
+        });
+    }
+    var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_needs'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var c = '';
+    setInterval(function () {
+        if (document.hidden) return;
+        fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d || !d.ok) return;
+            if (c === '') { c = d.checksum; return; }
+            if (d.checksum !== c) window.location.reload();
+        }).catch(function () {});
+    }, 6000);
+})(jQuery);
 </script>
 </body>
 </html>

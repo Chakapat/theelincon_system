@@ -334,7 +334,7 @@ $netTotal = round($incomeTotal - $deductTotal, 2);
         <div class="col-md-6">
             <div class="section-title">ส่วนรายได้</div>
             <div class="table-wrap">
-                <table class="table table-bordered mb-0">
+                <table class="table table-bordered mb-0" id="tncPayslipFormIncomeTable">
                     <thead class="table-light">
                         <tr>
                             <th>รายได้</th>
@@ -357,7 +357,7 @@ $netTotal = round($incomeTotal - $deductTotal, 2);
         <div class="col-md-6">
             <div class="section-title">ส่วนรายการหัก</div>
             <div class="table-wrap">
-                <table class="table table-bordered mb-0">
+                <table class="table table-bordered mb-0" id="tncPayslipFormDeductTable">
                     <thead class="table-light">
                         <tr>
                             <th>รายการหัก</th>
@@ -395,5 +395,14 @@ $netTotal = round($incomeTotal - $deductTotal, 2);
 <?php endif; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
+<script>
+(function ($) {
+    if (typeof window.TncLiveDT === 'undefined' || !$ || !$.fn.DataTable) return;
+    var mini = { paging: false, searching: false, info: false, lengthChange: false, ordering: false };
+    if ($('#tncPayslipFormIncomeTable').length) TncLiveDT.init('#tncPayslipFormIncomeTable', mini);
+    if ($('#tncPayslipFormDeductTable').length) TncLiveDT.init('#tncPayslipFormDeductTable', mini);
+})(jQuery);
+</script>
 </body>
 </html>

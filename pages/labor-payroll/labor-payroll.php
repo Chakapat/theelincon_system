@@ -188,13 +188,38 @@ unset($wg);
 $halfLabel = $half === 1 ? 'วันที่ 1–15' : ('วันที่ 16–' . $dim);
 $periodNoteRow = Db::row('labor_payroll_period_notes', Db::compositeKey([$ym, (string) $half]));
 $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?? '')) : '';
+
+/** วันมาในรอบ — ปัดเป็นขั้น 0.5 และจำกัดตามความยาวรอบ */
+function labor_payroll_sheet_half_days_clamp(float $v, int $maxDays): float
+{
+    if (!is_finite($v) || $v < 0) {
+        return 0.0;
+    }
+    $v = round($v * 2) / 2.0;
+    $cap = (float) max(0, $maxDays);
+
+    return $v > $cap ? $cap : $v;
+}
+
+function labor_payroll_sheet_format_days_input(float $d): string
+{
+    if ($d <= 0) {
+        return '';
+    }
+    $d = round($d * 2) / 2.0;
+    if (abs($d - (int) $d) < 0.001) {
+        return (string) (int) $d;
+    }
+
+    return rtrim(rtrim(number_format($d, 1, '.', ''), '0'), '.');
+}
 ?>
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>คำนวณค่าแรงคนงาน | THEELIN CON</title>
+    <title>คำนวณค่าแรง | THEELIN CON</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -459,7 +484,7 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
 <div class="container-fluid px-2 px-md-3 pb-4">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 mt-2">
         <div>
-            <h5 class="fw-bold mb-0"><i class="bi bi-person-workspace text-primary me-2"></i>บัตรค่าแรงคนงาน</h5>
+            <h5 class="fw-bold mb-0"><i class="bi bi-person-workspace text-primary me-2"></i>คำนวณค่าแรง</h5>
             <div class="text-muted small">บันทึกวันทำงาน/OT รายรอบ</div>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
@@ -533,7 +558,7 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
                         <col style="width:4.5rem;">
                         <col style="width:4.75rem;">
                         <col style="width:6.25rem;">
-                        <col style="width:4.5rem;"><col style="width:4.75rem;"><col style="width:2.75rem;">
+                        <col style="width:4.5rem;"><col style="width:4.75rem;"><col style="width:3.5rem;">
                     </colgroup>
                     <thead>
                         <tr>
@@ -541,17 +566,22 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
                             <th class="col-meta-head">ค่าแรง<span class="th-sub">บาท / วัน</span></th>
                             <th class="col-meta-head">วันมา<span class="th-sub">รวมในรอบนี้</span></th>
                             <th class="col-meta-head">OT รวม<span class="th-sub">ชม.</span></th>
-                            <th class="col-meta-head">เบิกล่วง<span class="th-sub"><?= $half === 2 ? 'หักรอบบัตรนี้' : 'ใช้รอบ 16–สิ้นเดือน' ?></span></th>
+                            <th class="col-meta-head">เบิกล่วง<span class="th-sub"><?= $half === 2 ? 'หักรอบนี้' : 'ใช้รอบ 16–สิ้นเดือน' ?></span></th>
                             <th><span class="d-block">ก่อนหัก</span><span class="th-sub">บาท</span></th>
                             <th class="sticky-sum"><span class="d-block">จ่ายจริง</span><span class="th-sub">บาท</span></th>
-                            <th class="bg-secondary-subtle text-secondary" style="width:2.75rem;" title="ลบแถว"><i class="bi bi-trash3"></i></th>
+                            <th class="bg-secondary-subtle text-secondary p-1" style="width:3.5rem;">
+                                <button type="button" class="btn btn-link text-secondary text-decoration-none p-1 lh-sm w-100 border-0 small" id="btnRemoveLastLaborRow" title="ลบแถวล่างสุดออกจากรายการเดือนนี้ (ยืนยันก่อน)">
+                                    <span class="fw-semibold d-block">ลบแถว</span>
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="laborBody">
                         <?php if (count($sheetRows) === 0): ?>
                         <tr id="laborEmptyHint">
                             <td colspan="8" class="text-center text-muted py-4">
-                                ยังไม่มีรายชื่อในเดือนนี้ — กดปุ่ม <strong>จัดการกลุ่ม/คนงาน</strong> เพื่อเพิ่มข้อมูลก่อน แล้วค่อยดึงกลุ่มเข้าบัตร
+                                ยังไม่มีรายชื่อในเดือนนี้ — กดปุ่ม <strong>จัดการกลุ่ม/คนงาน</strong> เพื่อเพิ่มข้อมูลก่อน แล้วค่อยดึงกลุ่มเข้าตาราง
                             </td>
                         </tr>
                         <?php endif; ?>
@@ -562,17 +592,25 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
                             $wname = (string) $sr['full_name'];
                             $dw = (float) $sr['daily_wage'];
                             $adv = (float) $sr['advance_draw'];
-                            $daysPresentAgg = 0;
+                            $msRow = $monthByWid[$wid] ?? null;
                             $otTotalAgg = 0.0;
+                            $daysFromAtt = 0;
                             for ($d = $startD; $d <= $endD; $d++) {
                                 $cell = $attByWorker[$wid][$d] ?? null;
                                 if (is_array($cell) && !empty($cell['p'])) {
-                                    $daysPresentAgg++;
+                                    $daysFromAtt++;
                                     $otTotalAgg += (float) ($cell['ot'] ?? 0);
                                 }
                             }
                             $otTotalAgg = round($otTotalAgg, 2);
                             $otDisp = $otTotalAgg > 0 ? rtrim(rtrim(number_format($otTotalAgg, 2, '.', ''), '0'), '.') : '';
+                            $daysPresentAgg = 0.0;
+                            if (is_array($msRow) && array_key_exists('card_days_present', $msRow) && $msRow['card_days_present'] !== null && $msRow['card_days_present'] !== '') {
+                                $daysPresentAgg = labor_payroll_sheet_half_days_clamp((float) $msRow['card_days_present'], $periodDaysMax);
+                            } else {
+                                $daysPresentAgg = (float) $daysFromAtt;
+                            }
+                            $daysPresentDisp = labor_payroll_sheet_format_days_input($daysPresentAgg);
                         ?>
                         <tr class="labor-row" data-row="<?= (int) $rowIdx ?>">
                             <td class="text-start sticky-worker ps-3 col-meta">
@@ -583,18 +621,18 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
                                 <input type="number" class="form-control form-control-sm inp-daily daily-input text-end" name="workers[<?= (int) $rowIdx ?>][daily_wage]" step="0.01" min="0" value="<?= htmlspecialchars((string) $dw, ENT_QUOTES, 'UTF-8') ?>">
                             </td>
                             <td class="col-meta">
-                                <input type="number" class="form-control form-control-sm inp-days-present text-end" name="workers[<?= (int) $rowIdx ?>][days_present]" min="0" max="<?= (int) $periodDaysMax ?>" step="1" value="<?= $daysPresentAgg > 0 ? (int) $daysPresentAgg : '' ?>" inputmode="none" readonly title="แตะเพื่อเปิดแป้นตัวเลข — วันมาในรอบนี้ (สูงสุด <?= (int) $periodDaysMax ?> วัน)">
+                                <input type="number" class="form-control form-control-sm inp-days-present text-end" name="workers[<?= (int) $rowIdx ?>][days_present]" min="0" max="<?= (int) $periodDaysMax ?>" step="0.5" value="<?= $daysPresentDisp !== '' ? htmlspecialchars($daysPresentDisp, ENT_QUOTES, 'UTF-8') : '' ?>" inputmode="none" readonly title="แตะเพื่อเปิดแป้นตัวเลข — วันมาในรอบนี้ รองรับครึ่งวัน (เช่น 12.5) สูงสุด <?= (int) $periodDaysMax ?> วัน">
                             </td>
                             <td class="col-meta">
                                 <input type="number" class="form-control form-control-sm inp-ot-total text-end" name="workers[<?= (int) $rowIdx ?>][ot_total]" step="0.25" min="0" value="<?= $otDisp !== '' ? htmlspecialchars($otDisp, ENT_QUOTES, 'UTF-8') : '' ?>" inputmode="none" readonly title="แตะเพื่อเปิดแป้นตัวเลข — OT รวม (ชม.)">
                             </td>
                             <td class="col-meta">
-                                <input type="number" class="form-control form-control-sm inp-advance advance-input text-end" name="workers[<?= (int) $rowIdx ?>][advance]" step="0.01" min="0" value="<?= htmlspecialchars((string) $adv, ENT_QUOTES, 'UTF-8') ?>" title="เบิกล่วงหน้า (หักเฉพาะรอบบัตร 16–สิ้นเดือน)">
+                                <input type="number" class="form-control form-control-sm inp-advance advance-input text-end" name="workers[<?= (int) $rowIdx ?>][advance]" step="0.01" min="0" value="<?= htmlspecialchars((string) $adv, ENT_QUOTES, 'UTF-8') ?>" title="เบิกล่วงหน้า (หักเฉพาะรอบ 16–สิ้นเดือน)">
                             </td>
                             <td class="td-gross text-end">0.00</td>
                             <td class="td-net text-end fw-bold sticky-sum col-net col-net-pad">0.00</td>
                             <td>
-                                <button type="submit" form="formRemove<?= (int) $rowIdx ?>" class="btn btn-sm btn-outline-danger border-0" title="เอาออกจากบัตรเดือนนี้"><i class="bi bi-x-lg"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-remove-labor-row" data-worker-id="<?= $wid ?>" title="ลบแถวนี้ออกจากรายการเดือนนี้"><i class="bi bi-x-lg"></i></button>
                             </td>
                         </tr>
                         <?php
@@ -617,20 +655,18 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
                 <button type="button" class="btn btn-sm btn-primary rounded-pill" id="btnAddRow"><i class="bi bi-plus-lg me-1"></i>เพิ่มคนงาน</button>
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     <button type="submit" name="action" value="save_draft" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="btnSaveDraft" title="เก็บวันมา/OT/หมายเหตุในระบบ ยังไม่ปิดรอบ"><i class="bi bi-floppy me-1"></i>บันทึกร่าง</button>
-                    <button type="submit" name="action" value="save" class="btn btn-sm btn-success rounded-pill px-3" id="btnSavePayroll" title="ปิดรอบ เก็บประวัติ แล้วเคลียร์บัตร"><i class="bi bi-check2-circle me-1"></i>บันทึกและปิดรอบ</button>
+                    <button type="submit" name="action" value="save" class="btn btn-sm btn-success rounded-pill px-3" id="btnSavePayroll" title="ปิดรอบ เก็บประวัติ แล้วเคลียร์ตารางรอบนี้"><i class="bi bi-check2-circle me-1"></i>บันทึกและปิดรอบ</button>
                 </div>
             </div>
         </form>
 
-        <?php for ($i = 0; $i < $rowIdx; $i++): ?>
-        <form id="formRemove<?= $i ?>" method="post" action="<?= htmlspecialchars($handler, ENT_QUOTES, 'UTF-8') ?>" class="d-none">
+        <form id="formRemoveOneRow" method="post" action="<?= htmlspecialchars($handler, ENT_QUOTES, 'UTF-8') ?>" class="d-none">
             <?php csrf_field(); ?>
             <input type="hidden" name="action" value="remove_row">
             <input type="hidden" name="year_month" value="<?= htmlspecialchars($ym, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="half" value="<?= (int) $half ?>">
-            <input type="hidden" name="worker_id" value="<?= (int) ($sheetRows[$i]['id'] ?? 0) ?>">
+            <input type="hidden" name="worker_id" id="removeOneRowWorkerId" value="">
         </form>
-        <?php endfor; ?>
     </div>
 
     <div id="laborNumPadOverlay" class="lp-numpad-overlay" aria-hidden="true">
@@ -675,12 +711,12 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
                 <input type="text" class="form-control form-control-sm worker-search" name="workers[__IDX__][new_name]" value="" list="workerList" placeholder="พิมพ์ชื่อหรือเลือกจากรายการ" autocomplete="off">
             </td>
             <td class="col-meta"><input type="number" class="form-control form-control-sm inp-daily daily-input text-end" name="workers[__IDX__][daily_wage]" step="0.01" min="0" value=""></td>
-            <td class="col-meta"><input type="number" class="form-control form-control-sm inp-days-present text-end" name="workers[__IDX__][days_present]" min="0" max="<?= (int) $periodDaysMax ?>" step="1" value="" inputmode="none" readonly title="แตะเพื่อเปิดแป้นตัวเลข — วันมา"></td>
+            <td class="col-meta"><input type="number" class="form-control form-control-sm inp-days-present text-end" name="workers[__IDX__][days_present]" min="0" max="<?= (int) $periodDaysMax ?>" step="0.5" value="" inputmode="none" readonly title="แตะเพื่อเปิดแป้นตัวเลข — วันมา (รองรับครึ่งวัน)"></td>
             <td class="col-meta"><input type="number" class="form-control form-control-sm inp-ot-total text-end" name="workers[__IDX__][ot_total]" step="0.25" min="0" value="" inputmode="none" readonly title="แตะเพื่อเปิดแป้นตัวเลข — OT รวม"></td>
-            <td class="col-meta"><input type="number" class="form-control form-control-sm inp-advance advance-input text-end" name="workers[__IDX__][advance]" step="0.01" min="0" value="" title="เบิกล่วงหน้า (หักเฉพาะรอบบัตร 16–สิ้นเดือน)"></td>
+            <td class="col-meta"><input type="number" class="form-control form-control-sm inp-advance advance-input text-end" name="workers[__IDX__][advance]" step="0.01" min="0" value="" title="เบิกล่วงหน้า (หักเฉพาะรอบ 16–สิ้นเดือน)"></td>
             <td class="td-gross text-end">0.00</td>
             <td class="td-net text-end fw-bold sticky-sum col-net col-net-pad">0.00</td>
-            <td><button type="button" class="btn btn-sm btn-outline-danger border-0 btn-del-row" title="ลบแถวนี้"><i class="bi bi-x-lg"></i></button></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger border-0 btn-remove-labor-row" data-worker-id="0" title="ลบแถวนี้"><i class="bi bi-x-lg"></i></button></td>
         </tr>
     </template>
 
@@ -722,10 +758,26 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
             return s.replace(/\.?0+$/, '');
         }
 
+        function roundDayHalf(x) {
+            return Math.round(Math.min(periodDaysMax, Math.max(0, x)) * 2) / 2;
+        }
+
+        function formatDaysPadPreview(v) {
+            const x = roundDayHalf(v);
+            if (x <= 0) return '0';
+            return Math.abs(x - Math.floor(x)) < 0.001 ? String(Math.floor(x)) : String(x);
+        }
+
+        function formatDaysInputValue(v) {
+            const x = roundDayHalf(v);
+            if (x <= 0) return '';
+            return Math.abs(x - Math.floor(x)) < 0.001 ? String(Math.floor(x)) : String(x);
+        }
+
         function padUpdatePreview() {
             if (!padPreviewEl) return;
             if (padMode === 'days') {
-                padPreviewEl.textContent = String(Math.min(periodDaysMax, Math.max(0, Math.floor(padDraft))));
+                padPreviewEl.textContent = formatDaysPadPreview(padDraft);
             } else {
                 padPreviewEl.textContent = formatOtPadPreview(padDraft);
             }
@@ -745,11 +797,12 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
                 btn.addEventListener('click', (ev) => {
                     ev.stopPropagation();
                     if (padMode === 'days') {
-                        padDraft = i;
+                        padDraft = roundDayHalf(i);
+                        padUpdatePreview();
                     } else {
                         padDraft = roundOtQuarter(i);
+                        padApplyAndClose();
                     }
-                    padApplyAndClose();
                 });
                 frag.appendChild(btn);
             }
@@ -765,7 +818,11 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
                 padDraft = n;
                 if (padTitleEl) padTitleEl.textContent = 'วันมา — ' + halfLabelJs;
                 padFracRow?.classList.remove('d-none');
-                padFracRow?.querySelectorAll('.lp-numpad-frac').forEach((b) => b.classList.add('d-none'));
+                padFracRow?.querySelectorAll('.lp-numpad-frac').forEach((b) => {
+                    const add = parseFloat(b.getAttribute('data-add') || '0');
+                    if (add === 0.5) b.classList.remove('d-none');
+                    else b.classList.add('d-none');
+                });
             } else {
                 const raw = parseFloat(String(inputEl.value).replace(/,/g, ''));
                 padDraft = isFinite(raw) ? roundOtQuarter(raw) : 0;
@@ -783,8 +840,7 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
             if (!padOverlay) return;
             if (padTargetInput) {
                 if (padMode === 'days') {
-                    const v = Math.min(periodDaysMax, Math.max(0, Math.floor(padDraft)));
-                    padTargetInput.value = v > 0 ? String(v) : '';
+                    padTargetInput.value = formatDaysInputValue(padDraft);
                 } else {
                     padTargetInput.value = formatOtInputValue(padDraft);
                 }
@@ -809,12 +865,19 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
         padFracRow?.querySelectorAll('.lp-numpad-frac').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (padMode !== 'ot') return;
                 const add = parseFloat(btn.getAttribute('data-add') || '0');
                 if (!isFinite(add)) return;
-                padDraft = roundOtQuarter(padDraft + add);
-                padDraft = Math.min(999.75, Math.max(0, padDraft));
-                padUpdatePreview();
+                if (padMode === 'days') {
+                    if (add !== 0.5) return;
+                    padDraft = roundDayHalf(padDraft + 0.5);
+                    padUpdatePreview();
+                    return;
+                }
+                if (padMode === 'ot') {
+                    padDraft = roundOtQuarter(padDraft + add);
+                    padDraft = Math.min(999.75, Math.max(0, padDraft));
+                    padUpdatePreview();
+                }
             });
         });
 
@@ -824,7 +887,49 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
             }
         });
 
-        document.getElementById('laborBody')?.addEventListener('click', (e) => {
+        function ensureEmptyHintIfNoRows() {
+            const body = document.getElementById('laborBody');
+            if (!body || body.querySelector('.labor-row')) return;
+            if (document.getElementById('laborEmptyHint')) return;
+            body.insertAdjacentHTML('afterbegin', '<tr id="laborEmptyHint"><td colspan="8" class="text-center text-muted py-4">ยังไม่มีรายชื่อในเดือนนี้ — กดปุ่ม <strong>จัดการกลุ่ม/คนงาน</strong> เพื่อเพิ่มข้อมูลก่อน แล้วค่อยดึงกลุ่มเข้าตาราง</td></tr>');
+        }
+
+        async function confirmRemoveLaborRow(tr) {
+            const name = (tr.querySelector('.worker-search')?.value || '').trim() || 'แถวนี้';
+            const r = await Swal.fire({
+                icon: 'warning',
+                title: 'ลบแถวออกจากรายการ?',
+                text: 'จะลบ "' + name + '" ออกจากตารางรอบนี้',
+                showCancelButton: true,
+                confirmButtonText: 'ลบแถว',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonColor: '#dc3545'
+            });
+            return r.isConfirmed;
+        }
+
+        document.getElementById('laborBody')?.addEventListener('click', async (e) => {
+            const remBtn = e.target.closest('.btn-remove-labor-row');
+            if (remBtn) {
+                e.preventDefault();
+                const tr = remBtn.closest('tr');
+                if (!tr) return;
+                if (!(await confirmRemoveLaborRow(tr))) return;
+                const wid = parseInt(String(remBtn.getAttribute('data-worker-id') || '0'), 10);
+                if (wid > 0) {
+                    const hid = document.getElementById('removeOneRowWorkerId');
+                    const form = document.getElementById('formRemoveOneRow');
+                    if (hid && form) {
+                        hid.value = String(wid);
+                        form.submit();
+                    }
+                } else {
+                    tr.remove();
+                    ensureEmptyHintIfNoRows();
+                    recalcAll();
+                }
+                return;
+            }
             const daysInp = e.target.closest('.inp-days-present');
             if (daysInp) {
                 e.preventDefault();
@@ -855,9 +960,9 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
 
         function parseDaysPresent(el) {
             if (!el || String(el.value).trim() === '') return 0;
-            const n = parseInt(String(el.value).replace(/,/g, ''), 10);
+            const n = parseFloat(String(el.value).replace(/,/g, ''));
             if (!isFinite(n) || n < 0) return 0;
-            return Math.min(periodDaysMax, n);
+            return roundDayHalf(n);
         }
 
         function recalcRow(tr) {
@@ -865,7 +970,7 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
             const advance = parseNum(tr.querySelector('.inp-advance'));
             const days = parseDaysPresent(tr.querySelector('.inp-days-present'));
             const otRaw = parseNum(tr.querySelector('.inp-ot-total'));
-            const otSum = days === 0 ? 0 : otRaw;
+            const otSum = days <= 0 ? 0 : otRaw;
             const otRate = (daily / 8) * 1.5;
             const gross = days * daily + otSum * otRate;
             let net = gross;
@@ -953,7 +1058,7 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
                 const ok = await Swal.fire({
                     icon: 'warning',
                     title: 'ล้างตารางแล้วโหลดกลุ่มใหม่?',
-                    html: 'รายชื่อในบัตรจะถูกล้างทั้งหมด (ข้อมูลที่ยังไม่กดบันทึกจะหาย) แล้วโหลดเฉพาะกลุ่มที่เลือก',
+                    html: 'รายชื่อในตารางจะถูกล้างทั้งหมด (ข้อมูลที่ยังไม่กดบันทึกจะหาย) แล้วโหลดเฉพาะกลุ่มที่เลือก',
                     showCancelButton: true,
                     confirmButtonText: 'ดึงกลุ่มนี้',
                     cancelButtonText: 'ยกเลิก',
@@ -977,12 +1082,29 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
         });
         bulkGroupSel?.addEventListener('change', syncGroupContext);
 
-        document.getElementById('laborBody')?.addEventListener('click', (e) => {
-            const btn = e.target.closest('.btn-del-row');
-            if (!btn) return;
-            const tr = btn.closest('tr');
-            if (tr) tr.remove();
-            recalcAll();
+        document.getElementById('btnRemoveLastLaborRow')?.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const body = document.getElementById('laborBody');
+            const rows = body ? body.querySelectorAll('.labor-row') : [];
+            if (!rows.length) {
+                await Swal.fire({ icon: 'info', title: 'ไม่มีแถวให้ลบ', confirmButtonColor: '#6c757d' });
+                return;
+            }
+            const last = rows[rows.length - 1];
+            if (!(await confirmRemoveLaborRow(last))) return;
+            const wid = parseInt(String(last.querySelector('.inp-wid')?.value || '0'), 10);
+            if (wid > 0) {
+                const hid = document.getElementById('removeOneRowWorkerId');
+                const form = document.getElementById('formRemoveOneRow');
+                if (hid && form) {
+                    hid.value = String(wid);
+                    form.submit();
+                }
+            } else {
+                last.remove();
+                ensureEmptyHintIfNoRows();
+                recalcAll();
+            }
         });
 
         document.getElementById('laborBody')?.addEventListener('input', (e) => {
@@ -1023,7 +1145,7 @@ $periodNote = is_array($periodNoteRow) ? trim((string) ($periodNoteRow['note'] ?
             const result = await Swal.fire({
                 icon: 'question',
                 title: 'ยืนยันปิดรอบ?',
-                html: 'ระบบจะเก็บประวัติและล้างบัตรรอบนี้ — หากต้องการเก็บวันมา/OT/หมายเหตุโดยยังไม่ปิดรอบ ให้ใช้ปุ่ม <strong>บันทึกร่าง</strong>',
+                html: 'ระบบจะเก็บประวัติและล้างตารางรอบนี้ — หากต้องการเก็บวันมา/OT/หมายเหตุโดยยังไม่ปิดรอบ ให้ใช้ปุ่ม <strong>บันทึกร่าง</strong>',
                 showCancelButton: true,
                 confirmButtonText: 'ยืนยันปิดรอบ',
                 cancelButtonText: 'ยกเลิก',

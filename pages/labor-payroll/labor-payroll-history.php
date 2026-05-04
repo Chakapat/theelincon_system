@@ -477,7 +477,7 @@ function labor_half_label(array $r): string
 
         <div class="table-responsive card card-hist">
 
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0" id="tncLaborArchiveHistTable">
 
                 <thead class="table-light">
 
@@ -685,6 +685,7 @@ function labor_half_label(array $r): string
 
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 
 <script>
 
@@ -1129,6 +1130,13 @@ function labor_half_label(array $r): string
 
 })();
 
+</script>
+<script>
+(function ($) {
+    if (typeof window.TncLiveDT === 'undefined' || !$ || !$.fn.DataTable) return;
+    if (!$('#tncLaborArchiveHistTable').length) return;
+    TncLiveDT.init('#tncLaborArchiveHistTable', { order: [[1, 'desc']], columnDefs: [{ orderable: false, targets: 5 }] });
+})(jQuery);
 </script>
 
 </body>

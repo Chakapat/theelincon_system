@@ -262,7 +262,7 @@ if (!in_array($currentVatMode, ['none', 'inclusive', 'exclusive'], true)) {
             </div>
             <div class="collapse<?= $isEditing ? ' show' : '' ?>" id="purchaseBillFormCollapse">
             <div class="p-4">
-                <form method="post" action="<?= htmlspecialchars($handler, ENT_QUOTES, 'UTF-8') ?>?action=<?= htmlspecialchars($formAction, ENT_QUOTES, 'UTF-8') ?>" id="billForm" class="row g-3" enctype="multipart/form-data">
+                <form method="post" action="<?= htmlspecialchars($handler, ENT_QUOTES, 'UTF-8') ?>?action=<?= htmlspecialchars($formAction, ENT_QUOTES, 'UTF-8') ?>" id="billForm" class="row g-3" enctype="multipart/form-data" data-tnc-soft-reload="1">
                     <?php csrf_field(); ?>
                     <input type="hidden" name="month" value="<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>">
                     <?php if ($isEditing): ?>

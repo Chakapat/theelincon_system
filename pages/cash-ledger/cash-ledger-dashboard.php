@@ -15,9 +15,11 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $me = (int) $_SESSION['user_id'];
-$isAdmin = user_is_admin_role();
+$isAdmin = user_is_admin_only_role();
 if (!$isAdmin) {
-    header('Location: ' . app_path('index.php'));
+    $access_denied_title = 'สดย่อย (Petty Cash)';
+    $access_denied_text = 'เข้าใช้งานได้เฉพาะผู้ใช้ที่มีสิทธิ์ ADMIN เท่านั้น';
+    require dirname(__DIR__, 2) . '/includes/page_access_denied_swal.php';
     exit;
 }
 $cashHandlerUrl = app_path('actions/cash-ledger-handler.php');
@@ -220,7 +222,7 @@ $net = $sumIncome - $sumExpense;
             <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
                 <h5 class="fw-bold mb-0"><?= $editRow ? 'แก้ไขรายการ' : 'เพิ่มรายการ' ?></h5>
             </div>
-            <form method="post" action="<?= htmlspecialchars($cashHandlerUrl, ENT_QUOTES, 'UTF-8') ?>?action=save&redirect_to=dashboard" class="row g-3" id="ledgerForm">
+            <form method="post" action="<?= htmlspecialchars($cashHandlerUrl, ENT_QUOTES, 'UTF-8') ?>?action=save&redirect_to=dashboard" class="row g-3" id="ledgerForm" data-tnc-soft-reload="1">
                 <?php csrf_field(); ?>
                 <input type="hidden" name="redirect_month" value="<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>">
                 <?php if ($editRow): ?>

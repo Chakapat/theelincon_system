@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_action_response.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -19,8 +20,7 @@ if (!user_is_finance_role()) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site'])) {
     if (!csrf_verify_request()) {
-        header('Location: ' . app_path('pages/organization/sites.php'));
-        exit;
+        tnc_action_redirect(app_path('pages/organization/sites.php'));
     }
     $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
     $n = trim((string) ($_POST['name'] ?? ''));
@@ -30,8 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site'])) {
             if ($cur !== null) {
                 Db::setRow('sites', Db::pkForLogicalId('sites', $id), array_merge($cur, ['name' => $n]));
             }
-            header('Location: ' . app_path('pages/organization/sites.php') . '?updated=1');
-            exit;
+            tnc_action_redirect(app_path('pages/organization/sites.php') . '?updated=1');
         }
         $nid = Db::nextNumericId('sites', 'id');
         Db::setRow('sites', (string) $nid, [
@@ -39,17 +38,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site'])) {
             'name' => $n,
             'sort_order' => 0,
         ]);
-        header('Location: ' . app_path('pages/organization/sites.php') . '?created=1');
-        exit;
+        tnc_action_redirect(app_path('pages/organization/sites.php') . '?created=1');
     }
-    header('Location: ' . app_path('pages/organization/sites.php') . '?error=invalid_name');
-    exit;
+    tnc_action_redirect(app_path('pages/organization/sites.php') . '?error=invalid_name');
 }
 
 if (isset($_GET['delete'])) {
     if (!csrf_verify_request()) {
-        header('Location: ' . app_path('pages/organization/sites.php'));
-        exit;
+        tnc_action_redirect(app_path('pages/organization/sites.php'));
     }
     $id = (int) $_GET['delete'];
     if ($id > 0) {
@@ -57,13 +53,11 @@ if (isset($_GET['delete'])) {
             return (int) ($row['site_id'] ?? 0) === $id;
         });
         if ($inUse !== null) {
-            header('Location: ' . app_path('pages/organization/sites.php') . '?error=in_use');
-            exit;
+            tnc_action_redirect(app_path('pages/organization/sites.php') . '?error=in_use');
         }
         Db::deleteRow('sites', Db::pkForLogicalId('sites', $id));
     }
-    header('Location: ' . app_path('pages/organization/sites.php') . '?deleted=1');
-    exit;
+    tnc_action_redirect(app_path('pages/organization/sites.php') . '?deleted=1');
 }
 
 $editId = isset($_GET['edit']) ? (int) $_GET['edit'] : 0;
@@ -112,7 +106,7 @@ usort($list, static function (array $a, array $b): int {
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-4">
             <h6 class="fw-bold mb-3"><?= $isEditing ? 'แก้ไขไซต์' : 'เพิ่มไซต์ใหม่' ?></h6>
-            <form method="post" class="row g-2 align-items-end">
+            <form method="post" class="row g-2 align-items-end" data-tnc-ajax="1" data-tnc-soft-reload="1" action="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>">
                 <?php csrf_field(); ?>
                 <input type="hidden" name="save_site" value="1">
                 <?php if ($isEditing): ?>
@@ -135,7 +129,7 @@ usort($list, static function (array $a, array $b): int {
     </div>
     <div class="card border-0 shadow-sm rounded-4">
         <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
+            <table class="table table-hover mb-0 align-middle" id="sitesTable" width="100%">
                 <thead class="table-light"><tr><th class="ps-4">ชื่อ</th><th class="pe-4 text-end">จัดการ</th></tr></thead>
                 <tbody>
                     <?php foreach ($list as $r): ?>
@@ -152,6 +146,14 @@ usort($list, static function (array $a, array $b): int {
         </div>
     </div>
 </div>
+<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+(function () {
+    if (typeof $ === 'undefined' || !$.fn.DataTable) return;
+    $('#sitesTable').DataTable({ order: [[0, 'asc']], pageLength: 25 });
+})();
+</script>
 </body>
 </html>
