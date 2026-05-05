@@ -151,32 +151,23 @@ $customer_tax_trim = trim((string) ($data['customer_tax'] ?? ''));
             .invoice-sheet { margin: 0; page-break-after: always; break-after: page; }
             .invoice-sheet:last-child { page-break-after: auto; break-after: auto; }
         }
+        <?php if ($embed): ?>
+        /* ใน popup: ไม่เลื่อนแนวนอน — แผ่น A4 210mm อยู่กลาง เลื่อนแนวตั้งได้ */
+        body.invoice-embed {
+            background: #e9ecef;
+            overflow-x: hidden;
+            max-width: 100%;
+        }
+        <?php endif; ?>
     </style>
 </head>
-<body>
+<body<?= $embed ? ' class="invoice-embed"' : '' ?>>
 
+<?php if (!$embed): ?>
 <div class="controls-wrapper no-print p-3 text-center bg-dark shadow-sm mb-4">
     <button onclick="window.print()" class="btn btn-warning btn-sm fw-bold" style="padding: 5px 30px;">พิมพ์ ต้นฉบับ + สำเนา</button>
-    <?php if ($embed): ?>
-    <button type="button" class="btn btn-outline-light btn-sm ms-2" id="tncInvoiceEmbedClose">ปิด</button>
-    <?php else: ?>
     <a href="<?= htmlspecialchars(app_path('index.php')) ?>" class="btn btn-outline-danger btn-sm ms-2">กลับหน้าหลัก</a>
-    <?php endif; ?>
 </div>
-<?php if ($embed): ?>
-<script>
-document.getElementById('tncInvoiceEmbedClose')?.addEventListener('click', function () {
-    try {
-        var m = window.parent.document.getElementById('tncInvoiceModal');
-        if (m && window.parent.bootstrap) {
-            var inst = window.parent.bootstrap.Modal.getInstance(m);
-            if (inst) {
-                inst.hide();
-            }
-        }
-    } catch (e) {}
-});
-</script>
 <?php endif; ?>
 
 <?php foreach ($print_modes as $pm): ?>

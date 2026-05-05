@@ -62,7 +62,7 @@ if (isset($_GET['ajax_search'])) {
                         <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php')) ?>?id=<?= $row['id']; ?>" class="btn btn-sm btn-white border text-success" title="ใบกำกับภาษี/ใบเสร็จ"><i class="bi bi-file-earmark-check-fill"></i></a>
                         
                         <?php if ($can_edit_invoice): ?>
-                            <button type="button" class="btn btn-sm btn-white border text-secondary" data-tnc-invoice="edit" data-invoice-id="<?= (int) $row['id']; ?>" title="แก้ไข"><i class="bi bi-pencil-square"></i></button>
+                            <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php'), ENT_QUOTES, 'UTF-8') ?>?action=edit&amp;id=<?= (int) $row['id']; ?>" class="btn btn-sm btn-white border text-secondary" title="แก้ไข"><i class="bi bi-pencil-square"></i></a>
                         <?php endif; ?>
                         <?php if ($is_admin): ?>
                             <button onclick="deleteItem(<?= $row['id']; ?>, 'invoice')" class="btn btn-sm btn-white border text-danger" title="ลบ"><i class="bi bi-trash3-fill"></i></button>
@@ -295,6 +295,37 @@ $index_hub_start_all_collapsed = true;
             border: 1px solid rgba(25, 135, 84, 0.4);
             font-weight: 600;
         }
+        /* Invoice: กว้างกว่า A4 เล็กน้อย — ให้เห็นแผ่น 210mm เต็มความกว้างโดยไม่เลื่อนซ้าย-ขวา (เลื่อนขึ้นลงใน iframe) */
+        #tncInvoiceModal .tnc-invoice-modal-dialog {
+            width: min(calc(210mm + 3rem), calc(100vw - 1rem));
+            max-width: min(calc(210mm + 3rem), calc(100vw - 1rem));
+            margin: 0.5rem auto;
+        }
+        #tncInvoiceModal .modal-content {
+            border: none;
+            border-radius: 0.65rem;
+            box-shadow: 0 0.35rem 2rem rgba(0, 0, 0, 0.22);
+            overflow: hidden;
+            background: #e9ecef;
+        }
+        #tncInvoiceModal .modal-header {
+            flex-shrink: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        #tncInvoiceModal .modal-body {
+            padding: 0;
+            height: min(297mm, calc(100vh - 4.5rem));
+            max-height: min(297mm, calc(100vh - 4.5rem));
+            overflow: hidden;
+            background: #dee2e6;
+            scrollbar-gutter: stable;
+        }
+        #tncInvoiceModal #tncInvoiceModalFrame {
+            width: 100%;
+            height: 100%;
+            min-height: 240px;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -455,17 +486,17 @@ $index_hub_start_all_collapsed = true;
     </div>
 
     <div class="modal fade" id="tncInvoiceModal" tabindex="-1" aria-labelledby="tncInvoiceModalTitle" aria-hidden="true">
-        <div class="modal-dialog modal-fullscreen">
-            <div class="modal-content bg-light" style="min-height: 100vh;">
-                <div class="modal-header py-2 bg-dark text-white align-items-center">
-                    <h6 class="modal-title fw-semibold mb-0" id="tncInvoiceModalTitle">ใบแจ้งหนี้</h6>
-                    <div class="d-flex align-items-center gap-2">
-                        <button type="button" class="btn btn-warning btn-sm fw-bold" id="tncInvoiceModalPrint">พิมพ์</button>
+        <div class="modal-dialog modal-dialog-centered tnc-invoice-modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header py-2 px-3 bg-dark text-white align-items-center flex-wrap gap-2">
+                    <h6 class="modal-title fw-semibold mb-0 me-auto" id="tncInvoiceModalTitle">ใบแจ้งหนี้</h6>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        <button type="button" class="btn btn-warning btn-sm fw-bold text-nowrap" id="tncInvoiceModalPrint" title="พิมพ์ตามหน้าจอ (ต้นฉบับและสำเนา)">พิมพ์ ต้นฉบับ + สำเนา</button>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="ปิด"></button>
                     </div>
                 </div>
-                <div class="modal-body p-0 flex-grow-1" style="min-height: calc(100vh - 52px);">
-                    <iframe id="tncInvoiceModalFrame" class="w-100 border-0 d-block" style="min-height: calc(100vh - 52px); height: calc(100vh - 52px);" title="Invoice"></iframe>
+                <div class="modal-body p-0">
+                    <iframe id="tncInvoiceModalFrame" class="border-0" title="Invoice"></iframe>
                 </div>
             </div>
         </div>
@@ -582,17 +613,17 @@ if (searchInput) {
 }
 
 let tncInvoiceModalInstance = null;
-function tncOpenInvoiceModal(action, id) {
+function tncOpenInvoiceViewModal(id) {
     const frame = document.getElementById('tncInvoiceModalFrame');
     const titleEl = document.getElementById('tncInvoiceModalTitle');
     const modalEl = document.getElementById('tncInvoiceModal');
     if (!frame || !modalEl || !window.bootstrap || !window.bootstrap.Modal) {
         return;
     }
-    const u = invoicePhpUrl + '?action=' + encodeURIComponent(action) + '&id=' + encodeURIComponent(String(id)) + '&embed=1';
+    const u = invoicePhpUrl + '?action=view&id=' + encodeURIComponent(String(id)) + '&embed=1';
     frame.src = u;
     if (titleEl) {
-        titleEl.textContent = action === 'edit' ? 'แก้ไขใบแจ้งหนี้' : 'ดูใบแจ้งหนี้';
+        titleEl.textContent = 'ดูใบแจ้งหนี้';
     }
     if (!tncInvoiceModalInstance) {
         tncInvoiceModalInstance = new bootstrap.Modal(modalEl);
@@ -618,14 +649,13 @@ document.getElementById('tncInvoiceModal')?.addEventListener('hidden.bs.modal', 
 });
 
 document.getElementById('invoice_table_body')?.addEventListener('click', function (ev) {
-    const btn = ev.target.closest('[data-tnc-invoice]');
+    const btn = ev.target.closest('[data-tnc-invoice="view"]');
     if (!btn) {
         return;
     }
-    const act = btn.getAttribute('data-tnc-invoice');
     const iid = btn.getAttribute('data-invoice-id');
-    if (act && iid) {
-        tncOpenInvoiceModal(act, iid);
+    if (iid) {
+        tncOpenInvoiceViewModal(iid);
     }
 });
 

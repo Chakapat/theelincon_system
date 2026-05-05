@@ -18,7 +18,6 @@ if (!user_can_edit_invoice()) {
 }
 
 $id = (int) ($_GET['id'] ?? 0);
-$embed = isset($_GET['embed']) && (string) $_GET['embed'] === '1';
 
 $invoice = Db::rowByIdField('invoices', $id);
 if (!$invoice) {
@@ -71,34 +70,14 @@ Db::sortRows($customers, 'name', false);
 </head>
 <body>
 
-<?php if ($embed): ?>
-<div class="no-print bg-dark text-white py-2 px-3 d-flex justify-content-between align-items-center sticky-top" style="z-index: 1030;">
-    <span class="small fw-semibold"><i class="bi bi-pencil-square me-1"></i>แก้ไขใบแจ้งหนี้</span>
-    <button type="button" class="btn btn-sm btn-outline-light" id="tncInvoiceEditEmbedClose">ปิด</button>
-</div>
-<script>
-document.getElementById('tncInvoiceEditEmbedClose')?.addEventListener('click', function () {
-    try {
-        var m = window.parent.document.getElementById('tncInvoiceModal');
-        if (m && window.parent.bootstrap) {
-            var inst = window.parent.bootstrap.Modal.getInstance(m);
-            if (inst) {
-                inst.hide();
-            }
-        }
-    } catch (e) {}
-});
-</script>
-<?php else: ?>
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
-<?php endif; ?>
 
 <div class="container mt-4 mb-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="fw-bold"><i class="bi bi-pencil-square" style="color:#FF6600;"></i> แก้ไขใบแจ้งหนี้</h3>
     </div>
 
-    <form action="<?= htmlspecialchars(app_path('actions/invoice-update.php')) ?>" method="POST" id="invoiceForm"<?= $embed ? ' target="_top"' : '' ?>>
+    <form action="<?= htmlspecialchars(app_path('actions/invoice-update.php')) ?>" method="POST" id="invoiceForm">
         <?php csrf_field(); ?>
         <input type="hidden" name="invoice_id" value="<?= $id ?>">
 
