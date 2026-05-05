@@ -108,12 +108,9 @@ Db::sortRows($pr_rows, 'created_at', true);
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <h3 class="fw-bold mb-0">
-            <i class="bi bi-cart-check-fill text-warning me-2"></i> รายการใบขอซื้อ (PR List)
+            <i class="bi bi-cart-check-fill text-warning me-2"></i> รายการใบขอซื้อ (Purchase requests List)
         </h3>
         <div class="d-flex flex-wrap gap-2 no-print">
-            <button type="button" class="btn btn-dark rounded-pill px-3 shadow-sm" onclick="window.print()" title="พิมพ์รายการ">
-                <i class="bi bi-printer me-1"></i> พิมพ์รายการ
-            </button>
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4 shadow-sm">
                 <i class="bi bi-plus-lg"></i> สร้างใบ PR ใหม่
             </a>

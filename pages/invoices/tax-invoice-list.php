@@ -141,7 +141,6 @@ $totalCount = count($listRows);
                         <th>วันที่</th>
                         <th>อ้างอิงใบแจ้งหนี้</th>
                         <th>ลูกค้า</th>
-                        <th>ผู้ออกใบ</th>
                         <th class="text-end">ยอดสุทธิ</th>
                         <th class="text-center">จัดการ</th>
                     </tr>
@@ -150,11 +149,13 @@ $totalCount = count($listRows);
                     <?php if ($totalCount > 0): ?>
                         <?php foreach ($listRows as $row): ?>
                             <tr>
-                                <td class="fw-bold text-success"><?= htmlspecialchars($row['tax_invoice_number'], ENT_QUOTES, 'UTF-8') ?></td>
+                                <td>
+                                    <div class="fw-bold text-success"><?= htmlspecialchars($row['tax_invoice_number'], ENT_QUOTES, 'UTF-8') ?></div>
+                                    <div class="small text-muted"><?= htmlspecialchars($row['issuer_name'] !== '' ? $row['issuer_name'] : '-', ENT_QUOTES, 'UTF-8') ?></div>
+                                </td>
                                 <td><?= $row['tax_date'] !== '' ? htmlspecialchars(date('d/m/Y', strtotime($row['tax_date'])), ENT_QUOTES, 'UTF-8') : '-' ?></td>
                                 <td><span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><?= htmlspecialchars($row['invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></td>
                                 <td><?= htmlspecialchars($row['customer_name'] !== '' ? $row['customer_name'] : 'ไม่ระบุ', ENT_QUOTES, 'UTF-8') ?></td>
-                                <td class="small"><?= htmlspecialchars($row['issuer_name'] !== '' ? $row['issuer_name'] : '-', ENT_QUOTES, 'UTF-8') ?></td>
                                 <td class="text-end fw-bold">฿ <?= number_format((float) $row['grand_total'], 2) ?></td>
                                 <td class="text-center">
                                     <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>" class="btn btn-sm btn-outline-success" title="ดูเอกสาร Tax INV">
@@ -173,7 +174,7 @@ $totalCount = count($listRows);
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">ยังไม่มีรายการ Tax INV</td>
+                            <td colspan="6" class="text-center py-4 text-muted">ยังไม่มีรายการ Tax INV</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -191,7 +192,7 @@ $totalCount = count($listRows);
             order: [[1, 'desc']],
             pageLength: 25,
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
-            columnDefs: [{ targets: [6], orderable: false, searchable: false }]
+            columnDefs: [{ targets: [5], orderable: false, searchable: false }]
         });
     }
     var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=tax_invoices'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;

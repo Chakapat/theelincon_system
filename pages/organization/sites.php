@@ -101,7 +101,7 @@ usort($list, static function (array $a, array $b): int {
     <?php endif; ?>
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-        <h4 class="fw-bold mb-0"><i class="bi bi-geo-alt me-2 text-warning"></i>ไซต์งาน / สถานที่ใช้</h4>
+        <h4 class="fw-bold mb-0"><i class="bi bi-geo-alt me-2 text-warning"></i>ไซต์งาน / สถานที่ทำงาน</h4>
     </div>
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-4">
@@ -113,8 +113,7 @@ usort($list, static function (array $a, array $b): int {
                     <input type="hidden" name="id" value="<?= (int) ($editRow['id'] ?? 0) ?>">
                 <?php endif; ?>
                 <div class="col-md-8">
-                    <label class="form-label small">ชื่อไซต์ / โครงการ</label>
-                    <input type="text" name="name" class="form-control rounded-3" maxlength="200" required placeholder="เช่น โครงการ ABC" value="<?= htmlspecialchars((string) ($editRow['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="text" name="name" class="form-control rounded-3" maxlength="200" required value="<?= htmlspecialchars((string) ($editRow['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                 </div>
                 <div class="col-md-4">
                     <div class="d-flex gap-2">

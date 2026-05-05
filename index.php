@@ -31,7 +31,11 @@ if (isset($_GET['ajax_search'])) {
                         : 'badge rounded-pill inv-badge-tax-pending px-3';
                     $invBadgeTitle = $hasTaxInv ? 'ออกใบกำกับภาษีแล้ว' : 'ยังไม่ออกใบกำกับภาษี';
                     ?>
-                    <span class="<?= htmlspecialchars($invBadgeClass, ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars($invBadgeTitle, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($row['invoice_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                    <div><span class="<?= htmlspecialchars($invBadgeClass, ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars($invBadgeTitle, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($row['invoice_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span></div>
+                    <div class="small text-muted mt-1"><?php
+                        $cn = trim((string)($row['creator_name'] ?? ''));
+                        echo $cn !== '' ? htmlspecialchars($cn, ENT_QUOTES, 'UTF-8') : '—';
+                    ?></div>
                 </td>
                 <td class="fw-semibold">
                     <div class="d-flex align-items-center gap-2">
@@ -48,12 +52,6 @@ if (isset($_GET['ajax_search'])) {
                 </td>
                 <td class="fw-bold text-dark">
                     ฿<?= number_format($row['net_pay'], 2); ?>
-                </td>
-                <td class="small text-secondary">
-                    <?php
-                    $cn = trim((string)($row['creator_name'] ?? ''));
-                    echo $cn !== '' ? htmlspecialchars($cn, ENT_QUOTES, 'UTF-8') : '<span class="text-muted">—</span>';
-                    ?>
                 </td>
                 <td class="text-end pe-4">
                     <div class="btn-group shadow-sm rounded-3">
@@ -72,7 +70,7 @@ if (isset($_GET['ajax_search'])) {
             </tr>
         <?php endforeach;
     } else {
-        echo "<tr><td colspan='6' class='text-center py-5 text-muted'>ไม่พบข้อมูลใบแจ้งหนี้ที่ค้นหา</td></tr>";
+        echo "<tr><td colspan='5' class='text-center py-5 text-muted'>ไม่พบข้อมูลใบแจ้งหนี้ที่ค้นหา</td></tr>";
     }
     exit;
 }
@@ -468,13 +466,12 @@ $index_hub_start_all_collapsed = true;
                         <th class="py-3">เลขที่ใบแจ้งหนี้</th>
                         <th class="py-3">ลูกค้า</th>
                         <th class="py-3">ยอดเงิน</th>
-                        <th class="py-3">ผู้ออกใบ</th>
                         <th class="text-end pe-4 py-3">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody id="invoice_table_body">
                     <tr>
-                        <td colspan="6" class="text-center py-5 text-muted">
+                        <td colspan="5" class="text-center py-5 text-muted">
                             <span class="spinner-border spinner-border-sm text-warning me-2" role="status" aria-hidden="true"></span>
                             <span class="align-middle">กำลังโหลดรายการใบแจ้งหนี้…</span>
                         </td>
@@ -527,10 +524,10 @@ document.querySelector('.js-hub-member-manage')?.addEventListener('click', funct
     });
 });
 
-const loadingRowHtml = '<tr><td colspan="6" class="text-center py-5 text-muted">' +
+const loadingRowHtml = '<tr><td colspan="5" class="text-center py-5 text-muted">' +
     '<span class="spinner-border spinner-border-sm text-warning me-2" role="status" aria-hidden="true"></span>' +
     '<span class="align-middle">กำลังโหลดรายการใบแจ้งหนี้…</span></td></tr>';
-const errorRowHtml = '<tr><td colspan="6" class="text-center py-5 text-danger">' +
+const errorRowHtml = '<tr><td colspan="5" class="text-center py-5 text-danger">' +
     'โหลดข้อมูลไม่สำเร็จ — ลองโหลดหน้าใหม่หรือตรวจสอบการเชื่อมต่อ</td></tr>';
 
 function refreshInvoiceDataTable() {
@@ -550,7 +547,7 @@ function refreshInvoiceDataTable() {
     }
     TncLiveDT.init('#invoice_table', {
         order: [],
-        columnDefs: [{ orderable: false, targets: [0, 5] }]
+        columnDefs: [{ orderable: false, targets: [0, 4] }]
     });
 }
 
@@ -568,7 +565,7 @@ function loadTable(query = '') {
     const normalized = (query || '').trim();
     if (normalized.length === 1) {
         if (tableBody) {
-            tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">พิมพ์เพิ่มอีกอย่างน้อย 1 ตัวอักษรเพื่อค้นหา</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">พิมพ์เพิ่มอีกอย่างน้อย 1 ตัวอักษรเพื่อค้นหา</td></tr>';
         }
         if (table) {
             table.setAttribute('aria-busy', 'false');
