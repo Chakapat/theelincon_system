@@ -164,44 +164,6 @@ usort($workerRows, static function (array $a, array $b) use ($sheetSortByWorkerI
 
     <div class="card border-0 shadow-sm rounded-3 mt-3">
         <div class="card-body">
-            <div class="small fw-semibold mb-2"><i class="bi bi-filetype-csv me-1 text-secondary"></i>นำเข้าจากไฟล์ CSV</div>
-            <form method="post" action="<?= htmlspecialchars($handler, ENT_QUOTES, 'UTF-8') ?>" enctype="multipart/form-data" class="row g-2 align-items-end">
-                <?php csrf_field(); ?>
-                <input type="hidden" name="action" value="import_workers_csv">
-                <input type="hidden" name="year_month" value="<?= htmlspecialchars($ym, ENT_QUOTES, 'UTF-8') ?>">
-                <input type="hidden" name="half" value="<?= (int) $half ?>">
-                <input type="hidden" name="return_to" value="manage">
-                <div class="col-md-3">
-                    <label class="form-label small mb-1">กลุ่ม (นำเข้าเข้ากลุ่มนี้)</label>
-                    <select class="form-select form-select-sm" name="group_id" required>
-                        <option value="">เลือกกลุ่ม</option>
-                        <?php foreach ($workerGroups as $g): ?>
-                            <?php $gid = (int) ($g['id'] ?? 0); ?>
-                            <option value="<?= $gid ?>" <?= $selectedGroupId === $gid && $selectedGroupId > 0 ? 'selected' : '' ?>><?= htmlspecialchars((string) ($g['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label small mb-1">เพศ (ทุกแถว)</label>
-                    <select class="form-select form-select-sm" name="import_gender">
-                        <option value="ชาย">ชาย</option>
-                        <option value="หญิง">หญิง</option>
-                        <option value="อื่นๆ">อื่นๆ</option>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label small mb-1">ไฟล์ .csv</label>
-                    <input type="file" name="workers_csv" class="form-control form-control-sm" accept=".csv,text/csv,text/plain" required>
-                </div>
-                <div class="col-md-3 text-md-end">
-                    <button type="submit" class="btn btn-sm btn-success rounded-pill px-3"><i class="bi bi-upload me-1"></i>นำเข้า</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="card border-0 shadow-sm rounded-3 mt-3">
-        <div class="card-body">
             <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
                 <div class="small fw-semibold"><i class="bi bi-table me-1 text-secondary"></i>รายชื่อคนงานตามกลุ่ม</div>
                 <form method="get" class="d-flex flex-wrap align-items-end gap-2">
@@ -332,15 +294,6 @@ usort($workerRows, static function (array $a, array $b) use ($sheetSortByWorkerI
     if (params.get('worker_err') === 'name') toast('warning', 'กรุณากรอกชื่อคนงาน');
     if (params.get('worker_err') === 'group') toast('warning', 'กรุณาเลือกกลุ่มคนงานที่ต้องการ');
     if (params.get('worker_err') === 'missing') toast('warning', 'ไม่พบข้อมูลคนงานที่ต้องการแก้ไข');
-    var csvImported = params.get('csv_imported');
-    if (csvImported) {
-        var sk = params.get('csv_skipped') || '0';
-        toast('success', 'นำเข้า ' + csvImported + ' คนแล้ว' + (Number(sk) > 0 ? ' (ข้ามแถวไม่สมบูรณ์: ' + sk + ')' : ''));
-    }
-    if (params.get('csv_err') === 'group') toast('warning', 'กรุณาเลือกกลุ่มก่อนนำเข้า');
-    if (params.get('csv_err') === 'file') toast('warning', 'อัปโหลดไฟล์ไม่สำเร็จ');
-    if (params.get('csv_err') === 'empty') toast('warning', 'ไฟล์ว่างหรืออ่านไม่ได้');
-    if (params.get('csv_err') === 'norows') toast('warning', 'ไม่มีแถวข้อมูลที่นำเข้าได้ (ตรวจสอบคอลัมน์ชื่อและค่าแรง)');
 
     document.querySelectorAll('.btn-edit-worker').forEach(function (btn) {
         btn.addEventListener('click', async function () {

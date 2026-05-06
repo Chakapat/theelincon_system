@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 session_start();
 require_once __DIR__ . '/config/connect_database.php';
+require_once __DIR__ . '/includes/tnc_audit_log.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -16,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
     $user_code = trim((string) ($_POST['user_code'] ?? ''));
     $password = (string) ($_POST['password'] ?? '');
+    $password_hash_upgraded = false;
 
     $user = Db::findFirst('users', static function (array $r) use ($user_code): bool {
         return isset($r['user_code']) && (string) $r['user_code'] === $user_code;
@@ -32,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $uid = (string) ($user['userid'] ?? '');
             if ($uid !== '') {
                 Db::mergeRow('users', $uid, ['password' => $newHash]);
+                $password_hash_upgraded = true;
             }
         }
         if ($password_ok) {
@@ -40,6 +43,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['role'] = (string) ($user['role'] ?? 'USER');
             unset($_SESSION['position']);
             $login_status = 'success';
+            if ($password_hash_upgraded) {
+                $uidStr = (string) ($user['userid'] ?? '');
+                $ucode = trim((string) ($user['user_code'] ?? ''));
+                tnc_audit_log('update', 'user', $uidStr, $ucode !== '' ? $ucode : ('ผู้ใช้ #' . $uidStr), [
+                    'source' => 'sign-in.php',
+                    'action' => 'password_hash_upgrade',
+                    'meta' => [
+                        'from' => 'md5_legacy',
+                        'to' => 'password_hash_bcrypt',
+                    ],
+                ]);
+            }
         } else {
             $login_status = 'fail_password';
         }

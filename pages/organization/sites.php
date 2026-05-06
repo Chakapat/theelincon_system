@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site'])) {
     if (!csrf_verify_request()) {
         tnc_action_redirect(app_path('pages/organization/sites.php'));
     }
+    require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
     $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
     $n = trim((string) ($_POST['name'] ?? ''));
     if ($n !== '' && strlen($n) <= 200) {
@@ -29,6 +30,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site'])) {
             $cur = Db::rowByIdField('sites', $id);
             if ($cur !== null) {
                 Db::setRow('sites', Db::pkForLogicalId('sites', $id), array_merge($cur, ['name' => $n]));
+                $afterS = Db::rowByIdField('sites', $id);
+                tnc_audit_log('update', 'site', (string) $id, $n, [
+                    'source' => 'sites.php',
+                    'action' => 'save_site',
+                    'before' => $cur,
+                    'after' => $afterS,
+                ]);
             }
             tnc_action_redirect(app_path('pages/organization/sites.php') . '?updated=1');
         }
@@ -38,24 +46,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site'])) {
             'name' => $n,
             'sort_order' => 0,
         ]);
+        $afterNewS = Db::row('sites', (string) $nid);
+        tnc_audit_log('create', 'site', (string) $nid, $n, [
+            'source' => 'sites.php',
+            'action' => 'save_site',
+            'after' => $afterNewS,
+        ]);
         tnc_action_redirect(app_path('pages/organization/sites.php') . '?created=1');
     }
     tnc_action_redirect(app_path('pages/organization/sites.php') . '?error=invalid_name');
 }
 
-if (isset($_GET['delete'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site'])) {
     if (!csrf_verify_request()) {
         tnc_action_redirect(app_path('pages/organization/sites.php'));
     }
-    $id = (int) $_GET['delete'];
-    if ($id > 0) {
-        $inUse = Db::findFirst('cash_ledger', static function (array $row) use ($id): bool {
-            return (int) ($row['site_id'] ?? 0) === $id;
+    require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
+    tnc_require_post_confirm_password();
+    $sid = (int) ($_POST['site_id'] ?? 0);
+    if ($sid > 0) {
+        $inUse = Db::findFirst('cash_ledger', static function (array $row) use ($sid): bool {
+            return (int) ($row['site_id'] ?? 0) === $sid;
         });
         if ($inUse !== null) {
             tnc_action_redirect(app_path('pages/organization/sites.php') . '?error=in_use');
         }
-        Db::deleteRow('sites', Db::pkForLogicalId('sites', $id));
+        $snap = Db::rowByIdField('sites', $sid);
+        $sname = $snap !== null ? trim((string) ($snap['name'] ?? '')) : '';
+        Db::deleteRow('sites', Db::pkForLogicalId('sites', $sid));
+        tnc_audit_log('delete', 'site', (string) $sid, $sname !== '' ? $sname : ('#' . $sid), [
+            'source' => 'sites.php',
+            'action' => 'delete_site',
+            'before' => $snap,
+        ]);
     }
     tnc_action_redirect(app_path('pages/organization/sites.php') . '?deleted=1');
 }
@@ -98,6 +121,10 @@ usort($list, static function (array $a, array $b): int {
         <div class="alert alert-danger">ลบไม่ได้: ไซต์นี้ถูกใช้งานในรายการรายรับ/รายจ่ายแล้ว</div>
     <?php elseif (isset($_GET['error']) && $_GET['error'] === 'invalid_name'): ?>
         <div class="alert alert-warning">กรุณาระบุชื่อไซต์ให้ถูกต้อง</div>
+    <?php elseif (isset($_GET['error']) && $_GET['error'] === 'confirm_password_required'): ?>
+        <div class="alert alert-warning">กรุณากรอกรหัสผ่านของคุณเพื่อยืนยันการลบ</div>
+    <?php elseif (isset($_GET['error']) && $_GET['error'] === 'confirm_password_invalid'): ?>
+        <div class="alert alert-danger">รหัสผ่านไม่ถูกต้อง</div>
     <?php endif; ?>
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
@@ -136,7 +163,7 @@ usort($list, static function (array $a, array $b): int {
                         <td class="ps-4"><?= htmlspecialchars((string) ($r['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                         <td class="pe-4 text-end">
                             <a class="btn btn-sm btn-outline-primary rounded-3" href="?edit=<?= (int) ($r['id'] ?? 0) ?>">แก้ไข</a>
-                            <a class="btn btn-sm btn-outline-danger rounded-3" href="?delete=<?= (int) ($r['id'] ?? 0) ?>&amp;_csrf=<?= rawurlencode(csrf_token()) ?>" onclick="return confirm('ยืนยันการลบไซต์นี้?');">ลบ</a>
+                            <a class="btn btn-sm btn-outline-danger rounded-3 tnc-delete-post" href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>?delete_site=1&amp;site_id=<?= (int) ($r['id'] ?? 0) ?>&amp;_csrf=<?= rawurlencode(csrf_token()) ?>">ลบ</a>
                         </td>
                     </tr>
                     <?php endforeach; ?>

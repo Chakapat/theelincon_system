@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/tnc_action_response.php';
+require_once __DIR__ . '/../includes/tnc_audit_log.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -47,6 +48,20 @@ $money2 = static function (float $value) use ($rounding_enabled): float {
 if ($invoice_number === '') {
     $curInv = Db::row('invoices', (string) $invoice_id) ?? [];
     $invoice_number = trim((string) ($curInv['invoice_number'] ?? ''));
+}
+
+$beforeInv = Db::row('invoices', (string) $invoice_id) ?? [];
+$beforeLines = [];
+foreach (Db::filter('invoice_items', static function (array $r) use ($invoice_id): bool {
+    return isset($r['invoice_id']) && (int) $r['invoice_id'] === $invoice_id;
+}) as $ln) {
+    if (!is_array($ln)) {
+        continue;
+    }
+    $beforeLines[] = $ln;
+    if (count($beforeLines) >= 120) {
+        break;
+    }
 }
 
 Db::deleteWhereEquals('invoice_items', 'invoice_id', (string) $invoice_id);
@@ -100,5 +115,29 @@ Db::setRow('invoices', (string) $invoice_id, array_merge($cur, [
     'total_amount' => $total_amount,
     'rounding_enabled' => $rounding_enabled ? 1 : 0,
 ]));
+
+$afterInv = Db::row('invoices', (string) $invoice_id) ?? [];
+$afterLines = [];
+foreach (Db::filter('invoice_items', static function (array $r) use ($invoice_id): bool {
+    return isset($r['invoice_id']) && (int) $r['invoice_id'] === $invoice_id;
+}) as $ln) {
+    if (!is_array($ln)) {
+        continue;
+    }
+    $afterLines[] = $ln;
+    if (count($afterLines) >= 120) {
+        break;
+    }
+}
+tnc_audit_log('update', 'invoice', (string) $invoice_id, $invoice_number !== '' ? $invoice_number : ('#' . $invoice_id), [
+    'source' => 'invoice-update.php',
+    'action' => 'save_invoice',
+    'before' => $beforeInv,
+    'after' => $afterInv,
+    'meta' => [
+        'lines_before' => $beforeLines,
+        'lines_after' => $afterLines,
+    ],
+]);
 
 tnc_action_redirect(app_path('index.php') . '?invoice_updated=1');

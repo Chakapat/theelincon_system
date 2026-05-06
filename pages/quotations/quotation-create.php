@@ -8,6 +8,7 @@ use Theelincon\Rtdb\Invoice;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
 
 if(!isset($_SESSION['user_id'])){
     header('Location: ' . app_path('sign-in.php'));
@@ -91,6 +92,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_quotation'])) {
         ]);
         $current_running += $row_total;
     }
+    $qAfterCreate = Db::row('quotations', (string) $quotation_id);
+    $qLinesCreate = [];
+    foreach (Db::filter('quotation_items', static function (array $r) use ($quotation_id): bool {
+        return isset($r['quotation_id']) && (int) $r['quotation_id'] === $quotation_id;
+    }) as $ql) {
+        if (!is_array($ql)) {
+            continue;
+        }
+        $qLinesCreate[] = $ql;
+        if (count($qLinesCreate) >= 120) {
+            break;
+        }
+    }
+    tnc_audit_log('create', 'quotation', (string) $quotation_id, $new_qt_number !== '' ? $new_qt_number : ('#' . $quotation_id), [
+        'source' => 'quotation-create.php',
+        'action' => 'save_quotation',
+        'after' => $qAfterCreate,
+        'meta' => ['lines' => $qLinesCreate],
+    ]);
     $show_success = true;
 }
 

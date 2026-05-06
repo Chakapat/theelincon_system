@@ -56,10 +56,32 @@ function labor_archive_calc_line(float $daily, float $adv, float $days, float $o
 }
 
 if ($action === 'delete') {
+    require_once __DIR__ . '/../includes/tnc_audit_log.php';
+    tnc_require_post_confirm_password();
     $aid = (int) ($_POST['archive_id'] ?? 0);
     if ($aid > 0) {
+        $archSnap = Db::row('labor_payroll_archive', (string) $aid);
+        $docNo = $archSnap !== null ? trim((string) ($archSnap['doc_number'] ?? '')) : '';
+        $linesDelSnap = [];
+        foreach (Db::filter('labor_payroll_archive_lines', static function (array $r) use ($aid): bool {
+            return isset($r['archive_id']) && (int) $r['archive_id'] === $aid;
+        }) as $ld) {
+            if (!is_array($ld)) {
+                continue;
+            }
+            $linesDelSnap[] = $ld;
+            if (count($linesDelSnap) >= 150) {
+                break;
+            }
+        }
         Db::deleteWhereEquals('labor_payroll_archive_lines', 'archive_id', (string) $aid);
         Db::deleteRow('labor_payroll_archive', (string) $aid);
+        tnc_audit_log('delete', 'labor_payroll_archive', (string) $aid, $docNo !== '' ? $docNo : ('#' . $aid), [
+            'source' => 'labor-payroll-archive-handler',
+            'action' => 'delete',
+            'before' => $archSnap,
+            'meta' => ['lines' => $linesDelSnap],
+        ]);
     }
     labor_archive_redirect($hist, ['deleted' => 1]);
 }
@@ -96,6 +118,19 @@ if (!is_array($linesIn)) {
 }
 
 $periodLenArchive = $endD - $startD + 1;
+
+$linesBeforeArchive = [];
+foreach (Db::filter('labor_payroll_archive_lines', static function (array $r) use ($aid): bool {
+    return isset($r['archive_id']) && (int) $r['archive_id'] === $aid;
+}) as $ln0) {
+    if (!is_array($ln0)) {
+        continue;
+    }
+    $linesBeforeArchive[] = $ln0;
+    if (count($linesBeforeArchive) >= 150) {
+        break;
+    }
+}
 
 try {
     Db::deleteWhereEquals('labor_payroll_archive_lines', 'archive_id', (string) $aid);
@@ -177,5 +212,31 @@ try {
     labor_archive_redirect($hist, ['save_err' => 1, 'edit_open_id' => $aid]);
     exit;
 }
+
+require_once __DIR__ . '/../includes/tnc_audit_log.php';
+$archAfterSave = Db::row('labor_payroll_archive', (string) $aid);
+$linesAfterSave = [];
+foreach (Db::filter('labor_payroll_archive_lines', static function (array $r) use ($aid): bool {
+    return isset($r['archive_id']) && (int) $r['archive_id'] === $aid;
+}) as $ln1) {
+    if (!is_array($ln1)) {
+        continue;
+    }
+    $linesAfterSave[] = $ln1;
+    if (count($linesAfterSave) >= 150) {
+        break;
+    }
+}
+$docNoSv = $archAfterSave !== null ? trim((string) ($archAfterSave['doc_number'] ?? '')) : '';
+tnc_audit_log('update', 'labor_payroll_archive', (string) $aid, $docNoSv !== '' ? $docNoSv : ('#' . $aid), [
+    'source' => 'labor-payroll-archive-handler',
+    'action' => 'save',
+    'before' => $arch,
+    'after' => $archAfterSave,
+    'meta' => [
+        'lines_before' => $linesBeforeArchive,
+        'lines_after' => $linesAfterSave,
+    ],
+]);
 
 labor_archive_redirect($hist, ['saved' => 1, 'open_id' => $aid]);

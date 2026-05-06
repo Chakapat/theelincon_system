@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 session_start();
 require_once dirname(__DIR__, 2) . '/includes/line_notify_runtime.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -104,12 +105,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_line_notify'])) 
         if ($missingNames !== []) {
             $configError = 'missing_line:' . implode('|', $missingNames);
         } else {
+            $lineCfgBefore = Db::row(LINE_NOTIFY_CONFIG_TABLE, LINE_NOTIFY_CONFIG_PK);
             $approverCsv = implode(',', $lineIds);
             Db::mergeRow(LINE_NOTIFY_CONFIG_TABLE, LINE_NOTIFY_CONFIG_PK, [
                 'target_group_id' => $targetGroup === '' ? null : $targetGroup,
                 'approver_user_id' => $approverCsv === '' ? null : $approverCsv,
                 'updated_at' => date('Y-m-d H:i:s'),
                 'updated_by' => (int) $_SESSION['user_id'],
+            ]);
+            $lineCfgAfter = Db::row(LINE_NOTIFY_CONFIG_TABLE, LINE_NOTIFY_CONFIG_PK);
+            tnc_audit_log('update', 'line_notify_config', LINE_NOTIFY_CONFIG_PK, 'ตั้งค่า LINE แจ้งอนุมัติ', [
+                'source' => 'line-notify-config.php',
+                'action' => 'save_line_notify',
+                'before' => is_array($lineCfgBefore) ? $lineCfgBefore : null,
+                'after' => is_array($lineCfgAfter) ? $lineCfgAfter : null,
+                'meta' => [
+                    'approver_internal_user_ids' => $selectedIds,
+                ],
             ]);
             header('Location: ' . app_path('pages/internal/line-notify-config.php') . '?saved=1');
             exit;

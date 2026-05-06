@@ -411,8 +411,8 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
                                     <?php endif; ?>
                                     <a
                                         href="<?= htmlspecialchars(app_path('actions/stock-handler.php')) ?>?action=delete_transaction&id=<?= (int) $m['id'] ?>&site_id=<?= $siteId ?>&_csrf=<?= rawurlencode(csrf_token()) ?>"
-                                        class="btn btn-sm btn-outline-danger"
-                                        onclick="return confirm('ยืนยันการลบรายการนี้?');"
+                                        class="btn btn-sm btn-outline-danger tnc-delete-post"
+                                        title="ลบรายการ (ต้องใส่รหัสผ่าน)"
                                     >ลบ</a>
                                 </td>
                             <?php endif; ?>

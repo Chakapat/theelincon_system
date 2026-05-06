@@ -28,9 +28,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['delete_att
         http_response_code(403);
         exit('Invalid CSRF token');
     }
+    require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
+    tnc_require_post_confirm_password();
     $deleteId = (int) ($_POST['delete_attendance_id'] ?? 0);
     if ($deleteId > 0) {
-        Db::deleteRow('attendance_logs', Db::pkForLogicalId('attendance_logs', $deleteId));
+        $attPk = Db::pkForLogicalId('attendance_logs', $deleteId);
+        $attSnap = Db::row('attendance_logs', $attPk);
+        Db::deleteRow('attendance_logs', $attPk);
+        tnc_audit_log('delete', 'attendance_log', (string) $deleteId, 'รายการ #' . $deleteId, [
+            'source' => 'attendance-list.php',
+            'action' => 'delete_attendance',
+            'before' => $attSnap,
+        ]);
     }
     header('Location: ' . app_path('pages/attendance/attendance-list.php') . '?deleted=1');
     exit;
@@ -145,6 +154,10 @@ foreach ($rows as $row) {
 <div class="container py-4">
     <?php if (!empty($_GET['deleted'])): ?>
         <div class="alert alert-success rounded-3 py-2">ลบรายการลงเวลาเรียบร้อยแล้ว</div>
+    <?php elseif (isset($_GET['error']) && $_GET['error'] === 'confirm_password_required'): ?>
+        <div class="alert alert-warning rounded-3 py-2">กรุณากรอกรหัสผ่านของคุณเพื่อยืนยันการลบ</div>
+    <?php elseif (isset($_GET['error']) && $_GET['error'] === 'confirm_password_invalid'): ?>
+        <div class="alert alert-danger rounded-3 py-2">รหัสผ่านไม่ถูกต้อง</div>
     <?php endif; ?>
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h4 class="fw-bold mb-0"><i class="bi bi-qr-code-scan me-2 text-warning"></i>รายการลงเวลาเข้า/ออกงาน</h4>
@@ -224,9 +237,10 @@ foreach ($rows as $row) {
                                 <td class="pe-3"><?= htmlspecialchars($employeeCodeUpper . ' - ' . ($employeeName !== '' ? $employeeName : '-'), ENT_QUOTES, 'UTF-8') ?></td>
                                 <?php if ($isAdmin): ?>
                                     <td class="pe-3 text-end">
-                                        <form method="post" class="d-inline" onsubmit="return confirm('ยืนยันการลบรายการนี้?');">
+                                        <form method="post" class="d-inline tnc-attendance-delete-form">
                                             <?php csrf_field(); ?>
                                             <input type="hidden" name="delete_attendance_id" value="<?= (int) ($row['id'] ?? 0) ?>">
+                                            <input type="hidden" name="confirm_password" value="" autocomplete="new-password">
                                             <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
                                                 <i class="bi bi-trash3"></i> ลบ
                                             </button>
@@ -264,6 +278,39 @@ foreach ($rows as $row) {
         }).catch(function () {});
     }, 6000);
 })(jQuery);
+</script>
+<script>
+(function () {
+    if (typeof Swal === 'undefined') return;
+    document.querySelectorAll('.tnc-attendance-delete-form').forEach(function (form) {
+        form.addEventListener('submit', function (ev) {
+            ev.preventDefault();
+            Swal.fire({
+                title: 'ยืนยันการลบ?',
+                html: 'กรอก<strong>รหัสผ่านของคุณ</strong>เพื่อยืนยันการลบรายการลงเวลา',
+                icon: 'warning',
+                input: 'password',
+                showCancelButton: true,
+                confirmButtonText: 'ลบ',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonColor: '#dc3545',
+                focusCancel: true,
+                preConfirm: function (pw) {
+                    if (!pw || !String(pw).trim()) {
+                        Swal.showValidationMessage('กรุณากรอกรหัสผ่าน');
+                        return false;
+                    }
+                    return pw;
+                }
+            }).then(function (res) {
+                if (!res.isConfirmed || !res.value) return;
+                var hid = form.querySelector('input[name="confirm_password"]');
+                if (hid) hid.value = res.value;
+                form.submit();
+            });
+        });
+    });
+})();
 </script>
 </body>
 </html>

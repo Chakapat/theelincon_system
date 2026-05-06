@@ -179,18 +179,39 @@ const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | J
 function deleteQuote(id, number) {
     Swal.fire({
         title: 'ยืนยันการลบ?',
-        text: `คุณต้องการลบใบเสนอราคาเลขที่ ${number} ใช่หรือไม่?`,
+        html: `ใบเสนอราคาเลขที่ <strong>${number}</strong><br>กรุณาใส่<strong>รหัสผ่านของคุณ</strong>เพื่อยืนยัน`,
         icon: 'warning',
+        input: 'password',
+        inputPlaceholder: 'รหัสผ่าน',
         showCancelButton: true,
         confirmButtonColor: '#d33',
         cancelButtonColor: '#3085d6',
-        confirmButtonText: 'ใช่, ลบเลย!',
-        cancelButtonText: 'ยกเลิก'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = `${actionHandlerUrl}?action=delete_quotation&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`;
+        confirmButtonText: 'ลบ',
+        cancelButtonText: 'ยกเลิก',
+        focusCancel: true,
+        preConfirm: function (pw) {
+            if (!pw || !String(pw).trim()) {
+                Swal.showValidationMessage('กรุณากรอกรหัสผ่าน');
+                return false;
+            }
+            return pw;
         }
-    })
+    }).then(function (result) {
+        if (!result.isConfirmed || !result.value) return;
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = actionHandlerUrl;
+        form.style.display = 'none';
+        [['action', 'delete_quotation'], ['id', String(id)], ['_csrf', csrfToken], ['confirm_password', result.value]].forEach(function (pair) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = pair[0];
+            inp.value = pair[1];
+            form.appendChild(inp);
+        });
+        document.body.appendChild(form);
+        form.submit();
+    });
 }
 </script>
 <script>

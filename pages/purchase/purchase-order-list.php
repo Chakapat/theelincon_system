@@ -243,7 +243,7 @@ $poCount = count($po_rows);
                                     <i class="bi bi-pencil-square"></i>
                                 </a>
                                 <?php if ($isAdmin): ?>
-                                    <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete&type=purchase_order&id=<?= (int) $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger" title="ลบใบสั่งซื้อ" onclick="return confirm('ยืนยันการลบใบสั่งซื้อ <?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?> ?');">
+                                    <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete&type=purchase_order&id=<?= (int) $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger tnc-delete-post" title="ลบใบสั่งซื้อ (ต้องใส่รหัสผ่าน)">
                                         <i class="bi bi-trash3-fill"></i>
                                     </a>
                                 <?php endif; ?>

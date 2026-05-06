@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/tnc_action_response.php';
+require_once __DIR__ . '/../includes/tnc_audit_log.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('HTTP/1.1 401 Unauthorized');
@@ -126,6 +127,13 @@ if ($action === 'save_product' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
             'unit' => $unit,
             'reorder_level' => $rv,
         ]);
+        $afterP = Db::row('stock_products', (string) $id);
+        tnc_audit_log('update', 'stock_product', (string) $id, trim($code . ' ' . $name), [
+            'source' => 'stock-handler',
+            'action' => 'save_product',
+            'before' => $cur,
+            'after' => $afterP,
+        ]);
         stock_redirect('pages/stock/stock-list.php?success=updated');
     }
 
@@ -143,6 +151,8 @@ if ($action === 'save_product' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
         'reorder_level' => $rv,
         'is_active' => 1,
     ]);
+    $afterNew = Db::row('stock_products', (string) $newId);
+    $openMv = null;
 
     if ($openingVal !== null && $openingVal > 0) {
         $qty = round($openingVal, 3);
@@ -157,7 +167,18 @@ if ($action === 'save_product' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
             'created_by' => $me,
             'created_at' => date('Y-m-d H:i:s'),
         ]);
+        $openMv = Db::row('stock_movements', (string) $mid);
     }
+
+    $detailNewProd = [
+        'source' => 'stock-handler',
+        'action' => 'save_product',
+        'after' => $afterNew,
+    ];
+    if ($openMv !== null) {
+        $detailNewProd['meta'] = ['opening_movement' => $openMv];
+    }
+    tnc_audit_log('create', 'stock_product', (string) $newId, trim($code . ' ' . $name), $detailNewProd);
 
     stock_redirect('pages/stock/stock-list.php?success=1');
 }
@@ -213,6 +234,12 @@ if ($action === 'add_movement' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
         'note' => $noteEsc,
         'created_by' => $me,
         'created_at' => date('Y-m-d H:i:s'),
+    ]);
+    $mv = Db::row('stock_movements', (string) $mid);
+    tnc_audit_log('create', 'stock_movement', (string) $mid, trim(($prod['code'] ?? '') . ' ' . $type . ' ' . (string) $delta), [
+        'source' => 'stock-handler',
+        'action' => 'add_movement',
+        'after' => $mv,
     ]);
 
     stock_redirect('pages/stock/stock-movements.php?product_id=' . $productId . '&success=1');
@@ -286,6 +313,12 @@ if ($action === 'save_transaction' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         'created_by' => $me,
         'created_at' => stock_combine_datetime($txnDate),
     ]);
+    $mv2 = Db::row('stock_movements', (string) $mid);
+    tnc_audit_log('create', 'stock_movement', (string) $mid, trim(stock_site_name($siteId) . ' — ' . ($prod['code'] ?? '') . ' ' . $movementType), [
+        'source' => 'stock-handler',
+        'action' => 'save_transaction',
+        'after' => $mv2,
+    ]);
 
     stock_redirect('pages/stock/stock-list.php?site_id=' . $siteId . '&saved=1');
 }
@@ -354,6 +387,17 @@ if ($action === 'save_site_transfer' && ($_SERVER['REQUEST_METHOD'] ?? '') === '
         'created_by' => $me,
         'created_at' => $createdAt,
     ]);
+    $outMv = Db::row('stock_movements', (string) $outId);
+    $inMv = Db::row('stock_movements', (string) $inId);
+    tnc_audit_log('create', 'stock_transfer', $transferRef, trim(($prod['code'] ?? '') . ' โอน ' . $qtyAbs . ' ' . $fromName . '→' . $toName), [
+        'source' => 'stock-handler',
+        'action' => 'save_site_transfer',
+        'meta' => [
+            'transfer_ref' => $transferRef,
+            'out_movement' => $outMv,
+            'in_movement' => $inMv,
+        ],
+    ]);
 
     stock_redirect('pages/stock/stock-list.php?site_id=' . $toSite . '&saved=1');
 }
@@ -381,6 +425,7 @@ if ($action === 'update_transaction' && ($_SERVER['REQUEST_METHOD'] ?? '') === '
     if ($row === null) {
         stock_redirect('pages/stock/stock-list.php?site_id=' . $siteId . '&error=notfound');
     }
+    $rowBeforeEdit = $row;
 
     $transferRef = trim((string) ($row['transfer_ref'] ?? ''));
     if ($transferRef !== '') {
@@ -418,6 +463,13 @@ if ($action === 'update_transaction' && ($_SERVER['REQUEST_METHOD'] ?? '') === '
         'note' => $finalNote,
         'created_at' => stock_combine_datetime($txnDate),
     ]));
+    $rowAfterEdit = Db::row('stock_movements', $pk);
+    tnc_audit_log('update', 'stock_movement', (string) $id, 'แก้ไขรายการเคลื่อนไหว #' . $id, [
+        'source' => 'stock-handler',
+        'action' => 'update_transaction',
+        'before' => $rowBeforeEdit,
+        'after' => $rowAfterEdit,
+    ]);
 
     stock_redirect('pages/stock/stock-list.php?site_id=' . $siteId . '&updated=1');
 }
@@ -426,8 +478,9 @@ if ($action === 'delete_transaction' && $canManage) {
     if (!csrf_verify_request()) {
         stock_redirect('pages/stock/stock-list.php?error=forbidden');
     }
-    $id = (int) ($_GET['id'] ?? 0);
-    $siteId = (int) ($_GET['site_id'] ?? 0);
+    tnc_require_post_confirm_password();
+    $id = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
+    $siteId = (int) ($_POST['site_id'] ?? $_GET['site_id'] ?? 0);
     if ($id <= 0) {
         stock_redirect('pages/stock/stock-list.php?site_id=' . $siteId);
     }
@@ -439,6 +492,7 @@ if ($action === 'delete_transaction' && $canManage) {
     }
 
     $transferRef = trim((string) ($row['transfer_ref'] ?? ''));
+    $nestedDelM = [];
     if ($transferRef !== '') {
         foreach (Db::tableRows('stock_movements') as $m) {
             if (trim((string) ($m['transfer_ref'] ?? '')) !== $transferRef) {
@@ -449,11 +503,23 @@ if ($action === 'delete_transaction' && $canManage) {
                 continue;
             }
             $mpk = Db::pkForLogicalId('stock_movements', $mid);
+            $nestedDelM[] = ['verb' => 'delete', 'entity_type' => 'stock_movement', 'entity_id' => (string) $mid, 'snapshot' => $m];
             Db::deleteRow('stock_movements', $mpk);
         }
     } else {
+        $nestedDelM[] = ['verb' => 'delete', 'entity_type' => 'stock_movement', 'entity_id' => (string) $id, 'snapshot' => $row];
         Db::deleteRow('stock_movements', $pk);
     }
+
+    $prodId = (int) ($row['product_id'] ?? 0);
+    $prodRow = $prodId > 0 ? Db::row('stock_products', (string) $prodId) : null;
+    $prodLabel = $prodRow !== null ? trim((string) (($prodRow['code'] ?? '') . ' ' . ($prodRow['name'] ?? ''))) : '';
+    tnc_audit_log('delete', 'stock_movement', (string) $id, trim('ไซต์ ' . stock_site_name($siteId) . ' — ' . $prodLabel), [
+        'source' => 'stock-handler',
+        'action' => 'delete_transaction',
+        'before' => $row,
+        'nested' => $nestedDelM,
+    ]);
 
     stock_redirect('pages/stock/stock-list.php?site_id=' . $siteId . '&deleted=1');
 }
@@ -461,7 +527,15 @@ if ($action === 'delete_transaction' && $canManage) {
 if ($action === 'deactivate' && $canManage) {
     $id = (int) ($_GET['id'] ?? 0);
     if ($id > 0) {
+        $pDe = Db::row('stock_products', (string) $id);
         Db::mergeRow('stock_products', (string) $id, ['is_active' => 0]);
+        $pAf = Db::row('stock_products', (string) $id);
+        tnc_audit_log('update', 'stock_product', (string) $id, 'ปิดใช้งานสินค้า', [
+            'source' => 'stock-handler',
+            'action' => 'deactivate',
+            'before' => $pDe,
+            'after' => $pAf,
+        ]);
     }
     stock_redirect('pages/stock/stock-list.php?deactivated=1');
 }

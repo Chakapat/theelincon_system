@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -318,9 +319,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($isCreateSubmit || $isUpdateSubmit
 
             try {
                 $isUpdate = $exists !== null && $isUpdateSubmit;
+                $beforeTaxSnap = null;
+                $beforeTaxItems = [];
                 if ($isUpdate) {
                     $tid = (int) ($exists['id'] ?? 0);
                     $tpk = Db::pkForLogicalId('tax_invoices', $tid);
+                    $beforeTaxSnap = Db::row('tax_invoices', $tpk);
+                    foreach (Db::filter('tax_invoice_items', static function (array $r) use ($tid): bool {
+                        return isset($r['tax_invoice_id']) && (int) $r['tax_invoice_id'] === $tid;
+                    }) as $tiRow) {
+                        if (!is_array($tiRow)) {
+                            continue;
+                        }
+                        $beforeTaxItems[] = $tiRow;
+                        if (count($beforeTaxItems) >= 120) {
+                            break;
+                        }
+                    }
                     $curTax = Db::row('tax_invoices', $tpk) ?? [];
                     Db::setRow('tax_invoices', $tpk, array_merge($curTax, [
                         'id' => $tid,
@@ -368,6 +383,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($isCreateSubmit || $isUpdateSubmit
                         'total' => $itemRow['total'],
                     ]);
                 }
+
+                $tpkFinal = Db::pkForLogicalId('tax_invoices', $tid);
+                $afterTax = Db::row('tax_invoices', $tpkFinal);
+                $afterTaxItems = [];
+                foreach (Db::filter('tax_invoice_items', static function (array $r) use ($tid): bool {
+                    return isset($r['tax_invoice_id']) && (int) $r['tax_invoice_id'] === $tid;
+                }) as $tiRow2) {
+                    if (!is_array($tiRow2)) {
+                        continue;
+                    }
+                    $afterTaxItems[] = $tiRow2;
+                    if (count($afterTaxItems) >= 120) {
+                        break;
+                    }
+                }
+                $taxNoLabel = $afterTax !== null ? trim((string) ($afterTax['tax_invoice_number'] ?? '')) : '';
+                tnc_audit_log(
+                    $isUpdate ? 'update' : 'create',
+                    'tax_invoice',
+                    (string) $tid,
+                    $taxNoLabel !== '' ? $taxNoLabel : ('#' . $tid),
+                    [
+                        'source' => 'tax-invoice-receipt.php',
+                        'action' => $isUpdate ? 'save_tax_invoice' : 'create_tax_invoice',
+                        'before' => $beforeTaxSnap,
+                        'after' => $afterTax,
+                        'meta' => [
+                            'invoice_id' => $targetId,
+                            'lines_before' => $beforeTaxItems,
+                            'lines_after' => $afterTaxItems,
+                        ],
+                    ]
+                );
             } catch (Throwable $e) {
                 $error = 'บันทึก Tax INV ลง Firebase ไม่สำเร็จ: ' . $e->getMessage();
             }

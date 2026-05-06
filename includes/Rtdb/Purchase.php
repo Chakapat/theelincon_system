@@ -6,6 +6,15 @@ namespace Theelincon\Rtdb;
 
 final class Purchase
 {
+    private static function tncAuditEnsure(): void
+    {
+        static $loaded = false;
+        if (!$loaded) {
+            require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
+            $loaded = true;
+        }
+    }
+
     public static function generatePONumber(): string
     {
         $prefix = 'PO-TNC-' . date('ym') . '-';
@@ -117,6 +126,14 @@ final class Purchase
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
+        self::tncAuditEnsure();
+        $hcRow = Db::row('hire_contracts', (string) $contractId);
+        $prNoHc = (string) ($pr['pr_number'] ?? '');
+        tnc_audit_log('create', 'hire_contract', (string) $contractId, $prNoHc !== '' ? ($prNoHc . ' (จาก PR)') : ('PR#' . $prId), [
+            'source' => 'Purchase::createHireContractIfNeededForPr',
+            'after' => $hcRow,
+            'meta' => ['pr_id' => $prId],
+        ]);
     }
 
     public static function seedPoPayments(int $poId, float $totalAmount, ?int $hireContractId = null): void
@@ -150,6 +167,14 @@ final class Purchase
             'status' => 'unpaid',
             'slip_path' => '',
             'created_at' => date('Y-m-d H:i:s'),
+        ]);
+        self::tncAuditEnsure();
+        $payRowSnap = Db::row('po_payments', (string) $payId);
+        $poNoSeed = (string) ($po['po_number'] ?? '');
+        tnc_audit_log('create', 'po_payment', (string) $payId, $poNoSeed !== '' ? ($poNoSeed . ' งวดชำระ') : ('PO#' . $poId . ' งวดชำระ'), [
+            'source' => 'Purchase::seedPoPayments',
+            'after' => $payRowSnap,
+            'meta' => ['po_id' => $poId],
         ]);
 
         if ($hireContractId === null || $hireContractId <= 0) {
@@ -195,11 +220,34 @@ final class Purchase
             $remaining = 0.0;
         }
 
+        $hireBeforeUp = $hire;
         Db::mergeRow('hire_contracts', (string) $hireContractId, [
             'paid_amount' => round($paidAmount, 2),
             'paid_installments' => $paidInstallments,
             'remaining_amount' => $remaining,
             'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+        $hireAfterUp = Db::row('hire_contracts', (string) $hireContractId);
+        $hcpSnap = Db::row('hire_contract_payments', (string) $hirePayId);
+        tnc_audit_log('create', 'hire_contract_payment', (string) $hirePayId, $poNoSeed !== '' ? ('งวดสัญญา ' . $poNoSeed) : ('สัญญาจ้าง #' . $hireContractId), [
+            'source' => 'Purchase::seedPoPayments',
+            'after' => $hcpSnap,
+            'meta' => [
+                'hire_contract_id' => $hireContractId,
+                'po_id' => $poId,
+                'po_payment_id' => $payId,
+            ],
+        ]);
+        $hcDoc = trim((string) ($hireAfterUp['pr_number'] ?? ''));
+        tnc_audit_log('update', 'hire_contract', (string) $hireContractId, $hcDoc !== '' ? $hcDoc : ('#' . $hireContractId), [
+            'source' => 'Purchase::seedPoPayments',
+            'action' => 'hire_contract_payment_totals',
+            'before' => $hireBeforeUp,
+            'after' => $hireAfterUp,
+            'meta' => [
+                'po_id' => $poId,
+                'hire_contract_payment_id' => $hirePayId,
+            ],
         ]);
     }
 }

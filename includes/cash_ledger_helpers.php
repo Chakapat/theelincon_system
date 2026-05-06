@@ -161,5 +161,18 @@ function cash_ledger_auto_archive_monthly_if_due(): bool
         ]);
     }
 
+    require_once __DIR__ . '/tnc_audit_log.php';
+    $monthlyArchRow = \Theelincon\Rtdb\Db::row('cash_ledger_monthly_archives', $archiveMonth);
+    tnc_audit_log('create', 'cash_ledger_monthly_archive', $archiveMonth, 'สรุปสมุดเงินสดเดือน ' . $archiveMonth, [
+        'source' => 'cash_ledger_helpers.php',
+        'action' => 'cash_ledger_auto_archive_monthly_if_due',
+        'after' => is_array($monthlyArchRow) ? $monthlyArchRow : null,
+        'meta' => [
+            'period_start' => $periodStart,
+            'period_end' => $periodEnd,
+            'site_breakdown_preview' => array_slice($siteRows, 0, 40),
+        ],
+    ]);
+
     return true;
 }

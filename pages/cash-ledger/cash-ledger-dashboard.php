@@ -366,7 +366,7 @@ $net = $sumIncome - $sumExpense;
                                             <a href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php') . '?' . http_build_query(['month' => $month, 'page' => $page, 'edit' => $lid]), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-warning" title="แก้ไข">
                                                 <i class="bi bi-pencil-square"></i>
                                             </a>
-                                            <a href="<?= htmlspecialchars($cashHandlerUrl . '?action=delete&redirect_to=dashboard&id=' . $lid . '&month=' . urlencode($month) . $csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger" title="ลบ" onclick="return confirm('ยืนยันการลบรายการนี้ ?');">
+                                            <a href="<?= htmlspecialchars($cashHandlerUrl . '?action=delete&redirect_to=dashboard&id=' . $lid . '&month=' . urlencode($month) . $csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger tnc-delete-post" title="ลบ (ต้องใส่รหัสผ่าน)">
                                                 <i class="bi bi-trash-fill"></i>
                                             </a>
                                         <?php else: ?>
