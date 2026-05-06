@@ -465,7 +465,7 @@ $index_hub_start_all_collapsed = true;
                         <th class="ps-4 py-3">วันที่</th>
                         <th class="py-3">เลขที่ใบแจ้งหนี้</th>
                         <th class="py-3">ลูกค้า</th>
-                        <th class="py-3">ยอดเงิน</th>
+                        <th class="py-3">ยอดสุทธิ</th>
                         <th class="text-end pe-4 py-3">จัดการ</th>
                     </tr>
                 </thead>
@@ -488,7 +488,7 @@ $index_hub_start_all_collapsed = true;
                 <div class="modal-header py-2 px-3 bg-dark text-white align-items-center flex-wrap gap-2">
                     <h6 class="modal-title fw-semibold mb-0 me-auto" id="tncInvoiceModalTitle">ใบแจ้งหนี้</h6>
                     <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                        <button type="button" class="btn btn-warning btn-sm fw-bold text-nowrap" id="tncInvoiceModalPrint" title="พิมพ์ตามหน้าจอ (ต้นฉบับและสำเนา)">พิมพ์ ต้นฉบับ + สำเนา</button>
+                        <button type="button" class="btn btn-warning btn-sm fw-bold text-nowrap" id="tncInvoiceModalPrint" title="พิมพ์ตามหน้าจอ (ต้นฉบับและสำเนา)">พิมพ์เอกสาร</button>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="ปิด"></button>
                     </div>
                 </div>

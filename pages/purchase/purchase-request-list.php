@@ -133,7 +133,6 @@ Db::sortRows($pr_rows, 'created_at', true);
                         <th class="text-center">ประเภท</th>
                         <th class="text-end">ยอดรวมสุทธิ</th>
                         <th class="text-center">สถานะ</th>
-                        <th>ผู้ออก/บันทึก</th>
                         <th class="text-center">การจัดการ</th>
                     </tr>
                 </thead>
@@ -141,7 +140,13 @@ Db::sortRows($pr_rows, 'created_at', true);
                     <?php if (count($pr_rows) > 0): ?>
                         <?php foreach ($pr_rows as $row): ?>
                         <tr>
-                            <td class="fw-bold text-primary"><?= $row['pr_number'] ?></td>
+                            <td>
+                                <div class="fw-bold text-primary"><?= htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                                <div class="small text-muted"><?php
+                                    $cr = trim(($row['creator_fname'] ?? '') . ' ' . ($row['creator_lname'] ?? ''));
+                                    echo $cr !== '' ? htmlspecialchars($cr) : '—';
+                                ?></div>
+                            </td>
                             <td><?= date('d/m/Y', strtotime($row['created_at'])) ?></td>
                             <td><?= htmlspecialchars($companyName !== '' ? $companyName : '-', ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="text-center">
@@ -164,10 +169,6 @@ Db::sortRows($pr_rows, 'created_at', true);
                                     <span class="badge bg-danger px-3 rounded-pill">REJECTED</span>
                                 <?php endif; ?>
                             </td>
-                            <td class="small"><?php
-                                $cr = trim(($row['creator_fname'] ?? '') . ' ' . ($row['creator_lname'] ?? ''));
-                                echo $cr !== '' ? htmlspecialchars($cr) : '<span class="text-muted">—</span>';
-                            ?></td>
                             <td class="text-center">
                                 <div class="btn-group shadow-sm rounded">
                                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $row['id'] ?>" class="btn btn-sm btn-white text-primary border" title="ดูรายละเอียด">
@@ -202,7 +203,7 @@ Db::sortRows($pr_rows, 'created_at', true);
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">ไม่พบข้อมูลใบขอซื้อ</td>
+                            <td colspan="7" class="text-center py-4 text-muted">ไม่พบข้อมูลใบขอซื้อ</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>

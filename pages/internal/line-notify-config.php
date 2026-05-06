@@ -210,7 +210,6 @@ foreach ($userRows as $u) {
 
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body">
-            <h6 class="fw-semibold mb-3 text-muted">ค่าที่ใช้งานจริง</h6>
             <dl class="row small mb-0">
                 <dt class="col-sm-4 text-muted">กลุ่มปลายทาง</dt>
                 <dd class="col-sm-8 font-monospace text-break"><?= htmlspecialchars($effectiveGroup !== '' ? $effectiveGroup : '(ว่าง)', ENT_QUOTES, 'UTF-8') ?></dd>
@@ -242,11 +241,10 @@ foreach ($userRows as $u) {
                 <input type="hidden" name="save_line_notify" value="1">
 
                 <div class="mb-3">
-                    <label class="form-label fw-semibold" for="target_group_id">LINE Target Group ID</label>
+                    <label class="form-label fw-semibold" for="target_group_id">LINE Target Group Token</label>
                     <input type="text" class="form-control font-monospace" id="target_group_id" name="target_group_id"
                            value="<?= htmlspecialchars($formGroup, ENT_QUOTES, 'UTF-8') ?>"
                            autocomplete="off" placeholder="กลุ่มรับข้อความ (ถ้ามี)">
-                    <div class="form-text">รหัสกลุ่ม LINE ไม่ได้เก็บในข้อมูลสมาชิก — กรอกตรงนี้ตามเดิม</div>
                 </div>
 
                 <div class="mb-4">

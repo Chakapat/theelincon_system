@@ -124,7 +124,6 @@ $total_quotes = count($list_rows);
                         <th class="py-3">เลขที่ใบเสนอราคา</th>
                         <th class="py-3">วันที่</th>
                         <th class="py-3">ลูกค้า</th>
-                        <th class="py-3">ผู้ออกใบ</th>
                         <th class="py-3 text-end">จำนวนเงินสุทธิ</th>
                         <th class="py-3 text-center">สถานะ</th>
                         <th class="py-3 text-center">จัดการ</th>
@@ -134,10 +133,12 @@ $total_quotes = count($list_rows);
                     <?php if (count($list_rows) > 0): ?>
                         <?php foreach ($list_rows as $row): ?>
                         <tr>
-                            <td class="fw-bold text-primary"><?= $row['quote_number']; ?></td>
+                            <td>
+                                <div class="fw-bold text-primary"><?= htmlspecialchars((string) ($row['quote_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+                                <div class="small text-muted"><?php $cb = trim((string)($row['created_by_name'] ?? '')); echo $cb !== '' ? htmlspecialchars($cb) : '—'; ?></div>
+                            </td>
                             <td><?= date('d/m/Y', strtotime($row['date'])); ?></td>
                             <td><?= htmlspecialchars($row['customer_name'] ?? 'ไม่ระบุ'); ?></td>
-                            <td class="small"><?php $cb = trim((string)($row['created_by_name'] ?? '')); echo $cb !== '' ? htmlspecialchars($cb) : '<span class="text-muted">—</span>'; ?></td>
                             <td class="text-end fw-bold text-dark">
                                 <?= number_format($row['grand_total'], 2); ?>
                             </td>
@@ -161,7 +162,7 @@ $total_quotes = count($list_rows);
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">ยังไม่มีข้อมูลใบเสนอราคาในระบบ</td>
+                            <td colspan="6" class="text-center py-5 text-muted">ยังไม่มีข้อมูลใบเสนอราคาในระบบ</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
