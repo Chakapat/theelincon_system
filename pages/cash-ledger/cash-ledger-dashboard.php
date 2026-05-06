@@ -204,7 +204,7 @@ $net = $sumIncome - $sumExpense;
 <div class="container pb-5">
     <div class="no-print d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h4 class="fw-bold mb-1"><i class="bi bi-speedometer2 text-warning me-2"></i>สรุปรายรับ — รายจ่าย</h4>
+            <h4 class="fw-bold mb-1"><i class="bi bi-speedometer2 text-warning me-2"></i>รายการบันทึกสดย่อย (Petty Cash Ledger)</h4>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <button type="button" class="btn btn-dark rounded-pill px-3" onclick="window.print()">
@@ -366,7 +366,7 @@ $net = $sumIncome - $sumExpense;
                                             <a href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php') . '?' . http_build_query(['month' => $month, 'page' => $page, 'edit' => $lid]), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-warning" title="แก้ไข">
                                                 <i class="bi bi-pencil-square"></i>
                                             </a>
-                                            <a href="<?= htmlspecialchars($cashHandlerUrl . '?action=delete&redirect_to=dashboard&id=' . $lid . '&month=' . urlencode($month) . $csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger" title="ลบ" onclick="return confirm('ยืนยันการลบรายการนี้ ?');">
+                                            <a href="<?= htmlspecialchars($cashHandlerUrl . '?action=delete&redirect_to=dashboard&id=' . $lid . '&month=' . urlencode($month) . $csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger tnc-delete-post" title="ลบ (ต้องใส่รหัสผ่าน)">
                                                 <i class="bi bi-trash-fill"></i>
                                             </a>
                                         <?php else: ?>

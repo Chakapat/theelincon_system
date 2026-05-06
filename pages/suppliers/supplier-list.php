@@ -92,15 +92,36 @@ function deleteSup(id) {
     Swal.fire({
         icon: 'warning',
         title: 'ยืนยันการลบ',
-        text: 'คุณแน่ใจว่าต้องการลบรายชื่อผู้ขายนี้?',
+        html: 'ลบผู้ขายรายนี้ถาวร — กรุณาใส่<strong>รหัสผ่านของคุณ</strong>',
+        input: 'password',
+        inputPlaceholder: 'รหัสผ่าน',
         showCancelButton: true,
         confirmButtonText: 'ยืนยัน',
         cancelButtonText: 'ยกเลิก',
-        confirmButtonColor: '#d33'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = actionHandlerUrl + '?action=delete_supplier&id=' + id + '&_csrf=' + encodeURIComponent(csrfToken);
+        confirmButtonColor: '#d33',
+        focusCancel: true,
+        preConfirm: function (pw) {
+            if (!pw || !String(pw).trim()) {
+                Swal.showValidationMessage('กรุณากรอกรหัสผ่าน');
+                return false;
+            }
+            return pw;
         }
+    }).then(function (result) {
+        if (!result.isConfirmed || !result.value) return;
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = actionHandlerUrl;
+        form.style.display = 'none';
+        [['action', 'delete_supplier'], ['id', String(id)], ['_csrf', csrfToken], ['confirm_password', result.value]].forEach(function (pair) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = pair[0];
+            inp.value = pair[1];
+            form.appendChild(inp);
+        });
+        document.body.appendChild(form);
+        form.submit();
     });
 }
 </script>

@@ -37,8 +37,11 @@ unset($itemList);
 $need_rows = Db::tableRows('purchase_needs');
 foreach ($need_rows as &$needRow) {
     $rb = $users[(string) ($needRow['requested_by'] ?? '')] ?? null;
+    $cb = $users[(string) ($needRow['created_by'] ?? '')] ?? null;
     $needRow['fname'] = $rb['fname'] ?? '';
     $needRow['lname'] = $rb['lname'] ?? '';
+    $needRow['creator_fname'] = $cb['fname'] ?? '';
+    $needRow['creator_lname'] = $cb['lname'] ?? '';
 }
 unset($needRow);
 Db::sortRows($need_rows, 'created_at', true);
@@ -169,7 +172,13 @@ $printPageBase = app_path('pages/purchase/purchase-need-print.php');
                             $remarks = trim((string) ($row['remarks'] ?? ''));
                             ?>
                             <tr>
-                                <td class="fw-bold text-primary"><?= htmlspecialchars((string) ($row['need_number'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td>
+                                    <div class="fw-bold text-primary"><?= htmlspecialchars((string) ($row['need_number'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
+                                    <div class="small text-muted"><?php
+                                        $cr = trim((string) (($row['creator_fname'] ?? '') . ' ' . ($row['creator_lname'] ?? '')));
+                                        echo $cr !== '' ? htmlspecialchars($cr, ENT_QUOTES, 'UTF-8') : '—';
+                                    ?></div>
+                                </td>
                                 <td><?= htmlspecialchars(date('d/m/Y', strtotime((string) ($row['created_at'] ?? date('Y-m-d')))), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= htmlspecialchars(trim(($row['fname'] ?? '') . ' ' . ($row['lname'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td class="small">
@@ -224,7 +233,7 @@ $printPageBase = app_path('pages/purchase/purchase-need-print.php');
                                             <i class="bi bi-printer-fill"></i>
                                         </button>
                                         <?php if (user_is_admin_role()): ?>
-                                            <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete_purchase_need&id=<?= $needId ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-white text-secondary border shadow-sm" onclick="return confirm('ยืนยันการลบข้อมูลถาวร?')" title="ลบ">
+                                            <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete_purchase_need&id=<?= $needId ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-white text-secondary border shadow-sm tnc-delete-post" title="ลบ (ต้องใส่รหัสผ่าน)">
                                                 <i class="bi bi-trash3-fill text-danger"></i>
                                             </a>
                                         <?php endif; ?>

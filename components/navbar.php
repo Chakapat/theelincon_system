@@ -47,23 +47,23 @@ if (!function_exists('app_path')) {
         .navbar-hub .nav-hub-block { width: 100%; }
     }
 </style>
-<nav class="navbar navbar-expand-lg navbar-dark shadow-sm mb-3 mb-md-4" style="background-color: #fd7e14;">
-    <div class="container">
-        <a class="navbar-brand fw-bold d-flex align-items-center gap-2 flex-shrink-0" href="<?= htmlspecialchars(app_path('index.php')) ?>">
-            <i class="bi bi-receipt-cutoff"></i>
+<nav class="navbar navbar-expand-lg navbar-dark shadow-sm py-2 mb-3 mb-md-3 tnc-navbar-compact" style="background-color: #fd7e14; min-height: 3.25rem;">
+    <div class="container py-0">
+        <a class="navbar-brand fw-bold d-flex align-items-center gap-2 flex-shrink-0 py-1 fs-6" href="<?= htmlspecialchars(app_path('index.php')) ?>">
+            <i class="bi bi-receipt-cutoff fs-5"></i>
             <span class="d-none d-sm-inline">THEELIN CON CO.,LTD.</span>
             <span class="d-inline d-sm-none">TNC</span>
         </a>
 
-        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="เมนู">
-            <span class="navbar-toggler-icon"></span>
+        <button class="navbar-toggler border-0 py-1 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="เมนู">
+            <span class="navbar-toggler-icon" style="width: 1.25rem; height: 1.25rem;"></span>
         </button>
 
         <div class="collapse navbar-collapse" id="navbarNav">
             <?php if (isset($_SESSION['user_id'])): ?>
-            <ul class="navbar-nav ms-auto navbar-hub flex-wrap align-items-lg-center py-2 py-lg-0">
+            <ul class="navbar-nav ms-auto navbar-hub flex-wrap align-items-lg-center py-1 py-lg-0">
                 <li class="nav-item dropdown nav-hub-block">
-                    <a class="nav-link dropdown-toggle text-white fw-semibold px-2 px-lg-3 py-2" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
+                    <a class="nav-link dropdown-toggle text-white fw-semibold px-2 px-lg-3 py-1 py-lg-2" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
                         <span class="nav-hub-toggle-inner text-start">
                             <i class="bi bi-person-circle nav-hub-ico flex-shrink-0" aria-hidden="true"></i>
                             <span class="nav-hub-label">
@@ -74,6 +74,11 @@ if (!function_exists('app_path')) {
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="min-width: 13rem;" aria-labelledby="userDropdown">
                         <?php if (user_is_admin_role()): ?>
+                        <li>
+                            <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/internal/audit-log.php'), ENT_QUOTES, 'UTF-8') ?>">
+                                <i class="bi bi-clock-history me-2 text-primary"></i>Audit Log
+                            </a>
+                        </li>
                         <li>
                             <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/internal/line-notify-config.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <i class="bi bi-bell-fill me-2 text-success"></i>ตั้งค่า LINE แจ้งเตือน
@@ -100,6 +105,9 @@ if (!function_exists('app_path')) {
     </div>
 </nav>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<?php if (isset($_SESSION['user_id'])): ?>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-delete-confirm.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
+<?php endif; ?>
 <script>
 (function () {
     const path = (window.location.pathname || '').toLowerCase();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/line_notify_runtime.php';
+require_once __DIR__ . '/../includes/tnc_audit_log.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -163,12 +164,25 @@ if (is_array($events)) {
 
                     if ($ok) {
                         $nextStatus = $pbDecision === 'approve' ? 'approved' : 'rejected';
+                        $prBefore = Db::row('purchase_requests', (string) $pbId);
                         Db::mergeRow('purchase_requests', (string) $pbId, [
                             'status' => $nextStatus,
                             'line_decision' => $pbDecision,
                             'line_decided_at' => date('Y-m-d H:i:s'),
                             'line_decided_by_line_user_id' => $userId,
                             'line_approval_token' => '',
+                        ]);
+                        $prAfter = Db::row('purchase_requests', (string) $pbId);
+                        $prNoW = $prAfter !== null ? trim((string) ($prAfter['pr_number'] ?? '')) : '';
+                        tnc_audit_log('update', 'purchase_request', (string) $pbId, $prNoW !== '' ? $prNoW : ('PR #' . $pbId), [
+                            'source' => 'line-webhook',
+                            'action' => 'line_pr_decision_postback',
+                            'before' => $prBefore,
+                            'after' => $prAfter,
+                            'meta' => [
+                                'decision' => $pbDecision,
+                                'line_user_id' => $userId,
+                            ],
                         ]);
                         line_reply_text($channelToken, $replyToken, 'บันทึกผลเรียบร้อย: ' . strtoupper($nextStatus));
                     } else {
@@ -197,6 +211,7 @@ if (is_array($events)) {
                         $nextStatus = $pbDecision === 'approve' ? 'approved' : 'rejected';
                         $qpk = Db::pkForLogicalId('quotations', $pbId);
                         $cur = Db::row('quotations', $qpk) ?? [];
+                        $quoteBefore = $cur;
                         Db::setRow('quotations', $qpk, array_merge($cur, [
                             'status' => $nextStatus,
                             'line_decision' => $pbDecision,
@@ -204,6 +219,18 @@ if (is_array($events)) {
                             'line_decided_by_line_user_id' => $userId,
                             'line_approval_token' => '',
                         ]));
+                        $quoteAfter = Db::row('quotations', $qpk);
+                        $qNoW = $quoteAfter !== null ? trim((string) ($quoteAfter['quote_number'] ?? '')) : '';
+                        tnc_audit_log('update', 'quotation', (string) $pbId, $qNoW !== '' ? $qNoW : ('QT #' . $pbId), [
+                            'source' => 'line-webhook',
+                            'action' => 'line_quote_decision_postback',
+                            'before' => $quoteBefore,
+                            'after' => $quoteAfter,
+                            'meta' => [
+                                'decision' => $pbDecision,
+                                'line_user_id' => $userId,
+                            ],
+                        ]);
                         line_reply_text($channelToken, $replyToken, 'บันทึกผลใบเสนอราคาเรียบร้อย: ' . strtoupper($nextStatus));
                     } else {
                         line_reply_text($channelToken, $replyToken, 'ไม่สามารถดำเนินการได้ (ลิงก์หมดอายุหรือมีการตัดสินใจไปแล้ว)');
@@ -229,12 +256,25 @@ if (is_array($events)) {
 
                     if ($ok) {
                         $nextStatus = $pbDecision === 'approve' ? 'approved' : 'rejected';
+                        $needBefore = Db::row('purchase_needs', (string) $pbId);
                         Db::mergeRow('purchase_needs', (string) $pbId, [
                             'status' => $nextStatus,
                             'line_decision' => $pbDecision,
                             'line_decided_at' => date('Y-m-d H:i:s'),
                             'line_decided_by_line_user_id' => $userId,
                             'line_approval_token' => '',
+                        ]);
+                        $needAfter = Db::row('purchase_needs', (string) $pbId);
+                        $needNoW = $needAfter !== null ? trim((string) ($needAfter['need_number'] ?? '')) : '';
+                        tnc_audit_log('update', 'purchase_need', (string) $pbId, $needNoW !== '' ? $needNoW : ('Need #' . $pbId), [
+                            'source' => 'line-webhook',
+                            'action' => 'line_need_decision_postback',
+                            'before' => $needBefore,
+                            'after' => $needAfter,
+                            'meta' => [
+                                'decision' => $pbDecision,
+                                'line_user_id' => $userId,
+                            ],
                         ]);
                         line_reply_text($channelToken, $replyToken, 'บันทึกผลใบต้องการซื้อเรียบร้อย: ' . strtoupper($nextStatus));
                     } else {

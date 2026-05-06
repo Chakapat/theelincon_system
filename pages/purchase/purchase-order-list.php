@@ -117,14 +117,23 @@ $poCount = count($po_rows);
     <?php endif; ?>
 
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold"><i class="bi bi-file-earmark-check-fill text-primary"></i> รายการใบสั่งซื้อ (PO)</h2>
-        <div class="d-flex gap-2">
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php')) ?>" class="btn btn-primary rounded-pill px-4">
-                <i class="bi bi-plus-lg"></i> สร้าง PO โดยตรง
-            </a>
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php')) ?>" class="btn btn-outline-primary rounded-pill px-4">
-                <i class="bi bi-link-45deg"></i> สร้างจาก PR
-            </a>
+        <h2 class="fw-bold"><i class="bi bi-file-earmark-check-fill text-primary"></i>รายการใบสั่งซื้อ (Purchase orders List)</h2>
+        <div class="dropdown">
+            <button class="btn btn-primary rounded-pill px-4 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-plus-lg"></i> สร้างเอกสาร
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li>
+                    <a class="dropdown-item" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php')) ?>">
+                        <i class="bi bi-file-earmark-plus me-1"></i> สร้าง PO โดยตรง
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php')) ?>">
+                        <i class="bi bi-link-45deg me-1"></i> สร้างจาก PR
+                    </a>
+                </li>
+            </ul>
         </div>
     </div>
 
@@ -152,7 +161,6 @@ $poCount = count($po_rows);
                         <th>วันที่ออก</th>
                         <th>ผู้ขาย / ผู้รับจ้าง</th>
                         <th class="text-center">ประเภท</th>
-                        <th>ผู้ออกใบ</th>
                         <th class="text-end">ยอดเงินรวม</th>
                         <th class="text-center">สถานะ</th>
                         <th class="text-center">จัดการ</th>
@@ -160,11 +168,14 @@ $poCount = count($po_rows);
                 </thead>
                 <tbody id="poTableBody">
                     <?php if (count($po_rows) === 0): ?>
-                        <tr><td colspan="8" class="text-center py-4 text-muted">ยังไม่มีการออกใบสั่งซื้อ</td></tr>
+                        <tr><td colspan="7" class="text-center py-4 text-muted">ยังไม่มีการออกใบสั่งซื้อ</td></tr>
                     <?php else: ?>
                         <?php foreach ($po_rows as $row): ?>
                     <tr>
-                        <td class="fw-bold text-primary"><?= htmlspecialchars((string) ($row['po_number'] ?? '')) ?></td>
+                        <td>
+                            <div class="fw-bold text-primary"><?= htmlspecialchars((string) ($row['po_number'] ?? '')) ?></div>
+                            <div class="small text-muted"><?php $cb = trim((string)($row['created_by_name'] ?? '')); echo $cb !== '' ? htmlspecialchars($cb) : '—'; ?></div>
+                        </td>
                         <td>
                             <?php
                             $createdAt = trim((string) ($row['created_at'] ?? ''));
@@ -191,7 +202,6 @@ $poCount = count($po_rows);
                                 <span class="badge bg-light text-secondary border">จัดซื้อ</span>
                             <?php endif; ?>
                         </td>
-                        <td class="small"><?php $cb = trim((string)($row['created_by_name'] ?? '')); echo $cb !== '' ? htmlspecialchars($cb) : '<span class="text-muted">—</span>'; ?></td>
                         <td class="text-end">
                             <div class="fw-bold text-primary"><?= number_format((float)$row['total_amount'], 2) ?></div>
                             <?php if ((int)($row['vat_enabled'] ?? 0) === 1): ?>
@@ -233,7 +243,7 @@ $poCount = count($po_rows);
                                     <i class="bi bi-pencil-square"></i>
                                 </a>
                                 <?php if ($isAdmin): ?>
-                                    <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete&type=purchase_order&id=<?= (int) $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger" title="ลบใบสั่งซื้อ" onclick="return confirm('ยืนยันการลบใบสั่งซื้อ <?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?> ?');">
+                                    <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete&type=purchase_order&id=<?= (int) $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger tnc-delete-post" title="ลบใบสั่งซื้อ (ต้องใส่รหัสผ่าน)">
                                         <i class="bi bi-trash3-fill"></i>
                                     </a>
                                 <?php endif; ?>
@@ -303,7 +313,7 @@ $poCount = count($po_rows);
             order: [[1, 'desc']],
             pageLength: 25,
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
-            columnDefs: [{ targets: [7], orderable: false, searchable: false }]
+            columnDefs: [{ targets: [6], orderable: false, searchable: false }]
         });
     }
     var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_orders'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;

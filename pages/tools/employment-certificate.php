@@ -258,10 +258,9 @@ $issue_thai = thai_date_issue();
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <button type="submit" class="btn btn-warning text-white fw-bold w-100">แสดงตัวอย่าง</button>
+                    <button type="submit" class="btn btn-warning text-white fw-bold w-100">แสดงเอกสาร</button>
                 </div>
             </form>
-            <p class="small text-muted mb-0 mt-3">ข้อมูลที่อยู่ / ตำแหน่งในการทำงาน (สำหรับหนังสือรับรอง) / เงินเดือน / วันเกิด / เลขบัตรประชาชน กำหนดได้จากข้อมูลผู้ใช้ในระบบหรือให้ผู้ดูแลระบบช่วยอัปเดต</p>
         </div>
     </div>
 </div>

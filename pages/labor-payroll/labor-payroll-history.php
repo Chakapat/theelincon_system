@@ -540,13 +540,15 @@ function labor_half_label(array $r): string
 
                             </div>
 
-                            <form method="post" action="<?= htmlspecialchars($archHandler, ENT_QUOTES, 'UTF-8') ?>" class="d-inline ms-1" onsubmit="return confirm('ลบรายการตัดยอดนี้ถาวร — ยืนยัน?');">
+                            <form method="post" action="<?= htmlspecialchars($archHandler, ENT_QUOTES, 'UTF-8') ?>" class="d-inline ms-1 tnc-labor-archive-delete-form">
 
                                 <?php csrf_field(); ?>
 
                                 <input type="hidden" name="action" value="delete">
 
                                 <input type="hidden" name="archive_id" value="<?= $rid ?>">
+
+                                <input type="hidden" name="confirm_password" value="" autocomplete="new-password">
 
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="ลบ"><i class="bi bi-trash3"></i></button>
 
@@ -685,6 +687,7 @@ function labor_half_label(array $r): string
 
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 
 <script>
@@ -1137,6 +1140,40 @@ function labor_half_label(array $r): string
     if (!$('#tncLaborArchiveHistTable').length) return;
     TncLiveDT.init('#tncLaborArchiveHistTable', { order: [[1, 'desc']], columnDefs: [{ orderable: false, targets: 5 }] });
 })(jQuery);
+</script>
+<script>
+(function () {
+    if (typeof Swal === 'undefined') return;
+    document.querySelectorAll('.tnc-labor-archive-delete-form').forEach(function (form) {
+        form.addEventListener('submit', function (ev) {
+            ev.preventDefault();
+            Swal.fire({
+                title: 'ยืนยันการลบ?',
+                html: 'ลบรายการตัดยอดถาวร — กรอก<strong>รหัสผ่านของคุณ</strong>',
+                icon: 'warning',
+                input: 'password',
+                inputPlaceholder: 'รหัสผ่าน',
+                showCancelButton: true,
+                confirmButtonText: 'ลบ',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonColor: '#dc3545',
+                focusCancel: true,
+                preConfirm: function (pw) {
+                    if (!pw || !String(pw).trim()) {
+                        Swal.showValidationMessage('กรุณากรอกรหัสผ่าน');
+                        return false;
+                    }
+                    return pw;
+                }
+            }).then(function (res) {
+                if (!res.isConfirmed || !res.value) return;
+                var hid = form.querySelector('input[name="confirm_password"]');
+                if (hid) hid.value = res.value;
+                form.submit();
+            });
+        });
+    });
+})();
 </script>
 
 </body>

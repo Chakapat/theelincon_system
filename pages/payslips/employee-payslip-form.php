@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -79,6 +80,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'line_sent_at' => '',
                     'line_decision' => 'auto_approved',
                     'line_decided_at' => date('Y-m-d H:i:s'),
+                ]);
+                $reqAfter = Db::row('employee_payslip_requests', (string) $rid);
+                $empLabel = trim((string) (($emp['fname'] ?? '') . ' ' . ($emp['lname'] ?? '')));
+                tnc_audit_log('create', 'employee_payslip_request', (string) $rid, $empLabel !== '' ? $empLabel : ('พนักงาน #' . $employeeId), [
+                    'source' => 'employee-payslip-form.php',
+                    'action' => 'create_payslip_request',
+                    'after' => $reqAfter,
+                    'meta' => [
+                        'period' => $periodPost,
+                        'pay_date' => $payDatePost,
+                        'employee_user_id' => $employeeId,
+                    ],
                 ]);
                 header('Location: ' . app_path('pages/payslips/employee-payslip-request-list.php') . '?created=1');
                 exit();

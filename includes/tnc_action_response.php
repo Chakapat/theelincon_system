@@ -91,6 +91,8 @@ if (!function_exists('tnc_ajax_error_message')) {
             'code_gen' => 'สร้างรหัสพนักงานซ้ำ กรุณาลองใหม่',
             'invalid_role' => 'สิทธิ์ไม่ถูกต้อง',
             'password_required' => 'ต้องกรอกรหัสผ่าน',
+            'confirm_password_required' => 'กรุณากรอกรหัสผ่านของคุณเพื่อยืนยันการลบ',
+            'confirm_password_invalid' => 'รหัสผ่านไม่ถูกต้อง',
             'invalid_name' => 'ชื่อไม่ถูกต้อง',
         ];
 

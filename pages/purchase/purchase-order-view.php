@@ -168,8 +168,6 @@ $po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_
     <button onclick="window.print()" class="btn btn-success btn-sm fw-bold" style="padding: 5px 40px;">
         <i class="bi bi-printer"></i> พิมพ์ใบสั่งซื้อ
     </button>
-    <a href="<?= htmlspecialchars(app_path('pages/tools/po-payment-document.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) ($data['id'] ?? 0) ?>&doc=receipt" class="btn btn-outline-info btn-sm ms-2">สร้างใบเสร็จรับเงิน</a>
-    <a href="<?= htmlspecialchars(app_path('pages/tools/po-payment-document.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) ($data['id'] ?? 0) ?>&doc=voucher" class="btn btn-outline-warning btn-sm ms-2">สร้างใบสำคัญจ่าย</a>
     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-light btn-sm ms-2">กลับรายการ PO</a>
 </div>
 

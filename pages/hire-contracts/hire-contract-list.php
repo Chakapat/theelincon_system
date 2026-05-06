@@ -57,30 +57,136 @@ $poFromHireUrl = app_path('pages/purchase/purchase-order-from-hire-contract.php'
     <title>สัญญาจ้าง | THEELIN CON</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Sarabun', system-ui, sans-serif; background: linear-gradient(165deg, #f0f4ff 0%, #fafbff 40%, #fff8f0 100%); min-height: 100vh; }
         .hc-hero {
-            border-radius: 1.25rem;
-            background: linear-gradient(120deg, #1e3a5f 0%, #2563eb 55%, #3b82f6 100%);
+            border-radius: 12px;
+            background: linear-gradient(125deg, #1a365d 0%, #2c5282 28%, #3182ce 62%, #4299e1 100%);
             color: #fff;
-            padding: 1.75rem 1.5rem;
-            box-shadow: 0 12px 40px rgba(37, 99, 235, 0.25);
+            padding: 1.5rem 1.5rem 1.6rem;
+            box-shadow: 0 10px 36px rgba(30, 64, 120, 0.22);
+            position: relative;
+            overflow: hidden;
+        }
+        .hc-hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 85% 70% at 100% 0%, rgba(255, 255, 255, 0.14) 0%, transparent 55%);
+            pointer-events: none;
+        }
+        .hc-hero-inner { position: relative; z-index: 1; }
+        .hc-hero-stat {
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            padding: 0.35rem 1rem 0.35rem 0.85rem;
+            backdrop-filter: blur(6px);
+        }
+        .hc-hero-stat .hc-hero-stat-value {
+            font-size: 1.35rem;
+            font-weight: 800;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+        .hc-hero .btn-create-hc {
+            border-radius: 12px;
+            font-weight: 600;
+            padding: 0.55rem 1.15rem;
+            border: none;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+        }
+        .hc-hero .btn-create-hc:hover {
+            background: #fff !important;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.14);
         }
         .hc-card {
             border: none;
-            border-radius: 1rem;
+            border-radius: 12px;
             box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
             overflow: hidden;
         }
-        .hc-card .dataTables_wrapper .dataTables_filter input {
-            border-radius: 999px;
-            padding: 0.45rem 1rem;
-            border: 1px solid #e2e8f0;
+        .hc-toolbar .dataTables_length label {
+            margin-bottom: 0;
+            font-size: 0.875rem;
+            color: #495057;
         }
-        table.dataTable thead th { font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.03em; color: #64748b; border-bottom: 2px solid #e2e8f0 !important; }
-        table.dataTable tbody td { vertical-align: middle; font-size: 0.95rem; }
+        .hc-toolbar .dataTables_length select {
+            border-radius: 10px;
+            margin: 0 0.35rem;
+        }
+        .hc-search-wrap {
+            position: relative;
+            flex: 1 1 220px;
+            min-width: 200px;
+            max-width: 420px;
+        }
+        .hc-search-wrap .bi-search {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #868e96;
+            font-size: 1rem;
+            pointer-events: none;
+        }
+        .hc-search-wrap .form-control {
+            border-radius: 12px;
+            padding-left: 2.5rem;
+            border: 1px solid #e9ecef;
+            box-shadow: none;
+        }
+        .hc-search-wrap .form-control:focus {
+            border-color: #ced4da;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+        }
+        #hireContractDT.dataTable thead th {
+            font-weight: 600;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #64748b;
+            border-bottom: 2px solid #e9ecef !important;
+            padding-top: 0.9rem;
+            padding-bottom: 0.9rem;
+        }
+        #hireContractDT.dataTable tbody td {
+            vertical-align: middle;
+            font-size: 0.95rem;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eef1f4;
+        }
+        #hireContractDT.dataTable tbody tr:last-child td { border-bottom: none; }
         .hc-num { font-variant-numeric: tabular-nums; }
+        .hc-remaining-zero { color: #adb5bd !important; font-weight: 500 !important; }
+        .hc-btn-icon {
+            width: 2.25rem;
+            height: 2.25rem;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            border: none;
+            text-decoration: none;
+            transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+        }
+        .hc-btn-icon:hover { transform: translateY(-1px); }
+        .hc-btn-view {
+            background: #e7f1ff;
+            color: #0d6efd;
+        }
+        .hc-btn-view:hover { background: #cfe2ff; color: #0a58ca; }
+        .hc-btn-po {
+            background: #fff4e6;
+            color: #d97706;
+        }
+        .hc-btn-po:hover { background: #ffe8cc; color: #b45309; }
+        #hireContractDT_wrapper .dataTables_info,
+        #hireContractDT_wrapper .dataTables_paginate { padding-top: 0.75rem; }
     </style>
 </head>
 <body>
@@ -88,24 +194,34 @@ $poFromHireUrl = app_path('pages/purchase/purchase-order-from-hire-contract.php'
 
 <div class="container py-4 pb-5">
     <div class="hc-hero mb-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-            <div>
-                <div class="small text-white-50 text-uppercase fw-semibold mb-1">Hire contracts</div>
-                <h1 class="h3 fw-bold mb-1">สัญญาจ้าง</h1>
-            </div>
-            <div class="text-end d-flex flex-column align-items-end gap-2">
-                <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light btn-sm fw-semibold rounded-pill shadow-sm">
-                    <i class="bi bi-plus-lg me-1"></i>สร้างสัญญาจ้าง (HC)
-                </a>
-                <div class="rounded-4 bg-white bg-opacity-10 px-3 py-2">
-                    <div class="small text-white-50">จำนวนสัญญา</div>
-                    <div class="fs-2 fw-bold"><?= count($dtRows) ?></div>
+        <div class="hc-hero-inner d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="flex-grow-1" style="min-width: 220px;">
+                <div class="small text-white-50 text-uppercase fw-semibold mb-2" style="letter-spacing: 0.04em;">Hire contracts</div>
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                    <h1 class="h3 fw-bold mb-0">สัญญาจ้าง</h1>
+                    <div class="hc-hero-stat d-inline-flex align-items-center gap-2">
+                        <span class="small text-white-50 text-nowrap">สัญญาทั้งหมด</span>
+                        <span class="hc-hero-stat-value text-white"><?= count($dtRows) ?></span>
+                    </div>
                 </div>
+            </div>
+            <div class="flex-shrink-0">
+                <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light btn-create-hc">
+                    <i class="bi bi-plus-lg me-1"></i>สร้างสัญญาจ้าง
+                </a>
             </div>
         </div>
     </div>
 
     <div class="hc-card bg-white p-3 p-md-4">
+        <div class="hc-toolbar d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-3">
+            <div class="hc-search-wrap">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <label class="visually-hidden" for="hcSearchInput">ค้นหา</label>
+                <input type="search" id="hcSearchInput" class="form-control" placeholder="ค้นหาเลขที่เอกสาร, ผู้รับจ้าง..." autocomplete="off">
+            </div>
+            <div id="hcLengthSlot" class="ms-md-auto"></div>
+        </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0 w-100" id="hireContractDT" style="width:100%">
                 <thead>
@@ -113,10 +229,10 @@ $poFromHireUrl = app_path('pages/purchase/purchase-order-from-hire-contract.php'
                         <th>เลขที่เอกสาร</th>
                         <th>วันเริ่ม</th>
                         <th>ผู้รับจ้าง</th>
-                        <th class="text-end">มูลค่าสัญญา</th>
-                        <th class="text-end">จ่ายแล้ว</th>
+                        <th class="text-end hc-num">มูลค่าสัญญา</th>
+                        <th class="text-end hc-num">จ่ายแล้ว</th>
                         <th class="text-center">งวด</th>
-                        <th class="text-end">คงเหลือ</th>
+                        <th class="text-end hc-num">คงเหลือ</th>
                         <th class="text-center">จัดการ</th>
                     </tr>
                 </thead>
@@ -145,9 +261,20 @@ $poFromHireUrl = app_path('pages/purchase/purchase-order-from-hire-contract.php'
         data: initial,
         order: [[0, 'desc']],
         pageLength: 25,
+        dom: 'lrtip',
         language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+        initComplete: function () {
+            var api = this.api();
+            var $len = $('#hireContractDT_wrapper .dataTables_length');
+            if ($len.length && $('#hcLengthSlot').length) {
+                $('#hcLengthSlot').append($len);
+            }
+            $('#hcSearchInput').on('keyup search input', function () {
+                api.search(this.value).draw();
+            });
+        },
         columns: [
-            { data: 'pr_number', className: 'fw-semibold' },
+            { data: 'pr_number', className: 'fw-bold' },
             { data: 'start_date', className: 'text-center text-nowrap' },
             { data: 'contractor_name' },
             { data: 'contract_amount', className: 'text-end hc-num', render: function (v) { return fmtMoney(v); } },
@@ -159,7 +286,16 @@ $poFromHireUrl = app_path('pages/purchase/purchase-order-from-hire-contract.php'
                     return (row.paid_installments || 0) + '/' + (row.installment_total || 0);
                 }
             },
-            { data: 'remaining_amount', className: 'text-end hc-num fw-semibold', render: function (v) { return fmtMoney(v); } },
+            {
+                data: 'remaining_amount',
+                className: 'text-end hc-num',
+                render: function (v) {
+                    var n = Number(v) || 0;
+                    var isZero = Math.abs(n) < 0.000001;
+                    var cls = isZero ? 'hc-remaining-zero' : 'fw-semibold';
+                    return '<span class="' + cls + '">' + fmtMoney(v) + '</span>';
+                }
+            },
             {
                 data: null,
                 orderable: false,
@@ -170,8 +306,10 @@ $poFromHireUrl = app_path('pages/purchase/purchase-order-from-hire-contract.php'
                     var hid = row.hire_contract_id || 0;
                     var viewQ = pid > 0 ? ('?pr_id=' + pid) : ('?id=' + hid);
                     var poUrl = pid > 0 ? (poFromPrBase + '?pr_id=' + pid) : (poFromHireBase + '?hire_contract_id=' + hid);
-                    return '<a href="' + viewBase + viewQ + '" class="btn btn-sm btn-outline-primary me-1" title="ดูรายละเอียด"><i class="bi bi-eye"></i></a>' +
-                        '<a href="' + poUrl + '" class="btn btn-sm btn-primary" title="ออก PO"><i class="bi bi-file-earmark-plus"></i></a>';
+                    return '<div class="d-inline-flex align-items-center justify-content-center gap-1 flex-wrap">' +
+                        '<a href="' + viewBase + viewQ + '" class="hc-btn-icon hc-btn-view" title="ดูรายละเอียด"><i class="bi bi-eye-fill"></i></a>' +
+                        '<a href="' + poUrl + '" class="hc-btn-icon hc-btn-po" title="ออก PO"><i class="bi bi-file-earmark-plus-fill"></i></a>' +
+                        '</div>';
                 }
             }
         ]

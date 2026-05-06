@@ -31,7 +31,11 @@ if (isset($_GET['ajax_search'])) {
                         : 'badge rounded-pill inv-badge-tax-pending px-3';
                     $invBadgeTitle = $hasTaxInv ? 'ออกใบกำกับภาษีแล้ว' : 'ยังไม่ออกใบกำกับภาษี';
                     ?>
-                    <span class="<?= htmlspecialchars($invBadgeClass, ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars($invBadgeTitle, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($row['invoice_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                    <div><span class="<?= htmlspecialchars($invBadgeClass, ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars($invBadgeTitle, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($row['invoice_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span></div>
+                    <div class="small text-muted mt-1"><?php
+                        $cn = trim((string)($row['creator_name'] ?? ''));
+                        echo $cn !== '' ? htmlspecialchars($cn, ENT_QUOTES, 'UTF-8') : '—';
+                    ?></div>
                 </td>
                 <td class="fw-semibold">
                     <div class="d-flex align-items-center gap-2">
@@ -49,30 +53,22 @@ if (isset($_GET['ajax_search'])) {
                 <td class="fw-bold text-dark">
                     ฿<?= number_format($row['net_pay'], 2); ?>
                 </td>
-                <td class="small text-secondary">
-                    <?php
-                    $cn = trim((string)($row['creator_name'] ?? ''));
-                    echo $cn !== '' ? htmlspecialchars($cn, ENT_QUOTES, 'UTF-8') : '<span class="text-muted">—</span>';
-                    ?>
-                </td>
                 <td class="text-end pe-4">
-                    <div class="btn-group shadow-sm rounded-3">
-                        <button type="button" class="btn btn-sm btn-white border text-warning" data-tnc-invoice="view" data-invoice-id="<?= (int) $row['id']; ?>" title="ดูใบแจ้งหนี้"><i class="bi bi-eye-fill"></i></button>
-                        
-                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php')) ?>?id=<?= $row['id']; ?>" class="btn btn-sm btn-white border text-success" title="ใบกำกับภาษี/ใบเสร็จ"><i class="bi bi-file-earmark-check-fill"></i></a>
-                        
+                    <div class="d-inline-flex flex-wrap align-items-center justify-content-end gap-2">
+                        <button type="button" class="btn btn-invoice-action btn-invoice-action-view" data-tnc-invoice="view" data-invoice-id="<?= (int) $row['id']; ?>" title="ดูใบแจ้งหนี้"><i class="bi bi-eye-fill"></i></button>
+                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php')) ?>?id=<?= $row['id']; ?>" class="btn btn-invoice-action btn-invoice-action-tax" title="ใบกำกับภาษี/ใบเสร็จ"><i class="bi bi-file-earmark-check-fill"></i></a>
                         <?php if ($can_edit_invoice): ?>
-                            <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php'), ENT_QUOTES, 'UTF-8') ?>?action=edit&amp;id=<?= (int) $row['id']; ?>" class="btn btn-sm btn-white border text-secondary" title="แก้ไข"><i class="bi bi-pencil-square"></i></a>
+                            <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php'), ENT_QUOTES, 'UTF-8') ?>?action=edit&amp;id=<?= (int) $row['id']; ?>" class="btn btn-invoice-action btn-invoice-action-edit" title="แก้ไข"><i class="bi bi-pencil-square"></i></a>
                         <?php endif; ?>
                         <?php if ($is_admin): ?>
-                            <button onclick="deleteItem(<?= $row['id']; ?>, 'invoice')" class="btn btn-sm btn-white border text-danger" title="ลบ"><i class="bi bi-trash3-fill"></i></button>
+                            <button type="button" onclick="deleteItem(<?= $row['id']; ?>, 'invoice')" class="btn btn-invoice-action btn-invoice-action-delete" title="ลบ"><i class="bi bi-trash3-fill"></i></button>
                         <?php endif; ?>
                     </div>
                 </td>
             </tr>
         <?php endforeach;
     } else {
-        echo "<tr><td colspan='6' class='text-center py-5 text-muted'>ไม่พบข้อมูลใบแจ้งหนี้ที่ค้นหา</td></tr>";
+        echo "<tr><td colspan='5' class='text-center py-5 text-muted'>ไม่พบข้อมูลใบแจ้งหนี้ที่ค้นหา</td></tr>";
     }
     exit;
 }
@@ -91,22 +87,46 @@ $index_hub_start_all_collapsed = true;
     <title>TNC | OFFICE SYSTEM</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        body { font-family: 'Sarabun', sans-serif; background-color: #fffaf5; }
+        :root {
+            --tnc-orange: #fd7e14;
+            --tnc-orange-dark: #e8590c;
+            --tnc-surface: #f6f7f9;
+            --tnc-sidebar-bg: #eceef2;
+            --tnc-radius: 0.875rem;
+        }
+        body { font-family: 'Sarabun', sans-serif; background-color: var(--tnc-surface); }
         .bg-orange-gradient { background: linear-gradient(135deg, #fd7e14 0%, #ff922b 100%); }
-        .btn-orange { background-color: #fd7e14; color: white; border: none; }
-        .btn-orange:hover { background-color: #e8590c; color: white; }
+        .btn-orange { background-color: var(--tnc-orange); color: white; border: none; }
+        .btn-orange:hover { background-color: var(--tnc-orange-dark); color: white; }
         .nav-link { font-weight: 500; transition: 0.3s; }
         .nav-link:hover { opacity: 0.8; transform: translateY(-1px); }
-        .card-stats { border-left: 5px solid #fd7e14; transition: transform 0.2s; }
-        .card-stats:hover { transform: translateY(-5px); }
+        .card-stats {
+            border-left: 4px solid #dee2e6;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border-radius: var(--tnc-radius) !important;
+        }
+        .card-stats:hover { transform: translateY(-3px); box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.08) !important; }
+        .card-stats .index-stat-value {
+            font-size: clamp(1.75rem, 4vw, 2.35rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+        }
+        .card-stats .index-stat-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6c757d;
+        }
         .btn-white:hover { background-color: #f8f9fa; }
         .cust-logo-thumb { width: 40px; height: 40px; object-fit: contain; }
         .home-menu-hub .home-hub-card {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
-            border: 1px solid rgba(253, 126, 20, 0.12) !important;
+            border: 1px solid rgba(0, 0, 0, 0.06) !important;
         }
         .home-menu-hub .home-hub-card:hover {
             transform: translateY(-4px);
@@ -133,12 +153,20 @@ $index_hub_start_all_collapsed = true;
             border: 1px solid rgba(0, 0, 0, 0.06);
             text-decoration: none;
             transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+            border-left: 3px solid transparent;
         }
         .home-menu-hub .home-hub-link:hover {
-            background: #fffaf5;
-            border-color: rgba(253, 126, 20, 0.35);
-            color: #c2410c;
+            background: #fff;
+            border-color: rgba(0, 0, 0, 0.08);
+            color: #212529;
         }
+        .home-menu-hub .home-hub-link.active {
+            background: rgba(253, 126, 20, 0.12);
+            border-left-color: var(--tnc-orange);
+            color: #9a3412;
+            font-weight: 600;
+        }
+        .home-menu-hub .home-hub-link.active i { color: var(--tnc-orange) !important; }
         .home-menu-hub .home-hub-link i { opacity: 0.85; }
         .home-menu-hub-single .home-hub-section + .home-hub-section {
             border-top: 1px solid rgba(0, 0, 0, 0.06);
@@ -159,8 +187,12 @@ $index_hub_start_all_collapsed = true;
         }
         .home-menu-hub-single .home-hub-toggle:hover,
         .home-menu-hub-single .home-hub-toggle:focus-visible {
-            background: rgba(253, 126, 20, 0.06);
+            background: rgba(0, 0, 0, 0.04);
             outline: none;
+        }
+        .home-menu-hub-single .home-hub-toggle.has-active-child {
+            background: rgba(253, 126, 20, 0.08);
+            border-radius: 0.5rem;
         }
         .home-menu-hub-single .home-hub-toggle .home-hub-chevron {
             margin-left: auto;
@@ -215,7 +247,7 @@ $index_hub_start_all_collapsed = true;
             }
             .index-sidebar-scroll::-webkit-scrollbar { width: 6px; }
             .index-sidebar-scroll::-webkit-scrollbar-thumb {
-                background: rgba(253, 126, 20, 0.35);
+                background: rgba(0, 0, 0, 0.2);
                 border-radius: 999px;
             }
         }
@@ -223,10 +255,10 @@ $index_hub_start_all_collapsed = true;
             padding-bottom: 0.5rem;
         }
         .index-sidebar-card {
-            border: 1px solid rgba(253, 126, 20, 0.18) !important;
-            box-shadow: 0 0.35rem 1.1rem rgba(0, 0, 0, 0.06) !important;
-            border-left: 4px solid #fd7e14 !important;
-            background: #fff;
+            border: 1px solid rgba(0, 0, 0, 0.06) !important;
+            box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.06) !important;
+            background: var(--tnc-sidebar-bg) !important;
+            border-radius: var(--tnc-radius) !important;
         }
         .home-menu-hub.index-sidebar .home-menu-hub-single {
             border-radius: 0 0 1rem 1rem !important;
@@ -241,6 +273,7 @@ $index_hub_start_all_collapsed = true;
             width: 2.15rem;
             height: 2.15rem;
             font-size: 1.05rem;
+            background: #fff !important;
         }
         .home-menu-hub.index-sidebar .home-hub-link {
             padding: 0.45rem 0.7rem;
@@ -295,6 +328,85 @@ $index_hub_start_all_collapsed = true;
             border: 1px solid rgba(25, 135, 84, 0.4);
             font-weight: 600;
         }
+        /* Invoice table — roomier rows, single search only (no DataTables filter UI) */
+        #invoice_table.table-invoice-index thead th {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6c757d;
+            padding: 1rem 1.25rem;
+            border-bottom-width: 1px;
+        }
+        #invoice_table.table-invoice-index tbody td {
+            padding: 1.1rem 1.25rem;
+            vertical-align: middle;
+        }
+        #invoice_table.table-invoice-index tbody tr:last-child td {
+            border-bottom: 0;
+        }
+        .index-table-card {
+            border-radius: var(--tnc-radius) !important;
+            border: 1px solid rgba(0, 0, 0, 0.06) !important;
+            box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.05) !important;
+        }
+        .index-table-toolbar .form-control.index-search-input {
+            border-radius: var(--tnc-radius);
+            padding: 0.65rem 1rem 0.65rem 2.75rem;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            background: #fff;
+        }
+        .index-table-toolbar .form-control.index-search-input:focus {
+            border-color: rgba(253, 126, 20, 0.45);
+            box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.15);
+        }
+        a.btn-invoice-action { text-decoration: none; }
+        .btn-invoice-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2.35rem;
+            min-height: 2.35rem;
+            padding: 0.4rem 0.55rem;
+            border-radius: 0.5rem;
+            border: 1px solid transparent;
+            font-size: 1rem;
+            line-height: 1;
+            transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+        }
+        .btn-invoice-action:hover { transform: translateY(-1px); }
+        .btn-invoice-action-view {
+            background: rgba(13, 110, 253, 0.14);
+            color: #0a58ca;
+            border-color: rgba(13, 110, 253, 0.2);
+        }
+        .btn-invoice-action-view:hover { background: rgba(13, 110, 253, 0.22); color: #084298; }
+        .btn-invoice-action-tax {
+            background: rgba(25, 135, 84, 0.14);
+            color: #146c43;
+            border-color: rgba(25, 135, 84, 0.22);
+        }
+        .btn-invoice-action-tax:hover { background: rgba(25, 135, 84, 0.22); color: #0f5132; }
+        .btn-invoice-action-edit {
+            background: rgba(108, 117, 125, 0.16);
+            color: #495057;
+            border-color: rgba(108, 117, 125, 0.22);
+        }
+        .btn-invoice-action-edit:hover { background: rgba(108, 117, 125, 0.24); color: #343a40; }
+        .btn-invoice-action-delete {
+            background: rgba(220, 53, 69, 0.12);
+            color: #b02a37;
+            border-color: rgba(220, 53, 69, 0.25);
+        }
+        .btn-invoice-action-delete:hover { background: rgba(220, 53, 69, 0.2); color: #842029; }
+        .index-dashboard-block { padding-top: 0.25rem; }
+        .dataTables_wrapper .dataTables_length,
+        .dataTables_wrapper .dataTables_info,
+        .dataTables_wrapper .dataTables_paginate {
+            padding-left: 1rem;
+            padding-right: 1rem;
+            padding-bottom: 0.75rem;
+        }
         /* Invoice: กว้างกว่า A4 เล็กน้อย — ให้เห็นแผ่น 210mm เต็มความกว้างโดยไม่เลื่อนซ้าย-ขวา (เลื่อนขึ้นลงใน iframe) */
         #tncInvoiceModal .tnc-invoice-modal-dialog {
             width: min(calc(210mm + 3rem), calc(100vw - 1rem));
@@ -332,7 +444,7 @@ $index_hub_start_all_collapsed = true;
 
 <?php include __DIR__ . '/components/navbar.php'; ?>
 
-<div class="container pb-5 index-page-wrap">
+<div class="container pb-5 pt-1 index-page-wrap px-3 px-md-4">
     <div class="row g-4 index-layout-row">
     <aside class="col-lg-4 col-xl-3 index-sidebar-wrap order-2 order-lg-1" aria-label="เมนูนำทางระบบ">
         <div class="index-sidebar-sticky">
@@ -408,51 +520,51 @@ $index_hub_start_all_collapsed = true;
     <div class="index-dashboard-block">
     <div class="row g-4 mb-4">
         <div class="col-md-4">
-            <div class="card card-stats border-0 shadow-sm p-3 rounded-4">
+            <div class="card card-stats border-0 shadow-sm p-4">
                 <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 bg-warning-subtle text-warning p-3 rounded-4">
+                    <div class="flex-shrink-0 bg-white text-warning p-3 rounded-3 border" style="border-color: rgba(0,0,0,0.06) !important;">
                         <i class="bi bi-file-earmark-text fs-3"></i>
                     </div>
                     <div class="ms-3">
-                        <h6 class="text-muted mb-0">จำนวนใบแจ้งหนี้ทั้งหมด</h6>
-                        <h3 class="fw-bold mb-0"><?= number_format($stats['total_count']) ?></h3>
+                        <div class="index-stat-label mb-1">จำนวนใบแจ้งหนี้ทั้งหมด</div>
+                        <div class="index-stat-value text-dark"><?= number_format($stats['total_count']) ?></div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-8">
-            <div class="card card-stats border-0 shadow-sm p-3 rounded-4" style="border-left-color: #198754;">
+            <div class="card card-stats border-0 shadow-sm p-4" style="border-left-color: rgba(25, 135, 84, 0.35) !important;">
                 <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 bg-success-subtle text-success p-3 rounded-4">
+                    <div class="flex-shrink-0 bg-white text-success p-3 rounded-3 border" style="border-color: rgba(0,0,0,0.06) !important;">
                         <i class="bi bi-wallet2 fs-3"></i>
                     </div>
                     <div class="ms-3 min-w-0">
-                        <h6 class="text-muted mb-0 text-truncate" title="ผลรวมยอดสุทธิจากใบแจ้งหนี้ทั้งหมดในระบบ">ยอดสุทธิรวม <span class="fw-normal small d-none d-sm-inline">(ใบแจ้งหนี้ในระบบ)</span></h6>
-                        <h3 class="fw-bold mb-0 text-success">฿ <?= number_format($stats['final_net_sum'] ?? 0, 2) ?></h3>
+                        <div class="index-stat-label mb-1 text-truncate" title="ผลรวมยอดสุทธิจากใบแจ้งหนี้ทั้งหมดในระบบ">ยอดสุทธิรวม <span class="fw-normal text-lowercase" style="letter-spacing:0;">(ใบแจ้งหนี้ในระบบ)</span></div>
+                        <div class="index-stat-value text-success">฿<?= number_format($stats['final_net_sum'] ?? 0, 2) ?></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-0">
-        <div class="card-header bg-white border-0 py-4 px-3 px-md-4">
-            <div class="row align-items-stretch align-items-md-center g-3">
-                <div class="col-12 col-md-4 col-lg-5">
-                    <h1 class="h5 fw-bold mb-0 text-dark">รายการใบแจ้งหนี้</h1>
-                    <p class="small text-muted mb-0 mt-1 d-md-none">ค้นหาเลขที่หรือชื่อลูกค้า</p>
+    <div class="card index-table-card border-0 shadow-sm overflow-hidden mb-0 bg-white">
+        <div class="card-header bg-white border-bottom py-3 px-3 px-md-4">
+            <div class="row align-items-center g-3">
+                <div class="col-12 col-lg-4">
+                    <h1 class="h5 fw-bold mb-1 text-dark">รายการใบแจ้งหนี้</h1>
+                    <p class="small text-muted mb-0">ค้นหาและจัดการใบแจ้งหนี้ในระบบ</p>
                 </div>
-                <div class="col-12 col-md-8 col-lg-7">
-                    <div class="d-flex flex-column flex-sm-row gap-2 align-items-stretch justify-content-md-end">
-                        <div class="position-relative flex-grow-1" style="max-width: 100%;">
+                <div class="col-12 col-lg-8">
+                    <div class="d-flex flex-column flex-sm-row flex-wrap gap-2 align-items-stretch justify-content-lg-end">
+                        <div class="position-relative flex-grow-1 index-table-toolbar" style="min-width: 220px; max-width: 100%;">
                             <label class="visually-hidden" for="search_invoice">ค้นหาใบแจ้งหนี้</label>
                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" aria-hidden="true"></i>
-                            <input type="search" id="search_invoice" autocomplete="off" class="form-control ps-5 rounded-pill border-light-subtle bg-light" placeholder="เลขที่ใบแจ้งหนี้หรือชื่อลูกค้า">
+                            <input type="search" id="search_invoice" autocomplete="off" class="form-control index-search-input" placeholder="ค้นหาเลขที่หรือชื่อลูกค้า…">
                         </div>
-                        <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=create" class="btn btn-orange rounded-pill px-4 shadow-sm flex-shrink-0 text-center">
+                        <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=create" class="btn btn-orange px-4 shadow-sm flex-shrink-0 text-center text-nowrap" style="border-radius: var(--tnc-radius);">
                             <i class="bi bi-plus-lg me-1"></i>สร้างบิลใหม่
                         </a>
-                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-list.php')) ?>" class="btn btn-outline-success rounded-pill px-4 shadow-sm flex-shrink-0 text-center">
+                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-list.php')) ?>" class="btn btn-outline-success px-4 shadow-sm flex-shrink-0 text-center text-nowrap" style="border-radius: var(--tnc-radius);">
                             <i class="bi bi-file-earmark-break me-1"></i>ใบกำกับภาษี
                         </a>
                     </div>
@@ -461,20 +573,19 @@ $index_hub_start_all_collapsed = true;
         </div>
 
         <div class="table-responsive">
-            <table id="invoice_table" class="table table-hover align-middle mb-0" aria-busy="false">
+            <table id="invoice_table" class="table table-invoice-index table-hover align-middle mb-0" aria-busy="false">
                 <thead class="table-light border-bottom">
                     <tr>
-                        <th class="ps-4 py-3">วันที่</th>
-                        <th class="py-3">เลขที่ใบแจ้งหนี้</th>
-                        <th class="py-3">ลูกค้า</th>
-                        <th class="py-3">ยอดเงิน</th>
-                        <th class="py-3">ผู้ออกใบ</th>
-                        <th class="text-end pe-4 py-3">จัดการ</th>
+                        <th class="ps-4">วันที่</th>
+                        <th>เลขที่ใบแจ้งหนี้</th>
+                        <th>ลูกค้า</th>
+                        <th>ยอดสุทธิ</th>
+                        <th class="text-end pe-4">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody id="invoice_table_body">
                     <tr>
-                        <td colspan="6" class="text-center py-5 text-muted">
+                        <td colspan="5" class="text-center py-5 text-muted">
                             <span class="spinner-border spinner-border-sm text-warning me-2" role="status" aria-hidden="true"></span>
                             <span class="align-middle">กำลังโหลดรายการใบแจ้งหนี้…</span>
                         </td>
@@ -491,7 +602,7 @@ $index_hub_start_all_collapsed = true;
                 <div class="modal-header py-2 px-3 bg-dark text-white align-items-center flex-wrap gap-2">
                     <h6 class="modal-title fw-semibold mb-0 me-auto" id="tncInvoiceModalTitle">ใบแจ้งหนี้</h6>
                     <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                        <button type="button" class="btn btn-warning btn-sm fw-bold text-nowrap" id="tncInvoiceModalPrint" title="พิมพ์ตามหน้าจอ (ต้นฉบับและสำเนา)">พิมพ์ ต้นฉบับ + สำเนา</button>
+                        <button type="button" class="btn btn-warning btn-sm fw-bold text-nowrap" id="tncInvoiceModalPrint" title="พิมพ์ตามหน้าจอ (ต้นฉบับและสำเนา)">พิมพ์เอกสาร</button>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="ปิด"></button>
                     </div>
                 </div>
@@ -527,10 +638,10 @@ document.querySelector('.js-hub-member-manage')?.addEventListener('click', funct
     });
 });
 
-const loadingRowHtml = '<tr><td colspan="6" class="text-center py-5 text-muted">' +
+const loadingRowHtml = '<tr><td colspan="5" class="text-center py-5 text-muted">' +
     '<span class="spinner-border spinner-border-sm text-warning me-2" role="status" aria-hidden="true"></span>' +
     '<span class="align-middle">กำลังโหลดรายการใบแจ้งหนี้…</span></td></tr>';
-const errorRowHtml = '<tr><td colspan="6" class="text-center py-5 text-danger">' +
+const errorRowHtml = '<tr><td colspan="5" class="text-center py-5 text-danger">' +
     'โหลดข้อมูลไม่สำเร็จ — ลองโหลดหน้าใหม่หรือตรวจสอบการเชื่อมต่อ</td></tr>';
 
 function refreshInvoiceDataTable() {
@@ -550,7 +661,8 @@ function refreshInvoiceDataTable() {
     }
     TncLiveDT.init('#invoice_table', {
         order: [],
-        columnDefs: [{ orderable: false, targets: [0, 5] }]
+        dom: 'lrtip',
+        columnDefs: [{ orderable: false, targets: [0, 4] }]
     });
 }
 
@@ -568,7 +680,7 @@ function loadTable(query = '') {
     const normalized = (query || '').trim();
     if (normalized.length === 1) {
         if (tableBody) {
-            tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">พิมพ์เพิ่มอีกอย่างน้อย 1 ตัวอักษรเพื่อค้นหา</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">พิมพ์เพิ่มอีกอย่างน้อย 1 ตัวอักษรเพื่อค้นหา</td></tr>';
         }
         if (table) {
             table.setAttribute('aria-busy', 'false');
@@ -662,22 +774,65 @@ document.getElementById('invoice_table_body')?.addEventListener('click', functio
 function deleteItem(id, type) {
     Swal.fire({
         title: 'ยืนยันการลบ?',
-        text: "ข้อมูลจะถูกลบถาวร ไม่สามารถย้อนกลับได้",
+        html: 'ข้อมูลจะถูกลบถาวร กรุณาใส่<strong>รหัสผ่านของคุณ</strong>',
         icon: 'warning',
+        input: 'password',
+        inputPlaceholder: 'รหัสผ่าน',
         showCancelButton: true,
         confirmButtonColor: '#fd7e14',
         cancelButtonColor: '#adb5bd',
         confirmButtonText: 'ยืนยัน ลบข้อมูล',
         cancelButtonText: 'ยกเลิก',
-        reverseButtons: true
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = `${actionHandlerUrl}?action=delete&type=${type}&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`;
+        reverseButtons: true,
+        focusCancel: true,
+        preConfirm: function (pw) {
+            if (!pw || !String(pw).trim()) {
+                Swal.showValidationMessage('กรุณากรอกรหัสผ่าน');
+                return false;
+            }
+            return pw;
         }
+    }).then(function (result) {
+        if (!result.isConfirmed || !result.value) return;
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = actionHandlerUrl;
+        form.style.display = 'none';
+        [['action', 'delete'], ['type', type], ['id', String(id)], ['_csrf', csrfToken], ['confirm_password', result.value]].forEach(function (pair) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = pair[0];
+            inp.value = pair[1];
+            form.appendChild(inp);
+        });
+        document.body.appendChild(form);
+        form.submit();
+    });
+}
+
+function indexMarkSidebarActive() {
+    var path = (window.location.pathname || '').replace(/\/$/, '') || '/';
+    document.querySelectorAll('.home-menu-hub .home-hub-link').forEach(function (el) {
+        try {
+            var u = new URL(el.getAttribute('href') || '', window.location.origin);
+            var p = (u.pathname || '').replace(/\/$/, '') || '/';
+            if (p === path) {
+                el.classList.add('active');
+                var panel = el.closest('.collapse');
+                var toggle = panel && panel.previousElementSibling;
+                if (panel && toggle && toggle.classList.contains('home-hub-toggle')) {
+                    panel.classList.add('show');
+                    toggle.classList.remove('collapsed');
+                    toggle.setAttribute('aria-expanded', 'true');
+                    toggle.classList.add('has-active-child');
+                }
+            }
+        } catch (e) {}
     });
 }
 
 window.onload = () => {
+    indexMarkSidebarActive();
     var si = document.getElementById('search_invoice');
     loadTable(si ? si.value : '');
     const params = new URLSearchParams(window.location.search);

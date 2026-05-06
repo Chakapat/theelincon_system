@@ -6,6 +6,7 @@ session_start();
 require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/tnc_action_response.php';
 require_once __DIR__ . '/../includes/line_pr_notifier.php';
+require_once __DIR__ . '/../includes/tnc_audit_log.php';
 
 use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\Purchase;
@@ -27,11 +28,21 @@ if ($action === 'line_pr_decision') {
 
     if ($ok) {
         $nextStatus = $decision === 'approve' ? 'approved' : 'rejected';
+        $prBeforeLink = Db::row('purchase_requests', (string) $id);
         Db::mergeRow('purchase_requests', (string) $id, [
             'status' => $nextStatus,
             'line_decision' => $decision,
             'line_decided_at' => date('Y-m-d H:i:s'),
             'line_approval_token' => '',
+        ]);
+        $prAfterLink = Db::row('purchase_requests', (string) $id);
+        $prNoL = $prAfterLink !== null ? trim((string) ($prAfterLink['pr_number'] ?? '')) : '';
+        tnc_audit_log('update', 'purchase_request', (string) $id, $prNoL !== '' ? $prNoL : ('PR #' . $id), [
+            'source' => 'action-handler',
+            'action' => 'line_pr_decision_link',
+            'before' => $prBeforeLink,
+            'after' => $prAfterLink,
+            'meta' => ['decision' => $decision, 'via' => 'email_or_get_link'],
         ]);
         http_response_code(200);
         echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>บันทึกผลแล้ว</title></head><body style="font-family:sans-serif;padding:24px;"><h2>บันทึกผลเรียบร้อย</h2><p>ระบบได้อัปเดตใบ PR แล้ว: <strong>' . htmlspecialchars(strtoupper($nextStatus), ENT_QUOTES, 'UTF-8') . '</strong></p></body></html>';
@@ -58,12 +69,22 @@ if ($action === 'line_quote_decision') {
         $nextStatus = $decision === 'approve' ? 'approved' : 'rejected';
         $qpk = Db::pkForLogicalId('quotations', $id);
         $cur = Db::row('quotations', $qpk) ?? [];
+        $quoteBeforeLink = $cur;
         Db::setRow('quotations', $qpk, array_merge($cur, [
             'status' => $nextStatus,
             'line_decision' => $decision,
             'line_decided_at' => date('Y-m-d H:i:s'),
             'line_approval_token' => '',
         ]));
+        $quoteAfterLink = Db::row('quotations', $qpk);
+        $qNoL = $quoteAfterLink !== null ? trim((string) ($quoteAfterLink['quote_number'] ?? '')) : '';
+        tnc_audit_log('update', 'quotation', (string) $id, $qNoL !== '' ? $qNoL : ('QT #' . $id), [
+            'source' => 'action-handler',
+            'action' => 'line_quote_decision_link',
+            'before' => $quoteBeforeLink,
+            'after' => $quoteAfterLink,
+            'meta' => ['decision' => $decision, 'via' => 'email_or_get_link'],
+        ]);
         http_response_code(200);
         echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>บันทึกผลแล้ว</title></head><body style="font-family:sans-serif;padding:24px;"><h2>บันทึกผลเรียบร้อย</h2><p>ระบบได้อัปเดตใบเสนอราคาแล้ว: <strong>' . htmlspecialchars(strtoupper($nextStatus), ENT_QUOTES, 'UTF-8') . '</strong></p></body></html>';
         exit;
@@ -87,11 +108,21 @@ if ($action === 'line_need_decision') {
 
     if ($ok) {
         $nextStatus = $decision === 'approve' ? 'approved' : 'rejected';
+        $needBeforeLink = Db::row('purchase_needs', (string) $id);
         Db::mergeRow('purchase_needs', (string) $id, [
             'status' => $nextStatus,
             'line_decision' => $decision,
             'line_decided_at' => date('Y-m-d H:i:s'),
             'line_approval_token' => '',
+        ]);
+        $needAfterLink = Db::row('purchase_needs', (string) $id);
+        $needNoL = $needAfterLink !== null ? trim((string) ($needAfterLink['need_number'] ?? '')) : '';
+        tnc_audit_log('update', 'purchase_need', (string) $id, $needNoL !== '' ? $needNoL : ('Need #' . $id), [
+            'source' => 'action-handler',
+            'action' => 'line_need_decision_link',
+            'before' => $needBeforeLink,
+            'after' => $needAfterLink,
+            'meta' => ['decision' => $decision, 'via' => 'email_or_get_link'],
         ]);
         http_response_code(200);
         echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>บันทึกผลแล้ว</title></head><body style="font-family:sans-serif;padding:24px;"><h2>บันทึกผลเรียบร้อย</h2><p>ใบต้องการซื้ออัปเดตเป็น <strong>' . htmlspecialchars(strtoupper($nextStatus), ENT_QUOTES, 'UTF-8') . '</strong></p></body></html>';
@@ -131,6 +162,17 @@ if ($action !== 'get_data' && !csrf_verify_request()) {
     exit('Invalid security token. Please refresh the page and try again.');
 }
 
+// Routing: POST overrides GET (ลบผ่านแบบฟอร์มที่แนบรหัสผ่านยืนยัน).
+$action = (string) ($_POST['action'] ?? $_GET['action'] ?? '');
+$type = (string) ($_POST['type'] ?? $_GET['type'] ?? '');
+$id = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
+
+require_once __DIR__ . '/../includes/tnc_audit_log.php';
+$tncDeletePwdActions = ['delete', 'delete_quotation', 'delete_supplier', 'delete_pr', 'delete_purchase_need'];
+if (in_array($action, $tncDeletePwdActions, true)) {
+    tnc_require_post_confirm_password();
+}
+
 $finance_ok_actions = ['approve_pr', 'reject_pr'];
 $admin_only_actions = ['delete', 'delete_quotation', 'delete_pr', 'delete_purchase_need', 'add_member', 'edit_member', 'delete_supplier'];
 if (in_array($action, $finance_ok_actions, true) && !user_is_finance_role()) {
@@ -140,9 +182,39 @@ if (in_array($action, $admin_only_actions, true) && !user_is_admin_role()) {
     exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
 }
 
-/**
- * Show success popup with countdown before returning to PO list.
- */
+function tnc_audit_purchase_order_created(int $poId, string $sourceAction): void
+{
+    if ($poId <= 0) {
+        return;
+    }
+    $po = Db::row('purchase_orders', (string) $poId);
+    if ($po === null) {
+        return;
+    }
+    $items = [];
+    foreach (Db::filter('purchase_order_items', static function (array $r) use ($poId): bool {
+        return isset($r['po_id']) && (int) $r['po_id'] === $poId;
+    }) as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $items[] = $row;
+        if (count($items) >= 80) {
+            break;
+        }
+    }
+    $poNo = trim((string) ($po['po_number'] ?? ''));
+    tnc_audit_log('create', 'purchase_order', (string) $poId, $poNo !== '' ? $poNo : ('#' . $poId), [
+        'source' => 'action-handler',
+        'action' => $sourceAction,
+        'after' => $po,
+        'meta' => [
+            'line_count' => count($items),
+            'lines' => $items,
+        ],
+    ]);
+}
+
 function renderPoCreatedPopupAndRedirect(string $poNumber)
 {
     if (tnc_ajax_form_requested()) {
@@ -227,10 +299,23 @@ if ($action === 'save_supplier') {
     if ($s_id > 0) {
         $cur = Db::row('suppliers', (string) $s_id) ?? [];
         Db::setRow('suppliers', (string) $s_id, array_merge($cur, $data));
+        $after = Db::row('suppliers', (string) $s_id) ?? [];
+        tnc_audit_log('update', 'supplier', (string) $s_id, $name !== '' ? $name : ('#' . $s_id), [
+            'source' => 'action-handler',
+            'action' => 'save_supplier',
+            'before' => $cur,
+            'after' => $after,
+        ]);
     } else {
         $nid = Db::nextNumericId('suppliers', 'id');
         $data['id'] = $nid;
         Db::setRow('suppliers', (string) $nid, $data);
+        $after = Db::row('suppliers', (string) $nid) ?? [];
+        tnc_audit_log('create', 'supplier', (string) $nid, $name !== '' ? $name : ('#' . $nid), [
+            'source' => 'action-handler',
+            'action' => 'save_supplier',
+            'after' => $after,
+        ]);
     }
     tnc_action_redirect( app_path('pages/suppliers/supplier-list.php') . '?success=1');
 }
@@ -241,10 +326,16 @@ if ($action === 'delete_supplier') {
     });
     if ($po !== null) {
         tnc_action_redirect( app_path('pages/suppliers/supplier-list.php') . '?error=in_use');
-    } else {
-        Db::deleteRow('suppliers', (string) $id);
-        tnc_action_redirect( app_path('pages/suppliers/supplier-list.php') . '?deleted=1');
     }
+    $sDel = Db::row('suppliers', (string) $id);
+    $sDelName = $sDel !== null ? trim((string) ($sDel['name'] ?? '')) : '';
+    Db::deleteRow('suppliers', (string) $id);
+    tnc_audit_log('delete', 'supplier', (string) $id, $sDelName !== '' ? $sDelName : ('#' . $id), [
+        'source' => 'action-handler',
+        'action' => 'delete_supplier',
+        'before' => $sDel,
+    ]);
+    tnc_action_redirect( app_path('pages/suppliers/supplier-list.php') . '?deleted=1');
 }
 
 // --- PR ---
@@ -411,6 +502,26 @@ if ($action === 'save_pr') {
         }
     }
 
+    $prAfterSave = Db::row('purchase_requests', (string) $pr_id);
+    $prItemsAfter = [];
+    foreach (Db::filter('purchase_request_items', static function (array $r) use ($pr_id): bool {
+        return isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
+    }) as $pi) {
+        if (!is_array($pi)) {
+            continue;
+        }
+        $prItemsAfter[] = $pi;
+        if (count($prItemsAfter) >= 120) {
+            break;
+        }
+    }
+    tnc_audit_log('create', 'purchase_request', (string) $pr_id, $pr_number !== '' ? $pr_number : ('#' . $pr_id), [
+        'source' => 'action-handler',
+        'action' => 'save_pr',
+        'after' => $prAfterSave,
+        'meta' => ['lines' => $prItemsAfter],
+    ]);
+
     $requester = Db::row('users', (string) $requested_by);
     $requesterName = trim(((string) ($requester['fname'] ?? '')) . ' ' . ((string) ($requester['lname'] ?? '')));
     if ($requesterName === '') {
@@ -435,12 +546,30 @@ if ($action === 'save_pr') {
 }
 
 if ($action === 'approve_pr') {
+    $beforePr = Db::row('purchase_requests', (string) $id);
     Db::mergeRow('purchase_requests', (string) $id, ['status' => 'approved']);
+    $afterPr = Db::row('purchase_requests', (string) $id);
+    $prNoAp = $afterPr !== null ? trim((string) ($afterPr['pr_number'] ?? '')) : '';
+    tnc_audit_log('update', 'purchase_request', (string) $id, $prNoAp !== '' ? ('อนุมัติ ' . $prNoAp) : 'อนุมัติ PR', [
+        'source' => 'action-handler',
+        'action' => 'approve_pr',
+        'before' => $beforePr,
+        'after' => $afterPr,
+    ]);
     tnc_action_redirect( app_path('pages/purchase/purchase-request-list.php') . '?approved=1');
 }
 
 if ($action === 'reject_pr') {
+    $beforePr = Db::row('purchase_requests', (string) $id);
     Db::mergeRow('purchase_requests', (string) $id, ['status' => 'rejected']);
+    $afterPr = Db::row('purchase_requests', (string) $id);
+    $prNoRj = $afterPr !== null ? trim((string) ($afterPr['pr_number'] ?? '')) : '';
+    tnc_audit_log('update', 'purchase_request', (string) $id, $prNoRj !== '' ? ('ปฏิเสธ ' . $prNoRj) : 'ปฏิเสธ PR', [
+        'source' => 'action-handler',
+        'action' => 'reject_pr',
+        'before' => $beforePr,
+        'after' => $afterPr,
+    ]);
     tnc_action_redirect( app_path('pages/purchase/purchase-request-list.php') . '?rejected=1');
 }
 
@@ -448,22 +577,39 @@ if ($action === 'delete_pr') {
     if ($id <= 0) {
         tnc_action_redirect( app_path('pages/purchase/purchase-request-list.php') . '?error=invalid_pr');
     }
+    $prSnap = Db::row('purchase_requests', (string) $id);
+    $prNo = $prSnap !== null ? trim((string) ($prSnap['pr_number'] ?? '')) : '';
+    $nestedDel = [];
     foreach (Db::filter('hire_contracts', static fn (array $r): bool => isset($r['pr_id']) && (int) $r['pr_id'] === $id) as $hc) {
         $hcId = (int) ($hc['id'] ?? 0);
         if ($hcId > 0) {
+            $nestedDel[] = ['verb' => 'delete', 'entity_type' => 'hire_contract', 'entity_id' => (string) $hcId, 'snapshot' => $hc];
             Db::deleteRow('hire_contracts', (string) $hcId);
         }
     }
     foreach (Db::filter('purchase_orders', static fn (array $r): bool => isset($r['pr_id']) && (int) $r['pr_id'] === $id) as $poDel) {
         $poid = (int) ($poDel['id'] ?? 0);
         if ($poid > 0) {
+            $nestedDel[] = ['verb' => 'delete', 'entity_type' => 'purchase_order', 'entity_id' => (string) $poid, 'snapshot' => $poDel];
             Db::deleteWhereEquals('po_payments', 'po_id', (string) $poid);
             Db::deleteWhereEquals('purchase_order_items', 'po_id', (string) $poid);
             Db::deleteRow('purchase_orders', (string) $poid);
         }
     }
+    foreach (Db::filter('purchase_request_items', static fn (array $r): bool => isset($r['pr_id']) && (int) $r['pr_id'] === $id) as $pri) {
+        $priId = (int) ($pri['id'] ?? 0);
+        if ($priId > 0) {
+            $nestedDel[] = ['verb' => 'delete', 'entity_type' => 'purchase_request_item', 'entity_id' => (string) $priId, 'snapshot' => $pri];
+        }
+    }
     Db::deleteWhereEquals('purchase_request_items', 'pr_id', (string) $id);
     Db::deleteRow('purchase_requests', (string) $id);
+    tnc_audit_log('delete', 'purchase_request', (string) $id, $prNo !== '' ? $prNo : ('#' . $id), [
+        'source' => 'action-handler',
+        'action' => 'delete_pr',
+        'before' => $prSnap,
+        'nested' => $nestedDel,
+    ]);
     tnc_action_redirect( app_path('pages/purchase/purchase-request-list.php') . '?deleted=1');
 }
 
@@ -491,6 +637,12 @@ if ($action === 'save_standalone_hire_contract' && ($_SERVER['REQUEST_METHOD'] ?
         'remaining_amount' => round($amount, 2),
         'created_at' => $now,
         'updated_at' => $now,
+    ]);
+    $hcAfterCreate = Db::row('hire_contracts', (string) $contractId);
+    tnc_audit_log('create', 'hire_contract', (string) $contractId, $docNo . ' — ' . $contractor, [
+        'source' => 'action-handler',
+        'action' => 'save_standalone_hire_contract',
+        'after' => $hcAfterCreate,
     ]);
     tnc_action_redirect( app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . $contractId . '&created=1');
 }
@@ -597,6 +749,29 @@ if ($action === 'save_purchase_need' && ($_SERVER['REQUEST_METHOD'] ?? '') === '
         Db::mergeRow('purchase_needs', (string) $needId, ['line_sent_at' => date('Y-m-d H:i:s')]);
     }
 
+    $needFinal = Db::row('purchase_needs', (string) $needId);
+    $needItemsFinal = [];
+    foreach (Db::filter('purchase_need_items', static function (array $r) use ($needId): bool {
+        return isset($r['need_id']) && (int) $r['need_id'] === $needId;
+    }) as $ni) {
+        if (!is_array($ni)) {
+            continue;
+        }
+        $needItemsFinal[] = $ni;
+        if (count($needItemsFinal) >= 120) {
+            break;
+        }
+    }
+    tnc_audit_log('create', 'purchase_need', (string) $needId, $need_number, [
+        'source' => 'action-handler',
+        'action' => 'save_purchase_need',
+        'after' => $needFinal,
+        'meta' => [
+            'lines' => $needItemsFinal,
+            'line_notification_sent' => $lineSent,
+        ],
+    ]);
+
     $redirect = app_path('pages/purchase/purchase-need-list.php') . '?need_success=1';
     if (!$lineSent) {
         $redirect .= '&line_error=1';
@@ -609,15 +784,25 @@ if ($action === 'delete_purchase_need') {
     if ($id <= 0) {
         tnc_action_redirect( app_path('pages/purchase/purchase-need-list.php') . '?error=invalid_need');
     }
+    $needSnap = Db::row('purchase_needs', (string) $id);
+    $needNo = $needSnap !== null ? trim((string) ($needSnap['need_number'] ?? '')) : '';
+    $nestedNeedItems = [];
     foreach (Db::tableKeyed('purchase_need_items') as $pk => $row) {
         if (!is_array($row)) {
             continue;
         }
         if ((int) ($row['need_id'] ?? 0) === $id) {
+            $nestedNeedItems[] = ['verb' => 'delete', 'entity_type' => 'purchase_need_item', 'entity_id' => (string) $pk, 'snapshot' => $row];
             Db::deleteRow('purchase_need_items', (string) $pk);
         }
     }
     Db::deleteRow('purchase_needs', (string) $id);
+    tnc_audit_log('delete', 'purchase_need', (string) $id, $needNo !== '' ? $needNo : ('#' . $id), [
+        'source' => 'action-handler',
+        'action' => 'delete_purchase_need',
+        'before' => $needSnap,
+        'nested' => $nestedNeedItems,
+    ]);
     tnc_action_redirect( app_path('pages/purchase/purchase-need-list.php') . '?need_deleted=1');
 }
 
@@ -764,6 +949,7 @@ if ($action === 'create_po_from_pr') {
         if (method_exists(Purchase::class, 'seedPoPayments')) {
             Purchase::seedPoPayments($po_id, $payable, $hcId);
         }
+        tnc_audit_purchase_order_created($po_id, 'create_po_from_pr_hire');
         renderPoCreatedPopupAndRedirect((string) $po_number);
     }
 
@@ -816,6 +1002,7 @@ if ($action === 'create_po_from_pr') {
     if (method_exists(Purchase::class, 'seedPoPayments')) {
         Purchase::seedPoPayments($po_id, $total_amount, $hire_contract_id > 0 ? $hire_contract_id : null);
     }
+    tnc_audit_purchase_order_created($po_id, 'create_po_from_pr_purchase');
     renderPoCreatedPopupAndRedirect((string) $po_number);
 }
 
@@ -983,6 +1170,7 @@ if ($action === 'create_po_direct') {
     if (method_exists(Purchase::class, 'seedPoPayments')) {
         Purchase::seedPoPayments($po_id, $seedAmount, $hire_contract_id > 0 ? $hire_contract_id : null);
     }
+    tnc_audit_purchase_order_created($po_id, 'create_po_direct');
     renderPoCreatedPopupAndRedirect((string) $po_number);
 }
 
@@ -1025,10 +1213,20 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
         tnc_action_redirect( $listUrl . '?error=upload_failed');
     }
     $rel = 'uploads/po-payment-slips/' . $po_id . '/' . $storedName;
+    $poBeforePay = Db::row('purchase_orders', (string) $po_id);
     Db::mergeRow('purchase_orders', (string) $po_id, [
         'payment_status' => 'paid',
         'payment_slip_path' => $rel,
         'payment_marked_paid_at' => date('Y-m-d H:i:s'),
+    ]);
+    $poAfterPay = Db::row('purchase_orders', (string) $po_id);
+    $poNoMark = $poAfterPay !== null ? trim((string) ($poAfterPay['po_number'] ?? '')) : '';
+    tnc_audit_log('update', 'purchase_order', (string) $po_id, $poNoMark !== '' ? ('จ่ายแล้ว ' . $poNoMark) : 'ทำเครื่องหมายจ่าย PO', [
+        'source' => 'action-handler',
+        'action' => 'update_po_payment_status',
+        'before' => $poBeforePay,
+        'after' => $poAfterPay,
+        'meta' => ['payment_slip_path' => $rel],
     ]);
     tnc_action_redirect( $listUrl . '?payment_saved=1');
 }
@@ -1086,12 +1284,21 @@ if ($action === 'upload_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') =
         tnc_action_redirect( app_path('pages/purchase/purchase-order-list.php') . '?id=' . $po_id . '&error=upload_failed');
     }
     $rel = 'uploads/po-payments/' . $po_id . '/' . $storedName;
+    $payBefore = Db::row('po_payments', (string) $payment_id);
     Db::mergeRow('po_payments', (string) $payment_id, [
         'slip_path' => $rel,
         'slip_url' => app_path($rel),
         'paid_amount' => (float) str_replace([',', ' '], '', (string) ($_POST['paid_amount'] ?? ($pay['amount'] ?? 0))),
         'payment_note' => mb_substr(trim((string) ($_POST['payment_note'] ?? '')), 0, 500),
         'slip_uploaded_at' => date('Y-m-d H:i:s'),
+    ]);
+    $payAfter = Db::row('po_payments', (string) $payment_id);
+    tnc_audit_log('update', 'po_payment', (string) $payment_id, 'แนบสลิปชำระ PO #' . $po_id, [
+        'source' => 'action-handler',
+        'action' => 'upload_po_payment_slip',
+        'before' => $payBefore,
+        'after' => $payAfter,
+        'meta' => ['po_id' => $po_id, 'slip_path' => $rel],
     ]);
     if ($backTo === 'po_list') {
         tnc_action_redirect( app_path('pages/purchase/purchase-order-list.php') . '?payment_saved=1');
@@ -1322,7 +1529,22 @@ if ($action === 'save_project_purchase_bill' && ($_SERVER['REQUEST_METHOD'] ?? '
             'line_total' => $line['line_total'],
         ];
     }, $line_rows, array_keys($line_rows));
+    $billBeforeSave = $editingBill;
     Db::setRow('purchase_bills', (string) $bid, $billPayload);
+    $billAfterSave = Db::row('purchase_bills', (string) $bid);
+    $billSummary = trim($supplier_name . ' · ' . $bill_date . ' · ยอด ' . (string) $grand_total);
+    tnc_audit_log(
+        $editingBill === null ? 'create' : 'update',
+        'purchase_bill',
+        (string) $bid,
+        $billSummary !== '' ? $billSummary : ('บิล #' . $bid),
+        [
+            'source' => 'action-handler',
+            'action' => 'save_project_purchase_bill',
+            'before' => $billBeforeSave,
+            'after' => $billAfterSave,
+        ]
+    );
     $resultKey = $editingBill === null ? 'success=1' : 'updated=1';
     $month = substr($bill_date, 0, 7);
     if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
@@ -1339,6 +1561,8 @@ if ($action === 'create_quotation' || $action === 'edit_quotation') {
     $subtotal = (float) ($_POST['subtotal'] ?? 0);
     $vat_amount = !empty($_POST['vat_enabled']) ? ($subtotal * 0.07) : 0.0;
     $grand_total = $subtotal + $vat_amount;
+    $quotationAuditBefore = null;
+    $quote_number = '';
 
     if ($action === 'create_quotation') {
         $quote_number = trim((string) ($_POST['quote_number'] ?? ''));
@@ -1360,6 +1584,20 @@ if ($action === 'create_quotation' || $action === 'edit_quotation') {
     } else {
         $target_id = (int) ($_POST['quotation_id'] ?? 0);
         $cur = Db::row('quotations', (string) $target_id) ?? [];
+        $quote_number = trim((string) ($cur['quote_number'] ?? ''));
+        $qLinesBefore = [];
+        foreach (Db::filter('quotation_items', static function (array $r) use ($target_id): bool {
+            return isset($r['quotation_id']) && (int) $r['quotation_id'] === $target_id;
+        }) as $ql) {
+            if (!is_array($ql)) {
+                continue;
+            }
+            $qLinesBefore[] = $ql;
+            if (count($qLinesBefore) >= 120) {
+                break;
+            }
+        }
+        $quotationAuditBefore = ['header' => $cur, 'lines' => $qLinesBefore];
         Db::setRow('quotations', (string) $target_id, array_merge($cur, [
             'date' => $issue_date,
             'company_id' => $company_id,
@@ -1369,6 +1607,7 @@ if ($action === 'create_quotation' || $action === 'edit_quotation') {
             'grand_total' => $grand_total,
         ]));
         Db::deleteWhereEquals('quotation_items', 'quotation_id', (string) $target_id);
+        $curQuoteNo = trim((string) ($cur['quote_number'] ?? ''));
     }
 
     foreach ($_POST['description'] ?? [] as $key => $desc) {
@@ -1391,6 +1630,41 @@ if ($action === 'create_quotation' || $action === 'edit_quotation') {
             'total' => $total,
         ]);
 
+    }
+
+    $qRowAfter = Db::row('quotations', (string) $target_id);
+    $qItemsAfter = [];
+    foreach (Db::filter('quotation_items', static function (array $r) use ($target_id): bool {
+        return isset($r['quotation_id']) && (int) $r['quotation_id'] === $target_id;
+    }) as $ql2) {
+        if (!is_array($ql2)) {
+            continue;
+        }
+        $qItemsAfter[] = $ql2;
+        if (count($qItemsAfter) >= 120) {
+            break;
+        }
+    }
+    $qSummary = $qRowAfter !== null ? trim((string) ($qRowAfter['quote_number'] ?? '')) : $quote_number;
+    if ($action === 'create_quotation') {
+        tnc_audit_log('create', 'quotation', (string) $target_id, $qSummary !== '' ? $qSummary : ('#' . $target_id), [
+            'source' => 'action-handler',
+            'action' => 'create_quotation',
+            'after' => $qRowAfter,
+            'meta' => ['lines' => $qItemsAfter],
+        ]);
+    } else {
+        $curQuoteNo = $qSummary !== '' ? $qSummary : ('#' . $target_id);
+        tnc_audit_log('update', 'quotation', (string) $target_id, $curQuoteNo, [
+            'source' => 'action-handler',
+            'action' => 'edit_quotation',
+            'before' => $quotationAuditBefore !== null ? ($quotationAuditBefore['header'] ?? null) : null,
+            'after' => $qRowAfter,
+            'meta' => [
+                'lines_before' => $quotationAuditBefore !== null ? ($quotationAuditBefore['lines'] ?? []) : [],
+                'lines_after' => $qItemsAfter,
+            ],
+        ]);
     }
     tnc_action_redirect( app_path('pages/quotations/quotation-list.php') . '?success=1');
 }
@@ -1464,6 +1738,12 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
             $base['userid'] = $uid;
             $base['password'] = $pw;
             Db::setRow('users', (string) $uid, $base);
+            $memAfter = Db::row('users', (string) $uid);
+            tnc_audit_log('create', 'member', (string) $uid, trim($fn . ' ' . $ln) . ' (' . $u_code . ')', [
+                'source' => 'action-handler',
+                'action' => 'add_member',
+                'after' => $memAfter,
+            ]);
         } else {
             $edit_id = (int) ($_POST['id'] ?? 0);
             $cur = Db::row('users', (string) $edit_id) ?? [];
@@ -1471,6 +1751,14 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
                 $base['password'] = password_hash((string) $_POST['password'], PASSWORD_DEFAULT);
             }
             Db::setRow('users', (string) $edit_id, array_merge($cur, $base));
+            $memAfterEd = Db::row('users', (string) $edit_id);
+            tnc_audit_log('update', 'member', (string) $edit_id, trim($fn . ' ' . $ln) . ' (' . $u_code . ')', [
+                'source' => 'action-handler',
+                'action' => 'edit_member',
+                'before' => $cur,
+                'after' => $memAfterEd,
+                'meta' => ['password_changed' => !empty($_POST['password'])],
+            ]);
         }
         $ok = ($action === 'edit_member') ? 'updated' : '1';
         tnc_action_redirect( app_path($page) . '?success=' . $ok);
@@ -1498,10 +1786,25 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
                 $row['customer_type'] = trim((string) ($_POST['customer_type'] ?? ''));
             }
             Db::setRow($table, (string) $nid, $row);
+            $entityLabel = $table === 'company' ? 'company' : 'customer';
+            $orgAfter = Db::row($table, (string) $nid);
+            tnc_audit_log('create', $entityLabel, (string) $nid, $name !== '' ? $name : ('#' . $nid), [
+                'source' => 'action-handler',
+                'action' => $action,
+                'after' => $orgAfter,
+            ]);
         } else {
             $edit_id = (int) ($_POST['id'] ?? 0);
             $cur = Db::row($table, (string) $edit_id) ?? [];
             Db::setRow($table, (string) $edit_id, array_merge($cur, $row));
+            $entityLabel = $table === 'company' ? 'company' : 'customer';
+            $orgAfterEd = Db::row($table, (string) $edit_id);
+            tnc_audit_log('update', $entityLabel, (string) $edit_id, $name !== '' ? $name : ('#' . $edit_id), [
+                'source' => 'action-handler',
+                'action' => $action,
+                'before' => $cur,
+                'after' => $orgAfterEd,
+            ]);
         }
         tnc_action_redirect( app_path($page) . '?success=1');
     }
@@ -1515,45 +1818,219 @@ if ($action === 'delete_quotation' && $id > 0) {
 
 if ($action === 'delete' && $id > 0) {
     if ($type === 'invoice') {
-        Db::deleteWhereEquals('invoice_items', 'invoice_id', (string) $id);
+        $invPk = Db::pkForLogicalId('invoices', $id);
+        $invSnap = Db::row('invoices', $invPk);
+        $invNo = $invSnap !== null ? trim((string) ($invSnap['invoice_number'] ?? '')) : '';
+        $invItemsDel = [];
+        foreach (Db::filter('invoice_items', static function (array $r) use ($id): bool {
+            return isset($r['invoice_id']) && (int) $r['invoice_id'] === $id;
+        }) as $ir) {
+            if (!is_array($ir)) {
+                continue;
+            }
+            $invItemsDel[] = $ir;
+            if (count($invItemsDel) >= 120) {
+                break;
+            }
+        }
         $taxRows = Db::filter('tax_invoices', static function (array $r) use ($id): bool {
             return isset($r['invoice_id']) && (int) $r['invoice_id'] === $id;
         });
+        $taxBlocksDel = [];
         foreach ($taxRows as $taxRow) {
+            if (!is_array($taxRow)) {
+                continue;
+            }
             $taxId = (int) ($taxRow['id'] ?? 0);
+            if ($taxId <= 0) {
+                continue;
+            }
+            $tis = [];
+            foreach (Db::filter('tax_invoice_items', static function (array $r) use ($taxId): bool {
+                return isset($r['tax_invoice_id']) && (int) $r['tax_invoice_id'] === $taxId;
+            }) as $ti) {
+                if (!is_array($ti)) {
+                    continue;
+                }
+                $tis[] = $ti;
+                if (count($tis) >= 80) {
+                    break;
+                }
+            }
+            $taxBlocksDel[] = ['tax_invoice' => $taxRow, 'items' => $tis];
+        }
+        Db::deleteWhereEquals('invoice_items', 'invoice_id', (string) $id);
+        foreach ($taxBlocksDel as $blk) {
+            $taxId = (int) ($blk['tax_invoice']['id'] ?? 0);
             if ($taxId > 0) {
                 Db::deleteWhereEquals('tax_invoice_items', 'tax_invoice_id', (string) $taxId);
                 Db::deleteRow('tax_invoices', (string) $taxId);
             }
         }
-        Db::deleteRow('invoices', (string) $id);
+        Db::deleteRow('invoices', (string) $invPk);
+        tnc_audit_log('delete', 'invoice', (string) $id, $invNo !== '' ? $invNo : ('#' . $id), [
+            'source' => 'action-handler',
+            'action' => 'delete',
+            'before' => $invSnap,
+            'meta' => [
+                'invoice_items' => $invItemsDel,
+                'related_tax_invoices' => $taxBlocksDel,
+            ],
+        ]);
         tnc_action_redirect( app_path('index.php') . '?deleted=1');
     } elseif ($type === 'quotation') {
+        $qPk = Db::pkForLogicalId('quotations', $id);
+        $qSnap = Db::row('quotations', $qPk);
+        $qNo = $qSnap !== null ? trim((string) ($qSnap['quote_number'] ?? '')) : '';
+        $qItemsDel = [];
+        foreach (Db::filter('quotation_items', static function (array $r) use ($id): bool {
+            return isset($r['quotation_id']) && (int) $r['quotation_id'] === $id;
+        }) as $qr) {
+            if (!is_array($qr)) {
+                continue;
+            }
+            $qItemsDel[] = $qr;
+            if (count($qItemsDel) >= 120) {
+                break;
+            }
+        }
         Db::deleteWhereEquals('quotation_items', 'quotation_id', (string) $id);
-        Db::deleteRow('quotations', (string) $id);
+        Db::deleteRow('quotations', (string) $qPk);
+        tnc_audit_log('delete', 'quotation', (string) $id, $qNo !== '' ? $qNo : ('#' . $id), [
+            'source' => 'action-handler',
+            'action' => 'delete',
+            'before' => $qSnap,
+            'meta' => ['quotation_items' => $qItemsDel],
+        ]);
         tnc_action_redirect( app_path('pages/quotations/quotation-list.php') . '?deleted=1');
     } elseif ($type === 'member') {
+        $uSnap = Db::row('users', (string) $id);
+        $uLabel = $uSnap !== null ? trim((string) (($uSnap['fname'] ?? '') . ' ' . ($uSnap['lname'] ?? ''))) : '';
+        $uCode = $uSnap !== null ? trim((string) ($uSnap['user_code'] ?? '')) : '';
+        $memSummary = trim($uLabel . ($uCode !== '' ? ' (' . $uCode . ')' : ''));
         Db::deleteRow('users', (string) $id);
+        tnc_audit_log('delete', 'member', (string) $id, $memSummary !== '' ? $memSummary : ('#' . $id), [
+            'source' => 'action-handler',
+            'action' => 'delete',
+            'before' => $uSnap,
+        ]);
         tnc_action_redirect( app_path('pages/organization/member-manage.php') . '?deleted=1');
     } elseif ($type === 'tax_invoice') {
+        $taxPk = Db::pkForLogicalId('tax_invoices', $id);
+        $taxSnap = Db::row('tax_invoices', $taxPk);
+        $taxNo = $taxSnap !== null ? trim((string) ($taxSnap['tax_invoice_number'] ?? '')) : '';
+        $taxItemsDel = [];
+        foreach (Db::filter('tax_invoice_items', static function (array $r) use ($id): bool {
+            return isset($r['tax_invoice_id']) && (int) $r['tax_invoice_id'] === $id;
+        }) as $txi) {
+            if (!is_array($txi)) {
+                continue;
+            }
+            $taxItemsDel[] = $txi;
+            if (count($taxItemsDel) >= 120) {
+                break;
+            }
+        }
         Db::deleteWhereEquals('tax_invoice_items', 'tax_invoice_id', (string) $id);
-        Db::deleteRow('tax_invoices', (string) $id);
+        Db::deleteRow('tax_invoices', (string) $taxPk);
+        tnc_audit_log('delete', 'tax_invoice', (string) $id, $taxNo !== '' ? strtoupper($taxNo) : ('#' . $id), [
+            'source' => 'action-handler',
+            'action' => 'delete',
+            'before' => $taxSnap,
+            'meta' => ['tax_invoice_items' => $taxItemsDel],
+        ]);
         tnc_action_redirect( app_path('pages/invoices/tax-invoice-list.php') . '?deleted=1');
     } elseif ($type === 'purchase_order') {
+        $poPk = Db::pkForLogicalId('purchase_orders', $id);
+        $poSnap = Db::row('purchase_orders', $poPk);
+        $poNo = $poSnap !== null ? trim((string) ($poSnap['po_number'] ?? '')) : '';
+        $poPayDel = [];
+        foreach (Db::filter('po_payments', static function (array $r) use ($id): bool {
+            return isset($r['po_id']) && (int) $r['po_id'] === $id;
+        }) as $pp) {
+            if (!is_array($pp)) {
+                continue;
+            }
+            $poPayDel[] = $pp;
+            if (count($poPayDel) >= 60) {
+                break;
+            }
+        }
+        $poLinesDel = [];
+        foreach (Db::filter('purchase_order_items', static function (array $r) use ($id): bool {
+            return isset($r['po_id']) && (int) $r['po_id'] === $id;
+        }) as $pol) {
+            if (!is_array($pol)) {
+                continue;
+            }
+            $poLinesDel[] = $pol;
+            if (count($poLinesDel) >= 120) {
+                break;
+            }
+        }
         Db::deleteWhereEquals('po_payments', 'po_id', (string) $id);
         Db::deleteWhereEquals('purchase_order_items', 'po_id', (string) $id);
-        Db::deleteRow('purchase_orders', (string) $id);
+        Db::deleteRow('purchase_orders', (string) $poPk);
+        tnc_audit_log('delete', 'purchase_order', (string) $id, $poNo !== '' ? $poNo : ('#' . $id), [
+            'source' => 'action-handler',
+            'action' => 'delete',
+            'before' => $poSnap,
+            'meta' => [
+                'po_payments' => $poPayDel,
+                'purchase_order_items' => $poLinesDel,
+            ],
+        ]);
         tnc_action_redirect( app_path('pages/purchase/purchase-order-list.php') . '?deleted=1');
     } elseif ($type === 'project_purchase_bill') {
+        $billPk = Db::pkForLogicalId('purchase_bills', $id);
+        $billSnap = Db::row('purchase_bills', $billPk);
+        $billLabel = $billSnap !== null ? trim((string) ($billSnap['bill_number'] ?? ($billSnap['doc_number'] ?? ''))) : '';
+        $billTableItems = [];
+        foreach (Db::tableRows('purchase_bill_items') as $bItem) {
+            if (!is_array($bItem)) {
+                continue;
+            }
+            $bidRef = (int) ($bItem['bill_id'] ?? $bItem['purchase_bill_id'] ?? $bItem['purchase_bills_id'] ?? 0);
+            if ($bidRef !== $id) {
+                continue;
+            }
+            $billTableItems[] = $bItem;
+            if (count($billTableItems) >= 120) {
+                break;
+            }
+        }
         Db::deleteWhereEquals('purchase_bill_items', 'bill_id', (string) $id);
         Db::deleteWhereEquals('purchase_bill_items', 'purchase_bill_id', (string) $id);
         Db::deleteWhereEquals('purchase_bill_items', 'purchase_bills_id', (string) $id);
-        Db::deleteRow('purchase_bills', (string) $id);
+        Db::deleteRow('purchase_bills', (string) $billPk);
+        $embeddedItems = $billSnap['items'] ?? [];
+        if (is_string($embeddedItems)) {
+            $decodedEmb = json_decode($embeddedItems, true);
+            $embeddedItems = is_array($decodedEmb) ? $decodedEmb : [];
+        }
+        tnc_audit_log('delete', 'purchase_bill', (string) $id, $billLabel !== '' ? $billLabel : ('#' . $id), [
+            'source' => 'action-handler',
+            'action' => 'delete',
+            'before' => $billSnap,
+            'meta' => [
+                'purchase_bill_items_table' => $billTableItems,
+                'items_embedded_in_record' => is_array($embeddedItems) ? $embeddedItems : [],
+            ],
+        ]);
         tnc_action_redirect( app_path('pages/purchase/purchase-bill.php') . '?deleted=1');
     } else {
         $table = ($type === 'company') ? 'company' : 'customers';
         $page = ($table === 'company') ? 'pages/organization/company-manage.php' : 'pages/organization/customer-manage.php';
-        Db::deleteRow($table, (string) $id);
+        $orgPk = Db::pkForLogicalId($table, $id);
+        $orgSnap = Db::row($table, $orgPk);
+        $orgName = $orgSnap !== null ? trim((string) ($orgSnap['name'] ?? '')) : '';
+        Db::deleteRow($table, (string) $orgPk);
+        $ent = $table === 'company' ? 'company' : 'customer';
+        tnc_audit_log('delete', $ent, (string) $id, $orgName !== '' ? $orgName : ('#' . $id), [
+            'source' => 'action-handler',
+            'action' => 'delete',
+            'before' => $orgSnap,
+        ]);
         tnc_action_redirect( app_path($page) . '?deleted=1');
     }
 }

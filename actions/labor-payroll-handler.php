@@ -5,6 +5,7 @@ declare(strict_types=1);
 session_start();
 require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/tnc_action_response.php';
+require_once __DIR__ . '/../includes/tnc_audit_log.php';
 
 use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\LaborPayroll;
@@ -71,97 +72,6 @@ function labor_payroll_max_sort_order_for_month(string $ym): int
     return $max;
 }
 
-/** แถวหัวตาราง CSV — พิจารณาเฉพาะบรรทัดแรกของไฟล์ (กันชื่อคนงานที่มีคำว่า "ชื่อ") */
-function labor_payroll_csv_row_is_header(array $cells, bool $isFirstLineOfFile): bool
-{
-    if (!$isFirstLineOfFile) {
-        return false;
-    }
-    $a = trim((string) ($cells[0] ?? ''));
-    $b = trim((string) ($cells[1] ?? ''));
-    if ($a === '' && $b === '') {
-        return true;
-    }
-    $lowerA = function_exists('mb_strtolower') ? mb_strtolower($a, 'UTF-8') : strtolower($a);
-    $nameHeaders = ['ชื่อ', 'ชื่อ-สกุล', 'name', 'fullname', 'full_name'];
-    if (in_array($lowerA, $nameHeaders, true)) {
-        return true;
-    }
-    $lowerB = function_exists('mb_strtolower') ? mb_strtolower($b, 'UTF-8') : strtolower($b);
-    if ($b !== '' && (str_contains($lowerB, 'ค่าแรง') || str_contains($lowerB, 'wage') || str_contains($lowerB, 'daily'))) {
-        return true;
-    }
-    if ($b !== '') {
-        $num = str_replace([',', ' '], '', $b);
-        if (!is_numeric($num)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/** เลือกตัวคั่นจากหลายบรรทัดแรก (บรรทัดหัวบริษัทมักมีคอมมาน้อย) */
-function labor_payroll_csv_detect_delimiter(array $lines): string
-{
-    $commaScore = 0;
-    $semiScore = 0;
-    foreach (array_slice($lines, 0, 30) as $ln) {
-        $commaScore += substr_count((string) $ln, ',');
-        $semiScore += substr_count((string) $ln, ';');
-    }
-
-    return $semiScore > $commaScore ? ';' : ',';
-}
-
-/**
- * ตารางค่าแรงจาก Excel (หัวหลายแถว + คอลัมน์ เลขที่ | ชื่อ | วัน | ค่าแรง/วัน | ...)
- * หัวคอลัมน์ "ชื่อ" กับ "ค่าแรง/วัน" อาจอยู่คนละบรรทัดเมื่อมีแถวผสานเซลล์
- *
- * @return array{nameCol:int,wageCol:int,firstDataRow:int}|null
- */
-function labor_payroll_csv_detect_excel_payroll_layout(array $lines, string $delimiter): ?array
-{
-    $nameCol = null;
-    $nameHeaderLine = -1;
-    $wageCol = null;
-    $wageHeaderLine = -1;
-
-    foreach ($lines as $idx => $line) {
-        $cells = str_getcsv((string) $line, $delimiter);
-        foreach ($cells as $i => $raw) {
-            $v = trim((string) $raw);
-            if ($v === '') {
-                continue;
-            }
-            $lv = function_exists('mb_strtolower') ? mb_strtolower($v, 'UTF-8') : strtolower($v);
-            if (($v === 'ชื่อ' || $lv === 'name') && $nameCol === null) {
-                $nameCol = $i;
-                $nameHeaderLine = $idx;
-            }
-            if (str_contains($v, 'ค่าแรง') && (str_contains($v, 'วัน') || str_contains($v, '/'))) {
-                $wageCol = $i;
-                $wageHeaderLine = $idx;
-            }
-        }
-    }
-
-    if ($nameCol !== null && $wageCol !== null && $wageCol > $nameCol) {
-        $lastHeader = max($nameHeaderLine, $wageHeaderLine);
-
-        return ['nameCol' => $nameCol, 'wageCol' => $wageCol, 'firstDataRow' => $lastHeader + 1];
-    }
-
-    // พบแถว "ชื่อ" อย่างเดียว — โครงสร้างมาตรฐาน Excel: ชื่อ (B) แล้ววัน (C) แล้วค่าแรง/วัน (D)
-    if ($nameCol !== null && $nameHeaderLine >= 0) {
-        $guessWage = $nameCol + 2;
-
-        return ['nameCol' => $nameCol, 'wageCol' => $guessWage, 'firstDataRow' => $nameHeaderLine + 1];
-    }
-
-    return null;
-}
-
 if ($action === 'create_group') {
     $back = labor_payroll_back_base((string) ($_POST['return_to'] ?? ''));
     $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_POST['year_month'] ?? '')) ? (string) $_POST['year_month'] : date('Y-m');
@@ -188,6 +98,12 @@ if ($action === 'create_group') {
         'name' => $groupName,
         'is_active' => 1,
         'created_at' => date('Y-m-d H:i:s'),
+    ]);
+    $gAfter = Db::row('labor_worker_groups', (string) $gid);
+    tnc_audit_log('create', 'labor_worker_group', (string) $gid, $groupName, [
+        'source' => 'labor-payroll-handler',
+        'action' => 'create_group',
+        'after' => $gAfter,
     ]);
     labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_created' => 1]);
 }
@@ -248,136 +164,16 @@ if ($action === 'create_worker') {
         'advance_draw' => 0,
     ]);
 
-    labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'worker_created' => 1]);
-}
-
-if ($action === 'import_workers_csv') {
-    $back = labor_payroll_back_base((string) ($_POST['return_to'] ?? ''));
-    $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_POST['year_month'] ?? '')) ? (string) $_POST['year_month'] : date('Y-m');
-    $half = (int) ($_POST['half'] ?? 1) === 2 ? 2 : 1;
-    $groupFilter = (int) ($_POST['group_id'] ?? 0);
-    $gender = trim((string) ($_POST['import_gender'] ?? 'ชาย'));
-    if (!in_array($gender, ['ชาย', 'หญิง', 'อื่นๆ'], true)) {
-        $gender = 'ชาย';
-    }
-
-    if ($groupFilter <= 0) {
-        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'group']);
-    }
-    $groupRow = Db::rowByIdField('labor_worker_groups', $groupFilter);
-    if (!$groupRow || empty($groupRow['is_active'])) {
-        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'group']);
-    }
-
-    if (empty($_FILES['workers_csv']) || (int) ($_FILES['workers_csv']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'file']);
-    }
-    $f = $_FILES['workers_csv'];
-    $tmp = (string) ($f['tmp_name'] ?? '');
-    if ($tmp === '' || !is_uploaded_file($tmp)) {
-        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'file']);
-    }
-    $raw = file_get_contents($tmp);
-    if ($raw === false || $raw === '') {
-        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'empty']);
-    }
-    if (str_starts_with($raw, "\xEF\xBB\xBF")) {
-        $raw = substr($raw, 3);
-    }
-    $lines = preg_split('/\r\n|\r|\n/', $raw);
-    $lines = array_values(array_filter($lines, static fn (string $ln): bool => trim($ln) !== ''));
-    if (count($lines) === 0) {
-        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'empty']);
-    }
-
-    $delimiter = labor_payroll_csv_detect_delimiter($lines);
-    $excelLayout = labor_payroll_csv_detect_excel_payroll_layout($lines, $delimiter);
-    $nameCol = 0;
-    $wageCol = 1;
-    $loopStart = 0;
-    if ($excelLayout !== null) {
-        $nameCol = $excelLayout['nameCol'];
-        $wageCol = $excelLayout['wageCol'];
-        $loopStart = $excelLayout['firstDataRow'];
-    }
-
-    $maxImports = 800;
-    $imported = 0;
-    $skipped = 0;
-    $nextSort = labor_payroll_max_sort_order_for_month($ym) + 1;
-
-    for ($idx = $loopStart; $idx < count($lines); ++$idx) {
-        $line = $lines[$idx];
-        $cells = str_getcsv($line, $delimiter);
-        if ($excelLayout === null && $idx === 0 && labor_payroll_csv_row_is_header($cells, true)) {
-            continue;
-        }
-        $workerName = trim((string) ($cells[$nameCol] ?? ''));
-        if (function_exists('mb_substr')) {
-            $workerName = mb_substr($workerName, 0, 200, 'UTF-8');
-        } else {
-            $workerName = substr($workerName, 0, 200);
-        }
-        $wageRaw = trim((string) ($cells[$wageCol] ?? ''));
-        $dailyWage = (float) str_replace([',', ' '], '', $wageRaw);
-        if ($dailyWage < 0) {
-            $dailyWage = 0;
-        }
-        $lvName = function_exists('mb_strtolower') ? mb_strtolower($workerName, 'UTF-8') : strtolower($workerName);
-        if ($workerName === '' || $workerName === 'ชื่อ' || $lvName === 'name') {
-            ++$skipped;
-            continue;
-        }
-        if ($wageRaw === '' || !is_numeric(str_replace([',', ' '], '', $wageRaw))) {
-            ++$skipped;
-            continue;
-        }
-        // แถวสรุป / หัวซ้ำ
-        $firstCell = trim((string) ($cells[0] ?? ''));
-        $lvFirst = function_exists('mb_strtolower') ? mb_strtolower($firstCell, 'UTF-8') : strtolower($firstCell);
-        if (str_contains($lvFirst, 'รวม') || str_contains($lvFirst, 'total')) {
-            ++$skipped;
-            continue;
-        }
-
-        $wid = Db::nextNumericId('labor_workers');
-        Db::setRow('labor_workers', (string) $wid, [
-            'id' => $wid,
-            'full_name' => $workerName,
-            'group_id' => $groupFilter,
-            'gender' => $gender,
-            'default_daily_wage' => $dailyWage,
-            'is_active' => 1,
-            'created_at' => date('Y-m-d H:i:s'),
-        ]);
-        Db::setRow('labor_month_sheet_workers', Db::compositeKey([$ym, (string) $wid]), [
-            'year_month' => $ym,
-            'worker_id' => $wid,
-            'sort_order' => $nextSort,
-        ]);
-        ++$nextSort;
-        Db::setRow('labor_worker_month_settings', Db::compositeKey([(string) $wid, $ym]), [
-            'worker_id' => $wid,
-            'year_month' => $ym,
-            'daily_wage' => $dailyWage,
-            'advance_draw' => 0,
-        ]);
-        ++$imported;
-        if ($imported >= $maxImports) {
-            break;
-        }
-    }
-
-    if ($imported === 0) {
-        labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'csv_err' => 'norows']);
-    }
-    labor_payroll_redirect($back, [
-        'month' => $ym,
-        'half' => $half,
-        'group_id' => $groupFilter,
-        'csv_imported' => $imported,
-        'csv_skipped' => $skipped,
+    $wPkNew = Db::pkForLogicalId('labor_workers', $wid, 'id');
+    $wAfter = Db::row('labor_workers', $wPkNew);
+    tnc_audit_log('create', 'labor_worker', (string) $wid, $workerName, [
+        'source' => 'labor-payroll-handler',
+        'action' => 'create_worker',
+        'after' => $wAfter,
+        'meta' => ['year_month' => $ym, 'group_id' => $groupId],
     ]);
+
+    labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'worker_created' => 1]);
 }
 
 if ($action === 'update_worker') {
@@ -411,10 +207,18 @@ if ($action === 'update_worker') {
     }
 
     $pk = Db::pkForLogicalId('labor_workers', $wid, 'id');
+    $wBefore = $cur;
     Db::mergeRow('labor_workers', $pk, [
         'full_name' => $workerName,
         'gender' => $gender,
         'default_daily_wage' => $dailyWage,
+    ]);
+    $wAfterUp = Db::row('labor_workers', $pk);
+    tnc_audit_log('update', 'labor_worker', (string) $wid, $workerName, [
+        'source' => 'labor-payroll-handler',
+        'action' => 'update_worker',
+        'before' => $wBefore,
+        'after' => $wAfterUp,
     ]);
 
     labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'worker_updated' => 1]);
@@ -428,6 +232,25 @@ if ($action === 'delete_worker') {
     $wid = (int) ($_POST['worker_id'] ?? 0);
     if ($wid > 0) {
         $pk = Db::pkForLogicalId('labor_workers', $wid, 'id');
+        $wDelBefore = Db::row('labor_workers', $pk);
+        $nestedLw = [];
+        foreach (Db::tableKeyed('labor_month_sheet_workers') as $rowPk => $row) {
+            if ((int) ($row['worker_id'] ?? 0) === $wid) {
+                $nestedLw[] = ['verb' => 'delete', 'entity_type' => 'labor_month_sheet_worker', 'entity_id' => (string) $rowPk, 'snapshot' => $row];
+            }
+        }
+        foreach (Db::tableKeyed('labor_worker_month_settings') as $rowPk => $row) {
+            if ((int) ($row['worker_id'] ?? 0) === $wid) {
+                $nestedLw[] = ['verb' => 'delete', 'entity_type' => 'labor_worker_month_setting', 'entity_id' => (string) $rowPk, 'snapshot' => $row];
+            }
+        }
+        foreach (Db::tableKeyed('labor_attendance_days') as $rowPk => $row) {
+            if ((int) ($row['worker_id'] ?? 0) === $wid) {
+                if (count($nestedLw) < 100) {
+                    $nestedLw[] = ['verb' => 'delete', 'entity_type' => 'labor_attendance_day', 'entity_id' => (string) $rowPk, 'snapshot' => $row];
+                }
+            }
+        }
         Db::mergeRow('labor_workers', $pk, ['is_active' => 0]);
 
         foreach (Db::tableKeyed('labor_month_sheet_workers') as $rowPk => $row) {
@@ -445,6 +268,14 @@ if ($action === 'delete_worker') {
                 Db::deleteRow('labor_attendance_days', (string) $rowPk);
             }
         }
+        $nameDel = $wDelBefore !== null ? trim((string) ($wDelBefore['full_name'] ?? '')) : '';
+        tnc_audit_log('update', 'labor_worker', (string) $wid, $nameDel !== '' ? ('ปิดการใช้งาน ' . $nameDel) : 'ปิดการใช้งานคนงาน', [
+            'source' => 'labor-payroll-handler',
+            'action' => 'delete_worker',
+            'before' => $wDelBefore,
+            'after' => Db::row('labor_workers', $pk),
+            'nested' => $nestedLw,
+        ]);
     }
 
     labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'group_id' => $groupFilter, 'worker_deleted' => 1]);
@@ -473,6 +304,11 @@ if ($action === 'remove_row') {
                 Db::deleteRow('labor_attendance_days', (string) $pkAtt);
             }
         }
+        tnc_audit_log('delete', 'labor_month_sheet_row', $ym . '_' . $wid, 'ลบแถวจากชีต ' . $ym . ' รอบ ' . $halfRm, [
+            'source' => 'labor-payroll-handler',
+            'action' => 'remove_row',
+            'meta' => ['year_month' => $ym, 'half' => $halfRm, 'worker_id' => $wid],
+        ]);
     }
     labor_payroll_redirect($back, ['month' => $ym, 'half' => $halfRm]);
 }
@@ -531,6 +367,7 @@ $dateTo = $ym . '-' . str_pad((string) $endD, 2, '0', STR_PAD_LEFT);
 $closedBy = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
 
 try {
+    $laborPayrollCloseAudit = null;
     $sort = 0;
     $postedWorkerIds = [];
     $archiveSnapshots = [];
@@ -648,6 +485,21 @@ try {
         'updated_at' => date('Y-m-d H:i:s'),
     ]);
 
+    if (!$wantClose) {
+        tnc_audit_log('update', 'labor_payroll_sheet', $ym . '_H' . $half, 'บันทึกร่าง ' . $ym . ' รอบ ' . $half, [
+            'source' => 'labor-payroll-handler',
+            'action' => 'save_draft',
+            'meta' => [
+                'year_month' => $ym,
+                'half' => $half,
+                'workers_posted' => count($postedWorkerIds),
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'period_note' => $payrollPeriodNote,
+            ],
+        ]);
+    }
+
     if (count($postedWorkerIds) === 0) {
         foreach (Db::tableKeyed('labor_month_sheet_workers') as $pk => $row) {
             if (($row['year_month'] ?? '') === $ym) {
@@ -751,6 +603,13 @@ try {
             ]);
         }
 
+        $laborPayrollCloseAudit = [
+            'archive_id' => $archiveId,
+            'doc_number' => $docNo,
+            'archive_row' => $archRow,
+            'lines_preview' => array_slice($archiveSnapshots, 0, 80),
+        ];
+
         if (count($postedWorkerIds) > 0) {
             foreach (Db::tableKeyed('labor_attendance_days') as $pk => $att) {
                 $widA = (int) ($att['worker_id'] ?? 0);
@@ -773,6 +632,17 @@ try {
 } catch (Throwable $e) {
     labor_payroll_redirect($back, ['month' => $ym, 'half' => $half, 'save_err' => 1]);
     exit;
+}
+
+if (isset($laborPayrollCloseAudit) && is_array($laborPayrollCloseAudit) && isset($laborPayrollCloseAudit['archive_id'])) {
+    tnc_audit_log('create', 'labor_payroll_archive', (string) $laborPayrollCloseAudit['archive_id'], (string) $laborPayrollCloseAudit['doc_number'], [
+        'source' => 'labor-payroll-handler',
+        'action' => 'close_period',
+        'after' => $laborPayrollCloseAudit['archive_row'],
+        'meta' => [
+            'lines' => $laborPayrollCloseAudit['lines_preview'],
+        ],
+    ]);
 }
 
 if ($wantClose) {

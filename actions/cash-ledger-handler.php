@@ -28,7 +28,7 @@ $action = $_REQUEST['action'] ?? '';
 cash_ledger_auto_archive_monthly_if_due();
 
 $cash_mutates = ($action === 'save' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
-    || ($action === 'delete' && isset($_GET['id']));
+    || ($action === 'delete' && (isset($_GET['id']) || isset($_POST['id'])));
 if ($cash_mutates && !csrf_verify_request()) {
     $m = trim((string) ($_GET['month'] ?? ($_POST['redirect_month'] ?? '')));
     if (!preg_match('/^\d{4}-\d{2}$/', $m)) {
@@ -227,6 +227,8 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         cash_ledger_redirect($back, array_filter(['err' => 'amount', 'month' => $retMonth]));
     }
 
+    $beforeLedgerSnap = null;
+    $beforeLinesSnap = [];
     try {
         if ($id > 0) {
             $cur = Db::row('cash_ledger', (string) $id);
@@ -235,6 +237,18 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if ((int) ($cur['created_by'] ?? 0) !== $me && !$isAdmin) {
                 cash_ledger_redirect($back, array_filter(['err' => 'forbidden', 'month' => $retMonth]));
+            }
+            $beforeLedgerSnap = $cur;
+            foreach (Db::filter('cash_ledger_lines', static function (array $r) use ($id): bool {
+                return isset($r['ledger_id']) && (int) $r['ledger_id'] === $id;
+            }) as $bl) {
+                if (!is_array($bl)) {
+                    continue;
+                }
+                $beforeLinesSnap[] = $bl;
+                if (count($beforeLinesSnap) >= 100) {
+                    break;
+                }
             }
 
             Db::setRow('cash_ledger', (string) $id, array_merge($cur, [
@@ -296,12 +310,40 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         cash_ledger_redirect($back, array_filter(['err' => 'save_failed', 'month' => $retMonth]));
     }
 
+    $verb = $id > 0 ? 'update' : 'create';
+    require_once __DIR__ . '/../includes/tnc_audit_log.php';
+    $afterLedgerSnap = Db::row('cash_ledger', (string) $ledgerId);
+    $afterLinesSnap = [];
+    foreach (Db::filter('cash_ledger_lines', static function (array $r) use ($ledgerId): bool {
+        return isset($r['ledger_id']) && (int) $r['ledger_id'] === $ledgerId;
+    }) as $al) {
+        if (!is_array($al)) {
+            continue;
+        }
+        $afterLinesSnap[] = $al;
+        if (count($afterLinesSnap) >= 100) {
+            break;
+        }
+    }
+    tnc_audit_log($verb, 'cash_ledger', (string) $ledgerId, trim((string) ($category . ' — ' . $description)), [
+        'source' => 'cash-ledger-handler',
+        'action' => 'save',
+        'before' => $beforeLedgerSnap,
+        'after' => $afterLedgerSnap,
+        'meta' => [
+            'lines_before' => $beforeLinesSnap,
+            'lines_after' => $afterLinesSnap,
+        ],
+    ]);
+
     cash_ledger_redirect($back, array_filter(['saved' => '1', 'month' => $retMonth]));
 }
 
-if ($action === 'delete' && isset($_GET['id'])) {
-    $id = (int) $_GET['id'];
-    $retMonth = trim((string) ($_GET['month'] ?? ''));
+if ($action === 'delete' && (isset($_GET['id']) || isset($_POST['id']))) {
+    require_once __DIR__ . '/../includes/tnc_audit_log.php';
+    tnc_require_post_confirm_password();
+    $id = (int) ($_POST['id'] ?? $_GET['id']);
+    $retMonth = trim((string) ($_POST['month'] ?? ($_GET['month'] ?? '')));
     if (!preg_match('/^\d{4}-\d{2}$/', $retMonth)) {
         $retMonth = '';
     }
@@ -315,8 +357,28 @@ if ($action === 'delete' && isset($_GET['id'])) {
     if ((int) ($cur['created_by'] ?? 0) !== $me && !$isAdmin) {
         cash_ledger_redirect($back, array_filter(['err' => 'forbidden', 'month' => $retMonth]));
     }
+    $cat = trim((string) ($cur['category'] ?? ''));
+    $desc = trim((string) ($cur['description'] ?? ''));
+    $lineSnaps = [];
+    foreach (Db::filter('cash_ledger_lines', static function (array $r) use ($id): bool {
+        return isset($r['ledger_id']) && (int) $r['ledger_id'] === $id;
+    }) as $ln) {
+        if (!is_array($ln)) {
+            continue;
+        }
+        $lineSnaps[] = $ln;
+        if (count($lineSnaps) >= 120) {
+            break;
+        }
+    }
     Db::deleteWhereEquals('cash_ledger_lines', 'ledger_id', (string) $id);
     Db::deleteRow('cash_ledger', (string) $id);
+    tnc_audit_log('delete', 'cash_ledger', (string) $id, trim($cat . ' — ' . $desc), [
+        'source' => 'cash-ledger-handler',
+        'action' => 'delete',
+        'before' => $cur,
+        'meta' => ['lines_deleted' => $lineSnaps],
+    ]);
     cash_ledger_redirect($back, array_filter(['deleted' => '1', 'month' => $retMonth]));
 }
 

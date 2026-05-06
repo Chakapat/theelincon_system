@@ -6,6 +6,7 @@ session_start();
 require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/daily_site_report_schema.php';
 require_once __DIR__ . '/../includes/daily_site_report_projects.php';
+require_once __DIR__ . '/../includes/tnc_audit_log.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -79,6 +80,7 @@ if ($action !== '' && !csrf_verify_request()) {
 }
 
 if ($action === 'create' || $action === 'update') {
+    $dailyReportBefore = null;
     $reportDate = trim((string) ($_POST['report_date'] ?? ''));
     if ($reportDate === '' || strtotime($reportDate) === false) {
         dsr_redirect($formBase . '?err=date');
@@ -135,6 +137,7 @@ if ($action === 'create' || $action === 'update') {
         if ($existing === null) {
             dsr_redirect($listUrl . '?err=missing');
         }
+        $dailyReportBefore = $existing;
         $creator = (int) ($existing['created_by'] ?? 0);
         if ($creator !== $userId && !user_is_admin_role()) {
             dsr_redirect($listUrl . '?err=forbidden');
@@ -232,6 +235,23 @@ if ($action === 'create' || $action === 'update') {
         }
     }
 
+    $dailyReportAfter = Db::row('daily_site_reports', (string) $reportId);
+    $sumLabel = $dailyReportAfter !== null
+        ? trim((string) ($dailyReportAfter['report_no'] ?? '') . ' · ' . (string) ($dailyReportAfter['report_date'] ?? ''))
+        : ('รายงาน #' . $reportId);
+    tnc_audit_log(
+        $action === 'create' ? 'create' : 'update',
+        'daily_site_report',
+        (string) $reportId,
+        $sumLabel,
+        [
+            'source' => 'daily-site-report-save.php',
+            'action' => $action,
+            'before' => $dailyReportBefore,
+            'after' => $dailyReportAfter,
+        ]
+    );
+
     dsr_redirect($listUrl . '?saved=1');
 }
 
@@ -247,6 +267,17 @@ if ($action === 'delete') {
     $creator = (int) ($existing['created_by'] ?? 0);
     if ($creator !== $userId && !user_is_admin_role()) {
         dsr_redirect($listUrl . '?err=forbidden');
+    }
+
+    $photosBeforeDel = [];
+    foreach (Db::filter('daily_site_report_photos', static fn (array $r): bool => (int) ($r['report_id'] ?? 0) === $reportId) as $ph) {
+        if (!is_array($ph)) {
+            continue;
+        }
+        $photosBeforeDel[] = $ph;
+        if (count($photosBeforeDel) >= 60) {
+            break;
+        }
     }
 
     foreach (Db::filter('daily_site_report_photos', static fn (array $r): bool => (int) ($r['report_id'] ?? 0) === $reportId) as $ph) {
@@ -269,6 +300,13 @@ if ($action === 'delete') {
 
     Db::deleteWhereEquals('daily_site_manpower', 'report_id', (string) $reportId);
     Db::deleteRow('daily_site_reports', (string) $reportId);
+    $delLabel = trim((string) ($existing['report_no'] ?? '') . ' · ' . (string) ($existing['report_date'] ?? ''));
+    tnc_audit_log('delete', 'daily_site_report', (string) $reportId, $delLabel !== '' ? $delLabel : ('#' . $reportId), [
+        'source' => 'daily-site-report-save.php',
+        'action' => 'delete',
+        'before' => $existing,
+        'meta' => ['photos_removed' => $photosBeforeDel],
+    ]);
     dsr_redirect($listUrl . '?deleted=1');
 }
 

@@ -179,11 +179,39 @@ function editCustomer(id) {
     });
 }
 function confirmDelete(id, type) {
-    Swal.fire({ title: 'ยืนยันการลบ?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#fd7e14', confirmButtonText: 'ยืนยัน', cancelButtonText: 'ยกเลิก' })
-    .then(function (r) {
-        if (!r.isConfirmed) return;
-        var url = actionHandlerUrl + '?action=delete&type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(String(id)) + '&_csrf=' + encodeURIComponent(csrfToken) + '&_tnc_ajax=1';
-        fetch(url, { headers: { 'X-Tnc-Ajax': '1', Accept: 'application/json' } })
+    Swal.fire({
+        title: 'ยืนยันการลบ?',
+        html: 'ข้อมูลจะถูกลบถาวร กรุณาใส่<strong>รหัสผ่านเข้าระบบของคุณ</strong>',
+        icon: 'warning',
+        input: 'password',
+        inputPlaceholder: 'รหัสผ่าน',
+        showCancelButton: true,
+        confirmButtonColor: '#fd7e14',
+        confirmButtonText: 'ยืนยัน',
+        cancelButtonText: 'ยกเลิก',
+        focusCancel: true,
+        preConfirm: function (pw) {
+            if (!pw || !String(pw).trim()) {
+                Swal.showValidationMessage('กรุณากรอกรหัสผ่าน');
+                return false;
+            }
+            return pw;
+        }
+    }).then(function (r) {
+        if (!r.isConfirmed || !r.value) return;
+        var fd = new FormData();
+        fd.append('action', 'delete');
+        fd.append('type', type);
+        fd.append('id', String(id));
+        fd.append('_csrf', csrfToken);
+        fd.append('_tnc_ajax', '1');
+        fd.append('confirm_password', r.value);
+        fetch(actionHandlerUrl, {
+            method: 'POST',
+            body: fd,
+            headers: { 'X-Tnc-Ajax': '1', Accept: 'application/json' },
+            credentials: 'same-origin'
+        })
             .then(function (res) { return res.json(); })
             .then(function (j) {
                 if (j.ok) {
@@ -199,6 +227,8 @@ function confirmDelete(id, type) {
 const params = new URLSearchParams(window.location.search);
 if(params.has('success')) Swal.fire({ icon: 'success', title: 'สำเร็จ!', confirmButtonColor: '#fd7e14' });
 if(params.has('deleted')) Swal.fire({ icon: 'success', title: 'ลบแล้ว!', confirmButtonColor: '#fd7e14' });
+if (params.get('error') === 'confirm_password_required') Swal.fire({ icon: 'warning', title: 'กรุณากรอกรหัสผ่านเพื่อยืนยันการลบ', confirmButtonColor: '#fd7e14' });
+if (params.get('error') === 'confirm_password_invalid') Swal.fire({ icon: 'error', title: 'รหัสผ่านไม่ถูกต้อง', confirmButtonColor: '#fd7e14' });
 (function () {
     if (typeof $ === 'undefined' || !$.fn.DataTable) return;
     $('#customerTable').DataTable({ order: [[0, 'asc']] });

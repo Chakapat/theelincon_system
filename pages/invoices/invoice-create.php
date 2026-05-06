@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Invoice;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
 
 if(!isset($_SESSION['user_id'])){
     header('Location: ' . app_path('sign-in.php'));
@@ -103,6 +104,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_invoice'])) {
         ]);
         $current_running += $row_total;
     }
+
+    $afterInvCreate = Db::row('invoices', (string) $invoice_id) ?? [];
+    $afterLinesCreate = [];
+    foreach (Db::filter('invoice_items', static function (array $r) use ($invoice_id): bool {
+        return isset($r['invoice_id']) && (int) $r['invoice_id'] === $invoice_id;
+    }) as $ln) {
+        if (!is_array($ln)) {
+            continue;
+        }
+        $afterLinesCreate[] = $ln;
+        if (count($afterLinesCreate) >= 120) {
+            break;
+        }
+    }
+    tnc_audit_log('create', 'invoice', (string) $invoice_id, $new_inv_number !== '' ? $new_inv_number : ('#' . $invoice_id), [
+        'source' => 'invoice-create.php',
+        'action' => 'save_invoice',
+        'after' => $afterInvCreate,
+        'meta' => ['lines' => $afterLinesCreate],
+    ]);
 
     $show_success = true;
 }

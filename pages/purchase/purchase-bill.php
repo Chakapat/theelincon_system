@@ -539,7 +539,7 @@ if (!in_array($currentVatMode, ['none', 'inclusive', 'exclusive'], true)) {
                                                 </button>
                                             <?php endif; ?>
                                             <?php if ($canDelete): ?>
-                                                <a href="<?= htmlspecialchars($handler . '?' . http_build_query(['action' => 'delete', 'type' => 'purchase_bill', 'id' => (int) ($row['id'] ?? 0)]) . $csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('ยืนยันลบบิลนี้ ?');" title="ลบบิล">
+                                                <a href="<?= htmlspecialchars($handler . '?' . http_build_query(['action' => 'delete', 'type' => 'project_purchase_bill', 'id' => (int) ($row['id'] ?? 0)]) . $csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger tnc-delete-post" title="ลบบิล (ต้องใส่รหัสผ่าน)">
                                                     <i class="bi bi-trash"></i>
                                                 </a>
                                             <?php endif; ?>
