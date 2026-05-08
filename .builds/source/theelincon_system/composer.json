@@ -1,0 +1,20 @@
+{
+    "name": "theelincon/system",
+    "description": "THEELIN CON internal system — PHP + optional Firebase RTDB mirror",
+    "require": {
+        "php": ">=8.0",
+        "kreait/firebase-php": "^6.9"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "platform": {
+            "php": "8.0.30"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Theelincon\\Firebase\\": "includes/Firebase/",
+            "Theelincon\\Rtdb\\": "includes/Rtdb/"
+        }
+    }
+}

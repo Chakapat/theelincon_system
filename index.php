@@ -15,6 +15,7 @@ if (!isset($_SESSION['user_id'])) {
 $is_admin = user_is_admin_role();
 $is_admin_only = user_is_admin_only_role();
 $can_edit_invoice = user_can_edit_invoice();
+$is_finance_hub = user_is_finance_role();
 
 if (isset($_GET['ajax_search'])) {
     $needle = (string) ($_GET['search'] ?? '');
@@ -510,6 +511,9 @@ $index_hub_start_all_collapsed = true;
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-bill.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-receipt-cutoff me-2 text-secondary"></i>บันทึกบิลซื้อ (Purchase Bill)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-need-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-card-checklist me-2 text-secondary"></i>ใบต้องการซื้อ (Purchase Need)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-speedometer2 me-2 text-secondary"></i>สดย่อย (Petty Cash)</a>
+                        <?php if ($is_finance_hub): ?>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/tools/money-receipt-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-journal-text me-2 text-secondary"></i>รายการใบเสร็จรับเงิน (Money Receipt)</a>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

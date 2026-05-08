@@ -117,7 +117,8 @@ if (!function_exists('app_path')) {
         '/pages/quotations/quotation-edit.php',
         '/pages/purchase/purchase-request-create.php',
         '/pages/purchase/purchase-order-from-pr.php',
-        '/pages/invoices/tax-invoice-receipt.php'
+        '/pages/invoices/tax-invoice-receipt.php',
+        '/pages/tools/money-receipt-issue.php'
     ];
 
     const shouldPreventEnterSubmit = protectedPages.some(function (p) {
