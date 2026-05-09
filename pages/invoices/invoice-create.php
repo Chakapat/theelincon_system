@@ -144,26 +144,151 @@ Db::sortRows($customer_data, 'name', false);
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
-        .border-orange { border-left: 5px solid #FF6600 !important; }
-        .btn-orange { background: linear-gradient(135deg, #FF9966 0%, #FF6600 100%); color: white; border: none; padding: 12px; font-weight: 600; border-radius: 10px; }
-        .total-box { background: #fff; border-radius: 15px; padding: 25px; border: 1px solid #eee; }
-        .grand-total-text { font-size: 2rem; font-weight: bold; color: #FF6600; }
-        th { vertical-align: middle; background-color: #fcfcfc !important; }
+        .invoice-shell { max-width: 1320px; }
+        .invoice-card {
+            border: 1px solid #e0e0e0 !important;
+            border-radius: 14px;
+            box-shadow: 0 .22rem .75rem rgba(0,0,0,.045);
+            background: #fff;
+        }
+        .invoice-card .card-header {
+            border-bottom: 1px solid #ececec;
+            color: #374151;
+            font-weight: 700;
+            font-size: 1.02rem;
+        }
+        .invoice-title {
+            color: #1f2937;
+            letter-spacing: .01em;
+        }
+        .form-label {
+            color: #374151;
+            font-weight: 700 !important;
+            font-size: .93rem;
+        }
+        .form-control,
+        .form-select,
+        .btn {
+            min-height: 44px;
+        }
+        .form-control,
+        .form-select {
+            padding: .62rem .82rem;
+            border: 1px solid #d9dde3;
+            border-radius: .72rem;
+        }
+        .form-control:focus,
+        .form-select:focus {
+            border-color: rgba(253,126,20,.5);
+            box-shadow: 0 0 0 .2rem rgba(253,126,20,.14);
+        }
+        .form-control[readonly],
+        textarea.form-control[readonly] {
+            background: transparent !important;
+            border-color: #e4e7eb !important;
+            color: #4b5563;
+        }
+        .btn-primary-save {
+            background: linear-gradient(135deg, #fd7e14 0%, #f76707 100%);
+            color: #fff;
+            border: none;
+            border-radius: .78rem;
+            font-weight: 700;
+            letter-spacing: .01em;
+            transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+            box-shadow: 0 .38rem .92rem rgba(253,126,20,.3);
+        }
+        .btn-primary-save:hover {
+            color: #fff;
+            transform: translateY(-1px);
+            filter: brightness(1.03);
+            box-shadow: 0 .52rem 1.05rem rgba(253,126,20,.35);
+        }
+        .invoice-table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #items_table {
+            min-width: 860px;
+        }
+        #items_table th {
+            vertical-align: middle;
+            background-color: #f9fafb !important;
+            color: #4b5563;
+            font-size: .85rem;
+            letter-spacing: .02em;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        #items_table td {
+            padding-top: .68rem;
+            padding-bottom: .68rem;
+            vertical-align: middle;
+        }
+        .total-box {
+            background: #fff;
+            border-radius: 14px;
+            padding: 1.2rem 1.2rem 1.05rem;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 .2rem .7rem rgba(0,0,0,.045);
+        }
+        .grand-total-wrap {
+            background: linear-gradient(135deg, rgba(253,126,20,.1) 0%, rgba(253,126,20,.05) 100%);
+            border: 1px solid rgba(253,126,20,.2);
+            border-radius: .82rem;
+            padding: .7rem .85rem;
+        }
+        .grand-total-text { font-size: 2.15rem; font-weight: 800; color: #ea580c; line-height: 1; }
+        .section-title { color: #374151; font-size: 1.06rem; }
+
+        .sticky-save-bar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1050;
+            background: rgba(255,255,255,.95);
+            backdrop-filter: blur(8px);
+            border-top: 1px solid #e5e7eb;
+            box-shadow: 0 -.25rem 1rem rgba(0,0,0,.08);
+            padding: .6rem .75rem calc(.6rem + env(safe-area-inset-bottom, 0px));
+        }
+        .sticky-save-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .7rem;
+        }
+        .sticky-save-label { font-size: .75rem; color: #6b7280; }
+        .sticky-save-total { font-size: 1.28rem; font-weight: 800; color: #ea580c; line-height: 1; }
+
+        @media (max-width: 767.98px) {
+            .invoice-shell {
+                padding-left: .65rem;
+                padding-right: .65rem;
+                margin-bottom: 5.2rem !important;
+            }
+            .invoice-title {
+                font-size: 1.25rem;
+            }
+            .btn-primary-save {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
-<div class="container mt-4 mb-5">
+<div class="container mt-4 mb-5 invoice-shell">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold text-dark">สร้างใบแจ้งหนี้</h3>
+        <h3 class="fw-bold invoice-title">สร้างใบแจ้งหนี้</h3>
         <a href="<?= htmlspecialchars(app_path('index.php')) ?>" class="btn btn-outline-secondary rounded-pill px-4">กลับหน้าหลัก</a>
     </div>
 
-    <form action="" method="POST">
+    <form action="" method="POST" id="invoiceCreateForm">
         <?php csrf_field(); ?>
-        <div class="card mb-4 border-orange shadow-sm border-0">
+        <div class="card mb-4 invoice-card">
             <div class="card-body">
                 <label class="form-label fw-bold"><i class="bi bi-calendar-event me-2"></i>วันที่ออกใบแจ้งหนี้</label>
                 <input type="date" name="issue_date" class="form-control" value="<?= date('Y-m-d'); ?>" required>
@@ -172,48 +297,48 @@ Db::sortRows($customer_data, 'name', false);
 
         <div class="row g-4">
             <div class="col-md-6">
-                <div class="card h-100 border-orange border-0 shadow-sm">
-                    <div class="card-header py-3 fw-bold bg-white text-orange">ข้อมูลบริษัท</div>
-                    <div class="card-body">
+                <div class="card h-100 invoice-card">
+                    <div class="card-header py-3 bg-white">ข้อมูลบริษัท</div>
+                    <div class="card-body p-4">
                         <select id="company_select" name="company_id" class="form-select mb-3 shadow-sm" required>
                             <option value="">-- เลือกบริษัท --</option>
                             <?php foreach($company_data as $com): ?><option value="<?= $com['id']; ?>"><?= $com['name']; ?></option><?php endforeach; ?>
                         </select>
-                        <input type="text" id="com_tax" class="form-control mb-2 bg-light border-0" placeholder="เลขผู้เสียภาษี" readonly>
-                        <textarea id="com_address" class="form-control mb-2 bg-light border-0" rows="2" placeholder="ที่อยู่บริษัท" readonly></textarea>
+                        <input type="text" id="com_tax" class="form-control mb-2" placeholder="เลขผู้เสียภาษี" readonly>
+                        <textarea id="com_address" class="form-control mb-2" rows="2" placeholder="ที่อยู่บริษัท" readonly></textarea>
                         <div class="row g-2">
-                            <div class="col-6"><input type="text" id="com_email" class="form-control bg-light border-0" placeholder="อีเมล" readonly></div>
-                            <div class="col-6"><input type="text" id="com_phone" class="form-control bg-light border-0" placeholder="เบอร์โทร" readonly></div>
+                            <div class="col-6"><input type="text" id="com_email" class="form-control" placeholder="อีเมล" readonly></div>
+                            <div class="col-6"><input type="text" id="com_phone" class="form-control" placeholder="เบอร์โทร" readonly></div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="col-md-6">
-                <div class="card h-100 border-orange border-0 shadow-sm">
-                    <div class="card-header py-3 fw-bold bg-white text-orange">ข้อมูลลูกค้า</div>
-                    <div class="card-body">
+                <div class="card h-100 invoice-card">
+                    <div class="card-header py-3 bg-white">ข้อมูลลูกค้า</div>
+                    <div class="card-body p-4">
                         <select id="customer_select" name="customer_id" class="form-select mb-3 shadow-sm" required>
                             <option value="">-- เลือกลูกค้า --</option>
                             <?php foreach($customer_data as $cus): ?><option value="<?= $cus['id']; ?>"><?= $cus['name']; ?></option><?php endforeach; ?>
                         </select>
-                        <input type="text" id="cus_tax" class="form-control mb-2 bg-light border-0" placeholder="เลขผู้เสียภาษีลูกค้า" readonly>
-                        <textarea id="cus_address" class="form-control mb-2 bg-light border-0" rows="2" placeholder="ที่อยู่ลูกค้า" readonly></textarea>
+                        <input type="text" id="cus_tax" class="form-control mb-2" placeholder="เลขผู้เสียภาษีลูกค้า" readonly>
+                        <textarea id="cus_address" class="form-control mb-2" rows="2" placeholder="ที่อยู่ลูกค้า" readonly></textarea>
                         <div class="row g-2">
-                            <div class="col-6"><input type="text" id="cus_email" class="form-control bg-light border-0" placeholder="อีเมลลูกค้า" readonly></div>
-                            <div class="col-6"><input type="text" id="cus_phone" class="form-control bg-light border-0" placeholder="เบอร์โทรลูกค้า" readonly></div>
+                            <div class="col-6"><input type="text" id="cus_email" class="form-control" placeholder="อีเมลลูกค้า" readonly></div>
+                            <div class="col-6"><input type="text" id="cus_phone" class="form-control" placeholder="เบอร์โทรลูกค้า" readonly></div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="card mt-4 overflow-hidden border-orange border-0 shadow-sm">
+        <div class="card mt-4 overflow-hidden invoice-card">
             <div class="card-header d-flex justify-content-between align-items-center py-3 bg-white">
-                <span class="fw-bold">รายการสินค้าและบริการ (พิมพ์ % ในช่องราคาเพื่อคำนวณจากยอดสะสม)</span>
+                <span class="fw-bold section-title">รายการสินค้าและบริการ</span>
                 <button type="button" class="btn btn-success btn-sm rounded-pill px-3" onclick="addRow()">+ เพิ่มแถว</button>
             </div>
-            <div class="card-body p-0">
+            <div class="card-body p-0 invoice-table-wrap">
                 <table class="table table-hover mb-0" id="items_table">
                     <thead class="table-light">
                         <tr class="small text-muted">
@@ -230,7 +355,7 @@ Db::sortRows($customer_data, 'name', false);
                             <td><input type="text" name="description[]" class="form-control" required></td>
                             <td><input type="number" name="quantity[]" class="form-control qty text-center" value="1" step="0.01"></td>
                             <td><input type="text" name="unit[]" class="form-control text-center"></td>
-                            <td><input type="text" name="price[]" class="form-control price text-end" value=""></td>
+                            <td><input type="number" name="price[]" class="form-control price text-end" value="" step="0.01" inputmode="decimal"></td>
                             <td><input type="number" name="total[]" class="form-control total text-end fw-bold" value="0.00" readonly></td>
                             <td class="text-center"><i class="bi bi-trash-fill text-danger remove" style="cursor:pointer;"></i></td>
                         </tr>
@@ -241,8 +366,8 @@ Db::sortRows($customer_data, 'name', false);
 
         <div class="row mt-4 g-4">
             <div class="col-md-6">
-                <div class="card p-4 h-100 border-orange border-0 shadow-sm">
-                    <h5 class="fw-bold mb-3">การตั้งค่าภาษีและเงินหัก</h5>
+                <div class="card p-4 h-100 invoice-card">
+                    <h5 class="fw-bold mb-3 section-title">การตั้งค่าภาษีและเงินหัก</h5>
                     <div class="form-check form-switch mb-3">
                         <input type="checkbox" name="vat_enabled" class="form-check-input" id="vatCheck">
                         <label class="form-check-label fw-bold text-primary">บวกภาษีมูลค่าเพิ่ม VAT 7% (+)</label>
@@ -268,13 +393,25 @@ Db::sortRows($customer_data, 'name', false);
                     <div class="d-flex justify-content-between mb-2 small"><span class="text-muted">ยอดรวมหลังหัก ณ ที่จ่าย:</span> <span id="after_wht_text" class="fw-bold text-dark">0.00</span></div>
                     <div id="retention_summary_row" class="d-flex justify-content-between mb-2 text-danger" style="display: none;"><span>หักประกันผลงาน (-):</span> <span id="retention_display" class="fw-bold">0.00</span></div>
                     <hr>
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between align-items-center grand-total-wrap">
                         <span class="h5 fw-bold mb-0">ยอดสุทธิ:</span>
                         <span class="grand-total-text" id="grand_total">0.00</span>
                     </div>
                 </div>
-                <button type="submit" name="save_invoice" class="btn btn-orange w-100 mt-4 shadow py-3">
+                <button type="submit" name="save_invoice" class="btn btn-primary-save w-100 mt-4 shadow py-3 d-none d-md-inline-flex">
                     <i class="bi bi-save-fill me-2"></i>บันทึกและออกใบแจ้งหนี้
+                </button>
+            </div>
+        </div>
+
+        <div class="sticky-save-bar d-md-none">
+            <div class="sticky-save-inner">
+                <div>
+                    <div class="sticky-save-label">ยอดสุทธิ</div>
+                    <div class="sticky-save-total" id="grand_total_sticky">0.00</div>
+                </div>
+                <button type="submit" name="save_invoice" class="btn btn-primary-save px-4">
+                    <i class="bi bi-save-fill me-1"></i>บันทึก
                 </button>
             </div>
         </div>
@@ -333,13 +470,13 @@ function calculate(){
         return n >= 0 ? Math.floor(n * 100) / 100 : Math.ceil(n * 100) / 100;
     };
 
-    let subtotal = 0, running = 0;
+    let subtotal = 0;
     document.querySelectorAll("#items_table tbody tr").forEach(row => {
         let qty = parseFloat(row.querySelector(".qty").value) || 0;
         let p_in = row.querySelector(".price").value.trim();
-        let row_t = p_in.includes('%') ? money2(running * (parseFloat(p_in) / 100)) : money2(parseFloat(p_in) || 0);
+        let row_t = money2(parseFloat(p_in) || 0);
         row.querySelector(".total").value = row_t.toFixed(2);
-        subtotal += row_t; running += row_t;
+        subtotal += row_t;
     });
     subtotal = money2(subtotal);
     let vat = document.getElementById("vatCheck").checked ? money2(subtotal * 0.07) : 0;
@@ -359,11 +496,16 @@ function calculate(){
     const retRow = document.getElementById("retention_summary_row");
     if (retRow) retRow.style.display = ret > 0 ? "flex" : "none";
     document.getElementById("grand_total").innerText = grand.toLocaleString(undefined, fmt);
+    const stickyTotal = document.getElementById("grand_total_sticky");
+    if (stickyTotal) stickyTotal.innerText = grand.toLocaleString(undefined, fmt);
 }
+
+document.addEventListener('DOMContentLoaded', calculate);
 
 <?php if($show_success): ?>
     Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: 'บันทึกเลขที่ <?= $new_inv_number ?> เรียบร้อยแล้ว' }).then(() => { window.location.href = <?= json_encode(app_path('index.php'), JSON_UNESCAPED_SLASHES) ?>; });
 <?php endif; ?>
 </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

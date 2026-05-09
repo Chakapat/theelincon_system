@@ -109,9 +109,17 @@ $customer_tax_trim = trim((string) ($data['customer_tax'] ?? ''));
         :root { --orange: #FF6600; --dark: #333; }
         body { font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', Tahoma, sans-serif; background: #f4f4f4; color: var(--dark); margin: 0; padding: 0; font-weight: 500; }
         
-        .invoice-box { 
-            width: 210mm; height: 297mm; margin: 0 auto; background: #fff; padding: 10mm 15mm; 
-            position: relative; box-shadow: 0 5px 20px rgba(0,0,0,0.05); border-top: 8px solid var(--orange); overflow: hidden;
+        .invoice-box {
+            width: 210mm;
+            max-width: 100%;
+            height: 297mm;
+            margin: 0 auto;
+            background: #fff;
+            padding: 10mm 15mm;
+            position: relative;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+            border-top: 8px solid var(--orange);
+            overflow: hidden;
         }
         .invoice-sheet { margin-bottom: 12px; }
         .invoice-sheet:last-child { margin-bottom: 0; }
@@ -142,6 +150,19 @@ $customer_tax_trim = trim((string) ($data['customer_tax'] ?? ''));
         .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; text-align: center; margin-top: 25px; }
         .sig-space { height: 80px; }
         .sig-box { border-top: 1px solid #333; padding-top: 15px; font-size: 13px; font-weight: 600; }
+
+        @media (max-width: 575.98px) {
+            body { background: #fff; }
+            .invoice-box {
+                width: 100%;
+                height: auto;
+                padding: 1rem;
+                box-shadow: none;
+                overflow: visible;
+            }
+            .footer-sticky { position: static; bottom: auto; left: auto; right: auto; margin-top: 1rem; }
+            .signature-grid { grid-template-columns: 1fr; gap: 18px; }
+        }
 
         @media print {
             @page { size: A4; margin: 0; }

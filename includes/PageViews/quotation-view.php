@@ -81,6 +81,7 @@ $final_grand_total = (float)$data['grand_total'];
         /* ตั้งค่าหน้ากระดาษ A4 */
         .invoice-box { 
             width: 210mm; 
+            max-width: 100%;
             height: 297mm; /* บังคับความสูงคงที่ */
             margin: 20px auto; 
             background: #fff; 
@@ -128,6 +129,19 @@ $final_grand_total = (float)$data['grand_total'];
         .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; text-align: center; margin-top: 35px; }
         .sig-space { height: 70px; border-bottom: 1px solid #ccc; margin-bottom: 10px; }
         .sig-box { font-size: 14px; font-weight: 600; }
+
+        @media (max-width: 575.98px) {
+            body { background: #fff; }
+            .invoice-box {
+                width: 100%;
+                height: auto;
+                margin: 0.75rem auto 1rem;
+                padding: 1rem;
+                box-shadow: none;
+            }
+            .footer-sticky-bottom { position: static; bottom: auto; left: auto; right: auto; margin-top: 1rem; }
+            .signature-grid { grid-template-columns: 1fr; gap: 18px; }
+        }
 
         @media print {
             @page { size: A4; margin: 0; }

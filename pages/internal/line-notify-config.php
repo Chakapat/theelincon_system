@@ -188,20 +188,194 @@ foreach ($userRows as $u) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background:#f8f9fa; font-family:'Sarabun', sans-serif; }
-        .approver-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; border-radius: 2rem;
-            background: #e7f5ff; border: 1px solid #74c0fc; font-size: 0.9rem; }
-        .approver-chip .btn-chip-remove { border: none; background: transparent; color: #c92a2a; padding: 0 0.2rem; line-height: 1; }
-        .approver-chip .btn-chip-remove:hover { color: #862e2e; }
-        .btn-add-approver { width: 2.25rem; height: 2.25rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+        body { background:#f6f8fb; font-family:'Sarabun', sans-serif; }
+        .line-shell { max-width: 860px; }
+        .line-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 .28rem .95rem rgba(0,0,0,.055);
+            background: #fff;
+        }
+        .line-summary-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .7rem;
+        }
+        .line-summary-title {
+            display: inline-flex;
+            align-items: center;
+            gap: .55rem;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        .line-icon-badge {
+            width: 1.95rem;
+            height: 1.95rem;
+            border-radius: .55rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(6, 199, 85, .12);
+            color: #06c755;
+            font-size: 1.1rem;
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            padding: .26rem .62rem;
+            border-radius: 999px;
+            font-size: .8rem;
+            font-weight: 700;
+            border: 1px solid rgba(6, 199, 85, .35);
+            color: #087f3e;
+            background: rgba(6, 199, 85, .12);
+        }
+        .status-dot {
+            width: .5rem;
+            height: .5rem;
+            border-radius: 999px;
+            background: #06c755;
+            box-shadow: 0 0 0 .14rem rgba(6, 199, 85, .25);
+        }
+        .summary-token-wrap {
+            display: flex;
+            align-items: center;
+            gap: .45rem;
+            flex-wrap: wrap;
+        }
+        .summary-token-value {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: .34rem .52rem;
+            word-break: break-all;
+        }
+        .summary-token-toggle {
+            min-height: 32px;
+            border-radius: 8px;
+            border: 1px solid #d7dce2;
+            background: #fff;
+            color: #374151;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: .25rem .55rem;
+        }
+        .summary-token-toggle:hover {
+            background: #f3f4f6;
+        }
+        .token-group .form-control {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            min-height: 46px;
+            border-radius: 10px;
+            border-color: #d7dce2;
+            padding-right: .55rem;
+        }
+        .token-group .input-group-text,
+        .token-group .btn {
+            min-height: 46px;
+            border-color: #d7dce2;
+            background: #fff;
+        }
+        .token-action-btn {
+            border: 1px solid #d7dce2 !important;
+            color: #374151 !important;
+        }
+        .token-action-btn:hover {
+            background: #f3f4f6 !important;
+        }
+        .approver-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.35rem 0.58rem 0.35rem 0.38rem;
+            border-radius: 999px;
+            background: #eef6ff;
+            border: 1px solid #cfe3ff;
+            font-size: 0.9rem;
+            color: #1f2937;
+        }
+        .chip-avatar {
+            width: 1.45rem;
+            height: 1.45rem;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .68rem;
+            font-weight: 700;
+            color: #1d4ed8;
+            background: #dbeafe;
+            border: 1px solid #bfdbfe;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+        .approver-chip .btn-chip-remove {
+            border: none;
+            background: #fee2e2;
+            color: #b91c1c;
+            width: 1.25rem;
+            height: 1.25rem;
+            border-radius: 999px;
+            padding: 0;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color .15s ease;
+        }
+        .approver-chip .btn-chip-remove:hover { background: #fecaca; }
+        .btn-add-approver {
+            min-height: 44px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .42rem;
+            padding: .52rem .88rem;
+        }
+        .btn-save-primary {
+            min-height: 46px;
+            border-radius: 10px;
+            border: none;
+            color: #fff;
+            font-weight: 700;
+            letter-spacing: .01em;
+            background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+            box-shadow: 0 .4rem .95rem rgba(234, 88, 12, .28);
+        }
+        .btn-save-primary:hover {
+            color: #fff;
+            filter: brightness(1.03);
+            transform: translateY(-1px);
+        }
+        .btn-save-primary.is-loading {
+            opacity: .9;
+            pointer-events: none;
+        }
+        .btn-save-primary .spinner-border {
+            width: .9rem;
+            height: .9rem;
+            border-width: .12rem;
+        }
         #approver-picker-list .form-check { padding-top: 0.35rem; padding-bottom: 0.35rem; border-bottom: 1px solid #eee; }
         #approver-picker-list .form-check:last-child { border-bottom: none; }
+        @media (max-width: 767.98px) {
+            .line-shell { padding-left: .55rem; padding-right: .55rem; }
+            .line-summary-header { align-items: flex-start; flex-direction: column; }
+            .token-group .btn { min-width: 42px; }
+            .btn-add-approver,
+            .btn-save-primary { width: 100%; }
+        }
     </style>
 </head>
 <body>
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
-<div class="container py-4" style="max-width: 720px;">
+<div class="container py-4 line-shell">
     <h4 class="fw-bold mb-3"><i class="bi bi-bell-fill me-2 text-success"></i>ตั้งค่า LINE แจ้งเตือน</h4>
 
     <?php if (!empty($_GET['saved'])): ?>
@@ -220,60 +394,43 @@ foreach ($userRows as $u) {
         </div>
     <?php endif; ?>
 
-    <div class="card border-0 shadow-sm rounded-4 mb-4">
-        <div class="card-body">
-            <dl class="row small mb-0">
-                <dt class="col-sm-4 text-muted">กลุ่มปลายทาง</dt>
-                <dd class="col-sm-8 font-monospace text-break"><?= htmlspecialchars($effectiveGroup !== '' ? $effectiveGroup : '(ว่าง)', ENT_QUOTES, 'UTF-8') ?></dd>
-                <dt class="col-sm-4 text-muted">ผู้อนุมัติผ่าน LINE</dt>
-                <dd class="col-sm-8">
-                    <?php if ($effectiveLineIds === []): ?>
-                        <span class="text-muted">(ยังไม่เลือก)</span>
-                    <?php else: ?>
-                        <ul class="mb-0 ps-3">
-                            <?php foreach ($effectiveLineIds as $lid): ?>
-                                <?php
-                                $label = $lineIdToName[$lid] ?? '';
-                                $show = $label !== '' ? ($label . ' — ') : '';
-                                $show .= $lid;
-                                ?>
-                                <li class="font-monospace small text-break"><?= htmlspecialchars($show, ENT_QUOTES, 'UTF-8') ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php endif; ?>
-                </dd>
-            </dl>
-        </div>
-    </div>
-
-    <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-body">
+    <div class="card line-card">
+        <div class="card-body p-4">
             <form method="post" id="line-notify-form">
                 <?php csrf_field(); ?>
                 <input type="hidden" name="save_line_notify" value="1">
 
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="target_group_id">LINE Target Group Token</label>
-                    <input type="text" class="form-control font-monospace" id="target_group_id" name="target_group_id"
-                           value="<?= htmlspecialchars($formGroup, ENT_QUOTES, 'UTF-8') ?>"
-                           autocomplete="off" placeholder="กลุ่มรับข้อความ (ถ้ามี)">
+                    <div class="input-group token-group">
+                        <input type="password" class="form-control" id="target_group_id" name="target_group_id"
+                               value="<?= htmlspecialchars($formGroup, ENT_QUOTES, 'UTF-8') ?>"
+                               autocomplete="off" placeholder="กลุ่มรับข้อความ (ถ้ามี)">
+                        <button class="btn token-action-btn" type="button" id="btn-toggle-token" title="แสดง/ซ่อนโทเค็น" aria-label="แสดงหรือซ่อนโทเค็น">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn token-action-btn" type="button" id="btn-copy-token" title="คัดลอกโทเค็น" aria-label="คัดลอกโทเค็น">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="mb-4">
                     <label class="form-label fw-semibold d-block">ผู้อนุมัติ</label>
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                         <div id="approver-selected-list" class="d-flex flex-wrap gap-2 flex-grow-1"></div>
-                        <button type="button" class="btn btn-outline-success btn-add-approver rounded-circle shadow-sm" id="btn-open-approver-picker"
+                        <button type="button" class="btn btn-outline-success btn-add-approver shadow-sm" id="btn-open-approver-picker"
                                 title="เพิ่มผู้อนุมัติ" data-bs-toggle="modal" data-bs-target="#approverPickerModal">
-                            <i class="bi bi-plus-lg"></i>
+                            <i class="bi bi-search"></i><span>Add Approver</span>
                         </button>
                     </div>
                     <div id="approver-hidden-inputs" class="visually-hidden" aria-hidden="true"></div>
-                    <div class="form-text">กด <strong>+</strong> เพื่อเลือกสมาชิกจากรายการ แล้วกด <strong>บันทึก</strong> ด้านล่าง</div>
+                    <div class="form-text">ค้นหาและเพิ่มผู้อนุมัติจากสมาชิกที่มี LINE User ID แล้วกดบันทึก</div>
                 </div>
 
-                <button type="submit" class="btn btn-warning fw-semibold px-4 rounded-pill">
-                    <i class="bi bi-check2-circle me-1"></i>บันทึก
+                <button type="submit" class="btn btn-save-primary fw-semibold px-4" id="btn-save-line-config">
+                    <span class="label-default"><i class="bi bi-check2-circle me-1"></i>บันทึก</span>
+                    <span class="label-loading d-none"><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>กำลังบันทึก...</span>
                 </button>
             </form>
         </div>
@@ -335,9 +492,11 @@ foreach ($userRows as $u) {
             var u = userById.get(id);
             var label = u ? u.name : ('#' + id);
             var code = u && u.code ? ' (' + u.code + ')' : '';
+            var initials = getInitials(label);
             var chip = document.createElement('span');
             chip.className = 'approver-chip';
-            chip.innerHTML = '<span>' + escapeHtml(label + code) + '</span>' +
+            chip.innerHTML = '<span class="chip-avatar">' + escapeHtml(initials) + '</span>' +
+                '<span>' + escapeHtml(label + code) + '</span>' +
                 '<button type="button" class="btn-chip-remove" data-remove-id="' + id + '" title="เอาออก"><i class="bi bi-x-lg"></i></button>';
             list.appendChild(chip);
         });
@@ -355,6 +514,14 @@ foreach ($userRows as $u) {
         var d = document.createElement('div');
         d.textContent = s;
         return d.innerHTML;
+    }
+
+    function getInitials(name) {
+        var n = String(name || '').trim();
+        if (!n) return 'U';
+        var parts = n.split(/\s+/).filter(Boolean);
+        if (parts.length === 1) return parts[0].slice(0, 2);
+        return (parts[0].slice(0, 1) + parts[1].slice(0, 1));
     }
 
     function renderPickerList() {
@@ -409,6 +576,43 @@ foreach ($userRows as $u) {
             modal.hide();
         }
     });
+
+    var tokenInput = document.getElementById('target_group_id');
+    var btnToggleToken = document.getElementById('btn-toggle-token');
+    var btnCopyToken = document.getElementById('btn-copy-token');
+    if (tokenInput && btnToggleToken) {
+        btnToggleToken.addEventListener('click', function () {
+            var isHidden = tokenInput.type === 'password';
+            tokenInput.type = isHidden ? 'text' : 'password';
+            btnToggleToken.innerHTML = isHidden ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+        });
+    }
+    if (tokenInput && btnCopyToken) {
+        btnCopyToken.addEventListener('click', async function () {
+            var value = tokenInput.value || '';
+            if (value.trim() === '') return;
+            try {
+                await navigator.clipboard.writeText(value);
+                btnCopyToken.innerHTML = '<i class="bi bi-check2"></i>';
+                setTimeout(function () { btnCopyToken.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1200);
+            } catch (e) {
+                tokenInput.select();
+                document.execCommand('copy');
+            }
+        });
+    }
+
+    var formEl = document.getElementById('line-notify-form');
+    var saveBtn = document.getElementById('btn-save-line-config');
+    if (formEl && saveBtn) {
+        formEl.addEventListener('submit', function () {
+            saveBtn.classList.add('is-loading');
+            var d = saveBtn.querySelector('.label-default');
+            var l = saveBtn.querySelector('.label-loading');
+            if (d) d.classList.add('d-none');
+            if (l) l.classList.remove('d-none');
+        });
+    }
 
     renderChips();
     syncHiddenInputs();

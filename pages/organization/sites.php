@@ -106,11 +106,138 @@ usort($list, static function (array $a, array $b): int {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <style>body { font-family: 'Sarabun', sans-serif; background: #fffaf5; }</style>
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background: #fffaf5;
+            color: #1f2937;
+        }
+        .sites-page-wrap {
+            padding-top: 1rem;
+        }
+        .sites-add-card,
+        .sites-table-card {
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 16px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+            background: #ffffff;
+        }
+        .sites-add-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: .8rem;
+        }
+        .sites-input {
+            min-height: 45px;
+            border-radius: 10px;
+            border-color: #d7dde6;
+            padding: .58rem .88rem;
+        }
+        .sites-input:focus {
+            border-color: #fd7e14;
+            box-shadow: 0 0 0 .2rem rgba(253, 126, 20, 0.14);
+        }
+        .sites-save-btn {
+            min-height: 45px;
+            border-radius: 10px;
+            border: 0;
+            background: linear-gradient(135deg, #fd7e14, #f97316);
+            color: #fff;
+            font-weight: 700;
+            padding: .58rem 1rem;
+            box-shadow: 0 10px 22px rgba(249, 115, 22, 0.24);
+        }
+        .sites-save-btn:hover {
+            filter: brightness(.97);
+            transform: translateY(-1px);
+        }
+        .sites-save-btn:active {
+            transform: translateY(0);
+        }
+        #sitesTable thead th {
+            background: #f8fafc;
+            color: #374151;
+            font-weight: 700;
+            border-bottom: 1px solid #e8edf3;
+            white-space: nowrap;
+        }
+        #sitesTable tbody td {
+            padding-top: .85rem;
+            padding-bottom: .85rem;
+            border-color: #eef2f7;
+        }
+        #sitesTable tbody tr:nth-child(even) {
+            background: rgba(248, 250, 252, 0.7);
+        }
+        #sitesTable tbody tr:hover {
+            background: rgba(255, 247, 237, 0.92) !important;
+        }
+        .site-name-cell {
+            font-weight: 600;
+            color: #111827;
+        }
+        .site-action-btn {
+            width: 34px;
+            height: 34px;
+            border: 0;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+        }
+        .site-action-btn:hover {
+            transform: translateY(-1px);
+            filter: saturate(1.05);
+        }
+        .site-action-edit {
+            background: rgba(59, 130, 246, 0.14);
+            color: #2563eb;
+        }
+        .site-action-delete {
+            background: rgba(239, 68, 68, 0.14);
+            color: #dc2626;
+        }
+        .sites-table-card .dataTables_wrapper .dataTables_length,
+        .sites-table-card .dataTables_wrapper .dataTables_filter {
+            margin-bottom: .95rem;
+        }
+        .sites-table-card .dataTables_wrapper .dataTables_filter input,
+        .sites-table-card .dataTables_wrapper .dataTables_length select {
+            border: 1px solid #d7dde6;
+            border-radius: 10px;
+            min-height: 38px;
+            padding: .3rem .65rem;
+            background: #fff;
+        }
+        .sites-table-card .dataTables_wrapper .dataTables_filter input:focus,
+        .sites-table-card .dataTables_wrapper .dataTables_length select:focus {
+            outline: none;
+            border-color: #fd7e14;
+            box-shadow: 0 0 0 .2rem rgba(253, 126, 20, 0.14);
+        }
+        @media (max-width: 767.98px) {
+            .sites-page-wrap {
+                padding-top: .75rem;
+            }
+            .sites-form-row > [class*='col-'] {
+                width: 100%;
+                flex: 0 0 100%;
+            }
+            .sites-form-actions {
+                width: 100%;
+            }
+            .sites-save-btn {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
-<div class="container pb-5">
+<div class="container pb-5 sites-page-wrap">
     <?php if (isset($_GET['created'])): ?>
         <div class="alert alert-success">เพิ่มไซต์เรียบร้อยแล้ว</div>
     <?php elseif (isset($_GET['updated'])): ?>
@@ -130,40 +257,44 @@ usort($list, static function (array $a, array $b): int {
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <h4 class="fw-bold mb-0"><i class="bi bi-geo-alt me-2 text-warning"></i>ไซต์งาน / สถานที่ทำงาน</h4>
     </div>
-    <div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card sites-add-card mb-4">
         <div class="card-body p-4">
-            <h6 class="fw-bold mb-3"><?= $isEditing ? 'แก้ไขไซต์' : 'เพิ่มไซต์ใหม่' ?></h6>
-            <form method="post" class="row g-2 align-items-end" data-tnc-ajax="1" data-tnc-soft-reload="1" action="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>">
+            <h6 class="sites-add-title"><?= $isEditing ? 'แก้ไขไซต์' : 'เพิ่มไซต์ใหม่' ?></h6>
+            <form method="post" class="row g-2 align-items-end sites-form-row" data-tnc-ajax="1" data-tnc-soft-reload="1" action="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>">
                 <?php csrf_field(); ?>
                 <input type="hidden" name="save_site" value="1">
                 <?php if ($isEditing): ?>
                     <input type="hidden" name="id" value="<?= (int) ($editRow['id'] ?? 0) ?>">
                 <?php endif; ?>
                 <div class="col-md-8">
-                    <input type="text" name="name" class="form-control rounded-3" maxlength="200" required value="<?= htmlspecialchars((string) ($editRow['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="text" name="name" class="form-control sites-input" maxlength="200" required value="<?= htmlspecialchars((string) ($editRow['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4 sites-form-actions">
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn text-white rounded-3 flex-grow-1" style="background-color:#fd7e14;"><?= $isEditing ? 'บันทึกการแก้ไข' : 'บันทึก' ?></button>
+                        <button type="submit" class="btn sites-save-btn flex-grow-1"><?= $isEditing ? 'บันทึกการแก้ไข' : 'บันทึก' ?></button>
                         <?php if ($isEditing): ?>
-                            <a href="<?= htmlspecialchars(app_path('pages/organization/sites.php')) ?>" class="btn btn-outline-secondary rounded-3">ยกเลิก</a>
+                            <a href="<?= htmlspecialchars(app_path('pages/organization/sites.php')) ?>" class="btn btn-outline-secondary rounded-3 d-inline-flex align-items-center">ยกเลิก</a>
                         <?php endif; ?>
                     </div>
                 </div>
             </form>
         </div>
     </div>
-    <div class="card border-0 shadow-sm rounded-4">
+    <div class="card sites-table-card">
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle" id="sitesTable" width="100%">
                 <thead class="table-light"><tr><th class="ps-4">ชื่อ</th><th class="pe-4 text-end">จัดการ</th></tr></thead>
                 <tbody>
                     <?php foreach ($list as $r): ?>
                     <tr>
-                        <td class="ps-4"><?= htmlspecialchars((string) ($r['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="ps-4 site-name-cell"><?= htmlspecialchars((string) ($r['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                         <td class="pe-4 text-end">
-                            <a class="btn btn-sm btn-outline-primary rounded-3" href="?edit=<?= (int) ($r['id'] ?? 0) ?>">แก้ไข</a>
-                            <a class="btn btn-sm btn-outline-danger rounded-3 tnc-delete-post" href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>?delete_site=1&amp;site_id=<?= (int) ($r['id'] ?? 0) ?>&amp;_csrf=<?= rawurlencode(csrf_token()) ?>">ลบ</a>
+                            <a class="site-action-btn site-action-edit" href="?edit=<?= (int) ($r['id'] ?? 0) ?>" aria-label="แก้ไขไซต์">
+                                <i class="bi bi-pencil-square"></i>
+                            </a>
+                            <a class="site-action-btn site-action-delete tnc-delete-post" href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>?delete_site=1&amp;site_id=<?= (int) ($r['id'] ?? 0) ?>&amp;_csrf=<?= rawurlencode(csrf_token()) ?>" aria-label="ลบไซต์">
+                                <i class="bi bi-trash3"></i>
+                            </a>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -178,7 +309,14 @@ usort($list, static function (array $a, array $b): int {
 <script>
 (function () {
     if (typeof $ === 'undefined' || !$.fn.DataTable) return;
-    $('#sitesTable').DataTable({ order: [[0, 'asc']], pageLength: 25 });
+    var dt = $('#sitesTable').DataTable({
+        order: [[0, 'asc']],
+        pageLength: 25,
+        dom: '<"row align-items-center g-2 mb-2"<"col-md-6 col-12"l><"col-md-6 col-12 text-md-end"f>>rt<"row align-items-center g-2 mt-3"<"col-md-5 col-12"i><"col-md-7 col-12 text-md-end"p>>'
+    });
+    if (dt && dt.columns) {
+        dt.columns.adjust();
+    }
 })();
 </script>
 </body>

@@ -69,6 +69,7 @@ $isSlipImage = in_array($slipExt, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'], 
         }
         .sheet {
             width: 210mm;
+            max-width: 100%;
             min-height: 297mm;
             margin: 0 auto;
             background: #fff;
@@ -106,6 +107,18 @@ $isSlipImage = in_array($slipExt, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'], 
             font-size: 32px;
             font-weight: 700;
             color: #198754;
+        }
+
+        @media (max-width: 575.98px) {
+            body { background: #fff; }
+            .sheet {
+                width: 100%;
+                min-height: auto;
+                padding: 1rem;
+                box-shadow: none;
+            }
+            .title { font-size: 22px; }
+            .amount { font-size: 26px; }
         }
         .slip-preview {
             margin-top: 10px;

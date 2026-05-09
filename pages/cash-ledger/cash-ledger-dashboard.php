@@ -55,6 +55,12 @@ $printedBy = trim((string) ($_SESSION['name'] ?? ''));
 if ($printedBy === '') {
     $printedBy = 'ผู้ใช้งาน';
 }
+$printedAtThai = '';
+try {
+    $printedAtThai = (new DateTimeImmutable('now', new DateTimeZone('Asia/Bangkok')))->format('d/m/Y H:i');
+} catch (Throwable $e) {
+    $printedAtThai = date('d/m/Y H:i');
+}
 
 $users = Db::tableKeyed('users');
 
@@ -183,9 +189,44 @@ $net = $sumIncome - $sumExpense;
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/cash-ledger-print.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
         body { font-family: 'Sarabun', sans-serif; background: #fffaf5; }
-        .card-dash { border-radius: 16px; border: none; box-shadow: 0 4px 20px rgba(0,0,0,.06); }
-        .card-stats { border-left: 5px solid #fd7e14; transition: transform 0.2s; }
+        .cash-ledger-shell { max-width: 1360px; }
+        .card-dash { border-radius: 16px; border: 1px solid rgba(0,0,0,.06); box-shadow: 0 4px 20px rgba(0,0,0,.06); background: #fff; }
+        .card-stats { border-left: 5px solid #fd7e14; transition: transform 0.2s, box-shadow 0.2s; background: #fff; }
         .card-stats:hover { transform: translateY(-3px); }
+        .ledger-hero-title { letter-spacing: 0.01em; }
+        .ledger-subtitle { color: #6c757d; font-size: 0.93rem; margin-bottom: 0; }
+        .ledger-cta-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .45rem;
+            border-radius: 999px;
+            font-weight: 700;
+            letter-spacing: .01em;
+            border: 1px solid transparent;
+            transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+        }
+        .ledger-cta-btn:hover { transform: translateY(-1px); text-decoration: none; }
+        .ledger-cta-primary {
+            color: #fff;
+            background: linear-gradient(135deg, #fd7e14 0%, #f76707 100%);
+            box-shadow: 0 .38rem .9rem rgba(253,126,20,.33);
+        }
+        .ledger-cta-primary:hover { color:#fff; filter: brightness(1.03); }
+        .ledger-cta-secondary {
+            color: #1f2937;
+            background: #fff;
+            border-color: rgba(0,0,0,.16);
+            box-shadow: 0 .22rem .62rem rgba(0,0,0,.08);
+        }
+        .ledger-cta-secondary:hover { color:#111827; border-color: rgba(0,0,0,.22); }
+        .ledger-filter-bar {
+            border: 1px solid rgba(0,0,0,.08);
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 .18rem .6rem rgba(0,0,0,.05);
+            padding: .7rem .8rem;
+        }
         .table-cash-report { table-layout: fixed; width: 100%; }
         .table-cash-report th,
         .table-cash-report td { padding-left: .45rem; padding-right: .45rem; }
@@ -195,22 +236,247 @@ $net = $sumIncome - $sumExpense;
         .table-cash-report .col-out,
         .table-cash-report .col-balance { width: 126px; }
         .table-cash-report .col-action { width: 76px; }
+        .table-cash-report tbody tr {
+            transition: background-color .16s ease, box-shadow .16s ease;
+        }
+        .table-cash-report tbody tr:hover {
+            background: #fff9f2;
+            box-shadow: inset 0 0 0 1px rgba(253,126,20,.12);
+        }
+        .table-cash-report tbody td.no-print .btn {
+            min-width: 2.05rem;
+            border-radius: .55rem;
+        }
+
+        /* Mobile-first improvements */
+        @media (max-width: 767.98px) {
+            .container.pb-5 {
+                padding-left: 0.7rem;
+                padding-right: 0.7rem;
+            }
+            .ledger-cta-btn { width: 100%; }
+            .no-print.d-flex.flex-wrap.justify-content-between.align-items-center.gap-3.mb-4 {
+                margin-bottom: 0.9rem !important;
+            }
+            .ledger-hero-title { font-size: 1.08rem; }
+            .ledger-subtitle { font-size: .84rem; }
+            #ledger-form-card .card-body {
+                padding: 1rem !important;
+            }
+            #ledgerForm .col-md-2,
+            #ledgerForm .col-md-3,
+            #ledgerForm .col-md-5 {
+                width: 100%;
+            }
+            form.no-print.d-flex.align-items-center.gap-2.mb-4.flex-wrap {
+                display: grid !important;
+                grid-template-columns: 1fr;
+                gap: 0.5rem !important;
+                align-items: stretch !important;
+                position: sticky;
+                top: .25rem;
+                z-index: 12;
+                background: #fffaf5;
+                padding-top: .2rem;
+            }
+            form.no-print.d-flex.align-items-center.gap-2.mb-4.flex-wrap .form-control,
+            form.no-print.d-flex.align-items-center.gap-2.mb-4.flex-wrap .btn {
+                width: 100% !important;
+            }
+            form.no-print.d-flex.align-items-center.gap-2.mb-4.flex-wrap label {
+                margin-top: 0.25rem;
+            }
+            .no-print.row.g-4.mb-4 > [class*="col-"] .card-stats {
+                padding: 0.85rem !important;
+            }
+
+            .table-wrap-screen {
+                padding: 0.25rem 0.5rem 0.65rem !important;
+            }
+            .table-cash-report thead {
+                display: none;
+            }
+            .table-cash-report tbody tr {
+                display: block;
+                margin: 0.65rem 0;
+                border: 1px solid rgba(0, 0, 0, 0.1);
+                border-radius: 0.75rem;
+                background: #fff;
+                box-shadow: 0 0.1rem 0.7rem rgba(0, 0, 0, 0.04);
+            }
+            .table-cash-report tbody td {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 0.7rem;
+                border: 0;
+                border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
+                padding: 0.6rem 0.75rem !important;
+                text-align: right !important;
+            }
+            .table-cash-report tbody td::before {
+                font-size: 0.74rem;
+                font-weight: 700;
+                color: #6c757d;
+                letter-spacing: 0.03em;
+                text-transform: uppercase;
+                text-align: left;
+                flex: 0 0 5.9rem;
+            }
+            .table-cash-report tbody td:nth-child(1)::before { content: "วันที่"; }
+            .table-cash-report tbody td:nth-child(2)::before { content: "รายละเอียด"; }
+            .table-cash-report tbody td:nth-child(3)::before { content: "รับ"; }
+            .table-cash-report tbody td:nth-child(4)::before { content: "จ่าย"; }
+            .table-cash-report tbody td:nth-child(5)::before { content: "คงเหลือ"; }
+            .table-cash-report tbody td:nth-child(6)::before { content: "จัดการ"; }
+            .table-cash-report tbody td:last-child {
+                border-bottom: 0;
+            }
+            .table-cash-report tbody td.no-print a.btn {
+                min-width: 2.1rem;
+            }
+            .table-cash-report tbody td[colspan] {
+                display: block;
+                text-align: center !important;
+            }
+            .table-cash-report tbody td[colspan]::before {
+                content: "";
+                flex: 0 0 0;
+            }
+
+            .no-print.d-flex.justify-content-between.align-items-center.px-3.py-3.border-top.bg-white {
+                flex-direction: column;
+                align-items: stretch !important;
+                gap: 0.65rem;
+            }
+            .no-print.d-flex.justify-content-between.align-items-center.px-3.py-3.border-top.bg-white .d-flex.gap-2 {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.45rem !important;
+            }
+            .no-print.d-flex.justify-content-between.align-items-center.px-3.py-3.border-top.bg-white .d-flex.gap-2 .btn {
+                width: 100%;
+            }
+        }
+
+        /* Hard reset for print layout (prevent mobile-card styles in print preview) */
+        @media print {
+            .cash-ledger-shell {
+                max-width: 100% !important;
+            }
+            /* Report-only print mode: hide all system controls */
+            .no-print,
+            .btn,
+            button,
+            input,
+            select,
+            textarea,
+            form,
+            .table-cash-report .col-action,
+            .table-cash-report th.no-print,
+            .table-cash-report td.no-print {
+                display: none !important;
+                visibility: hidden !important;
+            }
+            /* Force-hide filter/search controls in print */
+            .ledger-filter-bar,
+            form.ledger-filter-bar,
+            .ledger-filter-bar.no-print,
+            .ledger-filter-bar.d-flex,
+            .ledger-filter-bar.d-grid {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+            }
+            .card-dash,
+            .card,
+            .card-body,
+            .card-header {
+                border: 0 !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                background: transparent !important;
+            }
+            .table-cash-report {
+                table-layout: fixed !important;
+                width: 100% !important;
+                border-collapse: collapse !important;
+            }
+            .table-cash-report .col-date { width: 18% !important; }
+            .table-cash-report .col-desc { width: 38% !important; }
+            .table-cash-report .col-in,
+            .table-cash-report .col-out,
+            .table-cash-report .col-balance { width: 14.66% !important; }
+            .table-cash-report .col-action { width: 0 !important; }
+            .table-cash-report thead {
+                display: table-header-group !important;
+            }
+            .table-cash-report tbody {
+                display: table-row-group !important;
+            }
+            .table-cash-report tbody tr {
+                display: table-row !important;
+                margin: 0 !important;
+                border: 0 !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                background: transparent !important;
+                transform: none !important;
+            }
+            .table-cash-report tbody td {
+                display: table-cell !important;
+                text-align: left !important;
+                border-bottom: 1px solid #ccc !important;
+                padding: 0.35rem 0.45rem !important;
+                vertical-align: top !important;
+            }
+            .table-cash-report tbody td.no-print,
+            .table-cash-report thead th.no-print {
+                display: none !important;
+            }
+            .table-cash-report thead th:nth-child(3),
+            .table-cash-report thead th:nth-child(4),
+            .table-cash-report thead th:nth-child(5),
+            .table-cash-report tbody td:nth-child(3),
+            .table-cash-report tbody td:nth-child(4),
+            .table-cash-report tbody td:nth-child(5) {
+                text-align: right !important;
+                white-space: nowrap !important;
+            }
+            .table-cash-report thead th:nth-child(2),
+            .table-cash-report tbody td:nth-child(2) {
+                word-break: break-word !important;
+                overflow-wrap: anywhere !important;
+            }
+            .table-cash-report tbody td::before {
+                content: none !important;
+                display: none !important;
+            }
+            .table-wrap-screen {
+                max-height: none !important;
+                overflow: visible !important;
+                padding: 0 !important;
+            }
+        }
     </style>
 </head>
 <body>
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
-<div class="container pb-5">
+<div class="container pb-5 cash-ledger-shell">
     <div class="no-print d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h4 class="fw-bold mb-1"><i class="bi bi-speedometer2 text-warning me-2"></i>รายการบันทึกสดย่อย (Petty Cash Ledger)</h4>
+            <h4 class="fw-bold mb-1 ledger-hero-title"><i class="bi bi-speedometer2 text-warning me-2"></i>รายการบันทึกสดย่อย (Petty Cash Ledger)</h4>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <button type="button" class="btn btn-dark rounded-pill px-3" onclick="window.print()">
+            <button type="button" class="btn ledger-cta-btn ledger-cta-secondary px-3" onclick="window.print()">
                 <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
             </button>
-            <button type="button" class="btn btn-outline-primary rounded-pill px-3" data-bs-toggle="collapse" data-bs-target="#ledgerFormCollapse" aria-expanded="<?= $editRow ? 'true' : 'false' ?>" aria-controls="ledgerFormCollapse" id="toggleLedgerFormBtn">
+            <button type="button" class="btn ledger-cta-btn ledger-cta-primary px-3" data-bs-toggle="collapse" data-bs-target="#ledgerFormCollapse" aria-expanded="<?= $editRow ? 'true' : 'false' ?>" aria-controls="ledgerFormCollapse" id="toggleLedgerFormBtn">
                 <i class="bi bi-cash-stack me-1"></i><?= $editRow ? 'แก้ไขรายการ' : 'เพิ่มรายการ' ?> <i class="bi <?= $editRow ? 'bi-chevron-up' : 'bi-chevron-down' ?> ms-1" id="toggleLedgerFormIcon"></i>
             </button>
         </div>
@@ -262,7 +528,7 @@ $net = $sumIncome - $sumExpense;
         </div>
     </div>
 
-    <form method="get" class="no-print d-flex align-items-center gap-2 mb-4 flex-wrap">
+    <form method="get" class="no-print d-flex align-items-center gap-2 mb-4 flex-wrap ledger-filter-bar">
         <label class="fw-bold small mb-0">เดือนที่ดู</label>
         <input type="month" name="month" class="form-control form-control-sm rounded-3" style="width: auto;" value="<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>">
         <label class="fw-bold small mb-0">ค้นหาวันที่</label>
@@ -277,7 +543,7 @@ $net = $sumIncome - $sumExpense;
         <h1 class="h4 fw-bold mb-1">THEELIN CON CO.,LTD.</h1>
         <h2 class="h5 fw-bold mb-2">รายงานสรุปรายรับ — รายจ่ายภายใน</h2>
         <p class="mb-1 fw-semibold">งวดบัญชี: <?= htmlspecialchars($periodLabelTh, ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>)</p>
-        <p class="small mb-2">พิมพ์เมื่อ <?= date('d/m/Y H:i') ?> &nbsp;|&nbsp; ผู้พิมพ์: <?= htmlspecialchars($printedBy, ENT_QUOTES, 'UTF-8') ?></p>
+        <p class="small mb-2">พิมพ์เมื่อ <?= htmlspecialchars($printedAtThai, ENT_QUOTES, 'UTF-8') ?> &nbsp;|&nbsp; ผู้พิมพ์: <?= htmlspecialchars($printedBy, ENT_QUOTES, 'UTF-8') ?></p>
         <div class="row justify-content-center g-2 small">
             <div class="col-auto border rounded px-3 py-2 mx-1">
                 <span class="text-muted">รายรับรวม</span>

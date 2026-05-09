@@ -47,6 +47,33 @@ if (!function_exists('tnc_audit_log_page_verb_th')) {
     }
 }
 
+if (!function_exists('tnc_audit_log_page_verb_badge_class')) {
+    function tnc_audit_log_page_verb_badge_class(string $v): string
+    {
+        return match ($v) {
+            'create' => 'verb-badge verb-add',
+            'update' => 'verb-badge verb-ed',
+            'delete' => 'verb-badge verb-del',
+            default => 'verb-badge verb-unk',
+        };
+    }
+}
+
+if (!function_exists('tnc_audit_log_entity_badge_class')) {
+    function tnc_audit_log_entity_badge_class(string $type): string
+    {
+        $t = strtolower(trim($type));
+        return match ($t) {
+            'cash_ledger' => 'entity-badge entity-cash',
+            'purchase_bill' => 'entity-badge entity-purchase',
+            'invoice' => 'entity-badge entity-invoice',
+            'line_notify_config' => 'entity-badge entity-config',
+            'user' => 'entity-badge entity-user',
+            default => 'entity-badge entity-default',
+        };
+    }
+}
+
 /** แปลง created_at (UTC Y-m-d H:i:s) → แสดงเป็น Asia/Bangkok */
 if (!function_exists('tnc_audit_log_format_datetime_th')) {
     function tnc_audit_log_format_datetime_th(string $raw): string
@@ -76,10 +103,60 @@ if (!function_exists('tnc_audit_log_format_datetime_th')) {
     <style>
         body { font-family: 'Sarabun', sans-serif; background: #f8f9fa; }
         .audit-card { border-radius: 12px; box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06); border: none; }
-        table.audit-table tbody td { vertical-align: middle; font-size: 0.92rem; }
-        .verb-del { color: #dc3545; font-weight: 600; }
-        .verb-add { color: #198754; font-weight: 600; }
-        .verb-ed { color: #0d6efd; font-weight: 600; }
+        .audit-toolbar { background: #fff; border: 1px solid #e9ecef; border-radius: 12px; padding: .7rem .8rem; }
+        .audit-toolbar .form-control, .audit-toolbar .form-select { min-height: 42px; }
+        .audit-table-wrap { max-height: min(70vh, 640px); overflow: auto; }
+        table.audit-table { margin-bottom: 0 !important; }
+        table.audit-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: #f8f9fa !important;
+            border-bottom: 1px solid #dee2e6 !important;
+        }
+        table.audit-table tbody td { vertical-align: middle; font-size: 0.92rem; padding-top: .72rem; padding-bottom: .72rem; }
+        table.audit-table tbody tr { transition: background-color .15s ease, box-shadow .15s ease; }
+        table.audit-table tbody tr:hover { background: #f9fbff; box-shadow: inset 0 0 0 1px rgba(13,110,253,.08); }
+        .mono-time { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+        .verb-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: .28rem .62rem;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: .78rem;
+            border: 1px solid transparent;
+            letter-spacing: .01em;
+        }
+        .verb-add { color: #0f5132; background: rgba(25,135,84,.14); border-color: rgba(25,135,84,.3); }
+        .verb-ed { color: #084298; background: rgba(13,110,253,.14); border-color: rgba(13,110,253,.28); }
+        .verb-del { color: #842029; background: rgba(220,53,69,.14); border-color: rgba(220,53,69,.28); }
+        .verb-unk { color: #495057; background: rgba(108,117,125,.15); border-color: rgba(108,117,125,.28); }
+        .entity-badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: .22rem .58rem;
+            font-size: .76rem;
+            font-weight: 700;
+            border: 1px solid transparent;
+            text-transform: lowercase;
+        }
+        .entity-cash { color: #0c5460; background: #d1ecf1; border-color: #bee5eb; }
+        .entity-purchase { color: #155724; background: #d4edda; border-color: #c3e6cb; }
+        .entity-invoice { color: #856404; background: #fff3cd; border-color: #ffeeba; }
+        .entity-config { color: #5a189a; background: #f3e8ff; border-color: #e9d5ff; }
+        .entity-user { color: #004085; background: #d6e4ff; border-color: #b8daff; }
+        .entity-default { color: #495057; background: #e9ecef; border-color: #dee2e6; }
+        .btn-view-audit {
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            border-radius: .55rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body>
@@ -93,7 +170,31 @@ if (!function_exists('tnc_audit_log_format_datetime_th')) {
 
     <div class="card audit-card">
         <div class="card-body p-3 p-md-4">
-            <div class="table-responsive">
+            <div class="audit-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <label for="auditPageLength" class="small text-muted mb-0">แสดง</label>
+                    <select id="auditPageLength" class="form-select form-select-sm" style="width:92px;">
+                        <option value="25">25</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                    </select>
+                    <span class="small text-muted">แถว</span>
+                    <span class="small text-muted ms-2" id="auditRowMeta">ทั้งหมด 0 รายการ</span>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <select id="auditActionFilter" class="form-select form-select-sm" style="min-width:150px;">
+                        <option value="">ทุกการกระทำ</option>
+                        <option value="เพิ่ม">เพิ่ม</option>
+                        <option value="แก้ไข">แก้ไข</option>
+                        <option value="ลบ">ลบ</option>
+                    </select>
+                    <div class="position-relative">
+                        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted"></i>
+                        <input type="search" id="auditSearchInput" class="form-control form-control-sm ps-4" placeholder="ค้นหา..." style="min-width:220px;">
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive audit-table-wrap">
                 <table class="table table-hover align-middle audit-table mb-0" id="auditTable">
                     <thead class="table-light">
                         <tr>
@@ -113,19 +214,19 @@ if (!function_exists('tnc_audit_log_format_datetime_th')) {
                             <?php foreach ($rows as $idx => $r): ?>
                                 <?php
                                 $verb = trim((string) ($r['verb'] ?? ''));
-                                $verbClass = $verb === 'delete' ? 'verb-del' : ($verb === 'create' ? 'verb-add' : 'verb-ed');
+                                $verbClass = tnc_audit_log_page_verb_badge_class($verb);
                                 ?>
                                 <tr>
                                     <?php $atRaw = (string) ($r['created_at'] ?? ''); ?>
-                                    <td class="text-nowrap small" title="เวลาไทย (Asia/Bangkok)" data-order="<?= htmlspecialchars($atRaw, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(tnc_audit_log_format_datetime_th($atRaw), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="text-nowrap small mono-time" title="เวลาไทย (Asia/Bangkok)" data-order="<?= htmlspecialchars($atRaw, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(tnc_audit_log_format_datetime_th($atRaw), ENT_QUOTES, 'UTF-8') ?></td>
                                     <td><?= htmlspecialchars((string) ($r['user_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                     <td><span class="<?= htmlspecialchars($verbClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(tnc_audit_log_page_verb_th($verb), ENT_QUOTES, 'UTF-8') ?></span></td>
-                                    <td class="small"><?= htmlspecialchars((string) ($r['entity_type'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="small"><span class="<?= htmlspecialchars(tnc_audit_log_entity_badge_class((string) ($r['entity_type'] ?? '')), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($r['entity_type'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span></td>
                                     <td class="small font-monospace"><?= htmlspecialchars((string) ($r['entity_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                     <td class="small"><?= htmlspecialchars((string) ($r['summary'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                     <td class="text-end">
-                                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 tnc-open-audit-detail" data-row="<?= (int) $idx ?>">
-                                            <i class="bi bi-file-text"></i> ดู
+                                        <button type="button" class="btn btn-sm btn-outline-primary btn-view-audit tnc-open-audit-detail" data-row="<?= (int) $idx ?>" title="ดูรายละเอียด">
+                                            <i class="bi bi-eye"></i>
                                         </button>
                                     </td>
                                 </tr>
@@ -161,11 +262,44 @@ window.TNC_AUDIT_PAYLOADS = <?= json_encode($auditUiPayloads, JSON_UNESCAPED_UNI
 (function ($) {
     if (!$ || !$.fn.DataTable) return;
     if ($('#auditTable tbody tr td[colspan]').length) return;
-    $('#auditTable').DataTable({
+    var table = $('#auditTable').DataTable({
         order: [[0, 'desc']],
         pageLength: 50,
+        dom: 'rt<"d-flex flex-wrap justify-content-between align-items-center gap-2 px-2 py-2"ip>',
         language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' }
     });
+
+    var searchEl = document.getElementById('auditSearchInput');
+    var actionEl = document.getElementById('auditActionFilter');
+    var lenEl = document.getElementById('auditPageLength');
+    var metaEl = document.getElementById('auditRowMeta');
+
+    function refreshMeta() {
+        if (!metaEl) return;
+        var shown = table.rows({ filter: 'applied' }).count();
+        var total = table.rows().count();
+        metaEl.textContent = 'แสดง ' + shown.toLocaleString() + ' / ' + total.toLocaleString() + ' รายการ';
+    }
+
+    if (searchEl) {
+        searchEl.addEventListener('input', function () {
+            table.search(searchEl.value || '').draw();
+        });
+    }
+    if (actionEl) {
+        actionEl.addEventListener('change', function () {
+            var v = actionEl.value || '';
+            table.column(2).search(v ? '^' + v + '$' : '', true, false).draw();
+        });
+    }
+    if (lenEl) {
+        lenEl.addEventListener('change', function () {
+            var n = parseInt(lenEl.value || '50', 10);
+            table.page.len(Number.isFinite(n) ? n : 50).draw();
+        });
+    }
+    table.on('draw', refreshMeta);
+    refreshMeta();
 })(jQuery);
 (function () {
     var payloads = window.TNC_AUDIT_PAYLOADS || [];

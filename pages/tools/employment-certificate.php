@@ -80,6 +80,7 @@ $issue_thai = thai_date_issue();
         .cert-box {
             box-sizing: border-box;
             width: 210mm;
+            max-width: 100%;
             min-height: 297mm;
             margin: 0 auto;
             padding: 18mm 20mm 22mm;
@@ -176,6 +177,19 @@ $issue_thai = thai_date_issue();
             color: #555;
             margin-top: 2mm;
             letter-spacing: 0.03em;
+        }
+
+        @media (max-width: 575.98px) {
+            body.employment-cert-page { background: #fff; }
+            .cert-print-surface { margin-bottom: 1rem; padding: 0; }
+            .cert-box {
+                width: 100%;
+                min-height: auto;
+                padding: 1rem;
+                box-shadow: none;
+            }
+            .cert-field { grid-template-columns: 1fr; }
+            .cert-field .cert-label { white-space: normal; }
         }
 
         @media print {
