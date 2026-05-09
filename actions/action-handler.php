@@ -139,11 +139,12 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // POST-only actions: prevent direct GET access to write endpoints.
-if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status')
+if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'update_po_direct')
     && strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
     $fallback = match ($action) {
         'create_po_direct' => app_path('pages/purchase/purchase-order-create.php'),
         'create_po_from_pr' => app_path('pages/purchase/purchase-request-list.php'),
+        'update_po_direct' => app_path('pages/purchase/purchase-order-list.php'),
         default => app_path('pages/purchase/purchase-order-list.php'),
     };
     http_response_code(200);
@@ -213,6 +214,61 @@ function tnc_audit_purchase_order_created(int $poId, string $sourceAction): void
             'lines' => $items,
         ],
     ]);
+}
+
+/**
+ * PO totals aligned with purchase-order-create / purchase-order-edit JS (VAT 7%, WHT 3% on pre-VAT base).
+ *
+ * @return array{subtotal: float, vat: float, gross: float, wht: float, net: float, withholding_type: string, vat_mode: string}
+ */
+function tnc_po_compute_totals(float $lineSum, int $vatEnabled, string $vatMode, string $withholdingType): array
+{
+    $lineSum = round($lineSum, 2);
+    $vatMode = in_array($vatMode, ['exclusive', 'inclusive'], true) ? $vatMode : 'exclusive';
+    $subtotal = $lineSum;
+    $vat = 0.0;
+    $gross = $lineSum;
+    if ($vatEnabled) {
+        if ($vatMode === 'inclusive') {
+            $vat = round($lineSum * 7 / 107, 2);
+            $subtotal = round($lineSum - $vat, 2);
+            $gross = $lineSum;
+        } else {
+            $vat = round($subtotal * 0.07, 2);
+            $gross = round($subtotal + $vat, 2);
+        }
+    }
+    $whtType = ($withholdingType === 'wht3') ? 'wht3' : 'none';
+    $wht = $whtType === 'wht3' ? round($subtotal * 0.03, 2) : 0.0;
+    $net = round($gross - $wht, 2);
+    $storedVatMode = $vatEnabled ? $vatMode : 'exclusive';
+
+    return [
+        'subtotal' => $subtotal,
+        'vat' => $vat,
+        'gross' => $gross,
+        'wht' => $wht,
+        'net' => $net,
+        'withholding_type' => $whtType,
+        'vat_mode' => $storedVatMode,
+    ];
+}
+
+function tnc_po_delete_line_items(int $poId): void
+{
+    if ($poId <= 0) {
+        return;
+    }
+    foreach (Db::tableKeyed('purchase_order_items') as $itemPk => $itemRow) {
+        if (!is_array($itemRow)) {
+            continue;
+        }
+        $pid = (int) ($itemRow['po_id'] ?? 0);
+        $poidAlt = (int) ($itemRow['purchase_order_id'] ?? 0);
+        if ($pid === $poId || $poidAlt === $poId) {
+            Db::deleteRow('purchase_order_items', (string) $itemPk);
+        }
+    }
 }
 
 function renderPoCreatedPopupAndRedirect(string $poNumber)
@@ -1062,19 +1118,39 @@ if ($action === 'create_po_direct') {
             $subtotal += (float) $_POST['hire_qty'][$key] * (float) $_POST['hire_unit_price'][$key];
         }
     }
-    $subtotal = round($subtotal, 2);
-    if ($subtotal <= 0) {
+    $lineSum = round($subtotal, 2);
+    if ($lineSum <= 0) {
         tnc_action_redirect($hireFallback . $hireFbSep . 'error=no_items');
     }
-    $vat_amt = $vat_enabled ? round($subtotal * 0.07, 2) : 0.0;
-    $gross = round($subtotal + $vat_amt, 2);
+
+    $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
+    if (!in_array($vat_mode_post, ['exclusive', 'inclusive'], true)) {
+        $vat_mode_post = 'exclusive';
+    }
+    $wht_post = trim((string) ($_POST['withholding_type'] ?? 'none'));
+    if ($wht_post !== 'wht3') {
+        $wht_post = 'none';
+    }
+
+    $isHireFlow = $hire_contract_id > 0 && $hc !== null;
+    $totals = tnc_po_compute_totals($lineSum, $vat_enabled, $vat_mode_post, $isHireFlow ? 'none' : $wht_post);
+    $vat_amt = $totals['vat'];
+    $gross = $totals['gross'];
+    $subtotal_db = $totals['subtotal'];
+
+    $issue_date = trim((string) ($_POST['issue_date'] ?? date('Y-m-d')));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $issue_date)) {
+        $issue_date = date('Y-m-d');
+    }
+    $quotation_number = mb_substr(trim((string) ($_POST['quotation_number'] ?? '')), 0, 120);
+    $quotation_note = mb_substr(trim((string) ($_POST['quotation_note'] ?? '')), 0, 500);
 
     $retention = 0.0;
     $payable = $gross;
-    $seedAmount = $gross;
+    $seedAmount = $totals['net'];
     $hireExtra = [];
 
-    if ($hire_contract_id > 0 && $hc !== null) {
+    if ($isHireFlow) {
         $retRaw = trim((string) ($_POST['retention_value'] ?? '0'));
         $retRaw = str_replace('%', '', $retRaw);
         $retention = max(0.0, round((float) $retRaw, 2));
@@ -1109,13 +1185,19 @@ if ($action === 'create_po_direct') {
         'hire_contract_id' => $hire_contract_id,
         'supplier_id' => $supplier_id,
         'created_at' => date('Y-m-d'),
-        'issue_date' => date('Y-m-d'),
-        'total_amount' => $gross,
+        'issue_date' => $issue_date,
+        'quotation_number' => $quotation_number,
+        'quotation_note' => $quotation_note,
+        'total_amount' => $isHireFlow ? $gross : $totals['net'],
         'status' => 'ordered',
         'created_by' => $created_by,
         'vat_enabled' => $vat_enabled,
-        'subtotal_amount' => $subtotal,
+        'vat_mode' => $totals['vat_mode'],
+        'subtotal_amount' => $subtotal_db,
         'vat_amount' => $vat_amt,
+        'gross_amount' => $gross,
+        'withholding_type' => $isHireFlow ? 'none' : $totals['withholding_type'],
+        'withholding_amount' => $isHireFlow ? 0.0 : $totals['wht'],
     ], $hireExtra));
 
     $useHireLines = $hire_contract_id > 0 && (count(array_filter($_POST['item_description'] ?? [], static fn ($d): bool => trim((string) $d) !== '')) === 0);
@@ -1172,6 +1254,120 @@ if ($action === 'create_po_direct') {
     }
     tnc_audit_purchase_order_created($po_id, 'create_po_direct');
     renderPoCreatedPopupAndRedirect((string) $po_number);
+}
+
+// --- แก้ไข PO โดยตรง (purchase-order-edit.php) ---
+if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $listUrl = app_path('pages/purchase/purchase-order-list.php');
+    $editUrl = app_path('pages/purchase/purchase-order-edit.php');
+    $po_id = (int) ($_GET['id'] ?? $_POST['po_id'] ?? $_POST['id'] ?? 0);
+    if ($po_id <= 0) {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    $pk = Db::pkForLogicalId('purchase_orders', $po_id);
+    $existing = Db::row('purchase_orders', $pk);
+    if ($existing === null) {
+        tnc_action_redirect($listUrl . '?error=not_found');
+    }
+    if (trim((string) ($existing['order_type'] ?? 'purchase')) === 'hire' && (int) ($existing['hire_contract_id'] ?? 0) > 0) {
+        tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=hire_po');
+    }
+
+    $lineSum = 0.0;
+    foreach ($_POST['item_description'] ?? [] as $key => $desc) {
+        if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
+            continue;
+        }
+        if (trim((string) $desc) === '') {
+            continue;
+        }
+        $lineSum += (float) $_POST['item_qty'][$key] * (float) $_POST['item_price'][$key];
+    }
+    $lineSum = round($lineSum, 2);
+    if ($lineSum <= 0) {
+        tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=no_items');
+    }
+
+    $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
+    $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
+    if (!in_array($vat_mode_post, ['exclusive', 'inclusive'], true)) {
+        $vat_mode_post = 'exclusive';
+    }
+    $wht_post = trim((string) ($_POST['withholding_type'] ?? 'none'));
+    if ($wht_post !== 'wht3') {
+        $wht_post = 'none';
+    }
+    $totals = tnc_po_compute_totals($lineSum, $vat_enabled, $vat_mode_post, $wht_post);
+
+    $issue_date = trim((string) ($_POST['issue_date'] ?? ''));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $issue_date)) {
+        $issue_date = (string) ($existing['issue_date'] ?? date('Y-m-d'));
+    }
+    $supplier_id = (int) ($_POST['supplier_id'] ?? 0);
+
+    $beforeSnap = $existing;
+    Db::setRow('purchase_orders', $pk, array_merge($existing, [
+        'issue_date' => $issue_date,
+        'supplier_id' => $supplier_id,
+        'quotation_number' => mb_substr(trim((string) ($_POST['quotation_number'] ?? '')), 0, 120),
+        'quotation_note' => mb_substr(trim((string) ($_POST['quotation_note'] ?? '')), 0, 500),
+        'total_amount' => $totals['net'],
+        'gross_amount' => $totals['gross'],
+        'subtotal_amount' => $totals['subtotal'],
+        'vat_amount' => $totals['vat'],
+        'vat_enabled' => $vat_enabled,
+        'vat_mode' => $totals['vat_mode'],
+        'withholding_type' => $totals['withholding_type'],
+        'withholding_amount' => $totals['wht'],
+    ]));
+
+    tnc_po_delete_line_items($po_id);
+    foreach ($_POST['item_description'] ?? [] as $key => $desc) {
+        if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
+            continue;
+        }
+        $desc = trim((string) $desc);
+        if ($desc === '') {
+            continue;
+        }
+        $iid = Db::nextNumericId('purchase_order_items', 'id');
+        $qty = (float) $_POST['item_qty'][$key];
+        $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
+        $price = (float) $_POST['item_price'][$key];
+        $lineTotal = round($qty * $price, 2);
+        Db::setRow('purchase_order_items', (string) $iid, [
+            'id' => $iid,
+            'po_id' => $po_id,
+            'description' => $desc,
+            'quantity' => $qty,
+            'unit' => $unit,
+            'unit_price' => $price,
+            'total' => $lineTotal,
+        ]);
+    }
+
+    foreach (Db::filter('po_payments', static fn (array $r): bool => (int) ($r['po_id'] ?? 0) === $po_id) as $payRow) {
+        $payId = (int) ($payRow['id'] ?? 0);
+        if ($payId <= 0) {
+            continue;
+        }
+        $st = strtolower(trim((string) ($payRow['status'] ?? 'unpaid')));
+        if ($st !== 'paid') {
+            $payPk = Db::pkForLogicalId('po_payments', $payId);
+            Db::mergeRow('po_payments', $payPk, ['amount' => $totals['net']]);
+        }
+    }
+
+    $afterSnap = Db::row('purchase_orders', $pk);
+    $poNo = $afterSnap !== null ? trim((string) ($afterSnap['po_number'] ?? '')) : '';
+    tnc_audit_log('update', 'purchase_order', (string) $po_id, $poNo !== '' ? $poNo : ('#' . $po_id), [
+        'source' => 'action-handler',
+        'action' => 'update_po_direct',
+        'before' => $beforeSnap,
+        'after' => $afterSnap,
+    ]);
+
+    tnc_action_redirect($listUrl . '?updated=1');
 }
 
 /** รายการ PO: แนบสลิป + ตั้งสถานะจ่ายแล้ว (purchase_orders.payment_slip_path) */

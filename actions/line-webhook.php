@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/line_notify_runtime.php';
+require_once __DIR__ . '/../includes/line_petty_cash_webhook_shared.php';
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
 
 use Theelincon\Rtdb\Db;
@@ -130,6 +131,21 @@ if (is_array($events)) {
         $sourceType = (string) ($source['type'] ?? '');
         $eventType = (string) ($event['type'] ?? '');
         $replyToken = (string) ($event['replyToken'] ?? '');
+
+        // คำสั่งรายงานสดย่อย: ไม่บังคับ @mention ในกลุ่ม (ต่างจากข้อความทั่วไป)
+        if ($eventType === 'message') {
+            $msgPc = $event['message'] ?? null;
+            if (is_array($msgPc) && (string) ($msgPc['type'] ?? '') === 'text') {
+                $textPc = trim((string) ($msgPc['text'] ?? ''));
+                if ($textPc !== '' && line_petty_cash_message_requests_report($textPc)) {
+                    if (function_exists('date_default_timezone_set')) {
+                        @date_default_timezone_set('Asia/Bangkok');
+                    }
+                    line_petty_cash_handle_text_command($channelToken, $replyToken, $source, $userId, $textPc);
+                    continue;
+                }
+            }
+        }
 
         // Group/room mode: only process text messages that mention the bot.
         if (($sourceType === 'group' || $sourceType === 'room') && $eventType === 'message') {

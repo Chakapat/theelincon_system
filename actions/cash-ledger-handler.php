@@ -28,13 +28,37 @@ $action = $_REQUEST['action'] ?? '';
 cash_ledger_auto_archive_monthly_if_due();
 
 $cash_mutates = ($action === 'save' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
-    || ($action === 'delete' && (isset($_GET['id']) || isset($_POST['id'])));
+    || ($action === 'delete' && (isset($_GET['id']) || isset($_POST['id'])))
+    || ($action === 'send_line_daily_report' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST');
 if ($cash_mutates && !csrf_verify_request()) {
     $m = trim((string) ($_GET['month'] ?? ($_POST['redirect_month'] ?? '')));
     if (!preg_match('/^\d{4}-\d{2}$/', $m)) {
-        $m = '';
+        $m = date('Y-m');
     }
-    cash_ledger_redirect($back, array_filter(['err' => 'csrf', 'month' => $m]));
+    $ed = trim((string) ($_POST['report_date'] ?? ($_POST['filter_entry_date'] ?? '')));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ed)) {
+        $ed = '';
+    }
+    if ($ed !== '') {
+        $m = substr($ed, 0, 7);
+    }
+    $csrfQ = ['month' => $m, 'err' => 'csrf'];
+    if ($ed !== '') {
+        $csrfQ['entry_date'] = $ed;
+    }
+    tnc_action_redirect(app_path('pages/cash-ledger/cash-ledger-dashboard.php') . '?' . http_build_query($csrfQ));
+}
+
+function cash_ledger_dashboard_redirect(string $month, string $filterEntryDate, array $queryExtra): void
+{
+    if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
+        $month = date('Y-m');
+    }
+    $q = array_merge(['month' => $month], $queryExtra);
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $filterEntryDate)) {
+        $q['entry_date'] = $filterEntryDate;
+    }
+    tnc_action_redirect(app_path('pages/cash-ledger/cash-ledger-dashboard.php') . '?' . http_build_query($q));
 }
 
 function cash_ledger_redirect(string $base, array $query): void
@@ -337,6 +361,53 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
 
     cash_ledger_redirect($back, array_filter(['saved' => '1', 'month' => $retMonth]));
+}
+
+if ($action === 'send_line_daily_report' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    require_once __DIR__ . '/../config/line_settings.php';
+    require_once __DIR__ . '/../includes/line_notify_runtime.php';
+    require_once __DIR__ . '/../includes/cash_ledger_line_daily_report.php';
+    require_once __DIR__ . '/../includes/tnc_audit_log.php';
+
+    if (function_exists('date_default_timezone_set')) {
+        @date_default_timezone_set('Asia/Bangkok');
+    }
+
+    $reportDate = trim((string) ($_POST['report_date'] ?? ''));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $reportDate)) {
+        $reportDate = date('Y-m-d');
+    }
+    $retMonth = substr($reportDate, 0, 7);
+    if (!preg_match('/^\d{4}-\d{2}$/', $retMonth)) {
+        $retMonth = date('Y-m');
+    }
+    $retEntryDate = $reportDate;
+
+    $channelToken = trim((string) (defined('LINE_MESSAGING_CHANNEL_ACCESS_TOKEN') ? LINE_MESSAGING_CHANNEL_ACCESS_TOKEN : ''));
+    $targetGroupId = line_effective_target_group_id();
+    $targetUserId = trim((string) (defined('LINE_TARGET_USER_ID') ? LINE_TARGET_USER_ID : ''));
+    $targetId = $targetGroupId !== '' ? $targetGroupId : $targetUserId;
+
+    if ($channelToken === '' || $targetId === '') {
+        tnc_audit_log('notify', 'cash_ledger_daily_line', $reportDate, 'ส่งรายงานสดย่อยรายวันไป LINE (ล้มเหลว: ไม่ได้ตั้งค่า)', [
+            'source' => 'cash-ledger-handler',
+            'ok' => false,
+            'reason' => 'missing_line_config',
+        ]);
+        cash_ledger_dashboard_redirect($retMonth, $retEntryDate, ['line_notify' => 'fail']);
+    }
+
+    $entries = cash_ledger_daily_entries_for_date($reportDate);
+    $flexMessages = cash_ledger_daily_build_flex_messages($reportDate, $entries);
+    $ok = cash_ledger_daily_line_push($channelToken, $targetId, $flexMessages);
+
+    tnc_audit_log('notify', 'cash_ledger_daily_line', $reportDate, 'ส่งรายงานสดย่อยรายวันไป LINE', [
+        'source' => 'cash-ledger-handler',
+        'ok' => $ok,
+        'entry_count' => count($entries),
+    ]);
+
+    cash_ledger_dashboard_redirect($retMonth, $retEntryDate, ['line_notify' => $ok ? 'ok' : 'fail']);
 }
 
 if ($action === 'delete' && (isset($_GET['id']) || isset($_POST['id']))) {

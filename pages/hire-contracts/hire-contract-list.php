@@ -252,22 +252,12 @@ foreach ($dtRows as $r) {
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 pb-5 hc-page-wrap">
-    <div class="hc-header-card mb-3">
-        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
-            <div>
-                <div class="small text-muted text-uppercase fw-semibold mb-1" style="letter-spacing:.04em;">Hire Contracts</div>
-                <h1 class="h3 fw-bold mb-1 hc-header-title">สัญญาจ้าง</h1>
-                <p class="hc-header-subtitle mb-0">ติดตามสถานะสัญญา มูลค่า จ่ายแล้ว และยอดคงเหลือแบบเรียลไทม์</p>
-            </div>
-        </div>
-    </div>
-
     <div class="row g-3 mb-4">
         <div class="col-md-4">
             <div class="hc-summary-card h-100">
                 <div class="d-flex align-items-center gap-2 mb-2">
                     <span class="d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary" style="width:2.1rem;height:2.1rem;"><i class="bi bi-file-earmark-text"></i></span>
-                    <span class="hc-summary-label">Total Contracts</span>
+                    <span class="hc-summary-label">จำนวนสัญญาจ้างทั้งหมด</span>
                 </div>
                 <div class="hc-summary-value text-dark"><?= number_format($totalContracts) ?></div>
             </div>
@@ -276,7 +266,7 @@ foreach ($dtRows as $r) {
             <div class="hc-summary-card h-100">
                 <div class="d-flex align-items-center gap-2 mb-2">
                     <span class="d-inline-flex align-items-center justify-content-center rounded-3 bg-success-subtle text-success" style="width:2.1rem;height:2.1rem;"><i class="bi bi-wallet2"></i></span>
-                    <span class="hc-summary-label">Total Contract Value</span>
+                    <span class="hc-summary-label">มูลค่าสัญญาทั้งหมด</span>
                 </div>
                 <div class="hc-summary-value text-success hc-num"><?= number_format($totalContractValue, 2) ?></div>
             </div>
@@ -285,7 +275,7 @@ foreach ($dtRows as $r) {
             <div class="hc-summary-card h-100">
                 <div class="d-flex align-items-center gap-2 mb-2">
                     <span class="d-inline-flex align-items-center justify-content-center rounded-3 bg-warning-subtle text-warning" style="width:2.1rem;height:2.1rem;"><i class="bi bi-hourglass-split"></i></span>
-                    <span class="hc-summary-label">Total Remaining Balance</span>
+                    <span class="hc-summary-label">จำนวนเงินที่รอจ่ายทั้งหมด</span>
                 </div>
                 <div class="hc-summary-value <?= $totalRemaining > 0 ? 'text-danger' : 'text-dark' ?> hc-num"><?= number_format($totalRemaining, 2) ?></div>
             </div>
@@ -294,14 +284,14 @@ foreach ($dtRows as $r) {
 
     <div class="hc-card bg-white p-3 p-md-4">
         <div class="hc-toolbar d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-3">
-            <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-create-hc">
-                <i class="bi bi-plus-lg me-1"></i>สร้างสัญญาจ้าง
-            </a>
             <div class="hc-search-wrap">
                 <i class="bi bi-search" aria-hidden="true"></i>
                 <label class="visually-hidden" for="hcSearchInput">ค้นหา</label>
                 <input type="search" id="hcSearchInput" class="form-control" placeholder="ค้นหาเลขที่เอกสาร, ผู้รับจ้าง..." autocomplete="off">
             </div>
+            <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-create-hc">
+                <i class="bi bi-plus-lg me-1"></i>สร้างสัญญาจ้าง
+            </a>
             <div id="hcLengthSlot" class="ms-md-auto"></div>
         </div>
         <div class="table-responsive hc-table-wrap">
