@@ -32,7 +32,10 @@ if (isset($_GET['ajax_search'])) {
                         : 'badge rounded-pill inv-badge-tax-pending px-3';
                     $invBadgeTitle = $hasTaxInv ? 'ออกใบกำกับภาษีแล้ว' : 'ยังไม่ออกใบกำกับภาษี';
                     ?>
-                    <div><span class="<?= htmlspecialchars($invBadgeClass, ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars($invBadgeTitle, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($row['invoice_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span></div>
+                    <?php
+                    $invNoDisplay = (string) ($row['invoice_number'] ?? '');
+                    ?>
+                    <div><span class="<?= htmlspecialchars($invBadgeClass, ENT_QUOTES, 'UTF-8') ?> index-inv-no-copy" role="button" tabindex="0" data-invoice-copy="<?= htmlspecialchars($invNoDisplay, ENT_QUOTES, 'UTF-8') ?>" title="คลิกเพื่อคัดลอกเลขที่"><?= htmlspecialchars($invNoDisplay, ENT_QUOTES, 'UTF-8'); ?></span></div>
                     <div class="small text-muted mt-1"><?php
                         $cn = trim((string)($row['creator_name'] ?? ''));
                         echo $cn !== '' ? htmlspecialchars($cn, ENT_QUOTES, 'UTF-8') : '—';
@@ -257,8 +260,10 @@ $index_hub_start_all_collapsed = true;
         }
         .index-sidebar-card {
             border: 1px solid rgba(0, 0, 0, 0.06) !important;
-            box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.06) !important;
-            background: var(--tnc-sidebar-bg) !important;
+            box-shadow: 0 0.22rem 0.8rem rgba(0, 0, 0, 0.045) !important;
+            background: rgba(255, 255, 255, 0.68) !important;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             border-radius: var(--tnc-radius) !important;
         }
         .home-menu-hub.index-sidebar .home-menu-hub-single {
@@ -279,6 +284,12 @@ $index_hub_start_all_collapsed = true;
         .home-menu-hub.index-sidebar .home-hub-link {
             padding: 0.45rem 0.7rem;
             font-size: 0.92rem;
+            line-height: 1.35;
+        }
+        .home-menu-hub.index-sidebar .home-hub-toggle > .fw-semibold,
+        .home-menu-hub.index-sidebar .home-hub-link {
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
         .home-menu-hub.index-sidebar .home-hub-panel {
             padding: 0 0.85rem 0.75rem;
@@ -329,6 +340,21 @@ $index_hub_start_all_collapsed = true;
             border: 1px solid rgba(25, 135, 84, 0.4);
             font-weight: 600;
         }
+        .index-inv-no-copy {
+            cursor: pointer;
+            user-select: none;
+            transition: filter 0.15s ease, transform 0.12s ease;
+        }
+        .index-inv-no-copy:hover {
+            filter: brightness(0.92);
+        }
+        .index-inv-no-copy:active {
+            transform: scale(0.98);
+        }
+        .index-inv-no-copy:focus-visible {
+            outline: 2px solid rgba(253, 126, 20, 0.65);
+            outline-offset: 2px;
+        }
         /* Invoice table — roomier rows, single search only (no DataTables filter UI) */
         #invoice_table.table-invoice-index thead th {
             font-size: 0.75rem;
@@ -346,10 +372,32 @@ $index_hub_start_all_collapsed = true;
         #invoice_table.table-invoice-index tbody tr:last-child td {
             border-bottom: 0;
         }
+        #invoice_table.table-invoice-index tbody tr {
+            transition: background-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+        #invoice_table.table-invoice-index tbody tr:hover {
+            background: #fff9f2;
+            box-shadow: inset 0 0 0 1px rgba(253, 126, 20, 0.1), 0 0.2rem 0.6rem rgba(0, 0, 0, 0.05);
+            transform: translateY(-1px);
+        }
         .index-table-card {
             border-radius: var(--tnc-radius) !important;
             border: 1px solid rgba(0, 0, 0, 0.06) !important;
-            box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.05) !important;
+            box-shadow: 0 0.28rem 0.9rem rgba(0, 0, 0, 0.045) !important;
+            background: rgba(255, 255, 255, 0.68) !important;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .index-dashboard-block .card-stats {
+            background: rgba(255, 255, 255, 0.68) !important;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.46);
+        }
+        .index-stat-label {
+            line-height: 1.35;
+            white-space: normal;
+            overflow-wrap: anywhere;
         }
         .index-table-toolbar .form-control.index-search-input {
             border-radius: var(--tnc-radius);
@@ -360,6 +408,64 @@ $index_hub_start_all_collapsed = true;
         .index-table-toolbar .form-control.index-search-input:focus {
             border-color: rgba(253, 126, 20, 0.45);
             box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.15);
+        }
+        .index-cta-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            padding: 0.62rem 1.05rem;
+            border-radius: 999px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            border: 1px solid transparent;
+            text-decoration: none;
+            transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease, background-color 0.16s ease, border-color 0.16s ease;
+        }
+        .index-cta-btn .index-cta-icon {
+            width: 1.55rem;
+            height: 1.55rem;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 0.84rem;
+        }
+        .index-cta-btn:hover {
+            transform: translateY(-1px);
+            text-decoration: none;
+        }
+        .index-cta-primary {
+            color: #fff;
+            background: linear-gradient(135deg, #fd7e14 0%, #f76707 100%);
+            box-shadow: 0 0.4rem 0.95rem rgba(253, 126, 20, 0.34);
+        }
+        .index-cta-primary .index-cta-icon {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.32);
+        }
+        .index-cta-primary:hover {
+            color: #fff;
+            filter: brightness(1.04);
+            box-shadow: 0 0.58rem 1.15rem rgba(253, 126, 20, 0.4);
+        }
+        .index-cta-secondary {
+            color: #14532d;
+            background: linear-gradient(135deg, rgba(25, 135, 84, 0.16) 0%, rgba(25, 135, 84, 0.07) 100%);
+            border-color: rgba(25, 135, 84, 0.35);
+            box-shadow: 0 0.3rem 0.85rem rgba(25, 135, 84, 0.14);
+        }
+        .index-cta-secondary .index-cta-icon {
+            background: rgba(25, 135, 84, 0.18);
+            border: 1px solid rgba(25, 135, 84, 0.26);
+            color: #146c43;
+        }
+        .index-cta-secondary:hover {
+            color: #0f5132;
+            background: linear-gradient(135deg, rgba(25, 135, 84, 0.21) 0%, rgba(25, 135, 84, 0.1) 100%);
+            border-color: rgba(25, 135, 84, 0.45);
+            box-shadow: 0 0.45rem 1rem rgba(25, 135, 84, 0.18);
         }
         a.btn-invoice-action { text-decoration: none; }
         .btn-invoice-action {
@@ -439,6 +545,266 @@ $index_hub_start_all_collapsed = true;
             min-height: 240px;
             display: block;
         }
+
+        /* Skeleton loading rows */
+        .index-skeleton-wrap {
+            padding: 0.65rem 0.95rem;
+        }
+        .index-skeleton-row {
+            display: grid;
+            grid-template-columns: 120px 1.5fr 1.5fr 130px 160px;
+            gap: 0.8rem;
+            align-items: center;
+            padding: 0.82rem 0.5rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        .index-skeleton-line {
+            height: 0.78rem;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(226, 232, 240, 0.8) 25%, rgba(241, 245, 249, 0.96) 50%, rgba(226, 232, 240, 0.8) 75%);
+            background-size: 200% 100%;
+            animation: indexSkeletonWave 1.15s linear infinite;
+        }
+        .index-skeleton-line.sm { width: 62%; }
+        .index-skeleton-line.md { width: 82%; }
+        .index-skeleton-line.lg { width: 94%; }
+        .index-skeleton-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.38rem;
+        }
+        .index-skeleton-dot {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 0.55rem;
+            background: linear-gradient(90deg, rgba(226, 232, 240, 0.88) 25%, rgba(241, 245, 249, 1) 50%, rgba(226, 232, 240, 0.88) 75%);
+            background-size: 200% 100%;
+            animation: indexSkeletonWave 1.15s linear infinite;
+        }
+        @keyframes indexSkeletonWave {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* ---------- Index mobile optimization ---------- */
+        @media (max-width: 991.98px) {
+            .index-sidebar-wrap {
+                margin-top: 0.25rem;
+            }
+            .index-sidebar-card {
+                border-radius: 0.75rem !important;
+            }
+            .home-menu-hub.index-sidebar .home-hub-toggle {
+                padding: 0.8rem 0.9rem;
+            }
+            .home-menu-hub.index-sidebar .home-hub-section + .home-hub-section {
+                margin-top: 0.22rem;
+            }
+            body.index-menu-in-navbar .index-sidebar-wrap {
+                display: none;
+            }
+            #tnc-mobile-index-menu-slot .index-sidebar-card {
+                border-radius: 0.65rem !important;
+                box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.12) !important;
+            }
+            #tnc-mobile-index-menu-slot .index-sidebar-scroll {
+                max-height: 58vh;
+                overflow-y: auto;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .index-dashboard-block .card-stats {
+                padding: 1rem !important;
+            }
+            .card-stats:hover {
+                transform: none !important;
+                box-shadow: 0 0.35rem 0.95rem rgba(0, 0, 0, 0.07) !important;
+            }
+            .index-dashboard-block .card-stats .index-stat-label {
+                font-size: 0.74rem;
+            }
+            .index-dashboard-block .card-stats .index-stat-value {
+                font-size: clamp(1.35rem, 7vw, 1.9rem);
+            }
+            .index-table-card .card-header {
+                padding-top: 0.9rem !important;
+                padding-bottom: 0.9rem !important;
+            }
+            .index-table-card .card-header {
+                position: sticky;
+                top: 0.35rem;
+                z-index: 20;
+                background: rgba(255, 255, 255, 0.92) !important;
+                backdrop-filter: blur(7px);
+                -webkit-backdrop-filter: blur(7px);
+                box-shadow: 0 0.22rem 0.65rem rgba(0, 0, 0, 0.06);
+            }
+            .index-table-toolbar {
+                width: 100%;
+            }
+            .index-table-toolbar .form-control.index-search-input {
+                min-height: 2.7rem;
+            }
+            .index-cta-btn {
+                width: 100%;
+            }
+            .btn-invoice-action {
+                min-width: 2.2rem;
+                min-height: 2.2rem;
+            }
+            .btn-invoice-action:hover {
+                transform: none;
+            }
+
+            /* Turn invoice table into readable card rows on phones */
+            #invoice_table.table-invoice-index thead {
+                display: none;
+            }
+            #invoice_table.table-invoice-index tbody tr {
+                display: block;
+                margin: 0.65rem 0.75rem;
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 0.75rem;
+                box-shadow: 0 0.15rem 0.75rem rgba(0, 0, 0, 0.05);
+                background: #fff;
+            }
+            #invoice_table.table-invoice-index tbody td {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 0.9rem;
+                border: 0;
+                border-bottom: 1px dashed rgba(0, 0, 0, 0.08);
+                padding: 0.62rem 0.85rem;
+                text-align: right;
+            }
+            #invoice_table.table-invoice-index tbody td::before {
+                color: #6c757d;
+                font-size: 0.73rem;
+                font-weight: 700;
+                letter-spacing: 0.03em;
+                text-transform: uppercase;
+                text-align: left;
+                flex: 0 0 5.8rem;
+            }
+            #invoice_table.table-invoice-index tbody td:nth-child(1)::before { content: "วันที่"; }
+            #invoice_table.table-invoice-index tbody td:nth-child(2)::before { content: "เลขที่"; }
+            #invoice_table.table-invoice-index tbody td:nth-child(3)::before { content: "ลูกค้า"; }
+            #invoice_table.table-invoice-index tbody td:nth-child(4)::before { content: "ยอดสุทธิ"; }
+            #invoice_table.table-invoice-index tbody td:nth-child(5)::before { content: "จัดการ"; }
+            #invoice_table.table-invoice-index tbody td:last-child {
+                border-bottom: 0;
+            }
+            #invoice_table.table-invoice-index tbody td:nth-child(5) .d-inline-flex {
+                margin-left: auto;
+            }
+
+            /* Keep loading/error row readable */
+            #invoice_table.table-invoice-index tbody tr td[colspan] {
+                display: block;
+                text-align: center;
+                border-bottom: 0;
+                padding: 1.1rem 0.75rem;
+            }
+            .index-skeleton-wrap {
+                padding: 0.45rem 0.45rem 0.75rem;
+            }
+            .index-skeleton-row {
+                grid-template-columns: 1fr;
+                gap: 0.45rem;
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 0.7rem;
+                margin-bottom: 0.55rem;
+                padding: 0.7rem;
+            }
+            .index-skeleton-actions {
+                justify-content: flex-start;
+            }
+            .index-skeleton-dot {
+                width: 1.9rem;
+                height: 1.9rem;
+            }
+
+            #tncInvoiceModal .tnc-invoice-modal-dialog {
+                width: calc(100vw - 0.5rem);
+                max-width: calc(100vw - 0.5rem);
+                margin: 0.25rem auto;
+            }
+            #tncInvoiceModal .modal-body {
+                height: calc(100vh - 5.1rem);
+                max-height: calc(100vh - 5.1rem);
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .index-page-wrap {
+                padding-left: 0.55rem !important;
+                padding-right: 0.55rem !important;
+            }
+            #invoice_table.table-invoice-index tbody tr {
+                margin-left: 0.5rem;
+                margin-right: 0.5rem;
+            }
+            #invoice_table.table-invoice-index tbody td::before {
+                flex-basis: 5.3rem;
+            }
+            .home-menu-hub.index-sidebar .home-hub-toggle {
+                padding: 0.72rem 0.78rem;
+            }
+            .home-menu-hub.index-sidebar .home-hub-link {
+                padding: 0.5rem 0.62rem;
+                font-size: 0.88rem;
+            }
+            /* Mobile accordion-chip style for faster scanning */
+            .home-menu-hub.index-sidebar .home-hub-section {
+                margin-bottom: 0.5rem;
+            }
+            .home-menu-hub.index-sidebar .home-hub-section + .home-hub-section {
+                margin-top: 0;
+            }
+            .home-menu-hub.index-sidebar .home-hub-toggle {
+                border: 1px solid rgba(0, 0, 0, 0.1);
+                border-radius: 999px;
+                background: rgba(255, 255, 255, 0.9);
+                box-shadow: 0 0.14rem 0.38rem rgba(0, 0, 0, 0.045);
+                gap: 0.56rem;
+            }
+            .home-menu-hub.index-sidebar .home-hub-toggle .home-hub-chevron {
+                width: 1.35rem;
+                height: 1.35rem;
+                border-radius: 999px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(253, 126, 20, 0.12);
+                color: #9a3412;
+                opacity: 1;
+            }
+            .home-menu-hub.index-sidebar .home-hub-panel {
+                margin-top: 0.35rem;
+                padding: 0.1rem 0.5rem 0.45rem;
+            }
+            .home-menu-hub.index-sidebar .home-hub-link {
+                border-radius: 0.62rem;
+                border-color: rgba(0, 0, 0, 0.08);
+                background: rgba(255, 255, 255, 0.94);
+            }
+            .home-menu-hub.index-sidebar .home-hub-link:active {
+                transform: scale(0.995);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .card-stats,
+            .home-menu-hub .home-hub-card,
+            .index-cta-btn,
+            .btn-invoice-action,
+            #invoice_table.table-invoice-index tbody tr {
+                transition: none !important;
+                animation: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -447,9 +813,9 @@ $index_hub_start_all_collapsed = true;
 
 <div class="container pb-5 pt-1 index-page-wrap px-3 px-md-4">
     <div class="row g-4 index-layout-row">
-    <aside class="col-lg-4 col-xl-3 index-sidebar-wrap order-2 order-lg-1" aria-label="เมนูนำทางระบบ">
-        <div class="index-sidebar-sticky">
-            <div class="card index-sidebar-card rounded-4 overflow-hidden mb-0">
+    <aside class="col-lg-4 col-xl-3 index-sidebar-wrap order-1 order-lg-1" aria-label="เมนูนำทางระบบ">
+        <div class="index-sidebar-sticky" id="indexSidebarMenuMount">
+            <div class="card index-sidebar-card rounded-4 overflow-hidden mb-0" id="indexSidebarMenuCard">
                 <section class="home-menu-hub index-sidebar mb-0" aria-label="เมนูระบบ">
                     <div class="index-sidebar-scroll">
                     <div class="card home-menu-hub-single home-hub-card border-0 shadow-none rounded-0 overflow-hidden">
@@ -520,7 +886,7 @@ $index_hub_start_all_collapsed = true;
         </div>
     </aside>
 
-    <main class="col-lg-8 col-xl-9 index-main-col order-1 order-lg-2 min-w-0" id="main-content">
+    <main class="col-lg-8 col-xl-9 index-main-col order-2 order-lg-2 min-w-0" id="main-content">
     <div class="index-dashboard-block">
     <div class="row g-4 mb-4">
         <div class="col-md-4">
@@ -544,7 +910,7 @@ $index_hub_start_all_collapsed = true;
                     </div>
                     <div class="ms-3 min-w-0">
                         <div class="index-stat-label mb-1 text-truncate" title="ผลรวมยอดสุทธิจากใบแจ้งหนี้ทั้งหมดในระบบ">ยอดสุทธิรวม <span class="fw-normal text-lowercase" style="letter-spacing:0;">(ใบแจ้งหนี้ในระบบ)</span></div>
-                        <div class="index-stat-value text-success">฿<?= number_format($stats['final_net_sum'] ?? 0, 2) ?></div>
+                        <div class="index-stat-value text-success" id="indexFinalNetSum" data-target="<?= htmlspecialchars((string) ($stats['final_net_sum'] ?? 0), ENT_QUOTES, 'UTF-8') ?>">฿0.00</div>
                     </div>
                 </div>
             </div>
@@ -565,11 +931,13 @@ $index_hub_start_all_collapsed = true;
                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" aria-hidden="true"></i>
                             <input type="search" id="search_invoice" autocomplete="off" class="form-control index-search-input" placeholder="ค้นหาเลขที่หรือชื่อลูกค้า…">
                         </div>
-                        <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=create" class="btn btn-orange px-4 shadow-sm flex-shrink-0 text-center text-nowrap" style="border-radius: var(--tnc-radius);">
-                            <i class="bi bi-plus-lg me-1"></i>สร้างบิลใหม่
+                        <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=create" class="index-cta-btn index-cta-primary flex-shrink-0 text-center text-nowrap">
+                            <span class="index-cta-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>
+                            <span>สร้างบิลใหม่</span>
                         </a>
-                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-list.php')) ?>" class="btn btn-outline-success px-4 shadow-sm flex-shrink-0 text-center text-nowrap" style="border-radius: var(--tnc-radius);">
-                            <i class="bi bi-file-earmark-break me-1"></i>ใบกำกับภาษี
+                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-list.php')) ?>" class="index-cta-btn index-cta-secondary flex-shrink-0 text-center text-nowrap">
+                            <span class="index-cta-icon"><i class="bi bi-file-earmark-break" aria-hidden="true"></i></span>
+                            <span>ใบกำกับภาษี</span>
                         </a>
                     </div>
                 </div>
@@ -642,9 +1010,12 @@ document.querySelector('.js-hub-member-manage')?.addEventListener('click', funct
     });
 });
 
-const loadingRowHtml = '<tr><td colspan="5" class="text-center py-5 text-muted">' +
-    '<span class="spinner-border spinner-border-sm text-warning me-2" role="status" aria-hidden="true"></span>' +
-    '<span class="align-middle">กำลังโหลดรายการใบแจ้งหนี้…</span></td></tr>';
+const loadingRowHtml = '<tr><td colspan="5">' +
+    '<div class="index-skeleton-wrap" aria-label="Loading invoice rows">' +
+    '<div class="index-skeleton-row"><span class="index-skeleton-line sm"></span><span class="index-skeleton-line md"></span><span class="index-skeleton-line lg"></span><span class="index-skeleton-line sm"></span><span class="index-skeleton-actions"><span class="index-skeleton-dot"></span><span class="index-skeleton-dot"></span><span class="index-skeleton-dot"></span></span></div>' +
+    '<div class="index-skeleton-row"><span class="index-skeleton-line sm"></span><span class="index-skeleton-line md"></span><span class="index-skeleton-line lg"></span><span class="index-skeleton-line sm"></span><span class="index-skeleton-actions"><span class="index-skeleton-dot"></span><span class="index-skeleton-dot"></span><span class="index-skeleton-dot"></span></span></div>' +
+    '<div class="index-skeleton-row"><span class="index-skeleton-line sm"></span><span class="index-skeleton-line md"></span><span class="index-skeleton-line lg"></span><span class="index-skeleton-line sm"></span><span class="index-skeleton-actions"><span class="index-skeleton-dot"></span><span class="index-skeleton-dot"></span><span class="index-skeleton-dot"></span></span></div>' +
+    '</div></td></tr>';
 const errorRowHtml = '<tr><td colspan="5" class="text-center py-5 text-danger">' +
     'โหลดข้อมูลไม่สำเร็จ — ลองโหลดหน้าใหม่หรือตรวจสอบการเชื่อมต่อ</td></tr>';
 
@@ -765,6 +1136,60 @@ document.getElementById('tncInvoiceModal')?.addEventListener('hidden.bs.modal', 
 });
 
 document.getElementById('invoice_table_body')?.addEventListener('click', function (ev) {
+    const copyEl = ev.target.closest('.index-inv-no-copy');
+    if (copyEl) {
+        ev.preventDefault();
+        const text = copyEl.getAttribute('data-invoice-copy') || '';
+        if (!text) {
+            return;
+        }
+        const notifyOk = function () {
+            if (typeof Swal === 'undefined') {
+                return;
+            }
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'คัดลอกเลขที่แล้ว',
+                showConfirmButton: false,
+                timer: 1600,
+                timerProgressBar: true
+            });
+        };
+        const notifyFail = function () {
+            if (typeof Swal === 'undefined') {
+                return;
+            }
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'error',
+                title: 'คัดลอกไม่สำเร็จ',
+                showConfirmButton: false,
+                timer: 2200
+            });
+        };
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            navigator.clipboard.writeText(text).then(notifyOk).catch(notifyFail);
+        } else {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                notifyOk();
+            } catch (e) {
+                notifyFail();
+            }
+        }
+        return;
+    }
     const btn = ev.target.closest('[data-tnc-invoice="view"]');
     if (!btn) {
         return;
@@ -773,6 +1198,18 @@ document.getElementById('invoice_table_body')?.addEventListener('click', functio
     if (iid) {
         tncOpenInvoiceViewModal(iid);
     }
+});
+
+document.getElementById('invoice_table_body')?.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Enter' && ev.key !== ' ') {
+        return;
+    }
+    const copyEl = ev.target.closest('.index-inv-no-copy');
+    if (!copyEl) {
+        return;
+    }
+    ev.preventDefault();
+    copyEl.click();
 });
 
 function deleteItem(id, type) {
@@ -835,8 +1272,68 @@ function indexMarkSidebarActive() {
     });
 }
 
+function indexMoveMenuToNavbarOnMobile() {
+    var slot = document.getElementById('tnc-mobile-index-menu-slot');
+    var mount = document.getElementById('indexSidebarMenuMount');
+    var card = document.getElementById('indexSidebarMenuCard');
+    if (!slot || !mount || !card) {
+        return;
+    }
+    var isMobile = window.matchMedia('(max-width: 991.98px)').matches;
+    var shouldInNavbar = isMobile;
+    if (shouldInNavbar && card.parentElement !== slot) {
+        slot.appendChild(card);
+        document.body.classList.add('index-menu-in-navbar');
+    } else if (!shouldInNavbar && card.parentElement !== mount) {
+        mount.appendChild(card);
+        document.body.classList.remove('index-menu-in-navbar');
+    } else if (!shouldInNavbar) {
+        document.body.classList.remove('index-menu-in-navbar');
+    }
+}
+
+function indexAnimateCurrencyCountUp() {
+    var el = document.getElementById('indexFinalNetSum');
+    if (!el) return;
+    var target = Number(el.getAttribute('data-target') || '0');
+    if (!Number.isFinite(target)) {
+        el.textContent = '฿0.00';
+        return;
+    }
+
+    var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) {
+        el.textContent = '฿' + target.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return;
+    }
+
+    var duration = 1200;
+    var start = null;
+    var from = 0;
+    var diff = target - from;
+
+    function render(v) {
+        el.textContent = '฿' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function step(ts) {
+        if (start === null) start = ts;
+        var p = Math.min((ts - start) / duration, 1);
+        var eased = 1 - Math.pow(1 - p, 3);
+        render(from + (diff * eased));
+        if (p < 1) {
+            requestAnimationFrame(step);
+        } else {
+            render(target);
+        }
+    }
+    requestAnimationFrame(step);
+}
+
 window.onload = () => {
+    indexMoveMenuToNavbarOnMobile();
     indexMarkSidebarActive();
+    indexAnimateCurrencyCountUp();
     var si = document.getElementById('search_invoice');
     loadTable(si ? si.value : '');
     const params = new URLSearchParams(window.location.search);
@@ -855,6 +1352,9 @@ window.onload = () => {
         });
     }
 };
+window.addEventListener('resize', function () {
+    indexMoveMenuToNavbarOnMobile();
+});
 </script>
 </body>
 </html>

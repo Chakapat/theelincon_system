@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/tax_invoice_ref_search_catalog.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -64,14 +65,6 @@ function nextTaxInvoiceNumber(string $seedDate): string
         }
     }
     return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
-}
-
-function toShortInvoiceRef(string $invoiceNumber): string
-{
-    if (preg_match('/^inv-tnc-(\d{4}-\d{3})$/i', trim($invoiceNumber), $m) === 1) {
-        return strtolower($m[1]);
-    }
-    return '';
 }
 
 function findLatestTaxInvoiceByInvoiceId(int $invoiceId): ?array
@@ -443,87 +436,202 @@ if ($id <= 0 && $input_ref !== '') {
     }
 }
 
-$autocompleteOptions = [];
-$invoiceSearchOptions = [];
 $inv = $id > 0 ? Db::rowByIdField('invoices', $id) : null;
 if (!$inv) {
-    $allInvoices = Db::tableRows('invoices');
-    Db::sortRows($allInvoices, 'issue_date', true);
-    $customersMap = [];
-    foreach (Db::tableRows('customers') as $cRow) {
-        $cid = (int) ($cRow['id'] ?? 0);
-        if ($cid <= 0) {
-            continue;
-        }
-        $customersMap[$cid] = (string) ($cRow['name'] ?? '');
-    }
-    foreach ($allInvoices as $invRow) {
-        $invId = (int) ($invRow['id'] ?? 0);
-        $fullNumber = strtolower(trim((string) ($invRow['invoice_number'] ?? '')));
-        if ($fullNumber === '' || $invId <= 0) {
-            continue;
-        }
-        $autocompleteOptions[] = $fullNumber;
-        $shortNumber = toShortInvoiceRef($fullNumber);
-        if ($shortNumber !== '') {
-            $autocompleteOptions[] = $shortNumber;
-        }
-        $custName = trim((string) ($customersMap[(int) ($invRow['customer_id'] ?? 0)] ?? ''));
-        $issueDateText = trim((string) ($invRow['issue_date'] ?? ''));
-        $invoiceSearchOptions[] = [
-            'id' => $invId,
-            'invoice_number' => strtoupper($fullNumber),
-            'customer_name' => $custName,
-            'issue_date' => $issueDateText,
-            'search_ref' => $shortNumber !== '' ? $shortNumber : $fullNumber,
-        ];
-    }
-    $autocompleteOptions = array_values(array_unique($autocompleteOptions));
+    $tirCatalog = tnc_invoice_ref_search_catalog();
+    $autocompleteOptions = $tirCatalog['autocomplete'];
+    $invoiceSearchOptions = $tirCatalog['options'];
 
     ?>
     <!DOCTYPE html>
     <html lang="th">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>สร้าง Tax Invoice</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-        <style>body{background:#f8f9fa;font-family:'Sarabun',sans-serif;}</style>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <style>
+            :root {
+                --tir-accent: #fd7e14;
+                --tir-accent-dark: #e8590c;
+                --tir-focus: rgba(253, 126, 20, 0.35);
+                --tir-card-shadow: 0 0.35rem 2rem rgba(15, 23, 42, 0.06), 0 0.08rem 0.35rem rgba(15, 23, 42, 0.04);
+            }
+            body.tir-search-page {
+                font-family: 'IBM Plex Sans Thai', 'Sarabun', system-ui, sans-serif;
+                background: linear-gradient(165deg, #f1f5f9 0%, #f8fafc 45%, #eef2f7 100%);
+                min-height: 100vh;
+            }
+            .tir-hero-card {
+                max-width: 640px;
+                margin-left: auto;
+                margin-right: auto;
+                border-radius: 15px;
+                border: 1px solid rgba(15, 23, 42, 0.06);
+                box-shadow: var(--tir-card-shadow);
+                background: #fff;
+                padding: 40px;
+            }
+            .tir-page-title {
+                font-weight: 700;
+                font-size: clamp(1.35rem, 3.5vw, 1.65rem);
+                letter-spacing: -0.02em;
+                color: #0f172a;
+                line-height: 1.25;
+            }
+            .tir-helper {
+                font-size: 0.8125rem;
+                color: #94a3b8;
+                line-height: 1.45;
+            }
+            .tir-search-wrap {
+                position: relative;
+            }
+            .tir-search-wrap .tir-search-ico {
+                position: absolute;
+                left: 1.1rem;
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 1.2rem;
+                color: #94a3b8;
+                pointer-events: none;
+                z-index: 2;
+            }
+            .tir-ref-input {
+                height: 3.25rem;
+                padding-left: 3rem;
+                padding-right: 1rem;
+                font-size: 1.05rem;
+                border-radius: 12px;
+                border: 1px solid rgba(15, 23, 42, 0.12);
+                transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            }
+            .tir-ref-input:focus {
+                border-color: var(--tir-accent);
+                box-shadow: 0 0 0 4px var(--tir-focus);
+                outline: none;
+            }
+            .tir-autocomplete-list {
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: calc(100% + 6px);
+                z-index: 1080;
+                display: none;
+                max-height: 280px;
+                overflow-y: auto;
+                border-radius: 12px;
+                border: 1px solid rgba(15, 23, 42, 0.08);
+                box-shadow: 0 0.5rem 1.5rem rgba(15, 23, 42, 0.12);
+                background: #fff;
+            }
+            .tir-autocomplete-list .list-group-item {
+                border: 0;
+                border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+                padding: 0.65rem 1rem;
+                font-size: 0.95rem;
+            }
+            .tir-autocomplete-list .list-group-item:last-child { border-bottom: 0; }
+            .tir-autocomplete-list .list-group-item:hover,
+            .tir-autocomplete-list .list-group-item:focus {
+                background: rgba(253, 126, 20, 0.08);
+            }
+            .tir-suggest-num { font-weight: 600; color: #0f172a; }
+            .tir-suggest-meta { font-size: 0.8rem; color: #64748b; }
+            .tir-btn-search {
+                height: 3.25rem;
+                font-weight: 600;
+                border-radius: 12px;
+                border: none;
+                background: linear-gradient(135deg, var(--tir-accent) 0%, #ff922b 100%);
+                color: #fff;
+                box-shadow: 0 0.35rem 1rem rgba(253, 126, 20, 0.35);
+                transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+            }
+            .tir-btn-search:hover:not(:disabled) {
+                color: #fff;
+                filter: brightness(1.03);
+                transform: scale(1.02);
+                box-shadow: 0 0.45rem 1.15rem rgba(253, 126, 20, 0.42);
+            }
+            .tir-btn-search:active:not(:disabled) { transform: scale(0.99); }
+            .tir-btn-search:disabled {
+                opacity: 0.92;
+                cursor: wait;
+                transform: none;
+            }
+            .tir-back-ghost {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                padding: 0.45rem 0.85rem;
+                border-radius: 999px;
+                border: 1px solid rgba(15, 23, 42, 0.18);
+                background: transparent;
+                color: #475569;
+                font-weight: 500;
+                font-size: 0.9rem;
+                text-decoration: none;
+                transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+            }
+            .tir-back-ghost:hover {
+                background: rgba(15, 23, 42, 0.04);
+                border-color: rgba(15, 23, 42, 0.28);
+                color: #1e293b;
+            }
+        </style>
     </head>
-    <body>
-    <div class="container py-5">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body p-4">
-                <h4 class="fw-bold mb-3">สร้าง Tax Invoice จาก Invoice อ้างอิง</h4>
-                <?php if ($error !== ''): ?>
-                    <div class="alert alert-danger"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
-                <?php endif; ?>
-                <form method="get" class="row g-2">
-                    <div class="col-12 col-md-8">
-                        <input type="text" name="ref" class="form-control invoice-ref-input" list="invoice_ref_list" autocomplete="off" placeholder="เช่น 0426-001" required>
-                        <datalist id="invoice_ref_list">
-                            <?php foreach ($autocompleteOptions as $refOpt): ?>
-                                <option value="<?= htmlspecialchars($refOpt, ENT_QUOTES, 'UTF-8') ?>">
-                            <?php endforeach; ?>
-                        </datalist>
-                        <div class="autocomplete-list list-group position-absolute w-100 mt-1 shadow-sm" style="z-index: 1050; display: none;"></div>
-                    </div>
-                    <div class="col-12 col-md-4 d-grid">
-                        <button type="submit" class="btn btn-primary">ค้นหารายละเอียด Invoice</button>
-                    </div>
-                    <div class="col-12"><div class="text-muted small mt-1">พิมพ์เลข Invoice หรือชื่อลูกค้า เพื่อค้นหาและเลือกจากรายการที่เด้งลงมา</div></div>
-                </form>
-                <div class="mt-3">
-                    <a href="<?= htmlspecialchars(app_path('index.php')) ?>" class="btn btn-outline-secondary btn-sm">กลับหน้าหลัก</a>
+    <body class="tir-search-page">
+    <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
+    <div class="container py-4 py-md-5 px-3">
+        <div class="tir-hero-card">
+            <h1 class="tir-page-title mb-2">สร้าง Tax Invoice จาก Invoice อ้างอิง</h1>
+            <?php if ($error !== ''): ?>
+                <div class="alert alert-danger mt-3 mb-0"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
+            <?php endif; ?>
+            <form method="get" id="tirSearchForm" class="mt-4">
+                <div class="tir-search-wrap mb-2">
+                    <i class="bi bi-search tir-search-ico" aria-hidden="true"></i>
+                    <label class="visually-hidden" for="tir_ref_input">เลข Invoice</label>
+                    <input type="text" name="ref" id="tir_ref_input" class="form-control tir-ref-input invoice-ref-input w-100" autocomplete="off" placeholder="เช่น 0426-001 หรือ INV-TNC-0426-001" required>
+                    <div class="tir-autocomplete-list list-group autocomplete-list" role="listbox" aria-label="รายการแนะนำเลข Invoice"></div>
                 </div>
+                <p class="tir-helper mb-3">พิมพ์เลข Invoice เท่านั้น — ระบบแสดงรายการแนะนำทันที แล้วเลือกหรือกดปุ่มค้นหา</p>
+                <div class="d-grid">
+                    <button type="submit" id="tirSearchSubmit" class="btn tir-btn-search">
+                        <i class="bi bi-file-earmark-search me-2" aria-hidden="true"></i>ค้นหารายละเอียด Invoice
+                    </button>
+                </div>
+            </form>
+            <div class="mt-4 pt-1">
+                <a href="<?= htmlspecialchars(app_path('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="tir-back-ghost">
+                    <i class="bi bi-arrow-left" aria-hidden="true"></i>กลับหน้าหลัก
+                </a>
             </div>
         </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     (function () {
         const allRefs = <?= json_encode($autocompleteOptions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
         const invoiceSearchOptions = <?= json_encode($invoiceSearchOptions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
         const MAX_ITEMS = 8;
+
+        function escHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+        function escAttr(s) {
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;');
+        }
 
         function renderSuggestions(input, list) {
             const raw = (input.value || '').trim().toLowerCase();
@@ -533,38 +641,45 @@ if (!$inv) {
                 return;
             }
             const tokenResults = allRefs
-                .filter(ref => ref.includes(raw))
-                .map(ref => ({ text: ref, value: ref }));
+                .filter(function (ref) { return String(ref).toLowerCase().includes(raw); })
+                .map(function (ref) {
+                    return { html: '<span class="tir-suggest-num">' + escHtml(String(ref).toUpperCase()) + '</span>', value: ref };
+                });
 
             const richResults = invoiceSearchOptions
-                .filter(row => {
-                    const label = (row.invoice_number + ' ' + (row.customer_name || '') + ' ' + (row.issue_date || '')).toLowerCase();
-                    return label.includes(raw);
+                .filter(function (row) {
+                    const num = String(row.invoice_number || '').toLowerCase();
+                    const ref = String(row.search_ref || '').toLowerCase();
+                    return num.includes(raw) || ref.includes(raw);
                 })
-                .map(row => {
-                    let text = row.invoice_number;
-                    if (row.customer_name) text += ' | ' + row.customer_name;
-                    if (row.issue_date) text += ' | ' + row.issue_date;
-                    return { text, value: row.search_ref };
+                .map(function (row) {
+                    var meta = [];
+                    if (row.customer_name) meta.push(row.customer_name);
+                    if (row.issue_date) meta.push(row.issue_date);
+                    var metaStr = meta.length ? '<div class="tir-suggest-meta">' + escHtml(meta.join(' · ')) + '</div>' : '';
+                    return {
+                        html: '<span class="tir-suggest-num">' + escHtml(String(row.invoice_number || '')) + '</span>' + metaStr,
+                        value: row.search_ref
+                    };
                 });
 
             const mergedMap = new Map();
-            [...richResults, ...tokenResults].forEach(item => {
-                const key = item.text + '|' + item.value;
-                if (!mergedMap.has(key)) mergedMap.set(key, item);
+            richResults.concat(tokenResults).forEach(function (item) {
+                var v = String(item.value || '');
+                if (!mergedMap.has(v)) mergedMap.set(v, item);
             });
-            const results = Array.from(mergedMap.values()).slice(0, MAX_ITEMS);
+            var results = Array.from(mergedMap.values()).slice(0, MAX_ITEMS);
             if (results.length === 0) {
                 list.style.display = 'none';
                 list.innerHTML = '';
                 return;
             }
-            list.innerHTML = results.map(item => (
-                '<button type="button" class="list-group-item list-group-item-action py-2" data-value="' + String(item.value).replace(/"/g, '&quot;') + '">' + item.text + '</button>'
-            )).join('');
+            list.innerHTML = results.map(function (item) {
+                return '<button type="button" class="list-group-item list-group-item-action text-start" data-value="' + escAttr(String(item.value)) + '">' + item.html + '</button>';
+            }).join('');
             list.style.display = 'block';
-            list.querySelectorAll('button').forEach(btn => {
-                btn.addEventListener('click', () => {
+            list.querySelectorAll('button').forEach(function (btn) {
+                btn.addEventListener('click', function () {
                     input.value = btn.getAttribute('data-value') || '';
                     list.style.display = 'none';
                     list.innerHTML = '';
@@ -573,17 +688,28 @@ if (!$inv) {
             });
         }
 
-        document.querySelectorAll('.invoice-ref-input').forEach(input => {
-            const list = input.parentElement ? input.parentElement.querySelector('.autocomplete-list') : null;
+        document.querySelectorAll('.invoice-ref-input').forEach(function (input) {
+            var wrap = input.closest('.tir-search-wrap');
+            var list = wrap ? wrap.querySelector('.autocomplete-list') : null;
             if (!list) return;
-            input.addEventListener('input', () => renderSuggestions(input, list));
-            input.addEventListener('blur', () => {
-                setTimeout(() => {
+            input.addEventListener('input', function () { renderSuggestions(input, list); });
+            input.addEventListener('blur', function () {
+                setTimeout(function () {
                     list.style.display = 'none';
                     list.innerHTML = '';
-                }, 120);
+                }, 180);
             });
         });
+
+        var form = document.getElementById('tirSearchForm');
+        var submitBtn = document.getElementById('tirSearchSubmit');
+        if (form && submitBtn) {
+            form.addEventListener('submit', function () {
+                if (!form.checkValidity()) return;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>กำลังค้นหา…';
+            });
+        }
     })();
     </script>
     </body>
@@ -1055,9 +1181,17 @@ $customer_tax_trim = trim((string) ($data['customer_tax'] ?? ''));
         :root { --orange: #FF6600; --dark: #333; }
         body { font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', Tahoma, sans-serif; background: #f4f4f4; color: var(--dark); margin: 0; padding: 0; font-weight: 500; }
         
-        .invoice-box { 
-            width: 210mm; height: 297mm; margin: 0 auto; background: #fff; padding: 10mm 15mm; 
-            position: relative; box-shadow: 0 5px 20px rgba(0,0,0,0.05); border-top: 8px solid var(--orange); overflow: hidden;
+        .invoice-box {
+            width: 210mm;
+            max-width: 100%;
+            height: 297mm;
+            margin: 0 auto;
+            background: #fff;
+            padding: 10mm 15mm;
+            position: relative;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+            border-top: 8px solid var(--orange);
+            overflow: hidden;
         }
         .invoice-sheet { margin-bottom: 12px; }
         .invoice-sheet:last-child { margin-bottom: 0; }
@@ -1088,6 +1222,19 @@ $customer_tax_trim = trim((string) ($data['customer_tax'] ?? ''));
         .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; text-align: center; margin-top: 25px; }
         .sig-space { height: 80px; }
         .sig-box { border-top: 1px solid #333; padding-top: 15px; font-size: 13px; font-weight: 600; }
+
+        @media (max-width: 575.98px) {
+            body { background: #fff; }
+            .invoice-box {
+                width: 100%;
+                height: auto;
+                padding: 1rem;
+                box-shadow: none;
+                overflow: visible;
+            }
+            .footer-sticky { position: static; bottom: auto; left: auto; right: auto; margin-top: 1rem; }
+            .signature-grid { grid-template-columns: 1fr; gap: 18px; }
+        }
 
         @media print {
             @page { size: A4; margin: 0; }

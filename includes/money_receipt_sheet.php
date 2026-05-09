@@ -46,32 +46,39 @@ function money_receipt_render_sheet(array $receipt, array $company): void
     ?>
 <div class="invoice-box mr-sheet">
     <div class="mr-page-flex">
-        <table class="mr-header-table mb-2" role="presentation">
-            <tr>
-                <td class="mr-header-left align-top">
-                    <?php if ($logoUrl !== ''): ?>
-                        <img src="<?= $logoUrl ?>" class="company-logo" alt="Logo">
-                    <?php endif; ?>
-                </td>
-                <td class="mr-header-right text-end align-top">
-                    <div class="co-name fw-bold"><?= $coName ?></div>
-                    <div class="small text-muted company-meta">
-                        <?php if ($coTax !== ''): ?>เลขประจำตัวผู้เสียภาษี <?= $coTax ?><br><?php endif; ?>
-                        <?= $coAddr ?>
-                        <?php if ($coPhone !== '' || $coEmail !== ''): ?>
-                            <br><?php if ($coPhone !== ''): ?>โทร. <?= $coPhone ?><?php endif; ?>
-                            <?php if ($coEmail !== ''): ?><?= $coPhone !== '' ? ' · ' : '' ?>อีเมล <?= $coEmail ?><?php endif; ?>
-                        <?php endif; ?>
+        <div class="mr-header mb-3">
+            <div class="mr-header-left">
+                <?php if ($logoUrl !== ''): ?>
+                    <img src="<?= $logoUrl ?>" class="company-logo" alt="Logo">
+                <?php else: ?>
+                    <div class="mr-logo-placeholder">LOGO</div>
+                <?php endif; ?>
+            </div>
+            <div class="mr-header-right">
+                <div class="mr-title-wrap">
+                    <div class="invoice-title">ใบเสร็จรับเงิน (RECEIPT)</div>
+                </div>
+                <div class="co-name"><?= $coName ?></div>
+                <div class="mr-company-meta">
+                    <?php if ($coAddr !== ''): ?><div><span class="meta-label">ที่อยู่</span> <?= $coAddr ?></div><?php endif; ?>
+                    <?php if ($coTax !== ''): ?><div><span class="meta-label">TAX ID</span> <?= $coTax ?></div><?php endif; ?>
+                    <?php if ($coPhone !== ''): ?><div><span class="meta-label">Phone</span> <?= $coPhone ?></div><?php endif; ?>
+                    <?php if ($coEmail !== ''): ?><div><span class="meta-label">Email</span> <?= $coEmail ?></div><?php endif; ?>
+                </div>
+                <div class="mr-doc-meta-box">
+                    <div class="mr-doc-meta-row">
+                        <span class="meta-head">No.</span>
+                        <span class="meta-value"><?= $receiptNo ?></span>
                     </div>
-                </td>
-            </tr>
-        </table>
-
-        <div class="invoice-title text-center mb-2">ใบเสร็จรับเงิน</div>
-        <div class="text-end mb-2 small"><span class="text-muted">เลขที่เอกสาร</span> <span class="fw-semibold"><?= $receiptNo ?></span></div>
+                    <div class="mr-doc-meta-row">
+                        <span class="meta-head">Date</span>
+                        <span class="meta-value"><?= htmlspecialchars($dateTh, ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="d-flex flex-wrap justify-content-between gap-2 mb-3 small">
-            <div><span class="text-muted">วันที่</span> <span class="fw-semibold"><?= htmlspecialchars($dateTh, ENT_QUOTES, 'UTF-8') ?></span></div>
             <div><span class="text-muted">ผู้ออกเอกสาร</span> <span class="fw-semibold"><?= $issuerName ?></span></div>
         </div>
 
@@ -107,7 +114,7 @@ function money_receipt_render_sheet(array $receipt, array $company): void
                     <td class="text-end"><?= $fmt($t['sum_deduct']) ?></td>
                     <td class="text-end"><?= $fmt($t['sum_receive']) ?></td>
                 </tr>
-                <tr class="fw-bold">
+                <tr class="fw-bold mr-grand-total-row">
                     <td colspan="3" class="text-end border-end-0 align-middle">ยอดสุทธิ</td>
                     <td class="text-end align-middle"><?= $fmt($t['net']) ?></td>
                 </tr>
@@ -117,11 +124,22 @@ function money_receipt_render_sheet(array $receipt, array $company): void
             </tfoot>
         </table>
 
-        <div class="payment-info-box border rounded p-2 mb-2 small">
-            <span class="fw-semibold me-2">วิธีชำระเงิน:</span>
-            <span class="me-3"><?= $payCash ? '☑' : '☐' ?> เงินสด</span>
-            <span class="me-3"><?= $payTransfer ? '☑' : '☐' ?> เงินโอน</span>
-            <span><?= $payCheck ? '☑' : '☐' ?> เช็คธนาคาร</span>
+        <div class="payment-info-box mb-2 small">
+            <div class="fw-semibold mb-1">วิธีชำระเงิน</div>
+            <div class="mr-pay-list">
+                <span class="mr-pay-item">
+                    <span class="mr-pay-check<?= $payCash ? ' is-on' : '' ?>"><?= $payCash ? '✓' : '' ?></span>
+                    เงินสด
+                </span>
+                <span class="mr-pay-item">
+                    <span class="mr-pay-check<?= $payTransfer ? ' is-on' : '' ?>"><?= $payTransfer ? '✓' : '' ?></span>
+                    เงินโอน
+                </span>
+                <span class="mr-pay-item">
+                    <span class="mr-pay-check<?= $payCheck ? ' is-on' : '' ?>"><?= $payCheck ? '✓' : '' ?></span>
+                    เช็คธนาคาร
+                </span>
+            </div>
         </div>
 
         <?php if ($payTransfer && $slipUrl !== ''): ?>
@@ -133,14 +151,15 @@ function money_receipt_render_sheet(array $receipt, array $company): void
         </div>
         <?php endif; ?>
 
+        <div class="mr-stamp-space"></div>
         <div class="row g-4 mt-auto pt-3 sig-row">
             <div class="col-6 text-center">
-                <div class="sig-box border-top border-dark d-inline-block pt-2 px-4 mx-auto" style="min-width: 70%;">
-                    <span class="small">ผู้รับทราบ</span>
+                <div class="sig-box d-inline-block pt-2 px-4 mx-auto" style="min-width: 78%;">
+                    <span class="small">ผู้รับมอบอำนาจ/ผู้รับทราบ</span>
                 </div>
             </div>
             <div class="col-6 text-center">
-                <div class="sig-box border-top border-dark d-inline-block pt-2 px-4 mx-auto" style="min-width: 70%;">
+                <div class="sig-box d-inline-block pt-2 px-4 mx-auto" style="min-width: 78%;">
                     <span class="small">ผู้รับเงิน</span>
                 </div>
             </div>

@@ -57,15 +57,13 @@ if ($titleNo === '') {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        @page { size: A4; margin: 0; }
+        @page { size: A4; margin: 10mm; }
         html, body { margin: 0; padding: 0; min-height: 100%; }
         * { box-sizing: border-box; }
         body, .invoice-box, .invoice-box * {
             font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', 'Tahoma', sans-serif;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
             text-rendering: optimizeLegibility;
-            color: #111;
+            color: #1f2937;
         }
         body {
             background: #e9ecef;
@@ -75,69 +73,220 @@ if ($titleNo === '') {
         }
         .mr-toolbar { background: #212529; color: #fff; }
         .mr-toolbar .btn-light { font-weight: 600; }
-        .mr-print-wrap { width: 210mm; margin: 0 auto; padding: 1rem 0 2rem; }
+        .mr-print-wrap { width: 210mm; max-width: 100%; margin: 0 auto; padding: 1rem 0 2rem; }
         .invoice-box.mr-sheet {
             background: #fff;
-            padding: 18mm 18mm 22mm;
+            padding: 15mm;
             box-shadow: 0 6px 28px rgba(0,0,0,.1);
-            border-top: 4px solid #fd7e14;
-            min-height: 297mm;
+            min-height: 277mm;
             width: 210mm;
+            max-width: 100%;
+            border: 1px solid #e5e7eb;
         }
-        .mr-page-flex { min-height: calc(297mm - 40mm); display: flex; flex-direction: column; }
-        .mr-header-table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
+        .mr-page-flex { min-height: calc(277mm - 30mm); display: flex; flex-direction: column; }
+
+        .mr-header {
+            display: grid;
+            grid-template-columns: 54mm 1fr;
+            gap: 12px;
+            align-items: start;
+            border-bottom: 1px solid #d1d5db;
+            padding-bottom: 8px;
         }
-        .mr-header-left {
-            width: 48mm;
-            min-height: 36mm;
-            text-align: left;
-            overflow: hidden;
-            padding: 0;
-        }
-        .mr-header-right {
-            min-width: 0;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-            padding: 0;
-        }
-        .mr-header-table .company-logo {
+        .mr-header-left { min-height: 38mm; }
+        .company-logo {
             display: block;
-            max-height: 36mm;
-            max-width: 48mm;
+            max-height: 38mm;
+            max-width: 54mm;
             width: 100%;
             object-fit: contain;
         }
-        .mr-header .co-name { font-size: 13.5pt; }
-        .invoice-title { font-size: 17pt; letter-spacing: 0.06em; font-weight: 700; }
-        .table-custom tfoot td { vertical-align: middle; }
-        .table-custom { table-layout: fixed; width: 100%; }
+        .mr-logo-placeholder {
+            width: 54mm;
+            height: 38mm;
+            border: 1px dashed #cbd5e1;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10pt;
+            font-weight: 600;
+        }
+        .mr-header-right { min-width: 0; text-align: right; }
+        .mr-title-wrap { margin-bottom: 4px; }
+        .invoice-title {
+            font-size: 20pt;
+            letter-spacing: 0.02em;
+            font-weight: 800;
+            color: #111827;
+        }
+        .co-name {
+            font-size: 13.5pt;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 2px;
+        }
+        .mr-company-meta {
+            font-size: 10.5pt;
+            line-height: 1.45;
+            color: #4b5563;
+            overflow-wrap: anywhere;
+        }
+        .mr-company-meta .meta-label {
+            display: inline-block;
+            min-width: 48px;
+            color: #6b7280;
+            font-weight: 600;
+        }
+        .mr-doc-meta-box {
+            margin-top: 6px;
+            margin-left: auto;
+            width: 75mm;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #fafafa;
+        }
+        .mr-doc-meta-row {
+            display: grid;
+            grid-template-columns: 28mm 1fr;
+            border-top: 1px solid #e5e7eb;
+            font-size: 10.8pt;
+        }
+        .mr-doc-meta-row:first-child { border-top: 0; }
+        .mr-doc-meta-row .meta-head {
+            padding: 5px 8px;
+            font-weight: 600;
+            color: #6b7280;
+            border-right: 1px solid #e5e7eb;
+        }
+        .mr-doc-meta-row .meta-value {
+            padding: 5px 8px;
+            font-weight: 700;
+            color: #111827;
+            text-align: right;
+        }
+
+        .table-custom {
+            table-layout: fixed;
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 4px;
+        }
         .table-custom thead th,
-        .table-custom td { font-size: 11.5pt; font-weight: 500; }
-        .table-custom .fw-bold { font-weight: 700 !important; }
-        .payment-info-box, .sig-box, .small, small, .text-muted { font-size: 11pt; font-weight: 500; }
-        .company-logo { max-height: 36mm; max-width: 100%; width: auto; object-fit: contain; }
+        .table-custom td {
+            font-size: 11pt;
+            font-weight: 500;
+            border: 1px solid #ddd !important;
+            padding: 8px 10px !important;
+            vertical-align: middle;
+        }
+        .table-custom thead th {
+            background: #f5f5f5 !important;
+            color: #374151;
+            font-weight: 700;
+        }
+        .table-custom tfoot td { vertical-align: middle; }
+        .mr-grand-total-row td {
+            font-weight: 800 !important;
+            background: #f3f4f6 !important;
+            border-top: 2px solid #9ca3af !important;
+            border-bottom: 2px solid #9ca3af !important;
+        }
+
+        .payment-info-box {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 8px 10px;
+            background: #fff;
+            font-size: 10.8pt;
+        }
+        .mr-pay-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 18px;
+        }
+        .mr-pay-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .mr-pay-check {
+            width: 14px;
+            height: 14px;
+            border: 1px solid #6b7280;
+            border-radius: 2px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            color: #111827;
+        }
+        .mr-pay-check.is-on {
+            border-color: #111827;
+            background: #f9fafb;
+        }
+
+        .slip-thumb { max-height: 220px; max-width: 100%; }
+
+        .mr-stamp-space {
+            min-height: 26mm;
+            margin-top: 8px;
+            border: 1px dashed #d1d5db;
+            border-radius: 6px;
+            background: #fcfcfc;
+        }
         .sig-row { padding-bottom: 2mm; }
+        .sig-box {
+            border-top: 1px dotted #6b7280;
+            min-height: 18mm;
+        }
+        .sig-box .small, .payment-info-box, .small, small, .text-muted {
+            font-size: 10.8pt;
+        }
+
         @media (max-width: 768px) {
-            .mr-header-table,
-            .mr-header-table tr,
-            .mr-header-table td { display: block; width: 100%; }
-            .mr-header-left, .mr-header-right { width: 100%; text-align: left !important; }
+            .mr-header { grid-template-columns: 1fr; }
+            .mr-header-right { text-align: left; }
+            .mr-doc-meta-box { margin-left: 0; width: 100%; }
+            .mr-doc-meta-row .meta-value { text-align: left; }
+        }
+        @media (max-width: 575.98px) {
+            body { background: #fff; }
+            .mr-print-wrap { width: 100%; padding: 0.5rem 0.75rem 1.25rem; }
+            .invoice-box.mr-sheet {
+                width: 100%;
+                min-height: auto;
+                padding: 1rem;
+                box-shadow: none;
+            }
         }
         @media print {
-            html, body { width: 210mm !important; min-height: 297mm !important; background: #fff !important; }
+            @page { size: A4; margin: 10mm; }
+            html, body {
+                width: 100% !important;
+                min-height: auto !important;
+                background: #fff !important;
+            }
             .mr-toolbar { display: none !important; }
-            .mr-print-wrap { width: 210mm !important; margin: 0 !important; padding: 0 !important; }
-            .invoice-box.mr-sheet { width: 210mm !important; box-shadow: none; border-top: none; min-height: 297mm; }
-            .mr-page-flex { min-height: calc(297mm - 40mm); }
-            .mr-header-table .company-logo { max-height: 36mm !important; max-width: 100% !important; }
-            .mr-header-table { display: table !important; width: 100% !important; }
-            .mr-header-table tr { display: table-row !important; }
-            .mr-header-table td { display: table-cell !important; vertical-align: top !important; }
-            .mr-header-left { width: 48mm !important; }
-            .mr-header-right { text-align: right !important; }
+            .mr-print-wrap {
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .invoice-box.mr-sheet {
+                width: 100% !important;
+                min-height: auto !important;
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+            }
+            .mr-stamp-space {
+                background: transparent !important;
+            }
+            .table-custom thead th { background: #f5f5f5 !important; }
+            .mr-grand-total-row td { background: #f3f4f6 !important; }
         }
     </style>
 </head>
