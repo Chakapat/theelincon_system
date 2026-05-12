@@ -19,8 +19,8 @@ $pr_id = isset($_GET['pr_id']) ? (int) $_GET['pr_id'] : 0;
 $pr = Db::findFirst('purchase_requests', static function (array $r) use ($pr_id): bool {
     return isset($r['id']) && (int) $r['id'] === $pr_id;
 });
-if (!$pr || ($pr['status'] ?? '') !== 'approved') {
-    echo "<script>alert('ไม่พบข้อมูลหรือ PR ยังไม่อนุมัติ'); window.location.href='" . htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES) . "';</script>";
+if (!$pr) {
+    echo "<script>alert('ไม่พบข้อมูลใบขอซื้อ'); window.location.href='" . htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES) . "';</script>";
     exit();
 }
 
@@ -80,28 +80,53 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title><?= $requestType === 'hire' ? 'ใบสั่งจ่าย PO' : 'ผูก QT และสร้างใบ PO จาก PR' ?></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= $requestType === 'hire' ? 'ใบสั่งจ่าย PO' : 'สร้างใบสั่งซื้อจาก PR' ?></title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
-        .card { border-radius: 14px; border: 1px solid #edf0f3; box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
+        body { background: linear-gradient(165deg, #f1f5f9 0%, #e8f4fc 45%, #f8fafc 100%); font-family: 'Sarabun', system-ui, sans-serif; min-height: 100vh; }
+        .po-from-pr-shell { max-width: 720px; }
+        .po-from-pr-card {
+            border: none; border-radius: 1.25rem;
+            box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+            overflow: hidden; background: #fff;
+        }
+        .po-from-pr-head {
+            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            color: #fff; padding: 1.35rem 1.5rem; margin: -1px -1px 0 -1px;
+        }
+        .po-from-pr-head h1 { font-size: 1.35rem; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+        .po-from-pr-head .sub { opacity: 0.92; font-size: 0.875rem; font-weight: 500; margin-top: 0.35rem; }
+        .po-field-label { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
+        .po-panel {
+            border: 1px solid #e2e8f0; border-radius: 0.875rem; background: #f8fafc;
+            padding: 1rem 1.15rem;
+        }
+        .po-panel-muted { background: #fff; border-color: #e9ecef; }
         .section-card { border: 1px solid #e9ecef; border-radius: 12px; background: #fff; }
         .section-title { font-size: 1rem; font-weight: 700; color: #0d6efd; margin-bottom: 12px; }
-        .summary-grid { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; font-size: .95rem; }
-        .summary-grid .label { color: #495057; }
-        .summary-grid .value { font-weight: 700; }
+        .form-control:focus, .form-select:focus { border-color: #86b7fe; box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.12); }
     </style>
 </head>
 <body>
-    <div class="container mt-5">
+<?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
+    <div class="container py-4 py-md-5">
         <div class="row justify-content-center">
-            <div class="<?= $requestType === 'hire' ? 'col-lg-10' : 'col-md-6' ?>">
-                <div class="card p-4">
-                    <h4 class="fw-bold text-center mb-4">
-                        <i class="bi bi-link-45deg text-primary"></i>
-                        <?= $requestType === 'hire' ? 'ใบสั่งจ่าย PO' : 'ผูก QT และออกใบสั่งซื้อ (PO)' ?>
-                    </h4>
+            <div class="<?= $requestType === 'hire' ? 'col-lg-10' : 'col-xl-8' ?>">
+                <div class="po-from-pr-shell mx-auto">
+                <div class="card po-from-pr-card border-0">
+                    <div class="po-from-pr-head">
+                        <h1 class="d-flex align-items-center gap-2">
+                            <i class="bi bi-file-earmark-plus-fill opacity-90"></i>
+                            <?= $requestType === 'hire' ? 'ใบสั่งจ่าย PO' : 'สร้างใบสั่งซื้อ' ?>
+                        </h1>
+                        <div class="sub"><?= $requestType === 'hire' ? 'ออกเอกสารสั่งจ่ายจากใบขอจัดจ้าง' : 'ออก PO จากใบขอซื้อ (PR) — กรอกเฉพาะข้อมูลที่มี' ?></div>
+                    </div>
+                    <div class="p-4 p-md-4">
                     <?php if ($errorCode === 'invalid_installment'): ?>
                         <div class="alert alert-warning py-2">งวดที่เลือกไม่ถูกต้อง</div>
                     <?php endif; ?>
@@ -120,32 +145,32 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                     <?php if ($requestType === 'hire' && $remainingInstallments === 0): ?>
                         <div class="alert alert-info py-2">ออกใบสั่งจ่ายครบทุกงวดแล้ว</div>
                     <?php endif; ?>
-                    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST">
+                    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" data-tnc-fullnav="1">
                         <?php csrf_field(); ?>
                         <input type="hidden" name="pr_id" value="<?= $pr['id'] ?>">
                         <?php if ($requestType === 'hire' && $hireContract !== null): ?>
                         <input type="hidden" name="hire_contract_id" value="<?= (int) ($hireContract['id'] ?? 0) ?>">
                         <?php endif; ?>
 
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-4">
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">อ้างอิงใบขอซื้อ (PR)</label>
-                                <input type="text" class="form-control bg-light" value="<?= $pr['pr_number'] ?>" readonly>
+                                <div class="po-field-label">อ้างอิงใบขอซื้อ (PR)</div>
+                                <input type="text" class="form-control form-control-lg bg-light border-0" value="<?= htmlspecialchars((string) ($pr['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" readonly>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">เลขที่ใบสั่งซื้อ (อัตโนมัติ)</label>
-                                <input type="text" name="po_number" class="form-control bg-light" value="<?= $po_number ?>" readonly>
+                                <div class="po-field-label">เลขที่ PO (อัตโนมัติ)</div>
+                                <input type="text" name="po_number" class="form-control form-control-lg bg-light border-0" value="<?= htmlspecialchars((string) $po_number, ENT_QUOTES, 'UTF-8') ?>" readonly>
                             </div>
                         </div>
-                        <div class="alert alert-light border small">
-                            <div class="d-flex flex-wrap gap-3">
-                                <span><strong>ประเภทคำขอ:</strong> <?= $requestType === 'hire' ? 'จัดจ้าง' : 'จัดซื้อ' ?></span>
-                                <?php if ($requestType === 'hire'): ?>
-                                    <span><strong>ผู้รับจ้าง:</strong> <?= htmlspecialchars($contractorName !== '' ? $contractorName : '-', ENT_QUOTES, 'UTF-8') ?></span>
-                                    <span><strong>จำนวนงวด:</strong> <?= number_format($installmentTotal) ?> งวด</span>
-                                <?php endif; ?>
+                        <?php if ($requestType === 'hire'): ?>
+                        <div class="po-panel po-panel-muted mb-4">
+                            <div class="d-flex flex-wrap align-items-center gap-2 small">
+                                <span class="badge rounded-pill bg-info-subtle text-info-emphasis border border-info-subtle">จัดจ้าง</span>
+                                <span class="text-secondary"><strong class="text-dark">ผู้รับจ้าง:</strong> <?= htmlspecialchars($contractorName !== '' ? $contractorName : '-', ENT_QUOTES, 'UTF-8') ?></span>
+                                <span class="text-secondary"><strong class="text-dark">งวด:</strong> <?= number_format($installmentTotal) ?> งวด</span>
                             </div>
                         </div>
+                        <?php endif; ?>
 
                         <?php if ($requestType === 'hire'): ?>
                         <div class="border rounded-3 p-3 mb-4 bg-white">
@@ -156,8 +181,9 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                         <div class="border rounded-3 p-3 mb-4 bg-light">
                             <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-file-earmark-ruled me-1"></i>ตารางสัญญาจ้าง</h6>
                             <?php
-                                $paidInstallmentsDisplay = (int) ($hireContract['paid_installments'] ?? count($issuedInstallments));
-                                $paidAmountDisplay = (float) (($hireContract['paid_amount'] ?? '') !== '' ? $hireContract['paid_amount'] : $paidAmountSoFar);
+                                $hcRow = is_array($hireContract) ? $hireContract : [];
+                                $paidInstallmentsDisplay = (int) ($hcRow['paid_installments'] ?? count($issuedInstallments));
+                                $paidAmountDisplay = (float) (($hcRow['paid_amount'] ?? '') !== '' ? $hcRow['paid_amount'] : $paidAmountSoFar);
                             ?>
                             <div class="row g-3 mb-2 small">
                                 <div class="col-md-6"><strong>จ่ายแล้ว:</strong> <?= number_format($paidAmountDisplay, 2) ?> บาท</div>
@@ -197,8 +223,8 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                         <?php endif; ?>
 
                         <div class="mb-4<?= $requestType === 'hire' ? ' d-none' : '' ?>">
-                            <label class="form-label fw-bold text-danger">เลือกผู้ขาย (Supplier) *</label>
-                            <input type="text" id="supplier_search" class="form-control form-control-lg border-primary" list="supplier_list" placeholder="พิมพ์ชื่อผู้ขายเพื่อค้นหา"<?= $requestType === 'hire' ? '' : ' required' ?>>
+                            <div class="po-field-label">ผู้ขาย (Supplier) <span class="text-muted fw-normal text-lowercase" style="letter-spacing:0;">— ไม่บังคับ</span></div>
+                            <input type="text" id="supplier_search" class="form-control form-control-lg" list="supplier_list" placeholder="พิมพ์ชื่อผู้ขายเพื่อค้นหา (เว้นว่างได้)" autocomplete="off">
                             <datalist id="supplier_list">
                                 <?php foreach ($supplier_rows as $s): ?>
                                     <option
@@ -207,24 +233,34 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                                     ></option>
                                 <?php endforeach; ?>
                             </datalist>
-                            <input type="hidden" name="supplier_id" id="supplier_id"<?= $requestType === 'hire' ? '' : ' required' ?>>
-                            <div class="form-text">เลือกจากรายการที่ตรงกัน ระบบจะผูกเป็น Supplier อัตโนมัติ</div>
+                            <input type="hidden" name="supplier_id" id="supplier_id" value="">
+                            <div class="form-text mt-1">เลือกจากรายการให้ตรงกันทั้งบรรทัด ระบบจะบันทึกรหัสผู้ขายให้อัตโนมัติ</div>
                         </div>
 
-                        <div class="border rounded-3 p-3 mb-4 bg-light<?= $requestType === 'hire' ? ' d-none' : '' ?>">
-                            <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-file-earmark-text me-1"></i>ข้อมูลใบเสนอราคา (QT)</h6>
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">เลขที่ใบเสนอราคา (QT No.)</label>
-                                <input type="text" name="quotation_number" class="form-control" maxlength="120" placeholder="เช่น QT-2026-015 (ไม่กรอกก็ได้)">
+                        <div class="mb-4<?= $requestType === 'hire' ? ' d-none' : '' ?>">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="1" id="has_qt" name="has_qt">
+                                <label class="form-check-label fw-semibold" for="has_qt">มีข้อมูลใบเสนอราคา (QT)</label>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">วันที่ใบเสนอราคา</label>
-                                <input type="date" name="quotation_date" class="form-control" value="">
+                            <div class="rounded-3 border bg-white p-3 p-md-4 mt-2 d-none" id="qt_panel">
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold text-secondary mb-1" for="qt_quotation_number">เลขที่ QT</label>
+                                    <input type="text" name="quotation_number" id="qt_quotation_number" class="form-control" maxlength="120" placeholder="เช่น QT-2026-015" disabled>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold text-secondary mb-1" for="qt_quotation_date">วันที่ใบเสนอราคา</label>
+                                    <input type="date" name="quotation_date" id="qt_quotation_date" class="form-control" value="" disabled>
+                                </div>
+                                <div class="mb-0">
+                                    <label class="form-label small fw-semibold text-secondary mb-1" for="qt_quotation_note">หมายเหตุ QT</label>
+                                    <textarea name="quotation_note" id="qt_quotation_note" class="form-control" rows="2" maxlength="500" placeholder="รายละเอียดอ้างอิง QT" disabled></textarea>
+                                </div>
                             </div>
-                            <div>
-                                <label class="form-label fw-bold">หมายเหตุ QT (ถ้ามี)</label>
-                                <textarea name="quotation_note" class="form-control" rows="2" maxlength="500" placeholder="รายละเอียดเพิ่มเติมของใบเสนอราคา"></textarea>
-                            </div>
+                        </div>
+
+                        <div class="mb-4<?= $requestType === 'hire' ? ' d-none' : '' ?>">
+                            <label class="form-label fw-semibold" for="po_note">หมายเหตุ PO</label>
+                            <textarea name="po_note" id="po_note" class="form-control" rows="2" maxlength="500" placeholder="เช่น เงื่อนไขการส่งมอบ ที่อยู่จัดส่ง หรือข้อควรทราบบนใบสั่งซื้อ (ไม่บังคับ)"></textarea>
                         </div>
 
                         <?php if ($requestType === 'hire'): ?>
@@ -305,29 +341,32 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                         }
                         ?>
                         <?php if ($requestType !== 'hire'): ?>
-                        <div class="alert alert-info py-3 small">
-                            <div class="d-flex justify-content-between"><span>ยอดรายการ (ก่อน VAT)</span><strong><?= number_format($pr_sub, 2) ?> บาท</strong></div>
+                        <div class="po-panel mb-4">
+                            <div class="small fw-semibold text-secondary text-uppercase mb-2" style="letter-spacing:0.06em;">สรุปยอดจาก PR</div>
+                            <div class="d-flex justify-content-between align-items-center py-1"><span class="text-secondary">ยอดรายการ (ก่อน VAT)</span><strong><?= number_format($pr_sub, 2) ?> บาท</strong></div>
                             <?php if ($pr_vat_on): ?>
-                            <div class="d-flex justify-content-between text-success"><span>VAT 7%</span><strong><?= number_format($pr_vat, 2) ?> บาท</strong></div>
+                            <div class="d-flex justify-content-between align-items-center py-1 text-success"><span>VAT 7%</span><strong><?= number_format($pr_vat, 2) ?> บาท</strong></div>
                             <?php else: ?>
-                            <div class="text-muted">ไม่รวม VAT</div>
+                            <div class="text-muted small py-1">ไม่รวม VAT</div>
                             <?php endif; ?>
-                            <hr class="my-2">
-                            <div class="d-flex justify-content-between fs-6"><span>ยอดรวมสุทธิ</span><strong><?= number_format($pr_grand, 2) ?> บาท</strong></div>
+                            <hr class="my-2 border-secondary-subtle">
+                            <div class="d-flex justify-content-between align-items-center"><span class="fw-bold">ยอดรวมสุทธิ</span><strong class="fs-5 text-primary"><?= number_format($pr_grand, 2) ?> บาท</strong></div>
                         </div>
                         <?php endif; ?>
 
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary btn-lg shadow"<?= $requestType === 'hire' && $remainingInstallments === 0 ? ' disabled' : '' ?>><?= $requestType === 'hire' ? 'ยืนยันสร้างใบสั่งจ่ายงวดนี้' : 'ยืนยันผูก QT และสร้างใบ PO' ?></button>
-                            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $pr_id ?>" class="btn btn-light">ยกเลิก</a>
+                        <div class="d-grid gap-2 mt-1">
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm fw-semibold py-3"<?= $requestType === 'hire' && $remainingInstallments === 0 ? ' disabled' : '' ?>><?= $requestType === 'hire' ? 'ยืนยันสร้างใบสั่งจ่ายงวดนี้' : 'สร้างใบสั่งซื้อ' ?></button>
+                            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $pr_id ?>" class="btn btn-outline-danger btn-lg rounded-pill fw-semibold py-2">ยกเลิก</a>
                         </div>
                     </form>
+                    </div>
+                </div>
                 </div>
             </div>
         </div>
     </div>
-</body>
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function ($) {
     if (typeof window.TncLiveDT === 'undefined' || !$ || !$.fn.DataTable) return;
@@ -366,18 +405,39 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
     searchInput.addEventListener('input', syncSupplierId);
     searchInput.addEventListener('change', syncSupplierId);
 
-    const supplierRequired = <?= $requestType === 'hire' ? 'false' : 'true' ?>;
     const form = searchInput.closest('form');
     if (form) {
-        form.addEventListener('submit', function (event) {
+        form.addEventListener('submit', function () {
             syncSupplierId();
-            if (supplierRequired && !supplierIdInput.value) {
-                event.preventDefault();
-                alert('กรุณาเลือกผู้ขายจากรายการที่ระบบแนะนำ');
-                searchInput.focus();
+        });
+    }
+})();
+
+(function () {
+    const cb = document.getElementById('has_qt');
+    const panel = document.getElementById('qt_panel');
+    const fields = ['qt_quotation_number', 'qt_quotation_date', 'qt_quotation_note'].map(function (id) { return document.getElementById(id); }).filter(Boolean);
+    if (!cb || !panel) return;
+
+    function setQtEnabled(on) {
+        fields.forEach(function (el) {
+            el.disabled = !on;
+            if (!on) {
+                if (el.type === 'checkbox') return;
+                el.value = '';
             }
         });
     }
+
+    function toggleQtPanel() {
+        const on = cb.checked;
+        panel.classList.toggle('d-none', !on);
+        setQtEnabled(on);
+    }
+
+    cb.addEventListener('change', toggleQtPanel);
+    setQtEnabled(false);
+    panel.classList.add('d-none');
 })();
 
 (function () {
@@ -518,4 +578,5 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
     recalc();
 })();
 </script>
+</body>
 </html>

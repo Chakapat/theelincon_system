@@ -18,6 +18,29 @@ $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 
 $suppliers = Db::tableKeyed('suppliers');
 $users = Db::tableKeyed('users');
+
+/** วันที่ใช้เรียง/แสดง: issue_date ก่อน แล้ว fallback created_at → Y-m-d หรือว่าง */
+$poListSortYmd = static function (array $row): string {
+    $issue = trim((string) ($row['issue_date'] ?? ''));
+    if ($issue !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $issue)) {
+        return $issue;
+    }
+    if ($issue !== '') {
+        $ts = strtotime($issue);
+        if ($ts !== false) {
+            return date('Y-m-d', $ts);
+        }
+    }
+    $created = trim((string) ($row['created_at'] ?? ''));
+    if ($created !== '') {
+        $ts = strtotime($created);
+        if ($ts !== false) {
+            return date('Y-m-d', $ts);
+        }
+    }
+    return '';
+};
+
 $po_rows = [];
 $totalAmount = 0.0;
 foreach (Db::tableRows('purchase_orders') as $po) {
@@ -34,7 +57,7 @@ foreach (Db::tableRows('purchase_orders') as $po) {
         $paymentStatus = 'unpaid';
     }
     $paymentSlipPath = trim((string) ($po['payment_slip_path'] ?? ''));
-    $po_rows[] = array_merge($po, [
+    $merged = array_merge($po, [
         'supplier_name' => $s['name'] ?? '',
         'created_by_name' => trim(($u['fname'] ?? '') . ' ' . ($u['lname'] ?? '')),
         'status_label' => strtoupper($status),
@@ -47,8 +70,18 @@ foreach (Db::tableRows('purchase_orders') as $po) {
         'installment_no' => (int) ($po['installment_no'] ?? 0),
         'installment_total' => (int) ($po['installment_total'] ?? 0),
     ]);
+    $merged['_list_sort_ymd'] = $poListSortYmd($merged);
+    $po_rows[] = $merged;
 }
 usort($po_rows, static function (array $a, array $b): int {
+    $da = (string) ($a['_list_sort_ymd'] ?? '');
+    $db = (string) ($b['_list_sort_ymd'] ?? '');
+    $daKey = $da !== '' ? $da : '0000-00-00';
+    $dbKey = $db !== '' ? $db : '0000-00-00';
+    $cmp = strcmp($dbKey, $daKey);
+    if ($cmp !== 0) {
+        return $cmp;
+    }
     return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
 });
 $poCount = count($po_rows);
@@ -73,8 +106,9 @@ $poCount = count($po_rows);
 
 <div class="container mt-4 mb-5">
     <?php if (!empty($_GET['success'])): ?>
+        <?php $createdPoNo = trim((string) ($_GET['po_number'] ?? '')); ?>
         <div class="alert alert-success alert-dismissible fade show" role="alert">
-            สร้างใบสั่งซื้อ (PO) สำเร็จแล้ว
+            สร้างใบสั่งซื้อ (PO) สำเร็จแล้ว<?php if ($createdPoNo !== ''): ?> — เลขที่ <strong><?= htmlspecialchars($createdPoNo, ENT_QUOTES, 'UTF-8') ?></strong><?php endif; ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
@@ -90,6 +124,12 @@ $poCount = count($po_rows);
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
+    <?php if (!empty($_GET['cancelled'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            ยกเลิกใบสั่งซื้อ (PO) เรียบร้อยแล้ว
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
     <?php if (!empty($_GET['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <?php
@@ -102,6 +142,14 @@ $poCount = count($po_rows);
                 echo 'ต้องแนบรูปหลักฐานก่อนเปลี่ยนสถานะเป็น จ่ายแล้ว';
             } elseif ($errorCode === 'invalid') {
                 echo 'ไม่พบใบสั่งซื้อ หรือข้อมูลไม่ถูกต้อง';
+            } elseif ($errorCode === 'not_found') {
+                echo 'ไม่พบใบสั่งซื้อ';
+            } elseif ($errorCode === 'po_cancelled') {
+                echo 'ใบสั่งซื้อนี้ถูกยกเลิกแล้ว ไม่สามารถดำเนินการนี้ได้';
+            } elseif ($errorCode === 'already_cancelled') {
+                echo 'ใบสั่งซื้อนี้ยกเลิกไปแล้ว';
+            } elseif ($errorCode === 'po_paid') {
+                echo 'ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถแก้ไข ยกเลิก หรือลบได้';
             } else {
                 echo 'เกิดข้อผิดพลาดในการจัดการใบสั่งซื้อ กรุณาลองใหม่';
             }
@@ -116,24 +164,29 @@ $poCount = count($po_rows);
         </div>
     <?php endif; ?>
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold"><i class="bi bi-file-earmark-check-fill text-primary"></i>รายการใบสั่งซื้อ (Purchase orders List)</h2>
-        <div class="dropdown">
-            <button class="btn btn-primary rounded-pill px-4 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-plus-lg"></i> สร้างเอกสาร
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                <li>
-                    <a class="dropdown-item" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php')) ?>">
-                        <i class="bi bi-file-earmark-plus me-1"></i> สร้าง PO โดยตรง
-                    </a>
-                </li>
-                <li>
-                    <a class="dropdown-item" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php')) ?>">
-                        <i class="bi bi-link-45deg me-1"></i> สร้างจาก PR
-                    </a>
-                </li>
-            </ul>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <h2 class="fw-bold mb-0"><i class="bi bi-file-earmark-check-fill text-primary"></i>รายการใบสั่งซื้อ (Purchase orders List)</h2>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3 shadow-sm">
+                <i class="bi bi-arrow-left-circle me-1"></i>รายการใบขอซื้อ (PR)
+            </a>
+            <div class="dropdown">
+                <button class="btn btn-primary rounded-pill px-4 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-plus-lg"></i> สร้างเอกสาร
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                    <li>
+                        <a class="dropdown-item" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php')) ?>">
+                            <i class="bi bi-file-earmark-plus me-1"></i> สร้าง PO โดยตรง
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php')) ?>">
+                            <i class="bi bi-link-45deg me-1"></i> สร้างจาก PR
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -176,10 +229,13 @@ $poCount = count($po_rows);
                             <div class="fw-bold text-primary"><?= htmlspecialchars((string) ($row['po_number'] ?? '')) ?></div>
                             <div class="small text-muted"><?php $cb = trim((string)($row['created_by_name'] ?? '')); echo $cb !== '' ? htmlspecialchars($cb) : '—'; ?></div>
                         </td>
-                        <td>
+                        <?php
+                        $ymd = trim((string) ($row['_list_sort_ymd'] ?? ''));
+                        $dateOrderAttr = $ymd !== '' ? $ymd : '0000-00-00';
+                        ?>
+                        <td data-order="<?= htmlspecialchars($dateOrderAttr, ENT_QUOTES, 'UTF-8') ?>">
                             <?php
-                            $createdAt = trim((string) ($row['created_at'] ?? ''));
-                            echo $createdAt !== '' ? htmlspecialchars(date('d/m/Y', strtotime($createdAt)), ENT_QUOTES, 'UTF-8') : '<span class="text-muted">—</span>';
+                            echo $ymd !== '' ? htmlspecialchars(date('d/m/Y', strtotime($ymd)), ENT_QUOTES, 'UTF-8') : '<span class="text-muted">—</span>';
                             ?>
                         </td>
                         <td>
@@ -216,6 +272,7 @@ $poCount = count($po_rows);
                             <?php elseif (($row['status'] ?? '') !== 'ordered'): ?>
                                 <span class="badge bg-secondary rounded-pill"><?= htmlspecialchars((string) ($row['status_label'] ?? 'UNKNOWN')) ?></span>
                             <?php endif; ?>
+                            <?php if (($row['status'] ?? '') !== 'cancelled'): ?>
                             <div class="mt-1">
                                 <?php if (($row['payment_status'] ?? 'unpaid') === 'paid'): ?>
                                     <button
@@ -233,16 +290,25 @@ $poCount = count($po_rows);
                                     >ยังไม่จ่าย</button>
                                 <?php endif; ?>
                             </div>
+                            <?php endif; ?>
                         </td>
                         <td class="text-center">
+                            <?php $rowPaid = (($row['payment_status'] ?? 'unpaid') === 'paid'); ?>
                             <div class="btn-group shadow-sm">
                                 <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php')) ?>?id=<?= (int)$row['id'] ?>" class="btn btn-sm btn-outline-primary" title="ดูรายละเอียด">
                                     <i class="bi bi-eye"></i>
                                 </a>
+                                <?php if (($row['status'] ?? '') !== 'cancelled' && !$rowPaid): ?>
                                 <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php')) ?>?id=<?= (int)$row['id'] ?>" class="btn btn-sm btn-outline-warning" title="แก้ไขใบสั่งซื้อ">
                                     <i class="bi bi-pencil-square"></i>
                                 </a>
-                                <?php if ($isAdmin): ?>
+                                <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=cancel_purchase_order" class="d-inline" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบสั่งซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และแสดงประทับบนใบพิมพ์');">
+                                    <?php csrf_field(); ?>
+                                    <input type="hidden" name="po_id" value="<?= (int) ($row['id'] ?? 0) ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="ยกเลิกใบ PO"><i class="bi bi-x-circle"></i></button>
+                                </form>
+                                <?php endif; ?>
+                                <?php if ($isAdmin && !$rowPaid): ?>
                                     <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete&type=purchase_order&id=<?= (int) $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger tnc-delete-post" title="ลบใบสั่งซื้อ (ต้องใส่รหัสผ่าน)">
                                         <i class="bi bi-trash3-fill"></i>
                                     </a>

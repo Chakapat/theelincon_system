@@ -60,7 +60,8 @@ if (!in_array($retentionType, ['none', 'percent', 'fixed'], true)) {
     $retentionType = 'none';
 }
 $retentionAmount = (float) ($data['retention_amount'] ?? 0);
-$poNote = trim((string) ($data['quotation_note'] ?? ''));
+$poNotePo = trim((string) ($data['po_note'] ?? ''));
+$poNoteQt = trim((string) ($data['quotation_note'] ?? ''));
 
 $prId = (int) ($po['pr_id'] ?? 0);
 $poNumber = trim((string) ($po['po_number'] ?? ''));
@@ -114,17 +115,23 @@ if (isset($data['subtotal_amount']) && $data['subtotal_amount'] !== null && $dat
     $po_subtotal = round($po_grand_total - $po_vat_amount, 2);
 }
 $po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_amount'] : ($po_subtotal + $po_vat_amount));
+$poStatus = strtolower(trim((string) ($data['status'] ?? 'ordered')));
+$isPoCancelled = ($poStatus === 'cancelled');
+$paymentStatusPo = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
+$isPoPaid = ($paymentStatusPo === 'paid');
 ?>
 
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Purchase Order - <?= htmlspecialchars((string) ($data['po_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
     
     <style>
@@ -162,6 +169,22 @@ $po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_
         .sig-space { height: 75px; }
         .sig-box { border-top: 1px solid #333; padding-top: 10px; font-size: 13px; font-weight: 600; }
 
+        .po-cancelled-watermark {
+            position: absolute;
+            left: 50%;
+            top: 48%;
+            transform: translate(-50%, -50%) rotate(-32deg);
+            font-size: clamp(1.75rem, 6.5vw, 2.85rem);
+            font-weight: 800;
+            color: rgba(220, 38, 38, 0.42);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 50;
+            letter-spacing: 0.12em;
+            text-transform: none;
+            user-select: none;
+        }
+
         @media (max-width: 575.98px) {
             body { background: #fff; }
             .invoice-box {
@@ -178,21 +201,49 @@ $po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_
         @media print {
             @page { size: A4; margin: 0; }
             body { background: none; }
-            .no-print { display: none; }
+            .no-print, nav.navbar { display: none !important; }
             .invoice-box { margin: 0; box-shadow: none; border-top: 8px solid var(--brand-color); }
+            .po-cancelled-watermark {
+                color: rgba(185, 28, 28, 0.5);
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
     </style>
 </head>
 <body>
 
-<div class="controls-wrapper no-print p-3 text-center bg-dark shadow-sm mb-4">
-    <button onclick="window.print()" class="btn btn-success btn-sm fw-bold" style="padding: 5px 40px;">
-        <i class="bi bi-printer"></i> พิมพ์ใบสั่งซื้อ
+<div class="no-print">
+<?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
+</div>
+
+<div class="controls-wrapper no-print py-3 mb-3 shadow-sm border-bottom" style="background: linear-gradient(180deg, #fff 0%, #f8fafc 100%); border-color: #e2e8f0 !important;">
+    <?php if (!empty($_GET['cancelled'])): ?>
+        <div class="alert alert-success py-2 px-3 mb-3 mx-auto" style="max-width: 520px;">ยกเลิกใบสั่งซื้อเรียบร้อยแล้ว</div>
+    <?php endif; ?>
+    <?php if (!empty($_GET['error']) && $_GET['error'] === 'po_paid'): ?>
+        <div class="alert alert-warning py-2 px-3 mb-3 mx-auto" style="max-width: 520px;">ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถยกเลิกได้</div>
+    <?php endif; ?>
+    <div class="container d-flex flex-wrap align-items-center justify-content-center gap-2">
+    <button type="button" onclick="window.print()" class="btn btn-success rounded-pill px-4 shadow-sm fw-semibold">
+        <i class="bi bi-printer me-1"></i>พิมพ์ใบสั่งซื้อ
     </button>
-    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-light btn-sm ms-2">กลับรายการ PO</a>
+    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3">รายการ PO</a>
+    <?php if (!$isPoCancelled && !$isPoPaid): ?>
+        <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=cancel_purchase_order" class="d-inline ms-2" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบสั่งซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และจะแสดงประทับบนใบพิมพ์');">
+            <?php csrf_field(); ?>
+            <input type="hidden" name="po_id" value="<?= (int) $id ?>">
+            <input type="hidden" name="return_to" value="view">
+            <button type="submit" class="btn btn-outline-danger rounded-pill px-3"><i class="bi bi-x-circle me-1"></i>ยกเลิกใบ PO</button>
+        </form>
+    <?php endif; ?>
+    </div>
 </div>
 
 <div class="invoice-box">
+    <?php if ($isPoCancelled): ?>
+    <div class="po-cancelled-watermark" aria-hidden="true">ยกเบิกใบสั่งซื้อ</div>
+    <?php endif; ?>
     <div class="row align-items-start mb-2">
         <div class="col-6">
             <?php if(!empty($data['logo'])): ?>
@@ -209,8 +260,20 @@ $po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_
             <div class="fw-bold text-muted small"><?= $orderType === 'hire' ? 'ใบสั่งจ่าย / ใบสั่งจ้าง' : 'ใบสั่งซื้อสินค้า' ?></div>
             <div class="fw-bold text-dark mt-2" style="font-size: 18px;"><?= $orderType === 'hire' ? 'เลขที่ใบสั่งจ่าย' : 'เลขที่ใบสั่งซื้อ' ?>: <?= htmlspecialchars((string) ($data['po_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
             <?php $quotationNo = trim((string) ($data['quotation_number'] ?? '')); ?>
+            <?php $quotationAttach = trim((string) ($data['quotation_attachment_path'] ?? '')); ?>
             <?php if ($quotationNo !== ''): ?>
                 <div class="small text-muted">อ้างอิงใบเสนอราคา: <?= htmlspecialchars($quotationNo, ENT_QUOTES, 'UTF-8'); ?></div>
+            <?php endif; ?>
+            <?php if ($quotationAttach !== ''): ?>
+                <?php
+                $attachLabel = trim((string) ($data['quotation_attachment_name'] ?? ''));
+                if ($attachLabel === '') {
+                    $attachLabel = 'เปิดไฟล์';
+                }
+                ?>
+                <div class="small text-muted">ไฟล์ใบเสนอราคา:
+                    <a href="<?= htmlspecialchars(app_path($quotationAttach), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></a>
+                </div>
             <?php endif; ?>
             <?php if ($referencePrNumber !== ''): ?>
                 <div class="small text-muted"><?= $orderType === 'hire' ? 'อ้างอิงสัญญา' : 'อ้างอิง PR' ?>: <?= htmlspecialchars($referencePrNumber, ENT_QUOTES, 'UTF-8'); ?></div>
@@ -266,10 +329,16 @@ $po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_
     <div class="footer-sticky">
         <div class="row align-items-end mb-4">
             <div class="col-7 small text-muted italic">
-                <?php if ($poNote !== ''): ?>
-                    <div style="font-size: 11px; font-weight: 700; color: #111; margin-bottom: 4px;">หมายเหตุ</div>
+                <?php if ($poNotePo !== ''): ?>
+                    <div style="font-size: 11px; font-weight: 700; color: #111; margin-bottom: 4px;">หมายเหตุ PO</div>
+                    <div style="font-size: 12px; line-height: 1.45; color: #444; white-space: pre-line; margin-bottom: <?= $poNoteQt !== '' ? '12px' : '0' ?>;">
+                        <?= htmlspecialchars($poNotePo, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
+                <?php if ($poNoteQt !== ''): ?>
+                    <div style="font-size: 11px; font-weight: 700; color: #111; margin-bottom: 4px;"><?= $poNotePo !== '' ? 'หมายเหตุ / เงื่อนไข (QT)' : 'หมายเหตุ' ?></div>
                     <div style="font-size: 12px; line-height: 1.45; color: #444; white-space: pre-line;">
-                        <?= htmlspecialchars($poNote, ENT_QUOTES, 'UTF-8'); ?>
+                        <?= htmlspecialchars($poNoteQt, ENT_QUOTES, 'UTF-8'); ?>
                     </div>
                 <?php endif; ?>
             </div>
@@ -325,5 +394,6 @@ $po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

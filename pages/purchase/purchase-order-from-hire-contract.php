@@ -66,7 +66,11 @@ $viewHcUrl = app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . 
 <html lang="th">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ใบสั่งจ่าย PO (สัญญาจ้างอิสระ)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
@@ -80,7 +84,8 @@ $viewHcUrl = app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . 
     </style>
 </head>
 <body>
-    <div class="container mt-5">
+<?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
+    <div class="container mt-4 mt-md-5 pb-5">
         <div class="row justify-content-center">
             <div class="col-lg-10">
                 <div class="card p-4">
@@ -263,7 +268,6 @@ $viewHcUrl = app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . 
             </div>
         </div>
     </div>
-</body>
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script>
 (function ($) {
@@ -433,4 +437,6 @@ $viewHcUrl = app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . 
     recalc();
 })();
 </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
 </html>

@@ -12,9 +12,10 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-if (!user_is_admin_role()) {
+// เฉพาะบทบาท ADMIN — CEO และบทบาทอื่นเข้าไม่ได้ (ดู user_is_admin_only_role ใน config/foundation.php)
+if (!user_is_admin_only_role()) {
     http_response_code(403);
-    exit('Access denied');
+    exit('ไม่มีสิทธิ์เข้าถึง — หน้านี้สำหรับผู้ดูแลระบบ (ADMIN) เท่านั้น');
 }
 
 $rows = Db::tableRows('audit_logs');

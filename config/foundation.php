@@ -142,7 +142,10 @@ if (!function_exists('user_is_admin_role')) {
 }
 
 if (!function_exists('user_is_admin_only_role')) {
-    /** เฉพาะ ADMIN (ไม่รวม CEO) — เช่น สดย่อย Petty Cash */
+    /**
+     * เฉพาะ ADMIN เท่านั้น (ไม่รวม CEO, ACCOUNTING, USER)
+     * ใช้กับหน้าที่อ่อนไหว เช่น สดย่อย, Audit log, ตั้งค่า LINE
+     */
     function user_is_admin_only_role(): bool
     {
         return session_role_normalized() === 'ADMIN';

@@ -1,7 +1,69 @@
 /**
  * แปลงลิงก์ลบแบบ GET → POST พร้อมใส่รหัสผ่านยืนยัน (ต้องมี SweetAlert2)
+ * window.tncSwalAttachPasswordReveal — ใส่ใน didOpen ของ Swal ที่ input เป็น password (เช่น index deleteItem)
  */
 (function () {
+    var tncPassEyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="1.15em" height="1.15em" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/></svg>';
+    var tncPassEyeSlashSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="1.15em" height="1.15em" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="m10.79 12.912-1.614-1.615a3.5 3.5 0 0 1-4.474-4.474l-2.06-2.06C.938 6.278 0 8 0 8s3 5.5 8 5.5a7.029 7.029 0 0 0 2.79-.588zM5.21 3.088A7.028 7.028 0 0 1 8 2.5c5 0 8 5.5 8 5.5s-.939 1.721-2.641 3.238l-2.062-2.062a3.5 3.5 0 0 0-4.474-4.474L5.21 3.089z"/><path d="M5.525 7.646a2.5 2.5 0 0 0 2.829 2.829l-2.83-2.829zm4.95.708-2.829-2.83a2.5 2.5 0 0 1 2.829 2.829zm3.171-6.122-1.414 1.414A8.5 8.5 0 0 1 16 8s-3 5.5-8 5.5a8.5 8.5 0 0 1-4.063-.98l-1.414 1.414A10.5 10.5 0 0 0 8 14c5 0 8-5.5 8-5.5a10.5 10.5 0 0 0-2.324-4.474zM2.98 4.98l1.414-1.414A10.5 10.5 0 0 0 0 8c0 0 3 5.5 8 5.5a8.5 8.5 0 0 0 4.063-.98l1.414 1.414A10.5 10.5 0 0 1 8 14c-5 0-8-5.5-8-5.5 0-1.61.656-3.22 1.98-4.52z"/></svg>';
+
+    /**
+     * ปุ่มลูกตาแสดง/ซ่อนรหัสผ่านใน Swal (เรียกจาก didOpen)
+     * ห้ามห่อ/ย้าย .swal2-input — SweetAlert2 หา input ด้วย .swal2-popup > .swal2-input
+     */
+    window.tncSwalAttachPasswordReveal = function () {
+        if (typeof Swal === 'undefined') {
+            return;
+        }
+        var run = function () {
+            var input = Swal.getInput();
+            if (!input || (input.type !== 'password' && input.type !== 'text')) {
+                return;
+            }
+            if (input.getAttribute('data-tnc-pass-reveal') === '1') {
+                return;
+            }
+            var popup = input.closest('.swal2-popup');
+            if (!popup) {
+                return;
+            }
+            input.setAttribute('data-tnc-pass-reveal', '1');
+            popup.classList.add('tnc-delete-pass-host');
+            if (!popup.querySelector('.tnc-delete-pass-toggle')) {
+                var toggle = document.createElement('button');
+                toggle.type = 'button';
+                toggle.className = 'tnc-delete-pass-toggle';
+                toggle.setAttribute('aria-label', 'แสดงรหัสผ่าน');
+                toggle.setAttribute('title', 'แสดงรหัสผ่าน');
+                toggle.innerHTML = tncPassEyeSvg;
+                var positionToggle = function () {
+                    var ir = input.getBoundingClientRect();
+                    var pr = popup.getBoundingClientRect();
+                    var w = 38;
+                    toggle.style.position = 'absolute';
+                    toggle.style.left = Math.max(0, ir.right - pr.left - w) + 'px';
+                    toggle.style.top = (ir.top - pr.top + ir.height / 2) + 'px';
+                    toggle.style.transform = 'translateY(-50%)';
+                    toggle.style.right = 'auto';
+                };
+                toggle.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    var hidden = input.type === 'password';
+                    input.type = hidden ? 'text' : 'password';
+                    toggle.innerHTML = hidden ? tncPassEyeSlashSvg : tncPassEyeSvg;
+                    toggle.setAttribute('aria-label', hidden ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน');
+                    toggle.setAttribute('title', hidden ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน');
+                    positionToggle();
+                });
+                popup.appendChild(toggle);
+                positionToggle();
+            }
+            input.focus();
+        };
+        requestAnimationFrame(function () {
+            requestAnimationFrame(run);
+        });
+    };
+
     if (typeof Swal === 'undefined') {
         return;
     }
@@ -20,8 +82,11 @@
             '.swal2-popup.tnc-delete-popup .swal2-confirm{background:#dc3545!important;box-shadow:0 .45rem .95rem rgba(220,53,69,.26)!important;}' +
             '.swal2-popup.tnc-delete-popup .swal2-cancel{background:rgba(255,255,255,.72)!important;color:#475569!important;border:1px solid rgba(100,116,139,.28)!important;}' +
             '.tnc-delete-alert-icon{width:68px;height:68px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;margin:0 auto .35rem;background:rgba(220,53,69,.12);border:1px solid rgba(220,53,69,.3);color:#dc3545;font-size:1.95rem;animation:tncDeletePulse 1.2s ease-in-out infinite;}' +
-            '.tnc-delete-pass-wrap{position:relative;}' +
-            '.tnc-delete-pass-toggle{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);border:none;background:transparent;color:#6b7280;line-height:1;padding:.2rem .25rem;}' +
+            '.swal2-popup.tnc-delete-pass-host{position:relative!important;}' +
+            '.swal2-popup.tnc-delete-pass-host .swal2-input[data-tnc-pass-reveal="1"]{padding-right:2.75rem!important;box-sizing:border-box!important;}' +
+            '.tnc-delete-pass-toggle{z-index:20;display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border:none;background:rgba(248,250,252,.92);color:#64748b;line-height:1;padding:0;border-radius:8px;cursor:pointer;box-shadow:0 0 0 1px rgba(148,163,184,.35);}' +
+            '.tnc-delete-pass-toggle:hover{background:rgba(241,245,249,.95);color:#334155;}' +
+            '.tnc-delete-pass-toggle:focus-visible{outline:2px solid rgba(253,126,20,.45);outline-offset:1px;}' +
             '.tnc-delete-pass-shake{animation:tncDeleteShake .34s ease-in-out 1;}' +
             '@keyframes tncDeletePulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.08);opacity:.9;}}' +
             '@keyframes tncDeleteShake{0%,100%{transform:translateX(0);}20%{transform:translateX(-6px);}40%{transform:translateX(5px);}60%{transform:translateX(-4px);}80%{transform:translateX(3px);}}';
@@ -60,22 +125,8 @@
                 autocomplete: 'current-password'
             },
             didOpen: function () {
-                var input = Swal.getInput();
-                if (!input) return;
-                input.focus();
-                if (input.parentElement) input.parentElement.classList.add('tnc-delete-pass-wrap');
-                if (input.parentElement && !input.parentElement.querySelector('.tnc-delete-pass-toggle')) {
-                    var toggle = document.createElement('button');
-                    toggle.type = 'button';
-                    toggle.className = 'tnc-delete-pass-toggle';
-                    toggle.setAttribute('aria-label', 'แสดงหรือซ่อนรหัสผ่าน');
-                    toggle.innerHTML = '<i class="bi bi-eye"></i>';
-                    toggle.addEventListener('click', function () {
-                        var hidden = input.type === 'password';
-                        input.type = hidden ? 'text' : 'password';
-                        toggle.innerHTML = hidden ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
-                    });
-                    input.parentElement.appendChild(toggle);
+                if (typeof window.tncSwalAttachPasswordReveal === 'function') {
+                    window.tncSwalAttachPasswordReveal();
                 }
             },
             preConfirm: function (pw) {
@@ -118,6 +169,9 @@
             cp.value = res.value;
             form.appendChild(cp);
             document.body.appendChild(form);
+            if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.show === 'function') {
+                window.TncLoadingOverlay.show();
+            }
             form.submit();
         });
     });

@@ -142,6 +142,9 @@
         form.addEventListener('submit', function (ev) {
             if (!shouldBind(form)) return;
             ev.preventDefault();
+            if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.show === 'function') {
+                window.TncLoadingOverlay.show();
+            }
 
             var fd = new FormData(form);
             fd.set('_tnc_ajax', '1');
@@ -190,7 +193,12 @@
                                 var mi = bootstrap.Modal.getInstance(modalEl);
                                 if (mi) mi.hide();
                             }
-                            if (softReloadDefault(form)) {
+                            var poCreatedUrl = (j.action === 'po_created' && (j.redirect || j.url)) ? (j.redirect || j.url) : null;
+                            if (poCreatedUrl) {
+                                setTimeout(function () {
+                                    window.location.href = poCreatedUrl;
+                                }, 800);
+                            } else if (softReloadDefault(form)) {
                                 setTimeout(function () {
                                     window.location.reload();
                                 }, 650);
@@ -202,6 +210,11 @@
                 })
                 .catch(function () {
                     showToast(false, 'เครือข่ายผิดพลาด', '');
+                })
+                .finally(function () {
+                    if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.hide === 'function') {
+                        window.TncLoadingOverlay.hide();
+                    }
                 });
         });
     }

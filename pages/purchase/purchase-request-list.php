@@ -13,7 +13,6 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$canApprovePr = user_is_finance_role();
 $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 
 $users = Db::tableKeyed('users');
@@ -22,15 +21,20 @@ Db::sortRows($companies, 'id', false);
 $companyName = trim((string) ((array_values($companies)[0]['name'] ?? '')));
 $pr_rows = Db::tableRows('purchase_requests');
 foreach ($pr_rows as &$row) {
-    $rb = $users[(string) ($row['requested_by'] ?? '')] ?? null;
     $cb = $users[(string) ($row['created_by'] ?? '')] ?? null;
-    $row['fname'] = $rb['fname'] ?? '';
-    $row['lname'] = $rb['lname'] ?? '';
     $row['creator_fname'] = $cb['fname'] ?? '';
     $row['creator_lname'] = $cb['lname'] ?? '';
 }
 unset($row);
 Db::sortRows($pr_rows, 'created_at', true);
+
+$pr_ids_with_po = [];
+foreach (Db::tableRows('purchase_orders') as $poRow) {
+    $pRid = (int) ($poRow['pr_id'] ?? 0);
+    if ($pRid > 0) {
+        $pr_ids_with_po[$pRid] = true;
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -65,9 +69,15 @@ Db::sortRows($pr_rows, 'created_at', true);
 
 <div class="container mt-4 mb-5">
     <div class="no-print">
-    <?php if (!empty($_GET['line_error'])): ?>
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            ส่งแจ้งเตือน LINE ไม่สำเร็จ (กรุณาตรวจสอบการตั้งค่า LINE API)
+    <?php if (!empty($_GET['success'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            บันทึกใบขอซื้อ (PR) เรียบร้อยแล้ว — พิมพ์หรือออก PO จากหน้ารายละเอียดได้ทันที
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+    <?php if (!empty($_GET['updated'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            แก้ไขใบขอซื้อ (PR) เรียบร้อยแล้ว
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
@@ -77,24 +87,14 @@ Db::sortRows($pr_rows, 'created_at', true);
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
-    <?php if (!empty($_GET['approved'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            อนุมัติใบ PR เรียบร้อยแล้ว
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['rejected'])): ?>
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            ปฏิเสธใบ PR เรียบร้อยแล้ว
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
     <?php if (!empty($_GET['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <?php
             $err = $_GET['error'];
             if ($err === 'invalid_pr') {
                 echo 'ไม่พบรหัสใบขอซื้อที่ถูกต้อง';
+            } elseif ($err === 'pr_has_po') {
+                echo 'ใบขอซื้อนี้มีใบสั่งซื้อ (PO) แล้ว ไม่สามารถแก้ไขได้';
             } elseif ($err === 'delete_pr_failed') {
                 echo 'ไม่สามารถลบใบขอซื้อได้ กรุณาลองใหม่หรือติดต่อผู้ดูแลระบบ';
             } else {
@@ -111,8 +111,11 @@ Db::sortRows($pr_rows, 'created_at', true);
             <i class="bi bi-cart-check-fill text-warning me-2"></i> รายการใบขอซื้อ (Purchase requests List)
         </h3>
         <div class="d-flex flex-wrap gap-2 no-print">
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-primary rounded-pill px-3 shadow-sm">
+                <i class="bi bi-receipt me-1"></i>รายการใบสั่งซื้อ
+            </a>
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4 shadow-sm">
-                <i class="bi bi-plus-lg"></i> สร้างใบ PR ใหม่
+                <i class="bi bi-plus-lg"></i> สร้างใบขอซื้อใหม่
             </a>
         </div>
     </div>
@@ -129,16 +132,19 @@ Db::sortRows($pr_rows, 'created_at', true);
                     <tr>
                         <th>เลขที่ PR</th>
                         <th>วันที่ขอซื้อ/จัดจ้าง</th>
-                        <th>ผู้ขอซื้อ/ผู้จัดจ้าง</th>
+                        <th>ไซต์งาน</th>
                         <th class="text-center">ประเภท</th>
                         <th class="text-end">ยอดรวมสุทธิ</th>
-                        <th class="text-center">สถานะ</th>
                         <th class="text-center">การจัดการ</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (count($pr_rows) > 0): ?>
                         <?php foreach ($pr_rows as $row): ?>
+                        <?php
+                            $rowPrId = (int) ($row['id'] ?? 0);
+                            $prHasPo = $rowPrId > 0 && !empty($pr_ids_with_po[$rowPrId]);
+                        ?>
                         <tr>
                             <td>
                                 <div class="fw-bold text-primary"><?= htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
@@ -148,7 +154,10 @@ Db::sortRows($pr_rows, 'created_at', true);
                                 ?></div>
                             </td>
                             <td><?= date('d/m/Y', strtotime($row['created_at'])) ?></td>
-                            <td><?= htmlspecialchars($companyName !== '' ? $companyName : '-', ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="small"><?php
+                                $sn = trim((string) ($row['site_name'] ?? ''));
+                                echo $sn !== '' ? htmlspecialchars($sn, ENT_QUOTES, 'UTF-8') : '—';
+                            ?></td>
                             <td class="text-center">
                                 <?php $reqType = (string) ($row['request_type'] ?? 'purchase'); ?>
                                 <?php if ($reqType === 'hire'): ?>
@@ -161,33 +170,14 @@ Db::sortRows($pr_rows, 'created_at', true);
                                 <div class="fw-bold"><?= number_format((float)$row['total_amount'], 2) ?></div>
                             </td>
                             <td class="text-center">
-                                <?php if($row['status'] == 'pending'): ?>
-                                    <span class="badge bg-warning text-dark px-3 rounded-pill">PENDING</span>
-                                <?php elseif($row['status'] == 'approved'): ?>
-                                    <span class="badge bg-success px-3 rounded-pill">APPROVED</span>
-                                <?php else: ?>
-                                    <span class="badge bg-danger px-3 rounded-pill">REJECTED</span>
-                                <?php endif; ?>
-                            </td>
-                            <td class="text-center">
                                 <div class="btn-group shadow-sm rounded">
                                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $row['id'] ?>" class="btn btn-sm btn-white text-primary border" title="ดูรายละเอียด">
                                         <i class="bi bi-eye-fill"></i>
                                     </a>
-
-                                    <?php if($row['status'] == 'pending'): ?>
-                                        <?php if ($canApprovePr): ?>
-                                            <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=approve_pr&id=<?= (int) $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" 
-                                               class="btn btn-sm btn-white text-success border" 
-                                               onclick="return confirm('ยืนยันการอนุมัติใบขอซื้อ <?= htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>?')">
-                                                <i class="bi bi-check-circle-fill"></i>
-                                            </a>
-                                            <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=reject_pr&id=<?= (int) $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" 
-                                               class="btn btn-sm btn-white text-danger border" 
-                                               onclick="return confirm('ยืนยันการปฏิเสธใบขอซื้อ <?= htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>?')">
-                                                <i class="bi bi-x-circle-fill"></i>
-                                            </a>
-                                        <?php endif; ?>
+                                    <?php if (!$prHasPo): ?>
+                                        <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['id'] ?>" class="btn btn-sm btn-white text-warning border" title="แก้ไขใบขอซื้อ">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </a>
                                     <?php endif; ?>
 
                                     <?php if (user_is_admin_role()): ?>
@@ -203,7 +193,7 @@ Db::sortRows($pr_rows, 'created_at', true);
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">ไม่พบข้อมูลใบขอซื้อ</td>
+                            <td colspan="6" class="text-center py-4 text-muted">ไม่พบข้อมูลใบขอซื้อ</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>

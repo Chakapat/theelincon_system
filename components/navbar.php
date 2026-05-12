@@ -281,7 +281,7 @@ if (!function_exists('app_path')) {
                         </span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="min-width: 13rem;" aria-labelledby="userDropdown">
-                        <?php if (user_is_admin_role()): ?>
+                        <?php if (user_is_admin_only_role()): ?>
                         <li>
                             <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/internal/audit-log.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <i class="bi bi-clock-history me-2 text-primary"></i>Audit Log
@@ -551,4 +551,5 @@ document.addEventListener('DOMContentLoaded', function () {
     }, true);
 })();
 </script>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-loading-overlay.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-ajax-form.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
