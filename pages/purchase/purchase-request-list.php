@@ -54,6 +54,16 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
         .btn-orange:hover { background-color: #e86c00; color: white; }
         .badge { font-weight: 500; }
         .pr-print-head { border-bottom: 2px solid #fd7e14; padding-bottom: 0.75rem; margin-bottom: 1rem; }
+        .pr-po-status-dot {
+            width: 0.55rem;
+            height: 0.55rem;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.06);
+        }
+        .pr-po-status-dot--no-po { background-color: #ffc107; }
+        .pr-po-status-dot--has-po { background-color: #198754; }
         @media print {
             nav, .navbar, .no-print { display: none !important; }
             body { background: #fff !important; font-size: 11pt; }
@@ -147,7 +157,20 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
                         ?>
                         <tr>
                             <td>
-                                <div class="fw-bold text-primary"><?= htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                                <div class="fw-bold text-primary">
+                                    <span class="d-inline-flex align-items-center gap-2">
+                                        <?php
+                                        $prNoDisp = htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8');
+                                        $prViewHref = htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . (int) $row['id'];
+                                        echo '<a href="' . $prViewHref . '" class="text-primary text-decoration-none" title="ดูรายละเอียด">' . $prNoDisp . '</a>';
+                                        if ($prHasPo) {
+                                            echo '<span class="pr-po-status-dot pr-po-status-dot--has-po" role="img" aria-label="ออก PO แล้ว" title="ออก PO แล้ว"></span>';
+                                        } else {
+                                            echo '<span class="pr-po-status-dot pr-po-status-dot--no-po" role="img" aria-label="ยังไม่ออก PO" title="ยังไม่ออก PO"></span>';
+                                        }
+                                        ?>
+                                    </span>
+                                </div>
                                 <div class="small text-muted"><?php
                                     $cr = trim(($row['creator_fname'] ?? '') . ' ' . ($row['creator_lname'] ?? ''));
                                     echo $cr !== '' ? htmlspecialchars($cr) : '—';
@@ -171,13 +194,14 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
                             </td>
                             <td class="text-center">
                                 <div class="btn-group shadow-sm rounded">
-                                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $row['id'] ?>" class="btn btn-sm btn-white text-primary border" title="ดูรายละเอียด">
-                                        <i class="bi bi-eye-fill"></i>
-                                    </a>
                                     <?php if (!$prHasPo): ?>
                                         <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['id'] ?>" class="btn btn-sm btn-white text-warning border" title="แก้ไขใบขอซื้อ">
                                             <i class="bi bi-pencil-fill"></i>
                                         </a>
+                                    <?php else: ?>
+                                        <span class="btn btn-sm btn-white text-secondary border disabled opacity-75" style="cursor: not-allowed;" title="มีใบสั่งซื้อ (PO) แล้ว — แก้ไขไม่ได้">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </span>
                                     <?php endif; ?>
 
                                     <?php if (user_is_admin_role()): ?>

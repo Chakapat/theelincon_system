@@ -19,6 +19,27 @@ $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 $suppliers = Db::tableKeyed('suppliers');
 $users = Db::tableKeyed('users');
 
+$poFilterType = trim((string) ($_GET['po_filter'] ?? 'all'));
+if (!in_array($poFilterType, ['all', 'day', 'month'], true)) {
+    $poFilterType = 'all';
+}
+$poFilterDay = trim((string) ($_GET['po_date'] ?? ''));
+$poFilterMonth = trim((string) ($_GET['po_month'] ?? ''));
+if ($poFilterType === 'day' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $poFilterDay) !== 1) {
+    $poFilterType = 'all';
+    $poFilterDay = '';
+}
+if ($poFilterType === 'month' && preg_match('/^\d{4}-\d{2}$/', $poFilterMonth) !== 1) {
+    $poFilterType = 'all';
+    $poFilterMonth = '';
+}
+if ($poFilterType === 'day' && $poFilterDay === '') {
+    $poFilterType = 'all';
+}
+if ($poFilterType === 'month' && $poFilterMonth === '') {
+    $poFilterType = 'all';
+}
+
 /** วันที่ใช้เรียง/แสดง: issue_date ก่อน แล้ว fallback created_at → Y-m-d หรือว่าง */
 $poListSortYmd = static function (array $row): string {
     $issue = trim((string) ($row['issue_date'] ?? ''));
@@ -42,7 +63,6 @@ $poListSortYmd = static function (array $row): string {
 };
 
 $po_rows = [];
-$totalAmount = 0.0;
 foreach (Db::tableRows('purchase_orders') as $po) {
     $s = $suppliers[(string) ($po['supplier_id'] ?? '')] ?? null;
     $u = $users[(string) ($po['created_by'] ?? '')] ?? null;
@@ -51,7 +71,6 @@ foreach (Db::tableRows('purchase_orders') as $po) {
         $status = 'ordered';
     }
     $amt = (float) ($po['total_amount'] ?? 0);
-    $totalAmount += $amt;
     $paymentStatus = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
     if (!in_array($paymentStatus, ['paid', 'unpaid'], true)) {
         $paymentStatus = 'unpaid';
@@ -84,7 +103,37 @@ usort($po_rows, static function (array $a, array $b): int {
     }
     return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
 });
-$poCount = count($po_rows);
+
+$po_rows_display = $po_rows;
+if ($poFilterType === 'day' && $poFilterDay !== '') {
+    $po_rows_display = array_values(array_filter(
+        $po_rows,
+        static function (array $r) use ($poFilterDay): bool {
+            return (string) ($r['_list_sort_ymd'] ?? '') === $poFilterDay;
+        }
+    ));
+} elseif ($poFilterType === 'month' && $poFilterMonth !== '') {
+    $po_rows_display = array_values(array_filter(
+        $po_rows,
+        static function (array $r) use ($poFilterMonth): bool {
+            $ymd = (string) ($r['_list_sort_ymd'] ?? '');
+
+            return strlen($ymd) >= 7 && strncmp($ymd, $poFilterMonth, 7) === 0;
+        }
+    ));
+}
+
+$poCount = count($po_rows_display);
+$totalAmount = 0.0;
+foreach ($po_rows_display as $sumRow) {
+    if (($sumRow['status'] ?? '') === 'cancelled') {
+        continue;
+    }
+    if (($sumRow['payment_status'] ?? 'unpaid') !== 'paid') {
+        continue;
+    }
+    $totalAmount += (float) ($sumRow['total_amount'] ?? 0);
+}
 ?>
 
 <!DOCTYPE html>
@@ -190,17 +239,54 @@ $poCount = count($po_rows);
         </div>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-6">
-            <div class="card p-3 border-0 shadow-sm h-100">
-                <div class="text-muted small">จำนวนใบสั่งซื้อทั้งหมด</div>
-                <div class="fs-4 fw-bold"><?= number_format($poCount) ?> รายการ</div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card p-3 border-0 shadow-sm h-100">
-                <div class="text-muted small">ยอดรวมทั้งหมด</div>
-                <div class="fs-4 fw-bold text-primary"><?= number_format($totalAmount, 2) ?> บาท</div>
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body py-3">
+            <div class="row g-3 align-items-end flex-lg-nowrap">
+                <div class="col-12 col-lg min-w-0">
+                    <form method="get" action="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="row g-2 gx-2 align-items-end" id="poFilterForm">
+                        <div class="col-auto">
+                            <label class="form-label small text-muted mb-1 text-nowrap">ค้นหาตามช่วงวันที่</label>
+                            <select name="po_filter" id="poFilterType" class="form-select form-select-sm" style="min-width: 7.5rem;" aria-label="ประเภทตัวกรอง">
+                                <option value="all" <?= $poFilterType === 'all' ? 'selected' : '' ?>>ทั้งหมด</option>
+                                <option value="day" <?= $poFilterType === 'day' ? 'selected' : '' ?>>รายวัน</option>
+                                <option value="month" <?= $poFilterType === 'month' ? 'selected' : '' ?>>รายเดือน</option>
+                            </select>
+                        </div>
+                        <div class="col-auto po-filter-day-wrap" style="<?= $poFilterType === 'day' ? '' : 'display:none;' ?>">
+                            <label class="form-label small text-muted mb-1 text-nowrap">เลือกวัน</label>
+                            <input type="date" name="po_date" class="form-control form-control-sm" value="<?= htmlspecialchars($poFilterDay, ENT_QUOTES, 'UTF-8') ?>">
+                        </div>
+                        <div class="col-auto po-filter-month-wrap" style="<?= $poFilterType === 'month' ? '' : 'display:none;' ?>">
+                            <label class="form-label small text-muted mb-1 text-nowrap">เลือกเดือน</label>
+                            <input type="month" name="po_month" class="form-control form-control-sm" value="<?= htmlspecialchars($poFilterMonth, ENT_QUOTES, 'UTF-8') ?>">
+                        </div>
+                        <div class="col-auto d-flex flex-wrap gap-2 pt-2 pt-sm-0 align-items-end">
+                            <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3"><i class="bi bi-search me-1"></i>ใช้ตัวกรอง</button>
+                            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">ล้าง</a>
+                        </div>
+                    </form>
+                    <?php if ($poFilterType === 'day' && $poFilterDay !== ''): ?>
+                        <div class="small text-muted mt-2 mb-0">กำลังแสดงเฉพาะ PO วันที่ออก <?= htmlspecialchars(date('d/m/Y', strtotime($poFilterDay)), ENT_QUOTES, 'UTF-8') ?></div>
+                    <?php elseif ($poFilterType === 'month' && $poFilterMonth !== ''): ?>
+                        <?php
+                        $mTs = strtotime($poFilterMonth . '-01');
+                        $monthLabel = $mTs !== false ? date('m/Y', $mTs) : $poFilterMonth;
+                        ?>
+                        <div class="small text-muted mt-2 mb-0">กำลังแสดงเฉพาะ PO เดือน <?= htmlspecialchars($monthLabel, ENT_QUOTES, 'UTF-8') ?></div>
+                    <?php endif; ?>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-auto flex-shrink-0" style="min-width: 11rem;">
+                    <div class="rounded-3 border bg-light px-3 py-2 h-100">
+                        <div class="text-muted small text-nowrap text-truncate" title="จำนวนรายการที่แสดง">จำนวนที่แสดง<?= $poFilterType !== 'all' ? '*' : '' ?></div>
+                        <div class="fs-5 fw-bold mb-0"><?= number_format($poCount) ?> <span class="fs-6 fw-normal text-secondary">รายการ</span></div>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-auto flex-shrink-0" style="min-width: 12rem;">
+                    <div class="rounded-3 border bg-light px-3 py-2 h-100">
+                        <div class="text-muted small text-nowrap text-truncate" title="ยอดรวมที่จ่ายแล้ว (เฉพาะจ่ายแล้ว ไม่ยกเลิก)">ยอดจ่ายแล้ว<?= $poFilterType !== 'all' ? '*' : '' ?></div>
+                        <div class="fs-5 fw-bold text-primary mb-0"><?= number_format($totalAmount, 2) ?> <span class="fs-6 fw-normal text-secondary">บาท</span></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -220,13 +306,19 @@ $poCount = count($po_rows);
                     </tr>
                 </thead>
                 <tbody id="poTableBody">
-                    <?php if (count($po_rows) === 0): ?>
-                        <tr><td colspan="7" class="text-center py-4 text-muted">ยังไม่มีการออกใบสั่งซื้อ</td></tr>
+                    <?php if (count($po_rows_display) === 0): ?>
+                        <tr><td colspan="7" class="text-center py-4 text-muted"><?= count($po_rows) === 0 ? 'ยังไม่มีการออกใบสั่งซื้อ' : 'ไม่มีรายการตามเงื่อนไขที่เลือก — ลองเปลี่ยนตัวกรองวันที่' ?></td></tr>
                     <?php else: ?>
-                        <?php foreach ($po_rows as $row): ?>
+                        <?php foreach ($po_rows_display as $row): ?>
                     <tr>
                         <td>
-                            <div class="fw-bold text-primary"><?= htmlspecialchars((string) ($row['po_number'] ?? '')) ?></div>
+                            <div class="fw-bold text-primary">
+                                <?php
+                                $poNoDisp = htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8');
+                                $poViewHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . (int) ($row['id'] ?? 0);
+                                echo '<a href="' . $poViewHref . '" class="text-primary text-decoration-none" title="ดูรายละเอียด">' . $poNoDisp . '</a>';
+                                ?>
+                            </div>
                             <div class="small text-muted"><?php $cb = trim((string)($row['created_by_name'] ?? '')); echo $cb !== '' ? htmlspecialchars($cb) : '—'; ?></div>
                         </td>
                         <?php
@@ -293,12 +385,14 @@ $poCount = count($po_rows);
                             <?php endif; ?>
                         </td>
                         <td class="text-center">
-                            <?php $rowPaid = (($row['payment_status'] ?? 'unpaid') === 'paid'); ?>
+                            <?php
+                            $rowPaid = (($row['payment_status'] ?? 'unpaid') === 'paid');
+                            $poCanEditCancel = ($row['status'] ?? '') !== 'cancelled' && !$rowPaid;
+                            $poCanAdminDelete = $isAdmin && !$rowPaid;
+                            ?>
+                            <?php if ($poCanEditCancel || $poCanAdminDelete): ?>
                             <div class="btn-group shadow-sm">
-                                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php')) ?>?id=<?= (int)$row['id'] ?>" class="btn btn-sm btn-outline-primary" title="ดูรายละเอียด">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                <?php if (($row['status'] ?? '') !== 'cancelled' && !$rowPaid): ?>
+                                <?php if ($poCanEditCancel): ?>
                                 <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php')) ?>?id=<?= (int)$row['id'] ?>" class="btn btn-sm btn-outline-warning" title="แก้ไขใบสั่งซื้อ">
                                     <i class="bi bi-pencil-square"></i>
                                 </a>
@@ -308,12 +402,15 @@ $poCount = count($po_rows);
                                     <button type="submit" class="btn btn-sm btn-outline-danger" title="ยกเลิกใบ PO"><i class="bi bi-x-circle"></i></button>
                                 </form>
                                 <?php endif; ?>
-                                <?php if ($isAdmin && !$rowPaid): ?>
+                                <?php if ($poCanAdminDelete): ?>
                                     <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete&type=purchase_order&id=<?= (int) $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger tnc-delete-post" title="ลบใบสั่งซื้อ (ต้องใส่รหัสผ่าน)">
                                         <i class="bi bi-trash3-fill"></i>
                                     </a>
                                 <?php endif; ?>
                             </div>
+                            <?php else: ?>
+                                <span class="text-muted small">—</span>
+                            <?php endif; ?>
                         </td>
                     </tr>
                         <?php endforeach; ?>
@@ -377,7 +474,8 @@ $poCount = count($po_rows);
     if ($('#poTable tbody tr').length && $('#poTable tbody tr td[colspan]').length === 0) {
         $('#poTable').DataTable({
             order: [[1, 'desc']],
-            pageLength: 25,
+            pageLength: 10,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
             columnDefs: [{ targets: [6], orderable: false, searchable: false }]
         });
@@ -441,6 +539,19 @@ $poCount = count($po_rows);
             showSlipModal.show();
         });
     });
+})();
+
+(function () {
+    const sel = document.getElementById('poFilterType');
+    const dayWrap = document.querySelector('.po-filter-day-wrap');
+    const monthWrap = document.querySelector('.po-filter-month-wrap');
+    if (!sel || !dayWrap || !monthWrap) return;
+    const sync = () => {
+        const v = sel.value;
+        dayWrap.style.display = v === 'day' ? '' : 'none';
+        monthWrap.style.display = v === 'month' ? '' : 'none';
+    };
+    sel.addEventListener('change', sync);
 })();
 </script>
 

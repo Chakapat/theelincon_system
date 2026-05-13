@@ -12,6 +12,21 @@ function cash_ledger_daily_money(float $n): string
     return number_format($n, 2, '.', ',');
 }
 
+/** @param string $ymd `Y-m-d` from ledger */
+function cash_ledger_daily_report_date_display(string $ymd): string
+{
+    $ymd = trim($ymd);
+    if ($ymd === '') {
+        return '';
+    }
+    $ts = strtotime($ymd . ' 12:00:00');
+    if ($ts === false) {
+        return $ymd;
+    }
+
+    return date('d / m / Y', $ts);
+}
+
 /**
  * Running balance across all ledger rows (income +, expense −), chronological.
  */
@@ -121,16 +136,22 @@ function cash_ledger_daily_flex_truncate(string $text, int $maxLen = 1800): stri
     return rtrim(mb_substr($t, 0, $maxLen - 1, 'UTF-8')) . '…';
 }
 
-function cash_ledger_daily_entry_main_title(array $entry): string
+function cash_ledger_daily_entry_title_head(array $entry): string
 {
-    $type = (string) ($entry['entry_type'] ?? '');
     $category = trim((string) ($entry['category'] ?? ''));
     $desc = trim((string) ($entry['description'] ?? ''));
     $headBits = array_filter([$category !== '' ? $category : null, $desc !== '' ? $desc : null], static fn ($x) => $x !== null);
-    $head = $headBits !== [] ? implode(' · ', $headBits) : '(no title)';
-    $typeLabel = $type === 'income' ? 'Income' : ($type === 'expense' ? 'Expense' : $type);
 
-    return cash_ledger_daily_flex_truncate("[{$typeLabel}] {$head}", 600);
+    return $headBits !== [] ? implode(' · ', $headBits) : '(no title)';
+}
+
+function cash_ledger_daily_entry_main_title(array $entry): string
+{
+    $type = (string) ($entry['entry_type'] ?? '');
+    $head = cash_ledger_daily_entry_title_head($entry);
+    $typeLabel = $type === 'income' ? 'รับ' : ($type === 'expense' ? 'จ่าย' : $type);
+
+    return cash_ledger_daily_flex_truncate("{$typeLabel} {$head}", 600);
 }
 
 /**
@@ -138,27 +159,31 @@ function cash_ledger_daily_entry_main_title(array $entry): string
  */
 function cash_ledger_daily_flex_entry_sections(array $entry): array
 {
-    $sections = [];
-    $sections[] = [
-        'type' => 'text',
-        'text' => cash_ledger_daily_entry_main_title($entry),
-        'weight' => 'bold',
-        'size' => 'md',
-        'wrap' => true,
-        'color' => '#111827',
-    ];
+    $type = (string) ($entry['entry_type'] ?? '');
+    if ($type === 'expense') {
+        $prefix = 'จ่าย ';
+        $prefixColor = '#dc2626';
+    } elseif ($type === 'income') {
+        $prefix = 'รับ ';
+        $prefixColor = '#059669';
+    } else {
+        $prefix = ($type !== '' ? $type . ' ' : '? ');
+        $prefixColor = '#6b7280';
+    }
 
     $id = (int) ($entry['id'] ?? 0);
     $subLines = $id > 0 ? cash_ledger_daily_lines_for_ledger($id) : [];
 
-    $itemBoxContents = [];
+    $lineBlocks = [];
     if (count($subLines) === 0) {
-        $itemBoxContents[] = [
+        $head = cash_ledger_daily_flex_truncate(cash_ledger_daily_entry_title_head($entry), 580);
+        $lineBlocks[] = [
             'type' => 'text',
-            'text' => 'รายการเดียว (ยอดรวมอยู่ท้ายการ์ด)',
-            'size' => 'xs',
-            'color' => '#9ca3af',
             'wrap' => true,
+            'contents' => [
+                ['type' => 'span', 'text' => $prefix, 'weight' => 'bold', 'size' => 'md', 'color' => $prefixColor],
+                ['type' => 'span', 'text' => $head, 'weight' => 'bold', 'size' => 'md', 'color' => '#111827'],
+            ],
         ];
     } else {
         foreach ($subLines as $sl) {
@@ -166,51 +191,34 @@ function cash_ledger_daily_flex_entry_sections(array $entry): array
             if ($name === '') {
                 $name = '(item)';
             }
-            $name = cash_ledger_daily_flex_truncate($name, 500);
+            $name = cash_ledger_daily_flex_truncate($name, 450);
             $qty = (float) ($sl['quantity'] ?? 0);
             $price = (float) ($sl['unit_price'] ?? 0);
-            $sub = round((float) ($sl['line_total'] ?? 0), 2);
-            $qtyStr = rtrim(rtrim(number_format($qty, 3, '.', ''), '0'), '.');
-            $detail = cash_ledger_daily_flex_truncate("{$qtyStr} × ฿" . cash_ledger_daily_money($price), 400);
+            $lineTotal = round((float) ($sl['line_total'] ?? 0), 2);
+            if ($lineTotal <= 0.0 && ($qty > 0.0 || $price > 0.0)) {
+                $lineTotal = round($qty * $price, 2);
+            }
+            $detail = ' ' . cash_ledger_daily_flex_truncate('฿' . cash_ledger_daily_money($lineTotal), 200);
 
-            $itemBoxContents[] = [
-                'type' => 'box',
-                'layout' => 'horizontal',
-                'spacing' => 'sm',
+            $lineBlocks[] = [
+                'type' => 'text',
+                'wrap' => true,
                 'contents' => [
-                    [
-                        'type' => 'box',
-                        'layout' => 'vertical',
-                        'flex' => 4,
-                        'spacing' => 'xs',
-                        'contents' => [
-                            ['type' => 'text', 'text' => $name, 'size' => 'sm', 'wrap' => true, 'color' => '#374151'],
-                            ['type' => 'text', 'text' => $detail, 'size' => 'xs', 'wrap' => true, 'color' => '#9ca3af'],
-                        ],
-                    ],
-                    [
-                        'type' => 'text',
-                        'text' => '฿' . cash_ledger_daily_money($sub),
-                        'size' => 'sm',
-                        'flex' => 2,
-                        'align' => 'end',
-                        'color' => '#1f2937',
-                        'weight' => 'bold',
-                    ],
+                    ['type' => 'span', 'text' => $prefix, 'weight' => 'bold', 'size' => 'md', 'color' => $prefixColor],
+                    ['type' => 'span', 'text' => $name, 'weight' => 'bold', 'size' => 'md', 'color' => '#111827'],
+                    ['type' => 'span', 'text' => $detail, 'size' => 'xs', 'color' => '#9ca3af'],
                 ],
             ];
         }
     }
 
-    $sections[] = [
+    return [[
         'type' => 'box',
         'layout' => 'vertical',
         'margin' => 'sm',
         'spacing' => 'xs',
-        'contents' => $itemBoxContents,
-    ];
-
-    return $sections;
+        'contents' => $lineBlocks,
+    ]];
 }
 
 /**
@@ -221,7 +229,7 @@ function cash_ledger_daily_flex_message_size_bytes(string $reportDate, array $en
     $bubble = cash_ledger_daily_flex_build_bubble($reportDate, $entryChunks, $dailyExpense, $remainingBalance, $part, $partsTotal, $showTotalsFooter);
     $msg = [
         'type' => 'flex',
-        'altText' => 'Daily Petty Cash',
+        'altText' => 'รายงานสดย่อย',
         'contents' => $bubble,
     ];
 
@@ -247,7 +255,7 @@ function cash_ledger_daily_flex_build_bubble(
     if (count($entriesSlice) === 0) {
         $bodyContents[] = [
             'type' => 'text',
-            'text' => 'No transactions for this date.',
+            'text' => 'ไม่มีรายการในวันนี้',
             'size' => 'sm',
             'color' => '#6b7280',
             'wrap' => true,
@@ -263,9 +271,9 @@ function cash_ledger_daily_flex_build_bubble(
         }
     }
 
-    $headerSub = $reportDate;
+    $headerSub = cash_ledger_daily_report_date_display($reportDate);
     if ($partsTotal > 1) {
-        $headerSub .= " · Part {$partIndex}/{$partsTotal}";
+        $headerSub .= " · ส่วน {$partIndex}/{$partsTotal}";
     }
 
     $bubble = [
@@ -279,7 +287,7 @@ function cash_ledger_daily_flex_build_bubble(
             'contents' => [
                 [
                     'type' => 'text',
-                    'text' => 'Daily Petty Cash Report',
+                    'text' => 'รายงานสดย่อย',
                     'weight' => 'bold',
                     'size' => 'xl',
                     'color' => '#ffffff',
@@ -317,7 +325,7 @@ function cash_ledger_daily_flex_build_bubble(
                     'contents' => [
                         [
                             'type' => 'text',
-                            'text' => 'Total Daily Expense',
+                            'text' => 'ยอดจ่ายวันนี้',
                             'size' => 'sm',
                             'flex' => 3,
                             'weight' => 'bold',
@@ -341,7 +349,7 @@ function cash_ledger_daily_flex_build_bubble(
                     'contents' => [
                         [
                             'type' => 'text',
-                            'text' => 'Current Remaining Balance',
+                            'text' => 'ยอดคงเหลือ',
                             'size' => 'sm',
                             'flex' => 3,
                             'weight' => 'bold',
@@ -370,7 +378,7 @@ function cash_ledger_daily_flex_build_bubble(
             'contents' => [
                 [
                     'type' => 'text',
-                    'text' => "Part {$partIndex} of {$partsTotal} — see next message for totals",
+                    'text' => "ส่วน {$partIndex}/{$partsTotal} — ดูยอดรวมในข้อความถัดไป",
                     'size' => 'xs',
                     'color' => '#94a3b8',
                     'align' => 'center',
@@ -385,7 +393,8 @@ function cash_ledger_daily_flex_build_bubble(
 
 function cash_ledger_daily_flex_alt_text(string $reportDate, int $part, int $partsTotal): string
 {
-    $alt = "Daily Petty Cash Report {$reportDate}";
+    $d = cash_ledger_daily_report_date_display($reportDate);
+    $alt = "รายงานสดย่อย {$d}";
     if ($partsTotal > 1) {
         $alt .= " ({$part}/{$partsTotal})";
     }
@@ -591,7 +600,7 @@ function cash_ledger_daily_line_deliver_reply_then_push(string $channelToken, st
 function cash_ledger_daily_build_message(string $reportDate, array $entries): string
 {
     $lines = [];
-    $lines[] = 'Daily Petty Cash Report: ' . $reportDate;
+    $lines[] = 'รายงานสดย่อย: ' . cash_ledger_daily_report_date_display($reportDate);
     $lines[] = str_repeat('—', 24);
 
     $dailyExpense = 0.0;
@@ -614,8 +623,8 @@ function cash_ledger_daily_build_message(string $reportDate, array $entries): st
 
             $headBits = array_filter([$category !== '' ? $category : null, $desc !== '' ? $desc : null], static fn ($x) => $x !== null);
             $head = $headBits !== [] ? implode(' — ', $headBits) : '(no title)';
-            $typeLabel = $type === 'income' ? 'Income' : ($type === 'expense' ? 'Expense' : $type);
-            $lines[] = sprintf('#%d [%s] %s', $n, $typeLabel, $head);
+            $typeLabel = $type === 'income' ? 'รับ' : ($type === 'expense' ? 'จ่าย' : $type);
+            $lines[] = sprintf('#%d %s %s', $n, $typeLabel, $head);
 
             $subLines = $id > 0 ? cash_ledger_daily_lines_for_ledger($id) : [];
             if (count($subLines) === 0) {

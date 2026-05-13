@@ -119,6 +119,12 @@ $poStatus = strtolower(trim((string) ($data['status'] ?? 'ordered')));
 $isPoCancelled = ($poStatus === 'cancelled');
 $paymentStatusPo = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
 $isPoPaid = ($paymentStatusPo === 'paid');
+
+/** ชื่อแท็บ / ชื่อไฟล์เริ่มต้นตอนพิมพ์หรือบันทึก PDF (Ctrl+P) */
+$poDocTitle = trim((string) ($po['po_number'] ?? ''));
+if ($poDocTitle === '') {
+    $poDocTitle = 'PO-' . (int) ($po['id'] ?? $id);
+}
 ?>
 
 <!DOCTYPE html>
@@ -126,7 +132,7 @@ $isPoPaid = ($paymentStatusPo === 'paid');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Purchase Order - <?= htmlspecialchars((string) ($data['po_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></title>
+    <title><?= htmlspecialchars($poDocTitle, ENT_QUOTES, 'UTF-8') ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

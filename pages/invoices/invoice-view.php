@@ -92,13 +92,19 @@ if ($company_detail_line !== '' && count($company_contact_bits) > 0) {
     $company_detail_line = implode(' | ', $company_contact_bits);
 }
 $customer_tax_trim = trim((string) ($data['customer_tax'] ?? ''));
+
+/** ชื่อแท็บ / ชื่อไฟล์เริ่มต้นตอนพิมพ์หรือบันทึก PDF (Ctrl+P) */
+$invDocTitle = trim((string) ($data['invoice_number'] ?? ''));
+if ($invDocTitle === '') {
+    $invDocTitle = 'INV-' . $id;
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>Invoice - <?= htmlspecialchars($display_number); ?></title>
+    <title><?= htmlspecialchars($invDocTitle, ENT_QUOTES, 'UTF-8') ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -55,45 +55,6 @@ if ($action === 'line_quote_decision') {
     exit;
 }
 
-if ($action === 'line_need_decision') {
-    $decision = (string) ($_GET['decision'] ?? '');
-    $token = trim((string) ($_GET['token'] ?? ''));
-    $need = Db::row('purchase_needs', (string) $id);
-
-    $ok = $need !== null
-        && $token !== ''
-        && hash_equals((string) ($need['line_approval_token'] ?? ''), $token)
-        && (string) ($need['status'] ?? '') === 'pending'
-        && in_array($decision, ['approve', 'reject'], true);
-
-    if ($ok) {
-        $nextStatus = $decision === 'approve' ? 'approved' : 'rejected';
-        $needBeforeLink = Db::row('purchase_needs', (string) $id);
-        Db::mergeRow('purchase_needs', (string) $id, [
-            'status' => $nextStatus,
-            'line_decision' => $decision,
-            'line_decided_at' => date('Y-m-d H:i:s'),
-            'line_approval_token' => '',
-        ]);
-        $needAfterLink = Db::row('purchase_needs', (string) $id);
-        $needNoL = $needAfterLink !== null ? trim((string) ($needAfterLink['need_number'] ?? '')) : '';
-        tnc_audit_log('update', 'purchase_need', (string) $id, $needNoL !== '' ? $needNoL : ('Need #' . $id), [
-            'source' => 'action-handler',
-            'action' => 'line_need_decision_link',
-            'before' => $needBeforeLink,
-            'after' => $needAfterLink,
-            'meta' => ['decision' => $decision, 'via' => 'email_or_get_link'],
-        ]);
-        http_response_code(200);
-        echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>บันทึกผลแล้ว</title></head><body style="font-family:sans-serif;padding:24px;"><h2>บันทึกผลเรียบร้อย</h2><p>ใบต้องการซื้ออัปเดตเป็น <strong>' . htmlspecialchars(strtoupper($nextStatus), ENT_QUOTES, 'UTF-8') . '</strong></p></body></html>';
-        exit;
-    }
-
-    http_response_code(400);
-    echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>ไม่สามารถดำเนินการได้</title></head><body style="font-family:sans-serif;padding:24px;"><h2>ไม่สามารถดำเนินการได้</h2><p>ลิงก์หมดอายุ หรือรายการนี้ถูกดำเนินการไปแล้ว</p></body></html>';
-    exit;
-}
-
 if (!isset($_SESSION['user_id'])) {
     exit('Access Denied: กรุณาเข้าสู่ระบบ');
 }
@@ -129,12 +90,12 @@ $type = (string) ($_POST['type'] ?? $_GET['type'] ?? '');
 $id = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
 
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
-$tncDeletePwdActions = ['delete', 'delete_quotation', 'delete_supplier', 'delete_pr', 'delete_purchase_need'];
+$tncDeletePwdActions = ['delete', 'delete_quotation', 'delete_supplier', 'delete_pr'];
 if (in_array($action, $tncDeletePwdActions, true)) {
     tnc_require_post_confirm_password();
 }
 
-$admin_only_actions = ['delete', 'delete_quotation', 'delete_pr', 'delete_purchase_need', 'add_member', 'edit_member', 'delete_supplier'];
+$admin_only_actions = ['delete', 'delete_quotation', 'delete_pr', 'add_member', 'edit_member', 'delete_supplier'];
 if (in_array($action, $admin_only_actions, true) && !user_is_admin_role()) {
     exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
 }
@@ -843,165 +804,6 @@ if ($action === 'save_standalone_hire_contract' && ($_SERVER['REQUEST_METHOD'] ?
         'after' => $hcAfterCreate,
     ]);
     tnc_action_redirect( app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . $contractId . '&created=1');
-}
-
-if ($action === 'save_purchase_need' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    $need_number = trim((string) ($_POST['need_number'] ?? ''));
-    if ($need_number === '') {
-        $need_number = Purchase::nextNeedNumber();
-    }
-
-    $postedDate = trim((string) ($_POST['created_at'] ?? ''));
-    $docDate = $postedDate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $postedDate) === 1
-        ? $postedDate
-        : date('Y-m-d');
-
-    $siteId = (int) ($_POST['site_id'] ?? 0);
-    if ($siteId <= 0) {
-        tnc_action_redirect( app_path('pages/purchase/purchase-need-create.php') . '?error=need_site');
-    }
-
-    $siteRow = Db::rowByIdField('sites', $siteId);
-    $siteName = $siteRow !== null ? trim((string) ($siteRow['name'] ?? '')) : '';
-    if ($siteName === '') {
-        tnc_action_redirect( app_path('pages/purchase/purchase-need-create.php') . '?error=need_site');
-    }
-
-    $remarks = trim((string) ($_POST['remarks'] ?? ''));
-
-    $descs = $_POST['need_item_description'] ?? [];
-    $qtys = $_POST['need_item_qty'] ?? [];
-    $units = $_POST['need_item_unit'] ?? [];
-    $lines = [];
-    if (!is_array($descs) || !is_array($qtys)) {
-        tnc_action_redirect( app_path('pages/purchase/purchase-need-create.php') . '?error=need_no_items');
-    }
-    foreach ($descs as $i => $descRaw) {
-        $desc = trim((string) $descRaw);
-        if ($desc === '') {
-            continue;
-        }
-        $qty = isset($qtys[$i]) ? (float) str_replace([',', ' '], '', (string) $qtys[$i]) : 0.0;
-        if ($qty <= 0) {
-            continue;
-        }
-        $unit = isset($units[$i]) ? trim((string) $units[$i]) : '';
-        $lines[] = ['description' => $desc, 'quantity' => $qty, 'unit' => $unit];
-    }
-
-    if (count($lines) === 0) {
-        tnc_action_redirect( app_path('pages/purchase/purchase-need-create.php') . '?error=need_no_items');
-    }
-
-    $previewParts = [];
-    foreach (array_slice($lines, 0, 8) as $idx => $ln) {
-        $previewParts[] = ($idx + 1) . '. ' . $ln['description'] . ' × ' . number_format($ln['quantity'], 2) . ($ln['unit'] !== '' ? ' ' . $ln['unit'] : '');
-    }
-    if (count($lines) > 8) {
-        $previewParts[] = '… และอีก ' . (count($lines) - 8) . ' รายการ';
-    }
-    $detailsSummary = implode("\n", $previewParts);
-
-    $requestedBy = (int) $_SESSION['user_id'];
-    $needId = Db::nextNumericId('purchase_needs', 'id');
-    $approvalToken = bin2hex(random_bytes(24));
-
-    $needPayload = [
-        'id' => $needId,
-        'need_number' => $need_number,
-        'created_at' => $docDate,
-        'requested_by' => $requestedBy,
-        'site_id' => $siteId,
-        'site_name' => $siteName,
-        'site_details' => '',
-        'details' => $detailsSummary,
-        'remarks' => $remarks,
-        'status' => 'pending',
-        'line_approval_token' => $approvalToken,
-        'line_sent_at' => '',
-    ];
-    Db::setRow('purchase_needs', (string) $needId, $needPayload);
-
-    $sortSeq = 0;
-    foreach ($lines as $ln) {
-        ++$sortSeq;
-        $itemId = Db::nextNumericId('purchase_need_items', 'id');
-        Db::setRow('purchase_need_items', (string) $itemId, [
-            'id' => $itemId,
-            'need_id' => $needId,
-            'line_no' => $sortSeq,
-            'description' => $ln['description'],
-            'quantity' => $ln['quantity'],
-            'unit' => $ln['unit'],
-        ]);
-    }
-
-    $requester = Db::row('users', (string) $requestedBy) ?? [];
-    $requesterName = trim((string) ($requester['fname'] ?? '') . ' ' . (string) ($requester['lname'] ?? ''));
-    if ($requesterName === '') {
-        $requesterName = (string) ($_SESSION['name'] ?? 'Unknown User');
-    }
-
-    $lineSent = line_send_purchase_need_notification($needPayload, $requesterName, $detailsSummary);
-    if ($lineSent) {
-        Db::mergeRow('purchase_needs', (string) $needId, ['line_sent_at' => date('Y-m-d H:i:s')]);
-    }
-
-    $needFinal = Db::row('purchase_needs', (string) $needId);
-    $needItemsFinal = [];
-    foreach (Db::filter('purchase_need_items', static function (array $r) use ($needId): bool {
-        return isset($r['need_id']) && (int) $r['need_id'] === $needId;
-    }) as $ni) {
-        if (!is_array($ni)) {
-            continue;
-        }
-        $needItemsFinal[] = $ni;
-        if (count($needItemsFinal) >= 120) {
-            break;
-        }
-    }
-    tnc_audit_log('create', 'purchase_need', (string) $needId, $need_number, [
-        'source' => 'action-handler',
-        'action' => 'save_purchase_need',
-        'after' => $needFinal,
-        'meta' => [
-            'lines' => $needItemsFinal,
-            'line_notification_sent' => $lineSent,
-        ],
-    ]);
-
-    $redirect = app_path('pages/purchase/purchase-need-list.php') . '?need_success=1';
-    if (!$lineSent) {
-        $redirect .= '&line_error=1';
-    }
-
-    tnc_action_redirect( $redirect);
-}
-
-if ($action === 'delete_purchase_need') {
-    if ($id <= 0) {
-        tnc_action_redirect( app_path('pages/purchase/purchase-need-list.php') . '?error=invalid_need');
-    }
-    $needSnap = Db::row('purchase_needs', (string) $id);
-    $needNo = $needSnap !== null ? trim((string) ($needSnap['need_number'] ?? '')) : '';
-    $nestedNeedItems = [];
-    foreach (Db::tableKeyed('purchase_need_items') as $pk => $row) {
-        if (!is_array($row)) {
-            continue;
-        }
-        if ((int) ($row['need_id'] ?? 0) === $id) {
-            $nestedNeedItems[] = ['verb' => 'delete', 'entity_type' => 'purchase_need_item', 'entity_id' => (string) $pk, 'snapshot' => $row];
-            Db::deleteRow('purchase_need_items', (string) $pk);
-        }
-    }
-    Db::deleteRow('purchase_needs', (string) $id);
-    tnc_audit_log('delete', 'purchase_need', (string) $id, $needNo !== '' ? $needNo : ('#' . $id), [
-        'source' => 'action-handler',
-        'action' => 'delete_purchase_need',
-        'before' => $needSnap,
-        'nested' => $nestedNeedItems,
-    ]);
-    tnc_action_redirect( app_path('pages/purchase/purchase-need-list.php') . '?need_deleted=1');
 }
 
 // --- PO from PR ---

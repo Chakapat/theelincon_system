@@ -31,9 +31,6 @@ if (!function_exists('tnc_ajax_flash_message')) {
         if (isset($q['deleted'])) {
             return 'ลบเรียบร้อย';
         }
-        if (isset($q['need_deleted'])) {
-            return 'ลบใบต้องการซื้อแล้ว';
-        }
         if (isset($q['approved'])) {
             return 'อนุมัติใบขอซื้อแล้ว';
         }
@@ -82,8 +79,6 @@ if (!function_exists('tnc_ajax_error_message')) {
             'pr_not_found' => 'ไม่พบใบขอซื้อ',
             'contract' => 'ข้อมูลสัญญาไม่ถูกต้อง',
             'need_site' => 'กรุณาเลือกไซต์งาน',
-            'need_no_items' => 'ต้องมีรายการสินค้า',
-            'invalid_need' => 'ไม่พบใบต้องการซื้อ',
             'invalid' => 'ข้อมูลไม่ถูกต้อง',
             'site' => 'กรุณาเลือกไซต์',
             'need_lines' => 'ต้องมีรายการบิล',

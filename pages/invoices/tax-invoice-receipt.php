@@ -750,13 +750,24 @@ if (!$has_tax_invoice || $edit_mode) {
     Db::sortRows($customers, 'name', false);
     $creatorDraft = Db::rowByIdField('users', (int) ($inv['created_by'] ?? 0), 'userid') ?? [];
     $creatorDraftName = trim(($creatorDraft['fname'] ?? '') . ' ' . ($creatorDraft['lname'] ?? ''));
+    /** ชื่อแท็บ / ชื่อไฟล์เริ่มต้นตอนพิมพ์หรือบันทึก PDF */
+    $tirDraftDocTitle = '';
+    if ($has_tax_invoice) {
+        $tirDraftDocTitle = trim((string) ($tax['tax_invoice_number'] ?? ''));
+    }
+    if ($tirDraftDocTitle === '') {
+        $tirDraftDocTitle = trim((string) $invoice_number);
+    }
+    if ($tirDraftDocTitle === '') {
+        $tirDraftDocTitle = 'INV-' . (int) $id;
+    }
     ?>
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>สร้าง Tax Invoice - <?= htmlspecialchars($invoice_number, ENT_QUOTES, 'UTF-8'); ?></title>
+    <title><?= htmlspecialchars($tirDraftDocTitle, ENT_QUOTES, 'UTF-8') ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -1163,13 +1174,22 @@ if ($company_detail_line !== '' && count($company_contact_bits) > 0) {
     $company_detail_line = implode(' | ', $company_contact_bits);
 }
 $customer_tax_trim = trim((string) ($data['customer_tax'] ?? ''));
+
+/** ชื่อแท็บ / ชื่อไฟล์เริ่มต้นตอนพิมพ์หรือบันทึก PDF (Ctrl+P) */
+$tirPrintDocTitle = $tax_invoice_number;
+if ($tirPrintDocTitle === '') {
+    $tirPrintDocTitle = trim((string) ($inv['invoice_number'] ?? ''));
+}
+if ($tirPrintDocTitle === '') {
+    $tirPrintDocTitle = 'TAX-INV-' . (int) $id;
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>Receipt/Tax Invoice - <?= htmlspecialchars($invoice_number); ?></title>
+    <title><?= htmlspecialchars($tirPrintDocTitle, ENT_QUOTES, 'UTF-8') ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">

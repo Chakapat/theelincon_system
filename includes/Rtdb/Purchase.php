@@ -48,23 +48,6 @@ final class Purchase
         return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
     }
 
-    /** NEED-TNC-MMYY-xxx */
-    public static function nextNeedNumber(): string
-    {
-        $suffix = date('my');
-        $prefix = 'NEED-TNC-' . $suffix . '-';
-        $max = 0;
-        foreach (Db::tableRows('purchase_needs') as $r) {
-            $num = (string) ($r['need_number'] ?? '');
-            if (strncmp($num, $prefix, strlen($prefix)) === 0) {
-                $tail = substr($num, -3);
-                $max = max($max, (int) $tail);
-            }
-        }
-
-        return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
-    }
-
     /** HC-TNC-YYMM-xxx — เลขที่สัญญาจ้างอิสระ (ไม่อิง PR) */
     public static function nextHireContractNumber(): string
     {

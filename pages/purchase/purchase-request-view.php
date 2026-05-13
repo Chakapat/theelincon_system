@@ -100,6 +100,12 @@ $poShortcutUrl = app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id
 if (is_array($existing_po) && (int) ($existing_po['id'] ?? 0) > 0) {
     $poShortcutUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $existing_po['id'];
 }
+
+/** ชื่อแท็บ / ชื่อไฟล์เริ่มต้นตอนพิมพ์หรือบันทึก PDF (Ctrl+P) */
+$prDocTitle = trim((string) ($pr['pr_number'] ?? ''));
+if ($prDocTitle === '') {
+    $prDocTitle = 'PR-' . (int) ($pr['id'] ?? $pr_id);
+}
 ?>
 
 <!DOCTYPE html>
@@ -107,7 +113,7 @@ if (is_array($existing_po) && (int) ($existing_po['id'] ?? 0) > 0) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ใบขอซื้อ (PR) — <?= htmlspecialchars((string) ($pr['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></title>
+    <title><?= htmlspecialchars($prDocTitle, ENT_QUOTES, 'UTF-8') ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -207,7 +213,7 @@ if (is_array($existing_po) && (int) ($existing_po['id'] ?? 0) > 0) {
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light border rounded-pill px-3">รายการ PO</a>
                 <?php elseif ($requestType !== 'hire'): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary rounded-pill px-4 shadow-sm" title="คีย์ลัด: Ctrl+Shift+G">
-                        <i class="bi bi-file-earmark-plus me-1"></i>ออก PO จาก PR
+                        <i class="bi bi-file-earmark-plus me-1"></i>สร้างใบสั่งซื้อ (PO)
                     </a>
                 <?php else: ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary rounded-pill px-3 shadow-sm" title="คีย์ลัด: Ctrl+Shift+G">

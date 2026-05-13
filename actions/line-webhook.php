@@ -208,51 +208,6 @@ if (is_array($events)) {
                     }
                     continue;
                 }
-                if ($pbAction === 'line_need_decision') {
-                    $pbId = (int) ($pb['id'] ?? 0);
-                    $pbDecision = (string) ($pb['decision'] ?? '');
-                    $pbToken = trim((string) ($pb['token'] ?? ''));
-
-                    if (count($onlyApproverUserIds) > 0 && !in_array($userId, $onlyApproverUserIds, true)) {
-                        line_reply_text($channelToken, $replyToken, 'ไม่มีสิทธิ์อนุมัติรายการนี้');
-                        continue;
-                    }
-
-                    $need = Db::row('purchase_needs', (string) $pbId);
-                    $ok = $need !== null
-                        && $pbToken !== ''
-                        && hash_equals((string) ($need['line_approval_token'] ?? ''), $pbToken)
-                        && (string) ($need['status'] ?? '') === 'pending'
-                        && in_array($pbDecision, ['approve', 'reject'], true);
-
-                    if ($ok) {
-                        $nextStatus = $pbDecision === 'approve' ? 'approved' : 'rejected';
-                        $needBefore = Db::row('purchase_needs', (string) $pbId);
-                        Db::mergeRow('purchase_needs', (string) $pbId, [
-                            'status' => $nextStatus,
-                            'line_decision' => $pbDecision,
-                            'line_decided_at' => date('Y-m-d H:i:s'),
-                            'line_decided_by_line_user_id' => $userId,
-                            'line_approval_token' => '',
-                        ]);
-                        $needAfter = Db::row('purchase_needs', (string) $pbId);
-                        $needNoW = $needAfter !== null ? trim((string) ($needAfter['need_number'] ?? '')) : '';
-                        tnc_audit_log('update', 'purchase_need', (string) $pbId, $needNoW !== '' ? $needNoW : ('Need #' . $pbId), [
-                            'source' => 'line-webhook',
-                            'action' => 'line_need_decision_postback',
-                            'before' => $needBefore,
-                            'after' => $needAfter,
-                            'meta' => [
-                                'decision' => $pbDecision,
-                                'line_user_id' => $userId,
-                            ],
-                        ]);
-                        line_reply_text($channelToken, $replyToken, 'บันทึกผลใบต้องการซื้อเรียบร้อย: ' . strtoupper($nextStatus));
-                    } else {
-                        line_reply_text($channelToken, $replyToken, 'ไม่สามารถดำเนินการได้ (ลิงก์หมดอายุหรือมีการตัดสินใจไปแล้ว)');
-                    }
-                    continue;
-                }
             }
         }
 
