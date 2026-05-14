@@ -84,6 +84,8 @@ foreach (Db::tableRows('purchase_orders') as $po) {
         'payment_status' => $paymentStatus,
         'payment_slip_path' => $paymentSlipPath,
         'payment_slip_url' => $paymentSlipPath !== '' ? app_path($paymentSlipPath) : '',
+        'payment_method' => strtolower(trim((string) ($po['payment_method'] ?? 'transfer'))) === 'cash' ? 'cash' : 'transfer',
+        'payment_cash_paid_by' => trim((string) ($po['payment_cash_paid_by'] ?? '')),
         'total_amount' => $amt,
         'order_type' => trim((string) ($po['order_type'] ?? 'purchase')),
         'installment_no' => (int) ($po['installment_no'] ?? 0),
@@ -189,6 +191,8 @@ foreach ($po_rows_display as $sumRow) {
                 echo 'อัปโหลดรูปหลักฐานไม่สำเร็จ กรุณาลองใหม่';
             } elseif ($errorCode === 'payment_slip_required') {
                 echo 'ต้องแนบรูปหลักฐานก่อนเปลี่ยนสถานะเป็น จ่ายแล้ว';
+            } elseif ($errorCode === 'cash_paid_by_required') {
+                echo 'กรุณาระบุ «จ่ายโดย» เมื่อเลือกชำระด้วยเงินสด';
             } elseif ($errorCode === 'invalid') {
                 echo 'ไม่พบใบสั่งซื้อ หรือข้อมูลไม่ถูกต้อง';
             } elseif ($errorCode === 'not_found') {
@@ -207,8 +211,44 @@ foreach ($po_rows_display as $sumRow) {
         </div>
     <?php endif; ?>
     <?php if (!empty($_GET['payment_saved'])): ?>
+        <?php
+        $autoBill = !empty($_GET['auto_bill']);
+        $printPoIdSaved = (int) ($_GET['print_po_id'] ?? 0);
+        $billMonthQ = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['bill_month'] ?? '')) ? (string) $_GET['bill_month'] : date('Y-m');
+        $billIdQ = (int) ($_GET['bill_id'] ?? 0);
+        $billListUrl = htmlspecialchars(app_path('pages/purchase/purchase-bill.php') . '?month=' . rawurlencode($billMonthQ), ENT_QUOTES, 'UTF-8');
+        $billEditUrl = $billIdQ > 0
+            ? htmlspecialchars(app_path('pages/purchase/purchase-bill.php') . '?month=' . rawurlencode($billMonthQ) . '&edit=' . $billIdQ, ENT_QUOTES, 'UTF-8')
+            : $billListUrl;
+        $poAutoprintBase = $printPoIdSaved > 0
+            ? htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . $printPoIdSaved, ENT_QUOTES, 'UTF-8')
+            : '';
+        $poAutoprintPoUrl = $poAutoprintBase !== '' ? $poAutoprintBase . '&print_mode=po&autoprint=1' : '';
+        $poAutoprintSlipUrl = $poAutoprintBase !== '' ? $poAutoprintBase . '&print_mode=slip&autoprint=1' : '';
+        $poAutoprintBothUrl = $poAutoprintBase !== '' ? $poAutoprintBase . '&print_mode=both&autoprint=1' : '';
+        $poAutoprintAllUrl = $poAutoprintBase !== '' ? $poAutoprintBase . '&print_mode=all&autoprint=1' : '';
+        ?>
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             บันทึกสถานะการจ่ายเงินเรียบร้อยแล้ว
+            <?php if ($printPoIdSaved > 0 && $poAutoprintPoUrl !== ''): ?>
+                <div class="mt-2 small">
+                    <span class="text-muted">พิมพ์อัตโนมัติ:</span>
+                    <a href="<?= $poAutoprintPoUrl ?>" target="_blank" rel="noopener" class="alert-link fw-semibold">1. เฉพาะใบสั่งซื้อ</a>
+                    <span class="text-muted">·</span>
+                    <a href="<?= $poAutoprintSlipUrl ?>" target="_blank" rel="noopener" class="alert-link fw-semibold">2. เฉพาะสลิป</a>
+                    <span class="text-muted">·</span>
+                    <a href="<?= $poAutoprintBothUrl ?>" target="_blank" rel="noopener" class="alert-link fw-semibold">3. ใบสั่งซื้อ + สลิป</a>
+                    <span class="text-muted">·</span>
+                    <a href="<?= $poAutoprintAllUrl ?>" target="_blank" rel="noopener" class="alert-link fw-semibold">4. PR + PO + สลิป/แนบ</a>
+                </div>
+            <?php endif; ?>
+            <?php if ($autoBill): ?>
+                <div class="mt-2 small">
+                    ระบบบันทึกบิล<strong>บันทึกบิลซื้อตามโครงการ</strong>จาก PO นี้แล้ว
+                    — <a href="<?= $billEditUrl ?>" class="alert-link fw-semibold">เปิดบิลที่สร้างอัตโนมัติ</a>
+                    หรือ <a href="<?= $billListUrl ?>" class="alert-link">ไปหน้ารายการบิลเดือน <?= htmlspecialchars($billMonthQ, ENT_QUOTES, 'UTF-8') ?></a>
+                </div>
+            <?php endif; ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
@@ -219,6 +259,9 @@ foreach ($po_rows_display as $sumRow) {
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3 shadow-sm">
                 <i class="bi bi-arrow-left-circle me-1"></i>รายการใบขอซื้อ (PR)
             </a>
+            <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm no-print" id="poBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก">
+                <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
+            </button>
             <div class="dropdown">
                 <button class="btn btn-primary rounded-pill px-4 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="bi bi-plus-lg"></i> สร้างเอกสาร
@@ -296,6 +339,9 @@ foreach ($po_rows_display as $sumRow) {
             <table class="table table-hover align-middle" id="poTable">
                 <thead class="table-light">
                     <tr>
+                        <th class="text-center no-print" style="width:2.5rem;" title="เลือกเพื่อพิมพ์หลายใบ">
+                            <input type="checkbox" class="form-check-input m-0" id="poSelectAllPrint" aria-label="เลือกทั้งหมดในหน้านี้">
+                        </th>
                         <th>เลขที่ PO</th>
                         <th>วันที่ออก</th>
                         <th>ผู้ขาย / ผู้รับจ้าง</th>
@@ -307,10 +353,13 @@ foreach ($po_rows_display as $sumRow) {
                 </thead>
                 <tbody id="poTableBody">
                     <?php if (count($po_rows_display) === 0): ?>
-                        <tr><td colspan="7" class="text-center py-4 text-muted"><?= count($po_rows) === 0 ? 'ยังไม่มีการออกใบสั่งซื้อ' : 'ไม่มีรายการตามเงื่อนไขที่เลือก — ลองเปลี่ยนตัวกรองวันที่' ?></td></tr>
+                        <tr><td colspan="8" class="text-center py-4 text-muted"><?= count($po_rows) === 0 ? 'ยังไม่มีการออกใบสั่งซื้อ' : 'ไม่มีรายการตามเงื่อนไขที่เลือก — ลองเปลี่ยนตัวกรองวันที่' ?></td></tr>
                     <?php else: ?>
                         <?php foreach ($po_rows_display as $row): ?>
                     <tr>
+                        <td class="text-center align-middle no-print">
+                            <input type="checkbox" class="form-check-input m-0 js-po-print-cb" value="<?= (int) ($row['id'] ?? 0) ?>" aria-label="เลือกพิมพ์ <?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                        </td>
                         <td>
                             <div class="fw-bold text-primary">
                                 <?php
@@ -372,6 +421,8 @@ foreach ($po_rows_display as $sumRow) {
                                         class="btn btn-success btn-sm rounded-pill py-0 px-3 mt-1 js-show-slip"
                                         data-po-number="<?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                         data-slip-url="<?= htmlspecialchars((string) ($row['payment_slip_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-payment-method="<?= htmlspecialchars((string) ($row['payment_method'] ?? 'transfer'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-cash-paid-by="<?= htmlspecialchars((string) ($row['payment_cash_paid_by'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     >จ่ายแล้ว</button>
                                 <?php else: ?>
                                     <button
@@ -435,9 +486,25 @@ foreach ($po_rows_display as $sumRow) {
                 </div>
                 <div class="modal-body">
                     <div class="mb-2 small text-muted">PO: <span id="markPaidPoNumber">-</span></div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold d-block">ช่องทางชำระ</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="payment_method" id="payMethodTransfer" value="transfer" checked>
+                            <label class="form-check-label" for="payMethodTransfer">โอนเงิน / ช่องทางอื่น <span class="text-muted small">(แนบหลักฐาน)</span></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="payment_method" id="payMethodCash" value="cash">
+                            <label class="form-check-label" for="payMethodCash">เงินสด</label>
+                        </div>
+                    </div>
+                    <div class="mb-3 d-none" id="markPaidCashWrap">
+                        <label class="form-label fw-semibold" for="markPaidCashBy">จ่ายโดย <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="payment_cash_paid_by" id="markPaidCashBy" maxlength="255" placeholder="เช่น ชื่อผู้รับเงิน / แผนก">
+                        <div class="form-text">บังคับเมื่อเลือกเงินสด — เก็บในฐานข้อมูลพร้อม PO</div>
+                    </div>
                     <label class="form-label fw-semibold">ไฟล์รูปหลักฐาน <span class="text-danger">*</span></label>
                     <input type="file" name="payment_slip" id="markPaidFile" class="form-control" accept="image/*" required>
-                    <div class="form-text">เมื่อแนบไฟล์แล้ว ระบบจะเปลี่ยนสถานะเป็น "จ่ายแล้ว" อัตโนมัติ</div>
+                    <div class="form-text">เมื่อแนบไฟล์แล้ว ระบบจะเปลี่ยนสถานะเป็น "จ่ายแล้ว" และสร้างบันทึกบิลโครงการอัตโนมัติ (ถ้าเป็น PO จัดซื้อ)</div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
@@ -456,6 +523,7 @@ foreach ($po_rows_display as $sumRow) {
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
+                <div id="showSlipPayMeta" class="text-start small text-muted mb-2 d-none"></div>
                 <img id="showSlipImage" src="" alt="Payment slip" class="img-fluid rounded border" style="max-height:70vh; object-fit:contain;">
                 <div id="showSlipNoImage" class="text-muted py-4 d-none">ไม่พบไฟล์หลักฐานการจ่ายเงิน</div>
             </div>
@@ -467,17 +535,49 @@ foreach ($po_rows_display as $sumRow) {
     </div>
 </div>
 
+<div class="modal fade" id="poBatchPrintChoiceModal" tabindex="-1" aria-labelledby="poBatchPrintChoiceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="poBatchPrintChoiceModalLabel">พิมพ์ใบสั่งซื้อที่เลือก</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <p class="small text-muted mb-3">เลือกว่าจะพิมพ์เฉพาะใบสั่งซื้อ เฉพาะสลิป รวม PO+สลิป/แนบ หรือชุดครบ PR+PO+สลิป/แนบ (สลิปมีเฉพาะรายการที่จ่ายแล้วและแนบไฟล์ — โหมด 4 จะข้าม PR เมื่อ PO ไม่มี PR)</p>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill py-2 text-start" id="poBatchPrintPoOnlyBtn">
+                        <span class="fw-semibold d-block">1. เฉพาะใบสั่งซื้อ</span>
+                        <span class="small text-muted">ไม่รวมสลิปและไฟล์แนบ</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill py-2 text-start" id="poBatchPrintSlipOnlyBtn">
+                        <span class="fw-semibold d-block">2. เฉพาะสลิป</span>
+                        <span class="small text-muted">หลักฐานการจ่ายเท่านั้น (แต่ละใบที่มีไฟล์)</span>
+                    </button>
+                    <button type="button" class="btn btn-success rounded-pill py-2 text-start" id="poBatchPrintWithAttachBtn">
+                        <span class="fw-semibold d-block">3. ใบสั่งซื้อ + สลิป</span>
+                        <span class="small" style="opacity:0.95">รวมใบ PO สลิป และใบเสนอราคาแนบเมื่อมี</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-primary rounded-pill py-2 text-start" id="poBatchPrintAllBtn">
+                        <span class="fw-semibold d-block">4. พิมพ์ทุกอย่าง (PR + PO + สลิป/แนบ)</span>
+                        <span class="small text-muted">แต่ละใบ: ใบขอซื้อ (ถ้ามี) แล้วตามด้วย PO สลิป และแนบ QT ตามที่มี</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function ($) {
     if ($('#poTable tbody tr').length && $('#poTable tbody tr td[colspan]').length === 0) {
         $('#poTable').DataTable({
-            order: [[1, 'desc']],
+            order: [[2, 'desc']],
             pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
-            columnDefs: [{ targets: [6], orderable: false, searchable: false }]
+            columnDefs: [{ targets: [0, 7], orderable: false, searchable: false }]
         });
     }
     var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_orders'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
@@ -493,6 +593,58 @@ foreach ($po_rows_display as $sumRow) {
 })(jQuery);
 
 (function () {
+    var batchBase = <?= json_encode(app_path('pages/purchase/purchase-batch-print.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var pendingBatchIds = '';
+    var batchModalEl = document.getElementById('poBatchPrintChoiceModal');
+    var batchModal = batchModalEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(batchModalEl) : null;
+
+    function openBatchPrint(mode) {
+        var m = mode === 'po' || mode === 'slip' || mode === 'both' || mode === 'all' ? mode : 'both';
+        window.open(batchBase + '?kind=po&ids=' + encodeURIComponent(pendingBatchIds) + '&print_mode=' + encodeURIComponent(m), '_blank', 'noopener');
+        pendingBatchIds = '';
+        if (batchModal) {
+            batchModal.hide();
+        }
+    }
+
+    document.getElementById('poBatchPrintBtn')?.addEventListener('click', function () {
+        var ids = [];
+        document.querySelectorAll('.js-po-print-cb:checked').forEach(function (cb) {
+            var v = parseInt(cb.value, 10);
+            if (v > 0) ids.push(v);
+        });
+        if (ids.length === 0) {
+            alert('กรุณาติ๊กเลือกใบสั่งซื้อ (PO) อย่างน้อย 1 ใบ');
+            return;
+        }
+        pendingBatchIds = ids.join(',');
+        if (batchModal) {
+            batchModal.show();
+        } else {
+            openBatchPrint('both');
+        }
+    });
+    document.getElementById('poBatchPrintPoOnlyBtn')?.addEventListener('click', function () {
+        openBatchPrint('po');
+    });
+    document.getElementById('poBatchPrintSlipOnlyBtn')?.addEventListener('click', function () {
+        openBatchPrint('slip');
+    });
+    document.getElementById('poBatchPrintWithAttachBtn')?.addEventListener('click', function () {
+        openBatchPrint('both');
+    });
+    document.getElementById('poBatchPrintAllBtn')?.addEventListener('click', function () {
+        openBatchPrint('all');
+    });
+    document.getElementById('poSelectAllPrint')?.addEventListener('change', function () {
+        var on = this.checked;
+        document.querySelectorAll('#poTable tbody .js-po-print-cb').forEach(function (cb) {
+            cb.checked = on;
+        });
+    });
+})();
+
+(function () {
     const markPaidModalEl = document.getElementById('markPaidModal');
     const showSlipModalEl = document.getElementById('showSlipModal');
     if (!markPaidModalEl || !showSlipModalEl) return;
@@ -506,6 +658,36 @@ foreach ($po_rows_display as $sumRow) {
     const showSlipImage = document.getElementById('showSlipImage');
     const showSlipNoImage = document.getElementById('showSlipNoImage');
     const showSlipOpenLink = document.getElementById('showSlipOpenLink');
+    const showSlipPayMeta = document.getElementById('showSlipPayMeta');
+    const payMethodTransfer = document.getElementById('payMethodTransfer');
+    const payMethodCash = document.getElementById('payMethodCash');
+    const markPaidCashWrap = document.getElementById('markPaidCashWrap');
+    const markPaidCashBy = document.getElementById('markPaidCashBy');
+    const markPaidForm = document.getElementById('markPaidForm');
+
+    function syncMarkPaidCashUi() {
+        if (!markPaidCashWrap || !markPaidCashBy || !payMethodCash) return;
+        const isCash = payMethodCash.checked;
+        markPaidCashWrap.classList.toggle('d-none', !isCash);
+        markPaidCashBy.required = isCash;
+        if (!isCash) {
+            markPaidCashBy.value = '';
+        }
+    }
+    payMethodTransfer?.addEventListener('change', syncMarkPaidCashUi);
+    payMethodCash?.addEventListener('change', syncMarkPaidCashUi);
+    syncMarkPaidCashUi();
+
+    markPaidForm?.addEventListener('submit', (e) => {
+        if (payMethodCash && payMethodCash.checked) {
+            const v = (markPaidCashBy?.value || '').trim();
+            if (!v) {
+                e.preventDefault();
+                alert('กรุณากรอก «จ่ายโดย» เมื่อเลือกชำระด้วยเงินสด');
+                markPaidCashBy?.focus();
+            }
+        }
+    });
 
     document.querySelectorAll('.js-mark-paid').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -514,15 +696,39 @@ foreach ($po_rows_display as $sumRow) {
             if (markPaidFile) {
                 markPaidFile.value = '';
             }
+            if (payMethodTransfer) payMethodTransfer.checked = true;
+            if (payMethodCash) payMethodCash.checked = false;
+            if (markPaidCashBy) markPaidCashBy.value = '';
+            syncMarkPaidCashUi();
             markPaidModal.show();
         });
     });
+
+    function tncEscHtml(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
 
     document.querySelectorAll('.js-show-slip').forEach((btn) => {
         btn.addEventListener('click', () => {
             const poNumber = btn.getAttribute('data-po-number') || '-';
             const slipUrl = btn.getAttribute('data-slip-url') || '';
+            const pm = (btn.getAttribute('data-payment-method') || 'transfer').toLowerCase();
+            const paidBy = btn.getAttribute('data-cash-paid-by') || '';
             showSlipPoNumber.textContent = poNumber;
+            if (showSlipPayMeta) {
+                if (pm === 'cash') {
+                    showSlipPayMeta.classList.remove('d-none');
+                    const extra = paidBy.trim() !== '' ? (' · <strong>จ่ายโดย:</strong> ' + tncEscHtml(paidBy)) : '';
+                    showSlipPayMeta.innerHTML = '<strong>ชำระ:</strong> เงินสด' + extra;
+                } else {
+                    showSlipPayMeta.classList.remove('d-none');
+                    showSlipPayMeta.innerHTML = '<strong>ชำระ:</strong> โอน/ช่องทางอื่น';
+                }
+            }
             if (slipUrl !== '') {
                 showSlipImage.src = slipUrl;
                 showSlipImage.classList.remove('d-none');

@@ -248,29 +248,44 @@ usort($sites, static function (array $a, array $b): int {
         </div>
 
         <div class="card border-0 shadow-sm p-4" id="item_table_card">
+            <div class="table-responsive">
             <table class="table align-middle" id="prTable">
                 <thead class="table-light">
                     <tr>
-                        <th width="5%">#</th>
-                        <th width="40%">รายการสินค้า</th>
-                        <th width="10%">จำนวน</th>
-                        <th width="10%">หน่วย</th>
-                        <th width="15%">ราคา/หน่วย</th>
-                        <th width="15%">รวม</th>
-                        <th width="5%"></th>
+                        <th style="width:3rem;">#</th>
+                        <th>รายการสินค้า</th>
+                        <th style="width:7rem;">จำนวน</th>
+                        <th style="width:6rem;">หน่วย</th>
+                        <th style="width:7rem;">ราคา/หน่วย</th>
+                        <th style="width:7rem;">ส่วนลด</th>
+                        <th style="width:7rem;">รวม</th>
+                        <th style="width:3rem;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if ($isEdit && $requestTypeVal === 'purchase' && count($editItems) > 0): ?>
                         <?php $rn = 0; ?>
                         <?php foreach ($editItems as $it): ?>
-                            <?php $rn++; ?>
+                            <?php
+                            $rn++;
+                            $discEdit = trim((string) ($it['discount_input'] ?? ''));
+                            if ($discEdit === '') {
+                                $dt = (string) ($it['discount_type'] ?? 'amount');
+                                $dv = (float) ($it['discount_value'] ?? 0);
+                                if ($dv > 0) {
+                                    $discEdit = $dt === 'percent'
+                                        ? (rtrim(rtrim(number_format($dv, 4, '.', ''), '0'), '.') . '%')
+                                        : (string) $dv;
+                                }
+                            }
+                            ?>
                             <tr>
                                 <td class="row-number"><?= $rn ?></td>
                                 <td><input type="text" name="item_description[]" class="form-control" required placeholder="ระบุรายการสินค้า" value="<?= htmlspecialchars((string) ($it['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="number" name="item_qty[]" class="form-control qty" step="0.01" required oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['quantity'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td><input type="number" name="item_qty[]" class="form-control qty" step="0.001" min="0" required oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['quantity'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td><input type="text" name="item_unit[]" class="form-control" placeholder="หน่วย" value="<?= htmlspecialchars((string) ($it['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td><input type="number" name="item_price[]" class="form-control price" step="0.01" required oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['unit_price'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td><input type="text" name="item_discount[]" class="form-control line-discount" maxlength="20" placeholder="ไม่บังคับ — เช่น 10% หรือ 100" oninput="calculateTotal()" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td><input type="text" class="form-control row-total bg-light" value="<?= number_format((float) ($it['total'] ?? 0), 2, '.', '') ?>" readonly></td>
                                 <td><button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)"><i class="bi bi-trash-fill"></i></button></td>
                             </tr>
@@ -279,14 +294,17 @@ usort($sites, static function (array $a, array $b): int {
                     <tr>
                         <td class="row-number">1</td>
                         <td><input type="text" name="item_description[]" class="form-control" required placeholder="ระบุรายการสินค้า"></td>
-                        <td><input type="number" name="item_qty[]" class="form-control qty" step="0.01" required oninput="calculateTotal()"></td>
+                        <td><input type="number" name="item_qty[]" class="form-control qty" step="0.001" min="0" required oninput="calculateTotal()"></td>
                         <td><input type="text" name="item_unit[]" class="form-control" placeholder="หน่วย"></td>
                         <td><input type="number" name="item_price[]" class="form-control price" step="0.01" required oninput="calculateTotal()"></td>
+                        <td><input type="text" name="item_discount[]" class="form-control line-discount" maxlength="20" placeholder="ไม่บังคับ — เช่น 10% หรือ 100" oninput="calculateTotal()"></td>
                         <td><input type="text" class="form-control row-total bg-light" value="0.00" readonly></td>
-                        <td></td> </tr>
+                        <td></td>
+                    </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
             
             <div class="d-flex justify-content-between align-items-center">
                 <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="addRow()">
@@ -317,12 +335,35 @@ function addRow() {
     newRow.innerHTML = `
         <td class="row-number">${rowCount}</td>
         <td><input type="text" name="item_description[]" class="form-control" required placeholder="ระบุรายการสินค้า"></td>
-        <td><input type="number" name="item_qty[]" class="form-control qty" step="0.01" required oninput="calculateTotal()"></td>
+        <td><input type="number" name="item_qty[]" class="form-control qty" step="0.001" min="0" required oninput="calculateTotal()"></td>
         <td><input type="text" name="item_unit[]" class="form-control" placeholder="หน่วย"></td>
         <td><input type="number" name="item_price[]" class="form-control price" step="0.01" required oninput="calculateTotal()"></td>
+        <td><input type="text" name="item_discount[]" class="form-control line-discount" maxlength="20" placeholder="ไม่บังคับ — เช่น 10% หรือ 100" oninput="calculateTotal()"></td>
         <td><input type="text" class="form-control row-total bg-light" value="0.00" readonly></td>
         <td><button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)"><i class="bi bi-trash-fill"></i></button></td>
     `;
+}
+
+function prLineAmountAfterDiscount(qty, price, discRaw) {
+    const q = parseFloat(String(qty || '').replace(/,/g, '')) || 0;
+    const p = parseFloat(String(price || '').replace(/,/g, '')) || 0;
+    const base = Math.round(q * p * 100) / 100;
+    const dRaw = String(discRaw || '').trim();
+    let discount = 0;
+    if (dRaw !== '') {
+        const pctMatch = dRaw.match(/^([0-9]+(?:\.[0-9]+)?)\s*%$/);
+        if (pctMatch) {
+            let pct = parseFloat(pctMatch[1]) || 0;
+            if (pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
+            discount = Math.round(base * pct / 100 * 100) / 100;
+        } else {
+            discount = Math.round((parseFloat(dRaw.replace(/,/g, '')) || 0) * 100) / 100;
+            if (discount < 0) discount = 0;
+            if (discount > base) discount = base;
+        }
+    }
+    return Math.round((base - discount) * 100) / 100;
 }
 
 // ฟังก์ชันลบแถว
@@ -354,9 +395,14 @@ function calculateTotal() {
         lineAmount = Math.max(0, contractValue);
     } else {
         for (let row of rows) {
-            let qty = parseFloat(row.querySelector('.qty').value) || 0;
-            let price = parseFloat(row.querySelector('.price').value) || 0;
-            let total = qty * price;
+            const qtyEl = row.querySelector('.qty');
+            const priceEl = row.querySelector('.price');
+            const discEl = row.querySelector('.line-discount');
+            const total = prLineAmountAfterDiscount(
+                qtyEl ? qtyEl.value : 0,
+                priceEl ? priceEl.value : 0,
+                discEl ? discEl.value : ''
+            );
             row.querySelector('.row-total').value = total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             lineAmount += total;
         }
@@ -439,6 +485,10 @@ function toggleRequestTypeFields() {
     const tableInputs = itemTableCard.querySelectorAll('input[name="item_description[]"], input[name="item_qty[]"], input[name="item_price[]"]');
     tableInputs.forEach((input) => {
         input.required = !isHire;
+        input.disabled = isHire;
+    });
+    itemTableCard.querySelectorAll('input[name="item_discount[]"]').forEach((input) => {
+        input.required = false;
         input.disabled = isHire;
     });
     const optionalInputs = itemTableCard.querySelectorAll('input[name="item_unit[]"]');

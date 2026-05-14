@@ -1,0 +1,262 @@
+<?php
+
+declare(strict_types=1);
+
+use Theelincon\Rtdb\Db;
+
+if (!function_exists('tnc_po_format_date_thai')) {
+    function tnc_po_format_date_thai(mixed $date): string
+    {
+        $s = trim((string) $date);
+        if ($s === '') {
+            return '-';
+        }
+        $ts = strtotime($s);
+        if ($ts === false) {
+            return '-';
+        }
+
+        return date('d/m/Y', $ts);
+    }
+}
+
+if (!function_exists('tnc_po_public_absolute_url')) {
+    /**
+     * แปลง path จาก app_path() เป็น URL เต็ม (scheme + host) เพื่อให้เบราว์เซอร์โหลดรูปตอนพิมพ์/preview ได้เสถียรขึ้น
+     */
+    function tnc_po_public_absolute_url(string $pathFromApp): string
+    {
+        $path = trim($pathFromApp);
+        if ($path === '') {
+            return '';
+        }
+        if (preg_match('#^https?://#i', $path)) {
+            return $path;
+        }
+        $host = trim((string) ($_SERVER['HTTP_HOST'] ?? ''));
+        if ($host === '') {
+            return $path;
+        }
+        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (string) ($_SERVER['SERVER_PORT'] ?? '') === '443'
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
+        $scheme = $https ? 'https' : 'http';
+
+        return $scheme . '://' . $host . $path;
+    }
+}
+
+/**
+ * @return array<string, mixed>|null
+ */
+function tnc_purchase_po_print_prepare(int $id): ?array
+{
+    if ($id <= 0) {
+        return null;
+    }
+    $po = Db::rowByIdField('purchase_orders', $id);
+    if (!$po) {
+        return null;
+    }
+
+    $sup = Db::rowByIdField('suppliers', (int) ($po['supplier_id'] ?? 0));
+    $prId = (int) ($po['pr_id'] ?? 0);
+    $pr = $prId > 0 ? Db::rowByIdField('purchase_requests', $prId) : null;
+
+    $companies = Db::tableRows('company');
+    Db::sortRows($companies, 'id', false);
+    $companyRows = array_values($companies);
+    $com = $companyRows[0] ?? [];
+
+    $data = $po;
+    foreach (['name', 'logo', 'address', 'phone', 'tax_id'] as $ck) {
+        $data[$ck] = $com[$ck] ?? '';
+    }
+    $data['s_name'] = $sup['name'] ?? '';
+    $data['s_address'] = $sup['address'] ?? '';
+    $data['s_tax'] = $sup['tax_id'] ?? '';
+    $data['s_phone'] = $sup['phone'] ?? '';
+    $data['contact_person'] = $sup['contact_person'] ?? '';
+    $data['pr_number'] = $pr['pr_number'] ?? '';
+    $orderType = trim((string) ($data['order_type'] ?? 'purchase'));
+    if (!in_array($orderType, ['purchase', 'hire'], true)) {
+        $orderType = 'purchase';
+    }
+    $contractorName = trim((string) ($data['contractor_name'] ?? ''));
+    $installmentNo = (int) ($data['installment_no'] ?? 0);
+    $installmentTotal = (int) ($data['installment_total'] ?? 0);
+    $referencePrNumber = trim((string) ($data['reference_pr_number'] ?? ($data['pr_number'] ?? '')));
+    $withholdingType = trim((string) ($data['withholding_type'] ?? 'none'));
+    if ($withholdingType === 'wht5') {
+        $withholdingType = 'wht3';
+    }
+    if (!in_array($withholdingType, ['none', 'wht3'], true)) {
+        $withholdingType = 'none';
+    }
+    $withholdingAmount = (float) ($data['withholding_amount'] ?? 0);
+    $retentionType = trim((string) ($data['retention_type'] ?? 'none'));
+    if (!in_array($retentionType, ['none', 'percent', 'fixed'], true)) {
+        $retentionType = 'none';
+    }
+    $retentionAmount = (float) ($data['retention_amount'] ?? 0);
+    $poNotePo = trim((string) ($data['po_note'] ?? ''));
+    $poNoteQt = trim((string) ($data['quotation_note'] ?? ''));
+
+    $poSiteDisplay = trim((string) ($data['site_name'] ?? ''));
+    $poSiteId = (int) ($data['site_id'] ?? 0);
+    if ($poSiteDisplay === '' && $poSiteId > 0) {
+        $siteRowPo = Db::row('sites', (string) $poSiteId);
+        if (is_array($siteRowPo)) {
+            $poSiteDisplay = trim((string) ($siteRowPo['name'] ?? ''));
+        }
+    }
+    if ($poSiteDisplay === '' && is_array($pr)) {
+        $poSiteDisplay = trim((string) ($pr['site_name'] ?? ''));
+        if ($poSiteDisplay === '' && (int) ($pr['site_id'] ?? 0) > 0) {
+            $sr2 = Db::row('sites', (string) (int) ($pr['site_id'] ?? 0));
+            if (is_array($sr2)) {
+                $poSiteDisplay = trim((string) ($sr2['name'] ?? ''));
+            }
+        }
+    }
+
+    $poNumber = trim((string) ($po['po_number'] ?? ''));
+    $items = Db::filter('purchase_order_items', static function (array $r) use ($id, $poNumber): bool {
+        $poId = isset($r['po_id']) ? (int) $r['po_id'] : 0;
+        $purchaseOrderId = isset($r['purchase_order_id']) ? (int) $r['purchase_order_id'] : 0;
+        $poNumberRef = trim((string) ($r['po_number'] ?? ''));
+
+        return $poId === $id
+            || $purchaseOrderId === $id
+            || ($poNumberRef !== '' && $poNumberRef === $poNumber);
+    });
+    if (count($items) === 0 && $prId > 0) {
+        $items = Db::filter('purchase_order_items', static function (array $r) use ($prId): bool {
+            return isset($r['pr_id']) && (int) $r['pr_id'] === $prId;
+        });
+    }
+    if (count($items) === 0 && $prId > 0) {
+        $items = Db::filter('purchase_request_items', static function (array $r) use ($prId): bool {
+            return isset($r['pr_id']) && (int) $r['pr_id'] === $prId;
+        });
+    }
+    Db::sortRows($items, 'id', false);
+
+    $po_vat_enabled = (int) ($data['vat_enabled'] ?? 0);
+    $po_vat_amount = (float) ($data['vat_amount'] ?? 0);
+    $po_grand_total = (float) $data['total_amount'];
+    $issueDate = (string) ($data['issue_date'] ?? '');
+    if (trim($issueDate) === '') {
+        $issueDate = (string) ($data['created_at'] ?? '');
+    }
+    if (trim($issueDate) === '' && isset($pr['created_at'])) {
+        $issueDate = (string) $pr['created_at'];
+    }
+    if (isset($data['subtotal_amount']) && $data['subtotal_amount'] !== null && $data['subtotal_amount'] !== '') {
+        $po_subtotal = (float) $data['subtotal_amount'];
+    } else {
+        $po_subtotal = round($po_grand_total - $po_vat_amount, 2);
+    }
+    $po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_amount'] : ($po_subtotal + $po_vat_amount));
+    $poStatus = strtolower(trim((string) ($data['status'] ?? 'ordered')));
+    $isPoCancelled = ($poStatus === 'cancelled');
+
+    $poDocTitle = trim((string) ($po['po_number'] ?? ''));
+    if ($poDocTitle === '') {
+        $poDocTitle = 'PO-' . (int) ($po['id'] ?? $id);
+    }
+
+    return [
+        'po' => $po,
+        'data' => $data,
+        'items' => $items,
+        'orderType' => $orderType,
+        'contractorName' => $contractorName,
+        'installmentNo' => $installmentNo,
+        'installmentTotal' => $installmentTotal,
+        'referencePrNumber' => $referencePrNumber,
+        'withholdingType' => $withholdingType,
+        'withholdingAmount' => $withholdingAmount,
+        'retentionType' => $retentionType,
+        'retentionAmount' => $retentionAmount,
+        'poNotePo' => $poNotePo,
+        'poNoteQt' => $poNoteQt,
+        'poSiteDisplay' => $poSiteDisplay,
+        'po_vat_enabled' => $po_vat_enabled,
+        'po_vat_amount' => $po_vat_amount,
+        'po_grand_total' => $po_grand_total,
+        'po_subtotal' => $po_subtotal,
+        'po_gross_amount' => $po_gross_amount,
+        'issueDate' => $issueDate,
+        'isPoCancelled' => $isPoCancelled,
+        'poDocTitle' => $poDocTitle,
+    ];
+}
+
+/**
+ * โหมดพิมพ์ PO: po | slip | both | all (PR + PO + สลิป/แนบตามที่มี) — รองรับพารามิเตอร์เก่า with_attachments
+ */
+function tnc_purchase_po_resolve_print_mode(): string
+{
+    $m = strtolower(trim((string) ($_GET['print_mode'] ?? '')));
+    if (in_array($m, ['po', 'slip', 'both', 'all'], true)) {
+        return $m;
+    }
+    $wa = strtolower(trim((string) ($_GET['with_attachments'] ?? '1')));
+    if (in_array($wa, ['0', 'false', 'no'], true)) {
+        return 'po';
+    }
+
+    return 'both';
+}
+
+function tnc_purchase_po_print_render(array $ctx): void
+{
+    extract($ctx, EXTR_SKIP);
+    include __DIR__ . '/po_invoice_body.php';
+}
+
+/** พิมพ์ควบคู่ใบ PO: แสดงสลิปหน้าใหม่เมื่อจ่ายแล้วและมีไฟล์แนบ */
+function tnc_purchase_po_payment_slip_print_render(array $po): void
+{
+    if (strtolower(trim((string) ($po['payment_status'] ?? ''))) !== 'paid') {
+        return;
+    }
+    $rel = trim((string) ($po['payment_slip_path'] ?? ''));
+    if ($rel === '') {
+        return;
+    }
+    $po_doc_header_po_number = trim((string) ($po['po_number'] ?? ''));
+    if ($po_doc_header_po_number === '') {
+        $po_doc_header_po_number = 'PO-' . (int) ($po['id'] ?? 0);
+    }
+    $po_slip_image_url = tnc_po_public_absolute_url(app_path($rel));
+    include __DIR__ . '/po_payment_slip_print.php';
+}
+
+/** พิมพ์ควบคู่ใบ PO: ไฟล์แนบใบเสนอราคา (รูปหรือ PDF) */
+function tnc_purchase_po_quotation_attachment_print_render(array $po): void
+{
+    $rel = trim((string) ($po['quotation_attachment_path'] ?? ''));
+    if ($rel === '') {
+        return;
+    }
+    $ext = strtolower(pathinfo($rel, PATHINFO_EXTENSION));
+    $imageExt = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
+    $isPdf = ($ext === 'pdf');
+    if (!$isPdf && !in_array($ext, $imageExt, true)) {
+        return;
+    }
+    $po_quotation_attach_url = tnc_po_public_absolute_url(app_path($rel));
+    $name = trim((string) ($po['quotation_attachment_name'] ?? ''));
+    $po_quotation_attach_caption = 'ไฟล์แนบใบเสนอราคา';
+    if ($name !== '') {
+        $po_quotation_attach_caption .= ' — ' . $name;
+    }
+    $po_quotation_attach_is_pdf = $isPdf;
+    $po_doc_header_po_number = trim((string) ($po['po_number'] ?? ''));
+    if ($po_doc_header_po_number === '') {
+        $po_doc_header_po_number = 'PO-' . (int) ($po['id'] ?? 0);
+    }
+    include __DIR__ . '/po_quotation_attachment_print.php';
+}

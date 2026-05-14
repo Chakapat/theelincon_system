@@ -2,6 +2,140 @@
  * ใช้กับหน้าใบแจ้งหนี้ / ใบกำกับภาษี / ใบเสนอราคา / PO
  * ช่วยให้ตัวอักษรไทยตอนพิมพ์อ่านชัดขึ้น (น้ำหนักฟอนต์ + fallback ระบบ)
  */
+
+/* --- ใบ PO (po_invoice_body) — จัดรูปบนหน้าจอ + พื้นฐานสำหรับพิมพ์ --- */
+.po-purchase-order-doc .po-section-kicker {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #ea580c;
+    line-height: 1.25;
+}
+
+.po-purchase-order-doc .po-doc-main {
+    padding-bottom: 52mm;
+    box-sizing: border-box;
+}
+
+.po-purchase-order-doc .row > [class*="col-"] {
+    min-width: 0;
+}
+
+.po-purchase-order-doc .po-section-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.po-purchase-order-doc .po-section-detail {
+    font-size: 0.72rem;
+    line-height: 1.5;
+    margin-top: 0.2rem;
+}
+
+/* ตาราง PO — ระยะ/ขนาดใกล้เคียง PR ใช้สีส้มแทนเขียว */
+.po-purchase-order-doc .po-items-table thead th {
+    background: #fafafa;
+    color: #333;
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: normal;
+    padding: 10px;
+    border-bottom: 2px solid #ea580c;
+    border-top: 1px solid #e9ecef;
+    vertical-align: middle;
+}
+
+.po-purchase-order-doc .po-items-table thead th.po-th-price {
+    white-space: nowrap;
+}
+
+.po-purchase-order-doc .po-items-table tbody td {
+    padding: 10px;
+    vertical-align: middle;
+    font-size: 13px;
+    border-bottom: 1px solid #f2f2f2;
+}
+
+.po-purchase-order-doc .po-th-num,
+.po-purchase-order-doc .po-td-num {
+    font-variant-numeric: tabular-nums;
+}
+
+/* กล่องสรุปยอดแบบ PR — โทนส้ม PO */
+.po-purchase-order-doc .po-total-sheet {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    background: #fff9f0 !important;
+    border: 1px solid #fed7aa !important;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    box-shadow: none;
+}
+
+.po-purchase-order-doc .po-total-sheet .summary-item {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 0.875rem;
+}
+
+.po-purchase-order-doc .po-total-sheet .summary-item > span:last-child {
+    margin-left: auto;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* แถบยอดสุทธิแบบ PR — โทนส้ม */
+.po-purchase-order-doc .grand-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #ea580c;
+    color: #fff;
+    padding: 12px;
+    border-radius: 5px;
+    margin-top: 8px;
+    gap: 0.75rem;
+}
+
+.po-purchase-order-doc .grand-total-row span:last-child {
+    margin-left: auto;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.po-payment-evidence-card {
+    border-radius: 0.75rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.07);
+    background: #fff;
+    overflow: hidden;
+}
+
+.po-payment-evidence-card .po-payment-slip-sheet {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+/* PR ฝังในชุดพิมพ์ PO (โหมด all) — โทนเขียว PR */
+.pr-bundle-inline {
+    --brand-color: #28a745;
+    --brand-color-deep: #1e7e34;
+}
+
 @media print {
     @page {
         size: A4;
@@ -67,5 +201,93 @@
         max-width: 70mm !important;
         width: auto !important;
         object-fit: contain !important;
+    }
+
+    /* รูปสลิป/แนบ PO — กันบางเบราว์เซอร์ไม่วาดรูปใน print preview */
+    img.po-payment-slip-img,
+    img.tnc-po-deferred-print-img {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        display: block !important;
+        max-width: 175mm !important;
+        max-height: 215mm !important;
+        width: auto !important;
+        height: auto !important;
+        object-fit: contain !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        page-break-inside: avoid !important;
+    }
+
+    .po-purchase-order-doc .po-items-table thead th {
+        background: #fafafa !important;
+        color: #111 !important;
+        border-bottom-color: #ea580c !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .po-purchase-order-doc .po-total-sheet {
+        background: #fff9f0 !important;
+        border-color: #fdba74 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .po-purchase-order-doc .grand-total-row {
+        background: #ea580c !important;
+        color: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .po-purchase-order-doc .grand-total-row span {
+        color: #fff !important;
+    }
+
+    .po-purchase-order-doc .badge {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .po-purchase-order-doc .text-bg-success {
+        background-color: #198754 !important;
+        color: #fff !important;
+    }
+
+    .po-purchase-order-doc .text-bg-danger {
+        background-color: #dc3545 !important;
+        color: #fff !important;
+    }
+
+    .po-purchase-order-doc .border.text-secondary.bg-white {
+        background: #fff !important;
+        color: #555 !important;
+        border-color: #dee2e6 !important;
+    }
+
+    .po-purchase-order-doc .row.mb-2.mt-3 {
+        flex-wrap: nowrap !important;
+    }
+
+    .po-payment-evidence-card {
+        box-shadow: none !important;
+        border-color: #e2e8f0 !important;
+    }
+
+    .po-print-bundle-pr {
+        page-break-after: always;
+        break-after: page;
+    }
+
+    .pr-bundle-inline .grand-total-row {
+        background: #28a745 !important;
+        color: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .pr-bundle-inline .grand-total-row span {
+        color: #fff !important;
     }
 }

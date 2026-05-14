@@ -2,9 +2,6 @@
 
 declare(strict_types=1);
 
-
-use Theelincon\Rtdb\Db;
-
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 
@@ -15,116 +12,37 @@ if (!isset($_SESSION['user_id'])) {
 
 $id = (int) ($_GET['id'] ?? 0);
 
-$po = Db::rowByIdField('purchase_orders', $id);
-if (!$po) {
+require_once dirname(__DIR__, 2) . '/includes/purchase_print/po_document.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_print/pr_document.php';
+$poCtx = tnc_purchase_po_print_prepare($id);
+if ($poCtx === null) {
     die('ไม่พบข้อมูลใบสั่งซื้อ');
 }
-
-$sup = Db::rowByIdField('suppliers', (int) ($po['supplier_id'] ?? 0));
-$prId = (int) ($po['pr_id'] ?? 0);
-$pr = $prId > 0 ? Db::rowByIdField('purchase_requests', $prId) : null;
-
-$companies = Db::tableRows('company');
-Db::sortRows($companies, 'id', false);
-$companyRows = array_values($companies);
-$com = $companyRows[0] ?? [];
-
-$data = $po;
-foreach (['name', 'logo', 'address', 'phone', 'tax_id'] as $ck) {
-    $data[$ck] = $com[$ck] ?? '';
-}
-$data['s_name'] = $sup['name'] ?? '';
-$data['s_address'] = $sup['address'] ?? '';
-$data['s_tax'] = $sup['tax_id'] ?? '';
-$data['s_phone'] = $sup['phone'] ?? '';
-$data['contact_person'] = $sup['contact_person'] ?? '';
-$data['pr_number'] = $pr['pr_number'] ?? '';
-$orderType = trim((string) ($data['order_type'] ?? 'purchase'));
-if (!in_array($orderType, ['purchase', 'hire'], true)) {
-    $orderType = 'purchase';
-}
-$contractorName = trim((string) ($data['contractor_name'] ?? ''));
-$installmentNo = (int) ($data['installment_no'] ?? 0);
-$installmentTotal = (int) ($data['installment_total'] ?? 0);
-$referencePrNumber = trim((string) ($data['reference_pr_number'] ?? ($data['pr_number'] ?? '')));
-$withholdingType = trim((string) ($data['withholding_type'] ?? 'none'));
-if ($withholdingType === 'wht5') {
-    $withholdingType = 'wht3';
-}
-if (!in_array($withholdingType, ['none', 'wht3'], true)) {
-    $withholdingType = 'none';
-}
-$withholdingAmount = (float) ($data['withholding_amount'] ?? 0);
-$retentionType = trim((string) ($data['retention_type'] ?? 'none'));
-if (!in_array($retentionType, ['none', 'percent', 'fixed'], true)) {
-    $retentionType = 'none';
-}
-$retentionAmount = (float) ($data['retention_amount'] ?? 0);
-$poNotePo = trim((string) ($data['po_note'] ?? ''));
-$poNoteQt = trim((string) ($data['quotation_note'] ?? ''));
-
-$prId = (int) ($po['pr_id'] ?? 0);
-$poNumber = trim((string) ($po['po_number'] ?? ''));
-$items = Db::filter('purchase_order_items', static function (array $r) use ($id, $poNumber): bool {
-    $poId = isset($r['po_id']) ? (int) $r['po_id'] : 0;
-    $purchaseOrderId = isset($r['purchase_order_id']) ? (int) $r['purchase_order_id'] : 0;
-    $poNumberRef = trim((string) ($r['po_number'] ?? ''));
-    return $poId === $id
-        || $purchaseOrderId === $id
-        || ($poNumberRef !== '' && $poNumberRef === $poNumber);
-});
-if (count($items) === 0 && $prId > 0) {
-    // รองรับข้อมูลเก่าบางชุดที่เก็บ item ใต้ purchase_order_items โดยอ้าง pr_id
-    $items = Db::filter('purchase_order_items', static function (array $r) use ($prId): bool {
-        return isset($r['pr_id']) && (int) $r['pr_id'] === $prId;
-    });
-}
-if (count($items) === 0 && $prId > 0) {
-    // รองรับข้อมูลเก่าที่บางครั้งยังเก็บ item ไว้ใต้ PR
-    $items = Db::filter('purchase_request_items', static function (array $r) use ($prId): bool {
-        return isset($r['pr_id']) && (int) $r['pr_id'] === $prId;
-    });
-}
-Db::sortRows($items, 'id', false);
-function formatDateThai($date) {
-    $s = trim((string) $date);
-    if ($s === '') {
-        return '-';
-    }
-    $ts = strtotime($s);
-    if ($ts === false) {
-        return '-';
-    }
-    return date('d/m/Y', $ts);
-}
-
-$po_vat_enabled = (int)($data['vat_enabled'] ?? 0);
-$po_vat_amount = (float)($data['vat_amount'] ?? 0);
-$po_grand_total = (float)$data['total_amount'];
-// วันที่ออกบิลของ PO: ใช้ issue_date ก่อน แล้ว fallback ไป created_at หรือวันที่ PR
-$issueDate = (string) ($data['issue_date'] ?? '');
-if (trim($issueDate) === '') {
-    $issueDate = (string) ($data['created_at'] ?? '');
-}
-if (trim($issueDate) === '' && isset($pr['created_at'])) {
-    $issueDate = (string) $pr['created_at'];
-}
-if (isset($data['subtotal_amount']) && $data['subtotal_amount'] !== null && $data['subtotal_amount'] !== '') {
-    $po_subtotal = (float)$data['subtotal_amount'];
-} else {
-    $po_subtotal = round($po_grand_total - $po_vat_amount, 2);
-}
-$po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_amount'] : ($po_subtotal + $po_vat_amount));
-$poStatus = strtolower(trim((string) ($data['status'] ?? 'ordered')));
-$isPoCancelled = ($poStatus === 'cancelled');
+extract($poCtx, EXTR_OVERWRITE);
 $paymentStatusPo = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
 $isPoPaid = ($paymentStatusPo === 'paid');
+$paymentSlipRelForPrint = $isPoPaid ? trim((string) ($po['payment_slip_path'] ?? '')) : '';
+$hasPaymentSlipPrint = $paymentSlipRelForPrint !== '';
+$quotRelPrint = trim((string) ($po['quotation_attachment_path'] ?? ''));
+$quotExtPrint = $quotRelPrint !== '' ? strtolower(pathinfo($quotRelPrint, PATHINFO_EXTENSION)) : '';
+$quotPrintableExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'pdf'];
+$hasQuotationAttachPrint = $quotRelPrint !== '' && in_array($quotExtPrint, $quotPrintableExts, true);
+$hasFollowPagesPrint = $hasPaymentSlipPrint || $hasQuotationAttachPrint;
 
-/** ชื่อแท็บ / ชื่อไฟล์เริ่มต้นตอนพิมพ์หรือบันทึก PDF (Ctrl+P) */
-$poDocTitle = trim((string) ($po['po_number'] ?? ''));
-if ($poDocTitle === '') {
-    $poDocTitle = 'PO-' . (int) ($po['id'] ?? $id);
+$poPrIdForPrint = (int) ($po['pr_id'] ?? 0);
+$prCtxForPo = $poPrIdForPrint > 0 ? tnc_purchase_pr_print_prepare($poPrIdForPrint) : null;
+$hasPrForPrint = $prCtxForPo !== null;
+
+$poPrintMode = tnc_purchase_po_resolve_print_mode();
+if ($poPrintMode === 'all' && !$hasPrForPrint) {
+    $poPrintMode = 'both';
 }
+$hasPrintChoiceModal = $hasFollowPagesPrint || $hasPrForPrint;
+
+$printIncludePr = ($poPrintMode === 'all' && $hasPrForPrint);
+$printIncludePo = in_array($poPrintMode, ['po', 'both', 'all'], true);
+$printIncludeSlip = in_array($poPrintMode, ['slip', 'both', 'all'], true);
+$printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
 ?>
 
 <!DOCTYPE html>
@@ -141,38 +59,216 @@ if ($poDocTitle === '') {
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
     
     <style>
-        :root { --brand-color: #28a745; --dark: #333; }
-        body { font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', Tahoma, sans-serif; background: #f4f4f4; color: var(--dark); margin: 0; padding: 0; font-weight: 500; }
-        
+        :root {
+            --brand-color: #ea580c;
+            --brand-color-deep: #c2410c;
+            --brand-color-soft: #fff7ed;
+            --brand-border-soft: #fdba74;
+            --dark: #333;
+        }
+        body {
+            font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(165deg, #f1f5f9 0%, #e8edf3 45%, #f8fafc 100%);
+            color: var(--dark);
+            margin: 0;
+            padding: 0;
+            font-weight: 500;
+            min-height: 100vh;
+        }
+
+        .po-view-shell {
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .po-view-shell-inner {
+            padding-top: 0.85rem;
+            padding-bottom: 0.85rem;
+        }
+
+        .po-view-kicker {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--brand-color);
+            margin-bottom: 0.2rem;
+        }
+
+        .po-view-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+
+        .po-view-meta-row {
+            gap: 0.5rem 0.75rem;
+        }
+
+        .po-view-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+
+        .po-view-actions .btn {
+            font-weight: 600;
+        }
+
+        .po-view-alerts {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px dashed #e2e8f0;
+        }
+
+        .po-view-alerts .alert {
+            margin-bottom: 0.5rem;
+            padding: 0.45rem 0.85rem;
+            font-size: 0.875rem;
+            border-radius: 0.5rem;
+        }
+
+        .po-view-alerts .alert:last-child {
+            margin-bottom: 0;
+        }
+
+        .po-view-canvas {
+            max-width: 210mm;
+            margin-left: auto;
+            margin-right: auto;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+            padding-bottom: 2.5rem;
+        }
+
+        /* PR ฝังในหน้า PO — คงโทนเขียวของ PR (ไม่ใช้ส้มของ PO) */
+        .pr-bundle-inline {
+            --brand-color: #28a745;
+            --brand-color-deep: #1e7e34;
+        }
+
+        .po-view-chip--link {
+            background: #f0fdf4;
+            color: #047857 !important;
+            border-color: #86efac !important;
+        }
+
+        .po-view-chip--link:hover {
+            background: #dcfce7;
+            border-color: #4ade80 !important;
+        }
+
+        #poPrintChoiceModal .modal-content {
+            border-radius: 1rem;
+        }
+
+        #poPrintChoiceModal .modal-header {
+            padding-bottom: 0.25rem;
+        }
+
+        #poPrintChoiceModal .js-po-print-choice {
+            border-radius: 0.75rem !important;
+            padding-top: 0.65rem !important;
+            padding-bottom: 0.65rem !important;
+        }
+
+        .po-side-accent {
+            border-left-color: var(--brand-color) !important;
+        }
+        .po-vat-line {
+            color: var(--brand-color-deep) !important;
+        }
         .invoice-box {
             width: 210mm;
             max-width: 100%;
             height: 297mm;
-            margin: 0 auto;
+            margin: 0 auto 1.5rem;
             background: #fff;
             padding: 10mm 15mm;
             position: relative;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
             border-top: 8px solid var(--brand-color);
             overflow: hidden;
         }
 
+        .po-doc-main {
+            padding-bottom: 52mm;
+            box-sizing: border-box;
+        }
+
+        .invoice-box .po-total-sheet {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            background: #fff9f0;
+            border: 1px solid #fed7aa;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+        }
+
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
-        .invoice-title { font-size: 32px; font-weight: 800; color: var(--brand-color); line-height: 1; }
-        .table-custom { margin-top: 15px; margin-bottom: 0; }
-        .table-custom thead th { background: #fafafa; border-bottom: 2px solid var(--brand-color); font-size: 13px; padding: 10px; }
-        .table-custom td { padding: 10px; font-size: 13px; border-bottom: 1px solid #f2f2f2; }
+        .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
+        .table-custom { margin-top: 12px; margin-bottom: 0; }
+        .invoice-box .table-custom thead th {
+            background: #fafafa;
+            border-bottom: 2px solid var(--brand-color);
+            font-size: 13px;
+            padding: 10px;
+        }
+        .invoice-box .table-custom td {
+            padding: 10px;
+            font-size: 13px;
+            border-bottom: 1px solid #f2f2f2;
+        }
 
         .footer-sticky { position: absolute; bottom: 12mm; left: 15mm; right: 15mm; }
-        .summary-item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 14px; }
-        
-        .grand-total-row { 
-            display: flex; justify-content: space-between; align-items: center; 
-            background: var(--brand-color); color: white; padding: 12px; border-radius: 5px; margin-top: 8px; 
+        .invoice-box .po-total-sheet .summary-item {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: baseline;
+            justify-content: flex-start;
+            gap: 0.75rem;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            padding: 2px 0;
+            font-size: 14px;
         }
-        
-        .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; text-align: center; margin-top: 30px; }
-        .sig-space { height: 75px; }
+        .invoice-box .po-total-sheet .summary-item > span:last-child {
+            margin-left: auto;
+            text-align: right;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .invoice-box.po-purchase-order-doc .grand-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--brand-color);
+            color: #fff;
+            padding: 12px;
+            border-radius: 5px;
+            margin-top: 8px;
+        }
+
+        .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; text-align: center; margin-top: 22px; }
+        .sig-space { height: 72px; }
         .sig-box { border-top: 1px solid #333; padding-top: 10px; font-size: 13px; font-weight: 600; }
 
         .po-cancelled-watermark {
@@ -191,16 +287,83 @@ if ($poDocTitle === '') {
             user-select: none;
         }
 
+        .po-payment-slip-print-wrap {
+            max-width: 210mm;
+            margin: 1rem auto 2rem;
+        }
+        .po-payment-slip-sheet {
+            background: #fff;
+            padding: 12px 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+            border: 1px solid #e2e8f0;
+        }
+        .po-slip-print-caption {
+            font-weight: 600;
+            color: var(--brand-color);
+            letter-spacing: 0.03em;
+        }
+        .po-slip-paper-header {
+            font-size: 0.88rem;
+            line-height: 1.4;
+            color: #334155;
+            border-bottom: 2px solid var(--brand-color);
+            padding-bottom: 0.45rem;
+            margin-bottom: 0.65rem;
+        }
+        .po-slip-paper-header-kicker {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #94a3b8;
+            margin-bottom: 0.15rem;
+        }
+        .po-slip-po-line {
+            font-size: 0.82rem;
+            color: #475569;
+        }
+        .po-slip-po-number {
+            font-size: 1.08rem;
+            font-weight: 800;
+            color: var(--brand-color-deep);
+            margin-left: 0.25rem;
+        }
+        .po-slip-img-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-height: 72vh;
+            overflow: auto;
+        }
+        .po-payment-slip-img {
+            max-width: 100%;
+            max-height: 72vh;
+            height: auto;
+            width: auto;
+            object-fit: contain;
+        }
+        .po-quotation-pdf-iframe {
+            width: 100%;
+            min-height: 40vh;
+            max-height: 72vh;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: #f8fafc;
+        }
+
         @media (max-width: 575.98px) {
             body { background: #fff; }
             .invoice-box {
                 width: 100%;
                 height: auto;
+                min-height: 0;
                 padding: 1rem;
                 box-shadow: none;
                 overflow: visible;
             }
-            .footer-sticky { position: static; bottom: auto; left: auto; right: auto; margin-top: 1rem; }
+            .po-doc-main { padding-bottom: 0; }
+            .footer-sticky { position: static; bottom: auto; left: auto; right: auto; margin-top: 1.25rem; }
             .signature-grid { grid-template-columns: 1fr; gap: 18px; }
         }
 
@@ -208,9 +371,80 @@ if ($poDocTitle === '') {
             @page { size: A4; margin: 0; }
             body { background: none; }
             .no-print, nav.navbar { display: none !important; }
-            .invoice-box { margin: 0; box-shadow: none; border-top: 8px solid var(--brand-color); }
+            .po-view-canvas {
+                max-width: none;
+                margin: 0;
+                padding: 0;
+            }
+            .invoice-box { margin: 0; box-shadow: none; border-top: 8px solid var(--brand-color); height: 297mm; }
+            .footer-sticky { position: absolute; bottom: 12mm; left: 15mm; right: 15mm; }
+            .invoice-box .po-vat-line {
+                color: var(--brand-color-deep) !important;
+            }
+            .invoice-box .po-total-sheet {
+                background: #fff9f0 !important;
+                border-color: #fdba74 !important;
+            }
             .po-cancelled-watermark {
                 color: rgba(185, 28, 28, 0.5);
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .po-payment-slip-print-wrap {
+                page-break-before: always;
+                page-break-inside: avoid;
+                break-inside: avoid;
+                margin: 0;
+                max-width: none;
+                max-height: 297mm;
+                overflow: hidden;
+            }
+            .po-payment-slip-print-wrap .no-print {
+                display: none !important;
+            }
+            .po-payment-slip-sheet {
+                box-shadow: none !important;
+                border: none !important;
+                background: #fff !important;
+                padding: 6mm 8mm 8mm;
+                border-radius: 0;
+                max-height: 297mm;
+                box-sizing: border-box;
+                overflow: hidden;
+            }
+            .po-slip-paper-header {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .po-slip-img-wrap {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                max-height: 215mm;
+                overflow: hidden;
+            }
+            .po-payment-slip-img {
+                max-width: 175mm !important;
+                max-height: 215mm !important;
+                width: auto !important;
+                height: auto !important;
+                object-fit: contain !important;
+                margin-left: auto;
+                margin-right: auto;
+                display: block !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .po-quotation-pdf-iframe {
+                min-height: 0;
+                height: 215mm;
+                max-height: 215mm;
+                max-width: 175mm;
+                margin: 0 auto;
+                display: block;
+                border: none !important;
+                background: #fff !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
@@ -223,183 +457,200 @@ if ($poDocTitle === '') {
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 </div>
 
-<div class="controls-wrapper no-print py-3 mb-3 shadow-sm border-bottom" style="background: linear-gradient(180deg, #fff 0%, #f8fafc 100%); border-color: #e2e8f0 !important;">
-    <?php if (!empty($_GET['cancelled'])): ?>
-        <div class="alert alert-success py-2 px-3 mb-3 mx-auto" style="max-width: 520px;">ยกเลิกใบสั่งซื้อเรียบร้อยแล้ว</div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['error']) && $_GET['error'] === 'po_paid'): ?>
-        <div class="alert alert-warning py-2 px-3 mb-3 mx-auto" style="max-width: 520px;">ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถยกเลิกได้</div>
-    <?php endif; ?>
-    <div class="container d-flex flex-wrap align-items-center justify-content-center gap-2">
-    <button type="button" onclick="window.print()" class="btn btn-success rounded-pill px-4 shadow-sm fw-semibold">
-        <i class="bi bi-printer me-1"></i>พิมพ์ใบสั่งซื้อ
-    </button>
-    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3">รายการ PO</a>
-    <?php if (!$isPoCancelled && !$isPoPaid): ?>
-        <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=cancel_purchase_order" class="d-inline ms-2" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบสั่งซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และจะแสดงประทับบนใบพิมพ์');">
-            <?php csrf_field(); ?>
-            <input type="hidden" name="po_id" value="<?= (int) $id ?>">
-            <input type="hidden" name="return_to" value="view">
-            <button type="submit" class="btn btn-outline-danger rounded-pill px-3"><i class="bi bi-x-circle me-1"></i>ยกเลิกใบ PO</button>
-        </form>
-    <?php endif; ?>
-    </div>
-</div>
-
-<div class="invoice-box">
-    <?php if ($isPoCancelled): ?>
-    <div class="po-cancelled-watermark" aria-hidden="true">ยกเบิกใบสั่งซื้อ</div>
-    <?php endif; ?>
-    <div class="row align-items-start mb-2">
-        <div class="col-6">
-            <?php if(!empty($data['logo'])): ?>
-                <img src="<?= htmlspecialchars(upload_logo_url($data['logo'])) ?>" class="company-logo" alt="Logo">
-            <?php endif; ?>
-            <div class="fw-bold mt-2" style="font-size: 16px;"><?= $data['name']; ?></div>
-            <div class="small text-muted" style="font-size: 11px; line-height: 1.4;">
-                <?= $data['address']; ?><br>
-                โทร: <?= $data['phone']; ?> | Tax ID: <?= $data['tax_id']; ?>
-            </div>
-        </div>
-        <div class="col-6 text-end">
-            <div class="invoice-title"><?= $orderType === 'hire' ? 'PAYMENT ORDER' : 'PURCHASE ORDER' ?></div>
-            <div class="fw-bold text-muted small"><?= $orderType === 'hire' ? 'ใบสั่งจ่าย / ใบสั่งจ้าง' : 'ใบสั่งซื้อสินค้า' ?></div>
-            <div class="fw-bold text-dark mt-2" style="font-size: 18px;"><?= $orderType === 'hire' ? 'เลขที่ใบสั่งจ่าย' : 'เลขที่ใบสั่งซื้อ' ?>: <?= htmlspecialchars((string) ($data['po_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
-            <?php $quotationNo = trim((string) ($data['quotation_number'] ?? '')); ?>
-            <?php $quotationAttach = trim((string) ($data['quotation_attachment_path'] ?? '')); ?>
-            <?php if ($quotationNo !== ''): ?>
-                <div class="small text-muted">อ้างอิงใบเสนอราคา: <?= htmlspecialchars($quotationNo, ENT_QUOTES, 'UTF-8'); ?></div>
-            <?php endif; ?>
-            <?php if ($quotationAttach !== ''): ?>
-                <?php
-                $attachLabel = trim((string) ($data['quotation_attachment_name'] ?? ''));
-                if ($attachLabel === '') {
-                    $attachLabel = 'เปิดไฟล์';
-                }
-                ?>
-                <div class="small text-muted">ไฟล์ใบเสนอราคา:
-                    <a href="<?= htmlspecialchars(app_path($quotationAttach), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></a>
+<?php
+$pmToolbar = strtolower(trim((string) ($po['payment_method'] ?? 'transfer'))) === 'cash' ? 'cash' : 'transfer';
+$cashByToolbar = trim((string) ($po['payment_cash_paid_by'] ?? ''));
+$slipRelToolbar = trim((string) ($po['payment_slip_path'] ?? ''));
+$poListHref = htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8');
+$poViewFullHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8');
+$hasAlerts = !empty($_GET['cancelled'])
+    || (!empty($_GET['error']) && $_GET['error'] === 'po_paid')
+    || ($hasFollowPagesPrint && $poPrintMode === 'po')
+    || ($poPrintMode === 'slip')
+    || ($poPrintMode === 'all');
+?>
+<header class="po-view-shell no-print">
+    <div class="container-xl po-view-shell-inner">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+            <div class="flex-grow-1" style="min-width: min(100%, 240px);">
+                <div class="po-view-kicker">Purchase order</div>
+                <h1 class="po-view-title mb-2"><?= htmlspecialchars($poDocTitle, ENT_QUOTES, 'UTF-8') ?></h1>
+                <nav class="small text-muted mb-2" aria-label="breadcrumb">
+                    <a href="<?= $poListHref ?>" class="text-decoration-none text-muted">รายการใบสั่งซื้อ</a>
+                    <span class="mx-1">/</span>
+                    <span class="text-secondary">เอกสาร</span>
+                </nav>
+                <div class="d-flex flex-wrap align-items-center po-view-meta-row">
+                    <?php if ($isPoCancelled): ?>
+                        <span class="po-view-chip text-bg-danger border-0">ยกเลิกแล้ว</span>
+                    <?php elseif ($isPoPaid): ?>
+                        <span class="po-view-chip"><?= $pmToolbar === 'cash' ? 'เงินสด' : 'โอน / ช่องทางอื่น' ?></span>
+                        <?php if ($pmToolbar === 'cash' && $cashByToolbar !== ''): ?>
+                            <span class="po-view-chip">จ่ายโดย <?= htmlspecialchars($cashByToolbar, ENT_QUOTES, 'UTF-8') ?></span>
+                        <?php endif; ?>
+                        <?php if ($slipRelToolbar !== ''): ?>
+                            <a href="<?= htmlspecialchars(app_path($slipRelToolbar), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="po-view-chip po-view-chip--link text-decoration-none">
+                                <i class="bi bi-receipt"></i>เปิดสลิป
+                            </a>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <span class="po-view-chip">รอชำระเงิน</span>
+                    <?php endif; ?>
                 </div>
-            <?php endif; ?>
-            <?php if ($referencePrNumber !== ''): ?>
-                <div class="small text-muted"><?= $orderType === 'hire' ? 'อ้างอิงสัญญา' : 'อ้างอิง PR' ?>: <?= htmlspecialchars($referencePrNumber, ENT_QUOTES, 'UTF-8'); ?></div>
-            <?php endif; ?>
-            <?php if ($orderType === 'hire' && $installmentNo > 0 && $installmentTotal > 0): ?>
-                <div class="small text-muted">งวดที่ <?= number_format($installmentNo) ?> / <?= number_format($installmentTotal) ?></div>
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <div class="row mb-2 mt-4">
-        <div class="col-7 border-start border-4 border-success ps-3">
-            <div style="font-size: 10px; color: var(--brand-color); font-weight: bold; text-transform: uppercase;"><?= $orderType === 'hire' ? 'ผู้รับจ้าง' : 'Vendor / ผู้ขาย' ?></div>
-            <div class="fw-bold" style="font-size: 15px;"><?= htmlspecialchars($orderType === 'hire' && $contractorName !== '' ? $contractorName : (string) ($data['s_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
-            <div class="small text-muted" style="font-size: 12px;">
-                <?= htmlspecialchars((string) ($data['s_address'] ?? ''), ENT_QUOTES, 'UTF-8'); ?><br>
-                <strong>Tax ID:</strong> <?= htmlspecialchars((string) ($data['s_tax'] ?? ''), ENT_QUOTES, 'UTF-8'); ?> | <strong>โทร:</strong> <?= htmlspecialchars((string) ($data['s_phone'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+            </div>
+            <div class="po-view-actions d-flex flex-wrap align-items-center justify-content-end gap-2">
+                <a href="<?= $poListHref ?>" class="btn btn-outline-secondary rounded-pill px-3">
+                    <i class="bi bi-arrow-left-short me-1"></i>รายการ PO
+                </a>
+                <?php if ($hasPrintChoiceModal): ?>
+                    <button type="button" class="btn btn-success rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#poPrintChoiceModal">
+                        <i class="bi bi-printer me-1"></i>พิมพ์เอกสาร
+                    </button>
+                <?php else: ?>
+                    <button type="button" class="btn btn-success rounded-pill px-3 shadow-sm" onclick="tncPrintPoWhenReady()">
+                        <i class="bi bi-printer me-1"></i>พิมพ์ใบสั่งซื้อ
+                    </button>
+                <?php endif; ?>
+                <?php if (!$isPoCancelled && !$isPoPaid): ?>
+                    <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=cancel_purchase_order" class="d-inline" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบสั่งซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และจะแสดงประทับบนใบพิมพ์');">
+                        <?php csrf_field(); ?>
+                        <input type="hidden" name="po_id" value="<?= (int) $id ?>">
+                        <input type="hidden" name="return_to" value="view">
+                        <button type="submit" class="btn btn-outline-danger rounded-pill px-3"><i class="bi bi-x-circle me-1"></i>ยกเลิก PO</button>
+                    </form>
+                <?php endif; ?>
             </div>
         </div>
-        <div class="col-5 text-end">
-            <div style="font-size: 10px; color: var(--brand-color); font-weight: bold; text-transform: uppercase;">วันที่ออกบิล</div>
-            <div class="fw-bold" style="font-size: 15px;"><?= formatDateThai($issueDate); ?></div>
-        </div>
-    </div>
-
-    <table class="table table-custom">
-        <thead>
-            <tr class="text-center">
-                <th width="55%" class="text-start">รายละเอียดสินค้า/บริการ</th>
-                <th width="15%">จำนวน</th>
-                <th width="15%" class="text-end">ราคา/หน่วย</th>
-                <th width="15%" class="text-end">ยอดรวม</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (count($items) === 0): ?>
-            <tr>
-                <td colspan="4" class="text-center text-muted py-4">ไม่พบรายการสินค้าในใบสั่งซื้อนี้</td>
-            </tr>
-            <?php else: ?>
-                <?php foreach ($items as $item): ?>
-                <tr>
-                    <td class="fw-bold text-dark text-start"><?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
-                    <td class="text-center"><?= number_format((float) ($item['quantity'] ?? 0), 0); ?> <?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
-                    <td class="text-end"><?= number_format((float) ($item['unit_price'] ?? 0), 2); ?></td>
-                    <td class="text-end fw-bold"><?= number_format((float) ($item['total'] ?? 0), 2); ?></td>
-                </tr>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </tbody>
-    </table>
-
-    <div class="footer-sticky">
-        <div class="row align-items-end mb-4">
-            <div class="col-7 small text-muted italic">
-                <?php if ($poNotePo !== ''): ?>
-                    <div style="font-size: 11px; font-weight: 700; color: #111; margin-bottom: 4px;">หมายเหตุ PO</div>
-                    <div style="font-size: 12px; line-height: 1.45; color: #444; white-space: pre-line; margin-bottom: <?= $poNoteQt !== '' ? '12px' : '0' ?>;">
-                        <?= htmlspecialchars($poNotePo, ENT_QUOTES, 'UTF-8'); ?>
+        <?php if ($hasAlerts): ?>
+            <div class="po-view-alerts">
+                <?php if (!empty($_GET['cancelled'])): ?>
+                    <div class="alert alert-success mb-0">ยกเลิกใบสั่งซื้อเรียบร้อยแล้ว</div>
+                <?php endif; ?>
+                <?php if (!empty($_GET['error']) && $_GET['error'] === 'po_paid'): ?>
+                    <div class="alert alert-warning mb-0">ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถยกเลิกได้</div>
+                <?php endif; ?>
+                <?php if ($hasFollowPagesPrint && $poPrintMode === 'po'): ?>
+                    <div class="alert alert-light border mb-0 small">
+                        กำลังแสดง<strong>เฉพาะใบสั่งซื้อ</strong>
+                        — <a class="alert-link" href="<?= $poViewFullHref ?>">เปิดแบบครบ (PO + สลิป/แนบ)</a>
                     </div>
                 <?php endif; ?>
-                <?php if ($poNoteQt !== ''): ?>
-                    <div style="font-size: 11px; font-weight: 700; color: #111; margin-bottom: 4px;"><?= $poNotePo !== '' ? 'หมายเหตุ / เงื่อนไข (QT)' : 'หมายเหตุ' ?></div>
-                    <div style="font-size: 12px; line-height: 1.45; color: #444; white-space: pre-line;">
-                        <?= htmlspecialchars($poNoteQt, ENT_QUOTES, 'UTF-8'); ?>
+                <?php if ($poPrintMode === 'slip'): ?>
+                    <div class="alert alert-light border mb-0 small">
+                        กำลังแสดง<strong>เฉพาะสลิป</strong>
+                        — <a class="alert-link" href="<?= $poViewFullHref ?>">เปิดแบบครบ</a>
+                    </div>
+                <?php endif; ?>
+                <?php if ($poPrintMode === 'all'): ?>
+                    <div class="alert alert-light border mb-0 small">
+                        กำลังแสดง<strong>ชุดครบ: PR + ใบสั่งซื้อ + สลิป/แนบ</strong> (ตามที่มีในระบบ)
+                        — <a class="alert-link" href="<?= $poViewFullHref ?>">เปิดหน้าเริ่มต้น</a>
                     </div>
                 <?php endif; ?>
             </div>
+        <?php endif; ?>
+    </div>
+</header>
 
-            <div class="col-5">
-                <div class="summary-box">
-                    <div class="summary-item">
-                        <span>ยอดรวม</span>
-                        <span><?= number_format($po_subtotal, 2); ?></span>
+<?php if ($hasPrintChoiceModal): ?>
+<div class="modal fade no-print" id="poPrintChoiceModal" tabindex="-1" aria-labelledby="poPrintChoiceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="poPrintChoiceModalLabel">เลือกรูปแบบการพิมพ์</h5>
+                    <p class="small text-muted mb-0 mt-1">เปิดแท็บใหม่พร้อมกล่องพิมพ์อัตโนมัติ</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+            </div>
+            <div class="modal-body pt-2 pb-3">
+                <div class="row g-2">
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <button type="button" class="btn btn-outline-secondary w-100 h-100 py-3 text-start js-po-print-choice border-2 rounded-3" data-print-mode="po">
+                            <i class="bi bi-file-earmark-text d-block mb-2 fs-4 text-secondary"></i>
+                            <span class="fw-bold d-block">1. เฉพาะใบสั่งซื้อ</span>
+                            <span class="small text-muted">ไม่รวมสลิปและแนบ QT</span>
+                        </button>
                     </div>
-                    <?php if ($po_vat_enabled && $po_vat_amount > 0): ?>
-                    <div class="summary-item text-success">
-                        <span>VAT 7%</span>
-                        <span><?= number_format($po_vat_amount, 2); ?></span>
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <button type="button" class="btn btn-outline-secondary w-100 h-100 py-3 text-start js-po-print-choice border-2 rounded-3" data-print-mode="slip"<?= $hasPaymentSlipPrint ? '' : ' disabled title="ไม่มีไฟล์หลักฐานการจ่ายเงิน"' ?>>
+                            <i class="bi bi-receipt d-block mb-2 fs-4 text-secondary"></i>
+                            <span class="fw-bold d-block">2. เฉพาะสลิป</span>
+                            <span class="small text-muted">หลักฐานการจ่ายอย่างเดียว</span>
+                        </button>
                     </div>
-                    <?php endif; ?>
-                    <?php if ($withholdingType !== 'none' && $withholdingAmount > 0): ?>
-                    <div class="summary-item text-danger">
-                        <span>หัก ณ ที่จ่าย 3%</span>
-                        <span>-<?= number_format($withholdingAmount, 2); ?></span>
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <button type="button" class="btn btn-success w-100 h-100 py-3 text-start js-po-print-choice border-0 rounded-3 shadow-sm" data-print-mode="both">
+                            <i class="bi bi-files d-block mb-2 fs-4"></i>
+                            <span class="fw-bold d-block">3. ใบสั่งซื้อ + สลิป</span>
+                            <span class="small" style="opacity:0.95">รวมแนบใบเสนอราคา (ถ้ามี)</span>
+                        </button>
                     </div>
-                    <?php endif; ?>
-                    <?php if ($retentionType !== 'none' && $retentionAmount > 0): ?>
-                    <div class="summary-item text-danger">
-                        <span>หักประกันผลงาน<?= $retentionType === 'percent' ? ' (%)' : '' ?></span>
-                        <span>-<?= number_format($retentionAmount, 2); ?></span>
-                    </div>
-                    <?php endif; ?>
-                    <?php if (($withholdingType !== 'none' && $withholdingAmount > 0) || ($retentionType !== 'none' && $retentionAmount > 0)): ?>
-                    <div class="summary-item">
-                        <span>ยอดก่อนหัก</span>
-                        <span><?= number_format($po_gross_amount, 2); ?></span>
-                    </div>
-                    <?php endif; ?>
-                    <div class="grand-total-row">
-                        <span class="fw-bold" style="font-size: 14px;">ยอดสุทธิทั้งสิ้น</span>
-                        <span style="font-size: 20px; font-weight: 800;">฿ <?= number_format($po_grand_total, 2); ?></span>
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <button type="button" class="btn btn-outline-primary w-100 h-100 py-3 text-start js-po-print-choice border-2 rounded-3" data-print-mode="all"<?= $hasPrForPrint ? '' : ' disabled title="ไม่มีใบขอซื้อ (PR) อ้างอิงจาก PO นี้"' ?>>
+                            <i class="bi bi-collection d-block mb-2 fs-4"></i>
+                            <span class="fw-bold d-block">4. พิมพ์ทุกอย่าง</span>
+                            <span class="small text-muted">PR + ใบสั่งซื้อ + สลิป + แนบ QT (ตามที่มี)</span>
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
-
-        <div class="signature-grid">
-            <div>
-                <div class="sig-space"></div>
-                <div class="sig-box">ผู้สั่งซื้อ / สั่งจ้าง<br><small>(Authorized Signature)</small></div>
-            </div>
-            <div>
-                <div class="sig-space"></div>
-                <div class="sig-box">ผู้อนุมัติสั่งซื้อ / สั่งจ่าย<br><small>(Approver Signature)</small></div>
-            </div>
-        </div>
     </div>
 </div>
+<?php endif; ?>
 
+<div class="po-view-canvas">
+<?php if ($printIncludePr && $prCtxForPo !== null): ?>
+<div class="pr-bundle-inline po-print-bundle-pr">
+<?php tnc_purchase_pr_print_render($prCtxForPo); ?>
+</div>
+<?php endif; ?>
+<?php if ($printIncludePo): ?>
+<?php tnc_purchase_po_print_render($poCtx); ?>
+<?php endif; ?>
+<?php if ($printIncludeSlip): ?>
+<?php tnc_purchase_po_payment_slip_print_render($poCtx['po']); ?>
+<?php endif; ?>
+<?php if ($printIncludeQuotation): ?>
+<?php tnc_purchase_po_quotation_attachment_print_render($poCtx['po']); ?>
+<?php endif; ?>
+<?php if ($poPrintMode === 'slip' && !$hasPaymentSlipPrint): ?>
+<div class="container-xl py-5 no-print">
+    <div class="alert alert-warning border-0 shadow-sm mb-0 rounded-3">ไม่มีไฟล์หลักฐานการจ่ายเงิน (สลิป) สำหรับใบสั่งซื้อนี้</div>
+</div>
+<?php endif; ?>
+</div>
+
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-po-print.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php if ($hasPrintChoiceModal): ?>
+<script>
+(function () {
+    var base = <?= json_encode(app_path('pages/purchase/purchase-order-view.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var id = <?= (int) $id ?>;
+    document.querySelectorAll('#poPrintChoiceModal .js-po-print-choice').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (btn.disabled) {
+                return;
+            }
+            var mode = btn.getAttribute('data-print-mode') || 'both';
+            if (mode !== 'po' && mode !== 'slip' && mode !== 'both' && mode !== 'all') {
+                mode = 'both';
+            }
+            var u = base + '?id=' + id + '&print_mode=' + encodeURIComponent(mode) + '&autoprint=1';
+            window.open(u, '_blank', 'noopener');
+            var el = document.getElementById('poPrintChoiceModal');
+            if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                var m = bootstrap.Modal.getInstance(el);
+                if (m) {
+                    m.hide();
+                }
+            }
+        });
+    });
+})();
+</script>
+<?php endif; ?>
 </body>
 </html>

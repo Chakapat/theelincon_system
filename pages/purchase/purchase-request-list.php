@@ -121,6 +121,9 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
             <i class="bi bi-cart-check-fill text-warning me-2"></i> รายการใบขอซื้อ (Purchase requests List)
         </h3>
         <div class="d-flex flex-wrap gap-2 no-print">
+            <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm" id="prBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก">
+                <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
+            </button>
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-primary rounded-pill px-3 shadow-sm">
                 <i class="bi bi-receipt me-1"></i>รายการใบสั่งซื้อ
             </a>
@@ -140,6 +143,9 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
             <table class="table table-hover align-middle" id="prTable">
                 <thead class="table-light">
                     <tr>
+                        <th class="text-center no-print" style="width:2.5rem;" title="เลือกเพื่อพิมพ์หลายใบ">
+                            <input type="checkbox" class="form-check-input m-0" id="prSelectAllPrint" aria-label="เลือกทั้งหมดในหน้านี้">
+                        </th>
                         <th>เลขที่ PR</th>
                         <th>วันที่ขอซื้อ/จัดจ้าง</th>
                         <th>ไซต์งาน</th>
@@ -156,6 +162,9 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
                             $prHasPo = $rowPrId > 0 && !empty($pr_ids_with_po[$rowPrId]);
                         ?>
                         <tr>
+                            <td class="text-center align-middle no-print">
+                                <input type="checkbox" class="form-check-input m-0 js-pr-print-cb" value="<?= $rowPrId ?>" aria-label="เลือกพิมพ์ <?= htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                            </td>
                             <td>
                                 <div class="fw-bold text-primary">
                                     <span class="d-inline-flex align-items-center gap-2">
@@ -217,7 +226,7 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="6" class="text-center py-4 text-muted">ไม่พบข้อมูลใบขอซื้อ</td>
+                            <td colspan="7" class="text-center py-4 text-muted">ไม่พบข้อมูลใบขอซื้อ</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -230,12 +239,36 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+(function () {
+    var batchBase = <?= json_encode(app_path('pages/purchase/purchase-batch-print.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    document.getElementById('prBatchPrintBtn')?.addEventListener('click', function () {
+        var ids = [];
+        document.querySelectorAll('.js-pr-print-cb:checked').forEach(function (cb) {
+            var v = parseInt(cb.value, 10);
+            if (v > 0) ids.push(v);
+        });
+        if (ids.length === 0) {
+            alert('กรุณาติ๊กเลือกใบขอซื้อ (PR) อย่างน้อย 1 ใบ');
+            return;
+        }
+        window.open(batchBase + '?kind=pr&ids=' + encodeURIComponent(ids.join(',')), '_blank', 'noopener');
+    });
+    document.getElementById('prSelectAllPrint')?.addEventListener('change', function () {
+        var on = this.checked;
+        document.querySelectorAll('#prTable tbody .js-pr-print-cb').forEach(function (cb) {
+            cb.checked = on;
+        });
+    });
+})();
+</script>
+<script>
 (function ($) {
     if ($('#prTable tbody tr td[colspan]').length === 0 && $('#prTable tbody tr').length) {
         $('#prTable').DataTable({
-            order: [[0, 'desc']],
+            order: [[1, 'desc']],
             pageLength: 25,
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' }
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+            columnDefs: [{ targets: [0, 6], orderable: false, searchable: false }]
         });
     }
     var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_requests'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;

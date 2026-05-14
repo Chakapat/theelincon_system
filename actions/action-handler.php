@@ -60,12 +60,13 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // POST-only actions: prevent direct GET access to write endpoints.
-if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'update_po_direct' || $action === 'cancel_purchase_order')
+if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'update_po_direct' || $action === 'cancel_purchase_order' || $action === 'update_my_profile')
     && strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
     $fallback = match ($action) {
         'create_po_direct' => app_path('pages/purchase/purchase-order-create.php'),
         'create_po_from_pr' => app_path('pages/purchase/purchase-order-list.php'),
         'update_po_direct' => app_path('pages/purchase/purchase-order-list.php'),
+        'update_my_profile' => app_path('pages/account/my-profile.php'),
         default => app_path('pages/purchase/purchase-order-list.php'),
     };
     http_response_code(200);
@@ -98,6 +99,91 @@ if (in_array($action, $tncDeletePwdActions, true)) {
 $admin_only_actions = ['delete', 'delete_quotation', 'delete_pr', 'add_member', 'edit_member', 'delete_supplier'];
 if (in_array($action, $admin_only_actions, true) && !user_is_admin_role()) {
     exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
+}
+
+if ($action === 'update_my_profile') {
+    tnc_require_post_confirm_password();
+    $profileUrl = app_path('pages/account/my-profile.php');
+    $uid = (int) ($_SESSION['user_id'] ?? 0);
+    if ($uid <= 0) {
+        tnc_action_redirect(app_path('sign-in.php'));
+        exit;
+    }
+    $cur = Db::row('users', (string) $uid);
+    if ($cur === null) {
+        tnc_action_redirect($profileUrl . '?error=user_not_found');
+        exit;
+    }
+    $fn = trim((string) ($_POST['fname'] ?? ''));
+    $ln = trim((string) ($_POST['lname'] ?? ''));
+    if ($fn === '' || $ln === '') {
+        tnc_action_redirect($profileUrl . '?error=name_required');
+        exit;
+    }
+    $address = trim((string) ($_POST['address'] ?? ''));
+    $bd_raw = trim((string) ($_POST['birth_date'] ?? ''));
+    $has_bd = $bd_raw !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $bd_raw);
+    if ($bd_raw !== '' && !$has_bd) {
+        tnc_action_redirect($profileUrl . '?error=birth_date_invalid');
+        exit;
+    }
+    if ($has_bd) {
+        $bd_y = (int) substr($bd_raw, 0, 4);
+        $bd_m = (int) substr($bd_raw, 5, 2);
+        $bd_d = (int) substr($bd_raw, 8, 2);
+        if ($bd_y < 1900 || !checkdate($bd_m, $bd_d, $bd_y)) {
+            tnc_action_redirect($profileUrl . '?error=birth_date_invalid');
+            exit;
+        }
+        $yNow = (int) date('Y');
+        $mNow = (int) date('n');
+        $dNow = (int) date('j');
+        if ($bd_y > $yNow || ($bd_y === $yNow && ($bd_m > $mNow || ($bd_m === $mNow && $bd_d > $dNow)))) {
+            tnc_action_redirect($profileUrl . '?error=birth_date_invalid');
+            exit;
+        }
+    }
+    $nid_digits = preg_replace('/\D/', '', (string) ($_POST['national_id'] ?? ''));
+    if (strlen($nid_digits) > 13) {
+        tnc_action_redirect($profileUrl . '?error=national_id_invalid');
+        exit;
+    }
+    if ($nid_digits !== '' && strlen($nid_digits) !== 13) {
+        tnc_action_redirect($profileUrl . '?error=national_id_invalid');
+        exit;
+    }
+    $newPw = (string) ($_POST['new_password'] ?? '');
+    $newPw2 = (string) ($_POST['new_password_confirm'] ?? '');
+    $base = [
+        'fname' => $fn,
+        'lname' => $ln,
+        'address' => $address,
+        'birth_date' => $has_bd ? $bd_raw : null,
+        'national_id' => $nid_digits !== '' ? $nid_digits : null,
+    ];
+    if ($newPw !== '' || $newPw2 !== '') {
+        if ($newPw !== $newPw2) {
+            tnc_action_redirect($profileUrl . '?error=password_mismatch');
+            exit;
+        }
+        if (strlen($newPw) < 6) {
+            tnc_action_redirect($profileUrl . '?error=password_weak');
+            exit;
+        }
+        $base['password'] = password_hash($newPw, PASSWORD_DEFAULT);
+    }
+    Db::setRow('users', (string) $uid, array_merge($cur, $base));
+    $_SESSION['name'] = trim($fn . ' ' . $ln);
+    $memAfter = Db::row('users', (string) $uid);
+    tnc_audit_log('update', 'member', (string) $uid, trim($fn . ' ' . $ln) . ' (self)', [
+        'source' => 'action-handler',
+        'action' => 'update_my_profile',
+        'before' => $cur,
+        'after' => $memAfter,
+        'meta' => ['password_changed' => ($newPw !== '')],
+    ]);
+    tnc_action_redirect($profileUrl . '?success=1');
+    exit;
 }
 
 function tnc_audit_purchase_order_created(int $poId, string $sourceAction): void
@@ -169,6 +255,339 @@ function tnc_po_compute_totals(float $lineSum, int $vatEnabled, string $vatMode,
         'withholding_type' => $whtType,
         'vat_mode' => $storedVatMode,
     ];
+}
+
+/**
+ * Per-line discount for PR/PO lines (same rules as purchase-bill: "10%" or baht amount).
+ *
+ * @return array{discount_input: string, discount_type: string, discount_value: float, discount_amount: float, line_base: float, line_total: float}
+ */
+function tnc_pr_parse_line_discount(float $qty, float $price, string $discountRaw): array
+{
+    $lineBase = round($qty * $price, 2);
+    $discountRaw = trim($discountRaw);
+    $discountAmount = 0.0;
+    $discountType = 'amount';
+    $discountValue = 0.0;
+    if ($discountRaw !== '') {
+        $pctMatch = [];
+        if (preg_match('/^([0-9]+(?:\.[0-9]+)?)\s*%$/', $discountRaw, $pctMatch) === 1) {
+            $discountType = 'percent';
+            $discountValue = (float) $pctMatch[1];
+            if ($discountValue < 0) {
+                $discountValue = 0.0;
+            } elseif ($discountValue > 100) {
+                $discountValue = 100.0;
+            }
+            $discountAmount = round($lineBase * $discountValue / 100, 2);
+        } else {
+            $discountType = 'amount';
+            $discountValue = (float) str_replace([',', ' '], '', $discountRaw);
+            if ($discountValue < 0) {
+                $discountValue = 0.0;
+            }
+            $discountAmount = min($lineBase, round($discountValue, 2));
+        }
+    }
+    $lineTotal = round($lineBase - $discountAmount, 2);
+
+    return [
+        'discount_input' => mb_substr($discountRaw, 0, 20),
+        'discount_type' => $discountType,
+        'discount_value' => $discountValue,
+        'discount_amount' => $discountAmount,
+        'line_base' => $lineBase,
+        'line_total' => $lineTotal,
+    ];
+}
+
+/**
+ * Next PB-TNC-yymm-xxx bill number (same rule as purchase-bill.php).
+ */
+function tnc_next_purchase_bill_number(): string
+{
+    $prefix = 'PB-TNC-' . date('ym') . '-';
+    $nextRunning = 1;
+    foreach (Db::tableRows('purchase_bills') as $billRow) {
+        $billNumber = trim((string) ($billRow['bill_number'] ?? ''));
+        if (strncmp($billNumber, $prefix, strlen($prefix)) !== 0) {
+            continue;
+        }
+        $runningPart = substr($billNumber, strlen($prefix));
+        if (!ctype_digit($runningPart)) {
+            continue;
+        }
+        $nextRunning = max($nextRunning, ((int) $runningPart) + 1);
+    }
+
+    return $prefix . str_pad((string) $nextRunning, 3, '0', STR_PAD_LEFT);
+}
+
+/**
+ * After PO is marked paid: create a project purchase bill mirroring manual save_project_purchase_bill.
+ * Idempotent via purchase_orders.auto_purchase_bill_id and purchase_bills.source_po_id.
+ *
+ * @param array<string, mixed>|null $po Fresh row after payment_status = paid
+ * @return int|null New purchase_bills id, or null if skipped / failed softly
+ */
+function tnc_purchase_bill_create_from_paid_purchase_order(?array $po, int $createdBy): ?int
+{
+    if ($po === null || $createdBy <= 0) {
+        return null;
+    }
+    $poId = (int) ($po['id'] ?? 0);
+    if ($poId <= 0) {
+        return null;
+    }
+    if (strtolower(trim((string) ($po['order_type'] ?? 'purchase'))) !== 'purchase') {
+        return null;
+    }
+    if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+        return null;
+    }
+    if ((int) ($po['auto_purchase_bill_id'] ?? 0) > 0) {
+        return null;
+    }
+    foreach (Db::tableRows('purchase_bills') as $exBill) {
+        if ((int) ($exBill['source_po_id'] ?? 0) === $poId) {
+            Db::mergeRow('purchase_orders', (string) $poId, [
+                'auto_purchase_bill_id' => (int) ($exBill['id'] ?? 0),
+            ]);
+
+            return null;
+        }
+    }
+
+    $poNumber = trim((string) ($po['po_number'] ?? ''));
+    $items = Db::filter('purchase_order_items', static function (array $r) use ($poId, $poNumber): bool {
+        $pid = isset($r['po_id']) ? (int) $r['po_id'] : 0;
+        $purchaseOrderId = isset($r['purchase_order_id']) ? (int) $r['purchase_order_id'] : 0;
+        $poNumberRef = trim((string) ($r['po_number'] ?? ''));
+
+        return $pid === $poId
+            || $purchaseOrderId === $poId
+            || ($poNumberRef !== '' && $poNumberRef === $poNumber);
+    });
+    Db::sortRows($items, 'id', false);
+    if (count($items) === 0) {
+        $prIdFallback = (int) ($po['pr_id'] ?? 0);
+        if ($prIdFallback > 0) {
+            $items = Db::filter('purchase_request_items', static function (array $r) use ($prIdFallback): bool {
+                return isset($r['pr_id']) && (int) $r['pr_id'] === $prIdFallback;
+            });
+            Db::sortRows($items, 'id', false);
+        }
+    }
+    if (count($items) === 0) {
+        return null;
+    }
+
+    $supplierId = (int) ($po['supplier_id'] ?? 0);
+    $supplierRow = $supplierId > 0 ? Db::row('suppliers', (string) $supplierId) : null;
+    $supplierName = $supplierRow !== null ? trim((string) ($supplierRow['name'] ?? '')) : '';
+    if ($supplierName === '') {
+        $supplierName = trim((string) ($po['supplier_name'] ?? ''));
+    }
+    if ($supplierName === '') {
+        $supplierName = '—';
+    }
+
+    $siteId = (int) ($po['site_id'] ?? 0);
+    if ($siteId <= 0) {
+        $prId = (int) ($po['pr_id'] ?? 0);
+        if ($prId > 0) {
+            $prRow = Db::row('purchase_requests', (string) $prId);
+            if (is_array($prRow)) {
+                $siteId = (int) ($prRow['site_id'] ?? 0);
+            }
+        }
+    }
+    if ($siteId > 0) {
+        $siteCheck = Db::row('sites', (string) $siteId);
+        if ($siteCheck === null) {
+            $siteId = 0;
+        }
+    }
+
+    $line_rows = [];
+    $subtotalLines = 0.0;
+    foreach ($items as $it) {
+        if (!is_array($it)) {
+            continue;
+        }
+        $desc = trim((string) ($it['description'] ?? ''));
+        $qty = (float) ($it['quantity'] ?? 0);
+        $unit = trim((string) ($it['unit'] ?? ''));
+        $price = (float) ($it['unit_price'] ?? 0);
+        if ($desc === '' || $qty <= 0 || $price < 0) {
+            continue;
+        }
+        $dIn = trim((string) ($it['discount_input'] ?? ''));
+        if ($dIn === '') {
+            $dt = (string) ($it['discount_type'] ?? 'amount');
+            $dv = (float) ($it['discount_value'] ?? 0);
+            $dAmt = (float) ($it['discount_amount'] ?? 0);
+            if ($dAmt > 0 && $dt === 'percent' && $dv > 0) {
+                $dIn = rtrim(rtrim(number_format($dv, 4, '.', ''), '0'), '.') . '%';
+            } elseif ($dAmt > 0) {
+                $dIn = (string) $dAmt;
+            }
+        }
+        $parts = tnc_pr_parse_line_discount($qty, $price, $dIn);
+        if ($parts['line_total'] <= 0) {
+            continue;
+        }
+        $subtotalLines += $parts['line_total'];
+        $line_rows[] = [
+            'description' => mb_substr($desc, 0, 500),
+            'quantity' => $qty,
+            'unit' => mb_substr($unit, 0, 40),
+            'unit_price' => $price,
+            'discount_input' => $parts['discount_input'],
+            'discount_type' => $parts['discount_type'],
+            'discount_value' => $parts['discount_value'],
+            'discount_amount' => $parts['discount_amount'],
+            'line_total' => $parts['line_total'],
+        ];
+    }
+    if ($line_rows === [] || $subtotalLines <= 0) {
+        return null;
+    }
+    $subtotalLines = round($subtotalLines, 2);
+
+    $vatEn = (int) ($po['vat_enabled'] ?? 0) === 1;
+    $vatModePo = trim((string) ($po['vat_mode'] ?? ''));
+    $vat_mode = 'none';
+    if ($vatEn) {
+        if (in_array($vatModePo, ['exclusive', 'inclusive'], true)) {
+            $vat_mode = $vatModePo;
+        } else {
+            $prId = (int) ($po['pr_id'] ?? 0);
+            if ($prId > 0) {
+                $prRow = Db::row('purchase_requests', (string) $prId);
+                $vmPr = is_array($prRow) ? trim((string) ($prRow['vat_mode'] ?? 'exclusive')) : 'exclusive';
+                $vat_mode = in_array($vmPr, ['exclusive', 'inclusive'], true) ? $vmPr : 'exclusive';
+            } else {
+                $vat_mode = 'exclusive';
+            }
+        }
+    }
+    $vat_rate = 7.0;
+    $subtotal = $subtotalLines;
+    $vat_amount = 0.0;
+    $grand_total = $subtotal;
+    if ($vat_mode === 'exclusive') {
+        $vat_amount = round($subtotal * $vat_rate / 100, 2);
+        $grand_total = round($subtotal + $vat_amount, 2);
+    } elseif ($vat_mode === 'inclusive') {
+        if ($vat_rate > 0) {
+            $base = round($subtotal / (1 + $vat_rate / 100), 2);
+            $vat_amount = round($subtotal - $base, 2);
+            $subtotal = $base;
+            $grand_total = round($base + $vat_amount, 2);
+        } else {
+            $grand_total = $subtotal;
+            $vat_amount = 0.0;
+        }
+    }
+
+    $paidAt = trim((string) ($po['payment_marked_paid_at'] ?? ''));
+    $bill_date = date('Y-m-d');
+    if ($paidAt !== '' && preg_match('/^(\d{4}-\d{2}-\d{2})/', $paidAt, $m) === 1) {
+        $bill_date = $m[1];
+    } elseif (trim((string) ($po['issue_date'] ?? '')) !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $po['issue_date'])) {
+        $bill_date = (string) $po['issue_date'];
+    }
+
+    $poNo = trim((string) ($po['po_number'] ?? ''));
+    $refPr = trim((string) ($po['reference_pr_number'] ?? ''));
+    if ($refPr === '' && (int) ($po['pr_id'] ?? 0) > 0) {
+        $prSnap = Db::row('purchase_requests', (string) (int) ($po['pr_id'] ?? 0));
+        $refPr = $prSnap !== null ? trim((string) ($prSnap['pr_number'] ?? '')) : '';
+    }
+    $noteParts = [
+        '[อัตโนมัติจาก PO จ่ายแล้ว]',
+        'PO: ' . ($poNo !== '' ? $poNo : ('#' . $poId)),
+        'จ่ายเมื่อ: ' . ($paidAt !== '' ? $paidAt : date('Y-m-d H:i:s')),
+    ];
+    $payMethod = strtolower(trim((string) ($po['payment_method'] ?? 'transfer')));
+    if (!in_array($payMethod, ['cash', 'transfer'], true)) {
+        $payMethod = 'transfer';
+    }
+    $cashPaidBy = trim((string) ($po['payment_cash_paid_by'] ?? ''));
+    if ($payMethod === 'cash') {
+        $noteParts[] = 'ชำระ: เงินสด' . ($cashPaidBy !== '' ? (' · จ่ายโดย: ' . $cashPaidBy) : '');
+    } else {
+        $noteParts[] = 'ชำระ: โอน/ช่องทางอื่น (แนบหลักฐาน)';
+    }
+    if ($refPr !== '') {
+        $noteParts[] = 'อ้างอิง PR: ' . $refPr;
+    }
+    $poNote = trim((string) ($po['po_note'] ?? ''));
+    if ($poNote !== '') {
+        $noteParts[] = 'หมายเหตุ PO: ' . $poNote;
+    }
+    $qNote = trim((string) ($po['quotation_note'] ?? ''));
+    if ($qNote !== '') {
+        $noteParts[] = 'หมายเหตุ QT: ' . $qNote;
+    }
+    $qNo = trim((string) ($po['quotation_number'] ?? ''));
+    if ($qNo !== '') {
+        $noteParts[] = 'เลขที่ใบเสนอราคา: ' . $qNo;
+    }
+    $vatLabel = !$vatEn ? 'ไม่มี VAT' : ($vat_mode === 'inclusive' ? 'VAT รวมในราคา' : 'VAT แยก (บวก 7%)');
+    $noteParts[] = 'ภาษี: ' . $vatLabel . ' · ยอดรายการ ' . number_format($subtotal, 2) . ' · VAT ' . number_format($vat_amount, 2) . ' · สุทธิ ' . number_format($grand_total, 2);
+    $bill_note = mb_substr(implode("\n", $noteParts), 0, 1000);
+
+    $bid = Db::nextNumericId('purchase_bills', 'id');
+    $bill_number = tnc_next_purchase_bill_number();
+    $billPayload = [
+        'id' => $bid,
+        'bill_number' => $bill_number,
+        'source_po_id' => $poId,
+        'site_id' => $siteId,
+        'bill_date' => $bill_date,
+        'supplier_name' => $supplierName,
+        'bill_note' => $bill_note,
+        'vat_mode' => $vat_mode,
+        'vat_rate' => $vat_rate,
+        'subtotal_amount' => $subtotal,
+        'vat_amount' => $vat_amount,
+        'amount' => $grand_total,
+        'attachment_path' => '',
+        'attachment_url' => '',
+        'created_by' => $createdBy,
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s'),
+        'items' => array_map(static function (array $line, int $idx): array {
+            return [
+                'line_no' => $idx + 1,
+                'description' => $line['description'],
+                'quantity' => $line['quantity'],
+                'unit' => $line['unit'],
+                'unit_price' => $line['unit_price'],
+                'discount_input' => $line['discount_input'],
+                'discount_type' => $line['discount_type'],
+                'discount_value' => $line['discount_value'],
+                'discount_amount' => $line['discount_amount'],
+                'line_total' => $line['line_total'],
+            ];
+        }, $line_rows, array_keys($line_rows)),
+    ];
+    Db::setRow('purchase_bills', (string) $bid, $billPayload);
+    $billAfter = Db::row('purchase_bills', (string) $bid);
+    Db::mergeRow('purchase_orders', (string) $poId, [
+        'auto_purchase_bill_id' => $bid,
+    ]);
+    $summary = $bill_number . ' ← ' . ($poNo !== '' ? $poNo : ('PO#' . $poId));
+    tnc_audit_log('create', 'purchase_bill', (string) $bid, $summary, [
+        'source' => 'action-handler',
+        'action' => 'auto_purchase_bill_from_paid_po',
+        'after' => $billAfter,
+        'meta' => ['po_id' => $poId],
+    ]);
+
+    return $bid;
 }
 
 function tnc_po_delete_line_items(int $poId): void
@@ -344,7 +763,9 @@ if ($action === 'save_pr') {
             }
             $qty = (float) $_POST['item_qty'][$key];
             $price = (float) $_POST['item_price'][$key];
-            $subtotal += $qty * $price;
+            $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
+            $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+            $subtotal += $parts['line_total'];
         }
         $subtotal = round($subtotal, 2);
         if ($subtotal <= 0) {
@@ -462,7 +883,9 @@ if ($action === 'save_pr') {
         $qty = (float) $_POST['item_qty'][$key];
         $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
         $price = (float) $_POST['item_price'][$key];
-        $total = $qty * $price;
+        $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $total = $parts['line_total'];
         Db::setRow('purchase_request_items', (string) $iid, [
             'id' => $iid,
             'pr_id' => $pr_id,
@@ -471,6 +894,10 @@ if ($action === 'save_pr') {
             'unit' => $unit,
             'unit_price' => $price,
             'total' => $total,
+            'discount_input' => $parts['discount_input'],
+            'discount_type' => $parts['discount_type'],
+            'discount_value' => $parts['discount_value'],
+            'discount_amount' => $parts['discount_amount'],
         ]);
     }
 
@@ -579,7 +1006,9 @@ if ($action === 'update_pr') {
             }
             $qty = (float) $_POST['item_qty'][$key];
             $price = (float) $_POST['item_price'][$key];
-            $subtotal += $qty * $price;
+            $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
+            $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+            $subtotal += $parts['line_total'];
         }
         $subtotal = round($subtotal, 2);
         if ($subtotal <= 0) {
@@ -696,7 +1125,9 @@ if ($action === 'update_pr') {
         $qty = (float) $_POST['item_qty'][$key];
         $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
         $price = (float) $_POST['item_price'][$key];
-        $total = $qty * $price;
+        $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $total = $parts['line_total'];
         Db::setRow('purchase_request_items', (string) $iid, [
             'id' => $iid,
             'pr_id' => $pr_id,
@@ -705,6 +1136,10 @@ if ($action === 'update_pr') {
             'unit' => $unit,
             'unit_price' => $price,
             'total' => $total,
+            'discount_input' => $parts['discount_input'],
+            'discount_type' => $parts['discount_type'],
+            'discount_value' => $parts['discount_value'],
+            'discount_amount' => $parts['discount_amount'],
         ]);
     }
 
@@ -891,6 +1326,14 @@ if ($action === 'create_po_from_pr') {
 
         $installmentTotal = max(1, (int) ($hc['installment_total'] ?? 1));
         $contractorName = trim((string) ($hc['contractor_name'] ?? ($pr_row['contractor_name'] ?? '')));
+        $hirePrSiteId = (int) ($pr_row['site_id'] ?? 0);
+        $hirePrSiteName = trim((string) ($pr_row['site_name'] ?? ''));
+        if ($hirePrSiteName === '' && $hirePrSiteId > 0) {
+            $hsr = Db::row('sites', (string) $hirePrSiteId);
+            if (is_array($hsr)) {
+                $hirePrSiteName = trim((string) ($hsr['name'] ?? ''));
+            }
+        }
 
         $po_id = Db::nextNumericId('purchase_orders', 'id');
         Db::setRow('purchase_orders', (string) $po_id, [
@@ -918,6 +1361,8 @@ if ($action === 'create_po_from_pr') {
             'retention_amount' => $retention,
             'withholding_type' => 'none',
             'withholding_amount' => 0,
+            'site_id' => $hirePrSiteId,
+            'site_name' => $hirePrSiteName,
         ]);
 
         foreach ($_POST['hire_description'] ?? [] as $key => $desc) {
@@ -974,6 +1419,15 @@ if ($action === 'create_po_from_pr') {
     $quotation_note = $hasQt ? mb_substr(trim((string) ($_POST['quotation_note'] ?? '')), 0, 500) : '';
     $po_note = mb_substr(trim((string) ($_POST['po_note'] ?? '')), 0, 500);
 
+    $prSiteId = (int) ($pr_row['site_id'] ?? 0);
+    $prSiteName = trim((string) ($pr_row['site_name'] ?? ''));
+    if ($prSiteName === '' && $prSiteId > 0) {
+        $siteRowPo = Db::row('sites', (string) $prSiteId);
+        if (is_array($siteRowPo)) {
+            $prSiteName = trim((string) ($siteRowPo['name'] ?? ''));
+        }
+    }
+
     $po_id = Db::nextNumericId('purchase_orders', 'id');
     Db::setRow('purchase_orders', (string) $po_id, [
         'id' => $po_id,
@@ -994,6 +1448,8 @@ if ($action === 'create_po_from_pr') {
         'subtotal_amount' => $sub_amt,
         'vat_amount' => $vat_amt,
         'order_type' => 'purchase',
+        'site_id' => $prSiteId,
+        'site_name' => $prSiteName,
     ]);
 
     foreach (Db::filter('purchase_request_items', static fn (array $r): bool => isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id) as $item) {
@@ -1006,6 +1462,10 @@ if ($action === 'create_po_from_pr') {
             'unit' => $item['unit'] ?? '',
             'unit_price' => $item['unit_price'] ?? 0,
             'total' => $item['total'] ?? 0,
+            'discount_input' => trim((string) ($item['discount_input'] ?? '')),
+            'discount_type' => trim((string) ($item['discount_type'] ?? 'amount')) ?: 'amount',
+            'discount_value' => (float) ($item['discount_value'] ?? 0),
+            'discount_amount' => (float) ($item['discount_amount'] ?? 0),
         ]);
     }
     if (method_exists(Purchase::class, 'seedPoPayments')) {
@@ -1442,6 +1902,19 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
     if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
         tnc_action_redirect($listUrl . '?error=po_cancelled');
     }
+    $payment_method = strtolower(trim((string) ($_POST['payment_method'] ?? 'transfer')));
+    if (!in_array($payment_method, ['cash', 'transfer'], true)) {
+        $payment_method = 'transfer';
+    }
+    $payment_cash_paid_by = trim((string) ($_POST['payment_cash_paid_by'] ?? ''));
+    if ($payment_method === 'cash') {
+        $payment_cash_paid_by = mb_substr($payment_cash_paid_by, 0, 255);
+        if ($payment_cash_paid_by === '') {
+            tnc_action_redirect($listUrl . '?error=cash_paid_by_required');
+        }
+    } else {
+        $payment_cash_paid_by = '';
+    }
     if (empty($_FILES['payment_slip']) || (int) ($_FILES['payment_slip']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
         tnc_action_redirect( $listUrl . '?error=payment_slip_required');
     }
@@ -1474,6 +1947,8 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
         'payment_status' => 'paid',
         'payment_slip_path' => $rel,
         'payment_marked_paid_at' => date('Y-m-d H:i:s'),
+        'payment_method' => $payment_method,
+        'payment_cash_paid_by' => $payment_cash_paid_by,
     ]);
     $poAfterPay = Db::row('purchase_orders', (string) $po_id);
     $poNoMark = $poAfterPay !== null ? trim((string) ($poAfterPay['po_number'] ?? '')) : '';
@@ -1482,9 +1957,26 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
         'action' => 'update_po_payment_status',
         'before' => $poBeforePay,
         'after' => $poAfterPay,
-        'meta' => ['payment_slip_path' => $rel],
+        'meta' => [
+            'payment_slip_path' => $rel,
+            'payment_method' => $payment_method,
+            'payment_cash_paid_by' => $payment_cash_paid_by,
+        ],
     ]);
-    tnc_action_redirect( $listUrl . '?payment_saved=1');
+    $uidPay = (int) ($_SESSION['user_id'] ?? 0);
+    $autoBillId = null;
+    if ($poAfterPay !== null) {
+        $autoBillId = tnc_purchase_bill_create_from_paid_purchase_order($poAfterPay, $uidPay);
+    }
+    if ($autoBillId !== null && $autoBillId > 0) {
+        $billMonth = date('Y-m');
+        $paidTs = trim((string) ($poAfterPay['payment_marked_paid_at'] ?? ''));
+        if ($paidTs !== '' && preg_match('/^(\d{4}-\d{2})/', $paidTs, $mm) === 1) {
+            $billMonth = $mm[1];
+        }
+        tnc_action_redirect($listUrl . '?payment_saved=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
+    }
+    tnc_action_redirect($listUrl . '?payment_saved=1&print_po_id=' . $po_id);
 }
 
 if ($action === 'upload_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
