@@ -130,7 +130,33 @@
     border-radius: 0 !important;
 }
 
-/* PR ฝังในชุดพิมพ์ PO (โหมด all) — โทนเขียว PR */
+/* ใบขอซื้อ PR: โทนเขียวคงที่ (รวมตอนฝังในหน้า PO โหมด print all) */
+.pr-purchase-requisition-doc {
+    --brand-color: #28a745;
+    --brand-color-deep: #1e7e34;
+}
+
+.pr-purchase-requisition-doc.invoice-box {
+    border-top-color: #28a745 !important;
+}
+
+.pr-purchase-requisition-doc .invoice-title {
+    color: #28a745 !important;
+}
+
+.pr-purchase-requisition-doc .table-custom thead th {
+    border-bottom-color: #28a745 !important;
+}
+
+.pr-purchase-requisition-doc .grand-total-row {
+    background: #28a745 !important;
+    color: #fff !important;
+}
+
+.pr-purchase-requisition-doc .grand-total-row span {
+    color: #fff !important;
+}
+
 .pr-bundle-inline {
     --brand-color: #28a745;
     --brand-color-deep: #1e7e34;
@@ -275,19 +301,33 @@
         border-color: #e2e8f0 !important;
     }
 
-    .po-print-bundle-pr {
-        page-break-after: always;
-        break-after: page;
+    .pr-purchase-requisition-doc .table-custom thead th {
+        border-bottom-color: #28a745 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 
-    .pr-bundle-inline .grand-total-row {
+    .pr-purchase-requisition-doc .invoice-title {
+        color: #28a745 !important;
+    }
+
+    .pr-purchase-requisition-doc.invoice-box {
+        border-top-color: #28a745 !important;
+    }
+
+    .pr-purchase-requisition-doc .grand-total-row {
         background: #28a745 !important;
         color: #fff !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
 
-    .pr-bundle-inline .grand-total-row span {
+    .pr-purchase-requisition-doc .grand-total-row span {
         color: #fff !important;
+    }
+
+    .po-print-bundle-pr {
+        page-break-after: always;
+        break-after: page;
     }
 }

@@ -202,8 +202,15 @@ $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
             padding: 10mm 15mm;
             position: relative;
             box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
-            border-top: 8px solid var(--brand-color);
             overflow: hidden;
+        }
+
+        .invoice-box.po-purchase-order-doc {
+            border-top: 8px solid var(--brand-color);
+        }
+
+        .invoice-box.pr-purchase-requisition-doc {
+            border-top: 8px solid #28a745;
         }
 
         .po-doc-main {
@@ -222,9 +229,9 @@ $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
         }
 
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
-        .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
+        .po-purchase-order-doc .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
         .table-custom { margin-top: 12px; margin-bottom: 0; }
-        .invoice-box .table-custom thead th {
+        .invoice-box.po-purchase-order-doc .table-custom thead th {
             background: #fafafa;
             border-bottom: 2px solid var(--brand-color);
             font-size: 13px;
@@ -376,7 +383,18 @@ $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
                 margin: 0;
                 padding: 0;
             }
-            .invoice-box { margin: 0; box-shadow: none; border-top: 8px solid var(--brand-color); height: 297mm; }
+            .invoice-box.po-purchase-order-doc,
+            .invoice-box.pr-purchase-requisition-doc {
+                margin: 0;
+                box-shadow: none;
+                height: 297mm;
+            }
+            .invoice-box.po-purchase-order-doc {
+                border-top: 8px solid var(--brand-color);
+            }
+            .invoice-box.pr-purchase-requisition-doc {
+                border-top: 8px solid #28a745;
+            }
             .footer-sticky { position: absolute; bottom: 12mm; left: 15mm; right: 15mm; }
             .invoice-box .po-vat-line {
                 color: var(--brand-color-deep) !important;

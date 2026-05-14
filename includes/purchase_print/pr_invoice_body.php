@@ -27,7 +27,7 @@ declare(strict_types=1);
  * @var bool $hireTableNote
  */
 ?>
-<div class="invoice-box">
+<div class="invoice-box pr-purchase-requisition-doc">
     <div class="pr-doc-main">
     <div class="row align-items-start mb-2">
         <div class="col-6">

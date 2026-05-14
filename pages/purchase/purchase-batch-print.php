@@ -180,13 +180,20 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
             padding: 10mm 15mm;
             position: relative;
             box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-            border-top: 8px solid var(--brand-color);
             overflow: hidden;
         }
+        .invoice-box.po-purchase-order-doc {
+            border-top: 8px solid var(--brand-color);
+        }
+        .invoice-box.pr-purchase-requisition-doc {
+            border-top: 8px solid #28a745;
+        }
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
-        .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
+        .po-purchase-order-doc .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
+        .pr-purchase-requisition-doc .invoice-title { font-size: 28px; font-weight: 800; color: #28a745; line-height: 1.1; }
         .table-custom { margin-top: 12px; margin-bottom: 0; }
-        .table-custom thead th { background: #fafafa; border-bottom: 2px solid var(--brand-color); font-size: 13px; padding: 10px; }
+        .invoice-box.po-purchase-order-doc .table-custom thead th { background: #fafafa; border-bottom: 2px solid var(--brand-color); font-size: 13px; padding: 10px; }
+        .pr-purchase-requisition-doc .table-custom thead th { background: #fafafa; border-bottom: 2px solid #28a745; font-size: 13px; padding: 10px; }
         .table-custom td { padding: 10px; font-size: 13px; border-bottom: 1px solid #f2f2f2; }
         .footer-sticky { position: absolute; bottom: 12mm; left: 15mm; right: 15mm; }
         .invoice-box .po-total-sheet .summary-item {
@@ -207,9 +214,13 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
             white-space: nowrap;
             font-variant-numeric: tabular-nums;
         }
-        .grand-total-row {
+        .invoice-box.po-purchase-order-doc .grand-total-row {
             display: flex; justify-content: space-between; align-items: center;
             background: var(--brand-color); color: white; padding: 12px; border-radius: 5px; margin-top: 8px;
+        }
+        .pr-purchase-requisition-doc .grand-total-row {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #28a745; color: #fff; padding: 12px; border-radius: 5px; margin-top: 8px;
         }
         .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; text-align: center; margin-top: 22px; }
         .sig-space { height: 72px; }
@@ -257,13 +268,13 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-            .invoice-box .grand-total-row {
+            .invoice-box.po-purchase-order-doc .grand-total-row {
                 background: var(--brand-color) !important;
                 color: #fff !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-            .invoice-box .grand-total-row span {
+            .invoice-box.po-purchase-order-doc .grand-total-row span {
                 color: #fff !important;
             }
             .po-payment-slip-print-wrap {
