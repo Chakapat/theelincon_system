@@ -35,4 +35,41 @@ final class Dsr
 
         return $reports;
     }
+
+    /** @return list<array<string,mixed>> */
+    public static function listRowsForCalendarPage(): array
+    {
+        $reports = self::listRowsForListPage();
+        $photosAll = Db::tableRows('daily_site_report_photos');
+        $byReport = [];
+
+        foreach ($photosAll as $ph) {
+            $rid = (int) ($ph['report_id'] ?? 0);
+            if ($rid <= 0) {
+                continue;
+            }
+            if (!isset($byReport[$rid])) {
+                $byReport[$rid] = [];
+            }
+            $byReport[$rid][] = $ph;
+        }
+
+        foreach ($reports as &$r) {
+            $id = (int) ($r['id'] ?? 0);
+            $photos = $byReport[$id] ?? [];
+            usort($photos, static function ($a, $b): int {
+                $sa = (int) ($a['sort_order'] ?? 0);
+                $sb = (int) ($b['sort_order'] ?? 0);
+                if ($sa !== $sb) {
+                    return $sa <=> $sb;
+                }
+
+                return ((int) ($a['id'] ?? 0)) <=> ((int) ($b['id'] ?? 0));
+            });
+            $r['photos'] = $photos;
+        }
+        unset($r);
+
+        return $reports;
+    }
 }

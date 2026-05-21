@@ -15,8 +15,6 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $uid = (int) $_SESSION['user_id'];
-$user_data = Db::rowByIdField('users', $uid, 'userid');
-$requester_name = $user_data ? ($user_data['fname'] ?? '') . ' ' . ($user_data['lname'] ?? '') : 'Unknown User';
 
 $editId = (int) ($_GET['id'] ?? 0);
 $editPr = null;
@@ -97,16 +95,393 @@ usort($sites, static function (array $a, array $b): int {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
-        .btn-orange { background-color: #fd7e14; color: white; border: none; }
-        .btn-orange:hover { background-color: #e86c00; color: white; }
+        :root {
+            --pr-brand: #fd7e14;
+            --pr-brand-hover: #e86c00;
+            --pr-surface: #f4f6f9;
+            --pr-card-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+            --pr-border: #e8ecf1;
+        }
+        body {
+            background: var(--pr-surface);
+            font-family: 'Sarabun', sans-serif;
+            color: #1e293b;
+        }
+        .pr-page { max-width: 1200px; }
+        .pr-page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #0f172a;
+        }
+        .pr-card {
+            background: #fff;
+            border: 1px solid var(--pr-border);
+            border-radius: 1rem;
+            box-shadow: var(--pr-card-shadow);
+            padding: 1.5rem 1.75rem;
+        }
+        .pr-card + .pr-card { margin-top: 1.25rem; }
+        .pr-field-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.4rem;
+        }
+        .pr-doc-row .form-control {
+            border-radius: 0.5rem;
+            border-color: var(--pr-border);
+            padding: 0.65rem 0.85rem;
+        }
+        .pr-doc-row .form-control:focus {
+            border-color: var(--pr-brand);
+            box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.15);
+        }
+        .pr-doc-row .form-control[readonly] {
+            background: #f8fafc;
+            font-weight: 600;
+            color: var(--pr-brand);
+        }
+        .pr-sidebar-card {
+            background: #fff;
+            border: none;
+            border-left: 4px solid var(--pr-brand);
+            border-radius: 1rem;
+            box-shadow: var(--pr-card-shadow);
+            padding: 1.5rem 1.75rem;
+            height: 100%;
+        }
+        .pr-sidebar-card .form-label,
+        .pr-sidebar-card label {
+            color: #64748b;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .pr-sidebar-card hr {
+            border-color: var(--pr-border);
+            margin: 1rem 0;
+        }
+        .pr-sidebar-card .form-check-label {
+            color: #334155;
+            text-transform: none;
+            letter-spacing: normal;
+            font-size: 0.95rem;
+        }
+        .pr-sidebar-card .form-select {
+            border-radius: 0.5rem;
+            border-color: var(--pr-border);
+        }
+        .pr-table-card .table {
+            margin-bottom: 0;
+        }
+        #prTable {
+            --bs-table-bg: transparent;
+        }
+        #prTable thead th {
+            background: transparent;
+            border-bottom: 2px solid var(--pr-border);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            padding: 0.75rem 0.5rem;
+            white-space: nowrap;
+        }
+        #prTable tbody td {
+            padding: 0.5rem;
+            vertical-align: middle;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        #prTable tbody tr:last-child td {
+            border-bottom: none;
+        }
+        #prTable .form-control {
+            border: 1px solid var(--pr-border);
+            border-radius: 0.375rem;
+            font-size: 0.9rem;
+            padding: 0.45rem 0.55rem;
+        }
+        #prTable .form-control:focus {
+            border-color: var(--pr-brand);
+            box-shadow: 0 0 0 0.15rem rgba(253, 126, 20, 0.12);
+        }
+        #prTable .row-total {
+            background: #f8fafc !important;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        #prTable .row-number {
+            color: #94a3b8;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+        .btn-pr-primary {
+            background-color: var(--pr-brand);
+            color: #fff;
+            border: none;
+            font-weight: 600;
+            padding: 0.55rem 1.5rem;
+            border-radius: 999px;
+            box-shadow: 0 4px 14px rgba(253, 126, 20, 0.35);
+        }
+        .btn-pr-primary:hover:not(:disabled) {
+            background-color: var(--pr-brand-hover);
+            color: #fff;
+        }
+        .btn-pr-primary:disabled {
+            opacity: 0.55;
+        }
+        .btn-pr-cancel {
+            background: #fff;
+            color: #475569;
+            border: 1px solid var(--pr-border);
+            font-weight: 500;
+            padding: 0.55rem 1.5rem;
+            border-radius: 999px;
+        }
+        .btn-pr-cancel:hover {
+            background: #f8fafc;
+            color: #334155;
+            border-color: #cbd5e1;
+        }
+        .btn-pr-add-row {
+            border-color: var(--pr-border);
+            color: #475569;
+            font-weight: 500;
+        }
+        .btn-pr-add-row:hover {
+            background: #fff7ed;
+            border-color: var(--pr-brand);
+            color: var(--pr-brand);
+        }
+        .pr-quotation-card .form-check-label {
+            font-weight: 600;
+            color: #334155;
+        }
+        /* VAT selection — compact card, toggle + dropdown inline when space allows */
+        .pr-vat-inline-box {
+            justify-self: start;
+            align-self: start;
+            width: fit-content;
+            max-width: min(100%, 38rem);
+            padding: 0.5rem 0.75rem;
+            background: #fff;
+            border: 1px solid var(--pr-border);
+            border-radius: 0.65rem;
+            box-sizing: border-box;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+        }
+        .pr-vat-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.45rem 1rem;
+        }
+        .pr-vat-switch-wrap .form-check {
+            margin-bottom: 0;
+            padding-left: 0;
+        }
+        .pr-vat-switch-wrap .form-check.form-switch {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 0.45rem;
+            min-height: 1.85rem;
+        }
+        .pr-vat-switch-wrap .form-check-input {
+            margin-left: 0;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .pr-vat-switch-wrap .form-check-label {
+            margin-bottom: 0;
+            text-transform: none;
+            letter-spacing: normal;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #334155;
+            line-height: 1.25;
+            cursor: pointer;
+        }
+        .pr-vat-dropdown-wrap {
+            position: relative;
+            flex: 1 1 11.5rem;
+            min-width: min(100%, 11rem);
+            max-width: 20rem;
+        }
+        .pr-vat-dropdown-wrap .form-select {
+            width: 100%;
+            border-radius: 0.5rem;
+            border-color: var(--pr-border);
+            font-size: 0.8125rem;
+        }
+        #vat_mode_wrap:not(.pr-vat-select-hidden) {
+            position: relative;
+            width: 100%;
+        }
+        #vat_mode_wrap.pr-vat-select-hidden {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            height: 0;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+        #pr_summary_footer .pr-summary-footer-inner {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 0.85rem 1.25rem;
+            align-items: start;
+        }
+        @media (max-width: 575.98px) {
+            #pr_summary_footer .pr-summary-footer-inner {
+                grid-template-columns: 1fr;
+            }
+            .pr-vat-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .pr-vat-dropdown-wrap {
+                max-width: none;
+            }
+        }
+        #pr_summary_footer .pr-summary-totals-stack {
+            padding: 0.65rem 1rem 1rem 1.05rem;
+            background: #fff;
+            border: 1px solid var(--pr-border);
+            border-radius: 0.65rem;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+            align-self: start;
+            justify-self: end;
+            width: max-content;
+            max-width: 100%;
+            min-width: min(100%, 14.5rem);
+        }
+        @media (max-width: 575.98px) {
+            #pr_summary_footer .pr-summary-totals-stack {
+                justify-self: stretch;
+                width: 100%;
+            }
+        }
+        .pr-summary-totals-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.15rem;
+        }
+        .pr-sum-row {
+            display: grid;
+            grid-template-columns: auto minmax(5.85rem, max-content);
+            column-gap: 0.85rem;
+            align-items: baseline;
+            justify-content: end;
+            justify-items: end;
+            font-size: 0.875rem;
+            line-height: 1.35;
+        }
+        .pr-sum-row .pr-sum-lbl {
+            color: #64748b;
+            text-align: right;
+            white-space: nowrap;
+            justify-self: end;
+        }
+        .pr-sum-row .pr-sum-val {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            color: #475569;
+            justify-self: end;
+        }
+        .pr-sum-row .pr-sum-val .fw-semibold {
+            color: #0f172a;
+        }
+        #pr_summary_footer .pr-grand-total-line {
+            display: grid;
+            grid-template-columns: auto minmax(5.85rem, max-content);
+            column-gap: 0.85rem;
+            align-items: baseline;
+            justify-content: end;
+            justify-items: end;
+            margin-top: 0.45rem;
+            padding-top: 0.55rem;
+            padding-bottom: 0.1rem;
+            margin-bottom: 0;
+            border-top: 1px dashed rgba(148, 163, 184, 0.55);
+            white-space: nowrap;
+        }
+        #pr_summary_footer .pr-grand-total-line .pr-grand-lbl {
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #0f172a;
+            text-align: right;
+            justify-self: end;
+        }
+        #pr_summary_footer .pr-grand-total-line .pr-grand-amount-wrap {
+            text-align: right;
+            justify-self: end;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+        }
+        #pr_summary_footer .pr-grand-total-line #grand_total {
+            font-size: 1.7rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            color: var(--pr-brand) !important;
+            vertical-align: baseline;
+        }
+        #pr_summary_footer .pr-grand-total-line .pr-grand-suffix {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #475569;
+            margin-left: 0.2rem;
+            vertical-align: baseline;
+        }
+        /* การ์ดข้อมูลหัวฟอร์ม PR — กะทัดรัด */
+        .pr-card-meta-compact {
+            padding: 1rem 1.2rem;
+            border-radius: 0.85rem;
+        }
+        .pr-card-meta-compact .row {
+            --bs-gutter-y: 0.65rem;
+            --bs-gutter-x: 0.75rem;
+        }
+        .pr-card-meta-compact .pr-field-label {
+            font-size: 0.72rem;
+            margin-bottom: 0.28rem;
+        }
+        .pr-card-meta-compact .form-select,
+        .pr-card-meta-compact .form-control {
+            font-size: 0.875rem;
+            padding: 0.4rem 0.65rem;
+        }
+        .pr-card-meta-compact .form-text {
+            font-size: 0.72rem;
+            margin-top: 0.25rem;
+            line-height: 1.35;
+        }
+        .pr-card-meta-compact textarea.form-control {
+            min-height: 3.25rem;
+        }
+        .pr-card-meta-compact .form-check {
+            margin-bottom: 0.25rem;
+        }
+        .pr-card-meta-compact #hire_fields_wrap .row {
+            --bs-gutter-y: 0.5rem;
+        }
     </style>
 </head>
 <body>
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
-<div class="container mt-4 mb-5">
+<div class="container pr-page mt-4 mb-5 py-2">
     <?php if (!empty($_GET['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <?php
@@ -118,7 +493,7 @@ usort($sites, static function (array $a, array $b): int {
             } elseif ($err === 'need_site') {
                 echo 'กรุณาเลือกไซต์งาน';
             } elseif ($err === 'no_items') {
-                echo 'กรุณาระบุอย่างน้อย 1 รายการสินค้าที่มีจำนวนและราคาถูกต้อง';
+                echo 'กรุณาระบุอย่างน้อย 1 รายการสินค้าที่มีรายละเอียดและจำนวนมากกว่า 0 (ราคาต่อหน่วยใส่ 0 ได้หากยังไม่ทราบราคา — กรอกราคาจริงตอนสร้าง PO)';
             } elseif ($err === 'invalid_hire' || $err === 'hire_invalid') {
                 echo 'กรุณากรอกข้อมูลจัดจ้างให้ครบ: ผู้รับจ้าง, มูลค่าสัญญา และจำนวนงวด';
             } else {
@@ -133,33 +508,39 @@ usort($sites, static function (array $a, array $b): int {
     <?php endif; ?>
     <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=<?= htmlspecialchars($prFormAction, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1">
         <?php csrf_field(); ?>
+        <input type="hidden" name="requested_by" value="<?= (int) $editRequestedBy ?>">
         <?php if ($isEdit): ?>
             <input type="hidden" name="pr_id" value="<?= (int) $editId ?>">
             <input type="hidden" name="request_type" value="<?= htmlspecialchars($requestTypeVal, ENT_QUOTES, 'UTF-8') ?>">
         <?php endif; ?>
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3 class="fw-bold"><i class="bi bi-cart-plus-fill text-warning me-2"></i> <?= $isEdit ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)' ?></h3>
-            <div>
-                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light rounded-pill px-4 me-2">ยกเลิก</a>
-                <button type="submit" class="btn btn-orange rounded-pill px-4 shadow-sm fw-bold" <?= count($sites) === 0 ? 'disabled' : '' ?>><?= $isEdit ? 'บันทึกการแก้ไข' : 'บันทึกใบ PR' ?></button>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-1">
+            <h1 class="pr-page-title mb-0"><i class="bi bi-cart-plus-fill text-warning me-2"></i><?= $isEdit ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)' ?></h1>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-pr-cancel">ยกเลิก</a>
+                <button type="submit" class="btn btn-pr-primary" <?= count($sites) === 0 ? 'disabled' : '' ?>><?= $isEdit ? 'บันทึกการแก้ไข' : 'บันทึกใบขอซื้อ' ?></button>
             </div>
         </div>
 
-        <div class="row mb-4">
-            <div class="col-md-8">
-                <div class="card border-0 shadow-sm p-4 h-100">
-                    <div class="row g-3">
+        <div class="pr-card pr-doc-row mb-4">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <label class="pr-field-label">เลขที่ใบขอซื้อ</label>
+                    <input type="text" name="pr_number" class="form-control" value="<?= $current_pr_number ?>" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="pr-field-label" id="request_date_label">วันที่ขอซื้อ</label>
+                    <input type="text" name="created_at" id="created_at" class="form-control" value="<?= htmlspecialchars($createdAtDisplay, ENT_QUOTES, 'UTF-8') ?>" required>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-12">
+                <div class="pr-card pr-card-meta-compact h-100">
+                    <div class="row g-2 g-md-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">เลขที่ใบขอซื้อ</label>
-                            <input type="text" name="pr_number" class="form-control bg-light fw-bold text-primary" value="<?= $current_pr_number ?>" readonly>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold" id="request_date_label">วันที่ขอซื้อ</label>
-                            <input type="text" name="created_at" id="created_at" class="form-control" value="<?= htmlspecialchars($createdAtDisplay, ENT_QUOTES, 'UTF-8') ?>" required>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label fw-bold">ประเภทคำขอ</label>
-                            <select name="request_type" id="request_type" class="form-select" onchange="toggleRequestTypeFields()"<?= $isEdit ? ' disabled' : '' ?>>
+                            <label class="pr-field-label">ประเภทคำขอ</label>
+                            <select name="request_type" id="request_type" class="form-select form-select-sm" onchange="toggleRequestTypeFields()"<?= $isEdit ? ' disabled' : '' ?>>
                                 <option value="purchase"<?= $requestTypeVal === 'purchase' ? ' selected' : '' ?>>จัดซื้อ (Purchase)</option>
                                 <option value="hire"<?= $requestTypeVal === 'hire' ? ' selected' : '' ?>>จัดจ้าง (Hire)</option>
                             </select>
@@ -168,9 +549,9 @@ usort($sites, static function (array $a, array $b): int {
                             <?php endif; ?>
                         </div>
                         <?php if (count($sites) > 0): ?>
-                        <div class="col-md-12">
-                            <label class="form-label fw-bold">ไซต์งาน <span class="text-danger">*</span></label>
-                            <select name="site_id" id="site_id" class="form-select" required>
+                        <div class="col-md-6">
+                            <label class="pr-field-label">ไซต์งาน <span class="text-danger">*</span></label>
+                            <select name="site_id" id="site_id" class="form-select form-select-sm" required>
                                 <option value="" disabled<?= $editSiteId <= 0 ? ' selected' : '' ?>>— เลือกไซต์งาน —</option>
                                 <?php foreach ($sites as $site): ?>
                                     <?php $sid = (int) ($site['id'] ?? 0); ?>
@@ -180,85 +561,69 @@ usort($sites, static function (array $a, array $b): int {
                             </select>
                         </div>
                         <?php endif; ?>
-                        <div class="col-md-12 d-none" id="hire_fields_wrap">
-                            <div class="row g-3">
+                        <div class="col-12 d-none" id="hire_fields_wrap">
+                            <div class="row g-2 g-md-3">
                                 <div class="col-md-4">
-                                    <label class="form-label fw-bold">ผู้รับจ้าง</label>
-                                    <input type="text" name="contractor_name" id="contractor_name" class="form-control" maxlength="255" value="<?= htmlspecialchars($hireContractorEdit, ENT_QUOTES, 'UTF-8') ?>">
+                                    <label class="pr-field-label">ผู้รับจ้าง</label>
+                                    <input type="text" name="contractor_name" id="contractor_name" class="form-control form-control-sm" maxlength="255" value="<?= htmlspecialchars($hireContractorEdit, ENT_QUOTES, 'UTF-8') ?>">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label fw-bold">มูลค่าสัญญา (บาท)</label>
-                                    <input type="number" name="contract_value" id="contract_value" class="form-control" step="0.01" min="0" value="<?= $hireValueEdit > 0 ? htmlspecialchars((string) $hireValueEdit, ENT_QUOTES, 'UTF-8') : '' ?>">
+                                    <label class="pr-field-label">มูลค่าสัญญา (บาท)</label>
+                                    <input type="number" name="contract_value" id="contract_value" class="form-control form-control-sm" step="any" min="0" value="<?= $hireValueEdit > 0 ? htmlspecialchars((string) $hireValueEdit, ENT_QUOTES, 'UTF-8') : '' ?>">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label fw-bold">จำนวนงวด</label>
-                                    <input type="number" name="installment_total" id="installment_total" class="form-control" min="1" max="120" value="<?= (int) $hireInstallEdit ?>">
+                                    <label class="pr-field-label">จำนวนงวด</label>
+                                    <input type="number" name="installment_total" id="installment_total" class="form-control form-control-sm" min="1" max="120" value="<?= (int) $hireInstallEdit ?>">
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-12">
-                            <label class="form-label fw-bold" id="details_label">รายละเอียด/วัตถุประสงค์</label>
-                            <textarea name="details" id="details_textarea" class="form-control" rows="2" placeholder="ระบุรายละเอียดที่ต้องการจัดซื้อ"><?= htmlspecialchars($editDetails, ENT_QUOTES, 'UTF-8') ?></textarea>
+                        <div class="col-12">
+                            <label class="pr-field-label" id="details_label">รายละเอียด/วัตถุประสงค์</label>
+                            <textarea name="details" id="details_textarea" class="form-control form-control-sm" rows="2"><?= htmlspecialchars($editDetails, ENT_QUOTES, 'UTF-8') ?></textarea>
                         </div>
-                        <div class="col-md-12">
-                            <?php if ($isEdit && $quotationPathExisting !== ''): ?>
-                                <div class="small text-muted mb-2">ไฟล์แนบปัจจุบัน: <?= htmlspecialchars($quotationNameExisting !== '' ? $quotationNameExisting : basename($quotationPathExisting), ENT_QUOTES, 'UTF-8') ?> — เลือกไฟล์ใหม่ด้านล่างเพื่อแทนที่</div>
-                            <?php endif; ?>
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" value="1" id="quotation_attach" name="quotation_attach"<?= ($isEdit && $quotationPathExisting !== '') ? ' checked' : '' ?>>
-                                <label class="form-check-label fw-bold" for="quotation_attach">แนบใบเสนอราคา (ไม่บังคับ)</label>
-                            </div>
-                            <div id="quotation_upload_wrap" class="d-none">
-                                <input
-                                    type="file"
-                                    name="quotation_file"
-                                    id="quotation_file"
-                                    class="form-control"
-                                    accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff"
-                                    disabled
-                                >
-                                <div class="form-text">รองรับไฟล์ PDF และรูปภาพทั่วไป (JPG, PNG, WEBP, GIF, BMP, TIFF)</div>
+                        <div class="col-12 <?= $requestTypeVal === 'purchase' ? 'd-none' : '' ?>" id="pr_quotation_slot_top_wrap">
+                            <div id="pr_quotation_slot_top">
+                                <?php if ($requestTypeVal === 'hire'): ?>
+                                <div id="pr_quotation_inner">
+                                    <?php if ($isEdit && $quotationPathExisting !== ''): ?>
+                                        <div class="small text-muted mb-1" style="font-size:0.8rem;">ไฟล์แนบปัจจุบัน: <?= htmlspecialchars($quotationNameExisting !== '' ? $quotationNameExisting : basename($quotationPathExisting), ENT_QUOTES, 'UTF-8') ?> — เลือกไฟล์ใหม่ด้านล่างเพื่อแทนที่</div>
+                                    <?php endif; ?>
+                                    <div class="form-check mb-1">
+                                        <input class="form-check-input" type="checkbox" value="1" id="quotation_attach" name="quotation_attach"<?= ($isEdit && $quotationPathExisting !== '') ? ' checked' : '' ?>>
+                                    </div>
+                                    <div id="quotation_upload_wrap" class="d-none">
+                                        <input
+                                            type="file"
+                                            name="quotation_file"
+                                            id="quotation_file"
+                                            class="form-control form-control-sm"
+                                            accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff"
+                                            disabled
+                                        >
+                                    </div>
+                                </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card border-0 shadow-sm p-4 h-100 text-white" style="background-color: #fd7e14;">
-                    <label class="opacity-75">ผู้ขอซื้อ</label>
-                    <h4 class="fw-bold"><?= $requester_name ?></h4>
-                    <input type="hidden" name="requested_by" value="<?= (int) $editRequestedBy ?>">
-                    <hr>
-                    <p class="mb-0 small opacity-90"><i class="bi bi-check2-circle me-1"></i>หลังบันทึกสามารถ<strong>พิมพ์ใบ PR</strong> หรือ<strong>ออก PO จากใบ PR</strong> ได้ทันที</p>
-                    <hr class="opacity-50">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" name="vat_enabled" id="vat_enabled" value="1" onchange="calculateTotal()"<?= $editVatOn ? ' checked' : '' ?>>
-                        <label class="form-check-label fw-semibold" for="vat_enabled">รวม VAT 7%</label>
-                    </div>
-                    <div class="mt-2 d-none" id="vat_mode_wrap">
-                        <label class="form-label form-label-sm mb-1 opacity-75">รูปแบบ VAT</label>
-                        <select class="form-select form-select-sm" name="vat_mode" id="vat_mode" onchange="calculateTotal()">
-                            <option value="exclusive"<?= $editVatMode === 'exclusive' ? ' selected' : '' ?>>VAT แยก (บวกเพิ่ม 7%)</option>
-                            <option value="inclusive"<?= $editVatMode === 'inclusive' ? ' selected' : '' ?>>VAT รวมในราคา</option>
-                        </select>
-                    </div>
-                    <p class="small opacity-75 mb-0 mt-1" id="vat_help_text">ยอดรายการ = ก่อน VAT · ระบบบวก VAT 7% เมื่อเปิด</p>
                 </div>
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm p-4" id="item_table_card">
-            <div class="table-responsive">
+        <div class="pr-card pr-table-card" id="item_table_card">
+            <div id="pr_lines_wrap">
+                <h2 class="h6 fw-bold text-secondary mb-3 text-uppercase" style="letter-spacing:0.05em;">รายการสินค้า</h2>
+                <div class="table-responsive">
             <table class="table align-middle" id="prTable">
-                <thead class="table-light">
+                <thead>
                     <tr>
-                        <th style="width:3rem;">#</th>
+                        <th style="width:3rem;" class="text-center">#</th>
                         <th>รายการสินค้า</th>
-                        <th style="width:7rem;">จำนวน</th>
-                        <th style="width:6rem;">หน่วย</th>
-                        <th style="width:7rem;">ราคา/หน่วย</th>
-                        <th style="width:7rem;">ส่วนลด</th>
-                        <th style="width:7rem;">รวม</th>
+                        <th style="width:7rem;" class="text-end">จำนวน</th>
+                        <th style="width:6rem;" class="text-end">หน่วย</th>
+                        <th style="width:8rem;" class="text-end">ราคา/หน่วย</th>
+                        <th style="width:7rem;" class="text-end">ส่วนลด</th>
+                        <th style="width:7rem;" class="text-end">รวม</th>
                         <th style="width:3rem;"></th>
                     </tr>
                 </thead>
@@ -281,41 +646,101 @@ usort($sites, static function (array $a, array $b): int {
                             ?>
                             <tr>
                                 <td class="row-number"><?= $rn ?></td>
-                                <td><input type="text" name="item_description[]" class="form-control" required placeholder="ระบุรายการสินค้า" value="<?= htmlspecialchars((string) ($it['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="number" name="item_qty[]" class="form-control qty" step="0.001" min="0" required oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['quantity'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="text" name="item_unit[]" class="form-control" placeholder="หน่วย" value="<?= htmlspecialchars((string) ($it['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="number" name="item_price[]" class="form-control price" step="0.01" required oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['unit_price'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="text" name="item_discount[]" class="form-control line-discount" maxlength="20" placeholder="ไม่บังคับ — เช่น 10% หรือ 100" oninput="calculateTotal()" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="text" class="form-control row-total bg-light" value="<?= number_format((float) ($it['total'] ?? 0), 2, '.', '') ?>" readonly></td>
+                                <td><input type="text" name="item_description[]" class="form-control" required value="<?= htmlspecialchars((string) ($it['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td><input type="number" name="item_qty[]" class="form-control qty text-end" step="any" min="0" required oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['quantity'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td><input type="text" name="item_unit[]" class="form-control" value="<?= htmlspecialchars((string) ($it['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td><input type="number" name="item_price[]" class="form-control price text-end" step="any" min="0" oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['unit_price'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td><input type="text" name="item_discount[]" class="form-control line-discount text-end" maxlength="20" oninput="calculateTotal()" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td><input type="text" class="form-control row-total text-end bg-light" value="<?= number_format((float) ($it['total'] ?? 0), 2, '.', '') ?>" readonly></td>
                                 <td><button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)"><i class="bi bi-trash-fill"></i></button></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
                     <tr>
                         <td class="row-number">1</td>
-                        <td><input type="text" name="item_description[]" class="form-control" required placeholder="ระบุรายการสินค้า"></td>
-                        <td><input type="number" name="item_qty[]" class="form-control qty" step="0.001" min="0" required oninput="calculateTotal()"></td>
-                        <td><input type="text" name="item_unit[]" class="form-control" placeholder="หน่วย"></td>
-                        <td><input type="number" name="item_price[]" class="form-control price" step="0.01" required oninput="calculateTotal()"></td>
-                        <td><input type="text" name="item_discount[]" class="form-control line-discount" maxlength="20" placeholder="ไม่บังคับ — เช่น 10% หรือ 100" oninput="calculateTotal()"></td>
-                        <td><input type="text" class="form-control row-total bg-light" value="0.00" readonly></td>
+                        <td><input type="text" name="item_description[]" class="form-control" required></td>
+                        <td><input type="number" name="item_qty[]" class="form-control qty text-end" step="any" min="0" required oninput="calculateTotal()"></td>
+                        <td><input type="text" name="item_unit[]" class="form-control text-end"></td>
+                        <td><input type="number" name="item_price[]" class="form-control price text-end" step="any" min="0" oninput="calculateTotal()"></td>
+                        <td><input type="text" name="item_discount[]" class="form-control line-discount text-end" maxlength="20" oninput="calculateTotal()"></td>
+                        <td><input type="text" class="form-control row-total text-end bg-light" value="0.00" readonly></td>
                         <td></td>
                     </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
-            </div>
-            
-            <div class="d-flex justify-content-between align-items-center">
-                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="addRow()">
-                    <i class="bi bi-plus-circle-fill me-1"></i> เพิ่มรายการสินค้า
-                </button>
-                <div class="text-end">
-                    <div class="small text-muted mb-1"><span id="subtotal_label">ยอดรายการ (ก่อน VAT):</span> <span id="subtotal_display">0.00</span> บาท</div>
-                    <div class="small text-muted mb-1" id="vat_row" style="display:none;">VAT 7%: <span id="vat_display">0.00</span> บาท</div>
-                    <h4 class="fw-bold text-dark mb-0">ยอดรวมสุทธิ: <span id="grand_total" class="text-primary">0.00</span> บาท</h4>
-                    <input type="hidden" name="total_amount" id="total_amount_input" value="0">
                 </div>
+                <div class="mt-3">
+                    <button type="button" class="btn btn-pr-add-row btn-sm rounded-pill px-3" onclick="addRow()">
+                        <i class="bi bi-plus-circle me-1"></i>เพิ่มรายการสินค้า
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-top" id="pr_summary_footer">
+                <div class="pr-summary-footer-inner">
+                    <div class="pr-vat-inline-box">
+                        <div class="pr-vat-toolbar">
+                            <div class="pr-vat-switch-wrap">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="vat_enabled" id="vat_enabled" value="1" onchange="calculateTotal()"<?= $editVatOn ? ' checked' : '' ?>>
+                                    <label class="form-check-label fw-semibold" for="vat_enabled">เลือกรูปแบบภาษีมูลค่าเพิ่ม</label>
+                                </div>
+                            </div>
+                            <div class="pr-vat-dropdown-wrap">
+                                <div id="vat_mode_wrap" class="<?= $editVatOn ? '' : 'pr-vat-select-hidden' ?>">
+                                    <select class="form-select form-select-sm" name="vat_mode" id="vat_mode" onchange="calculateTotal()">
+                                        <option value="exclusive"<?= $editVatMode === 'exclusive' ? ' selected' : '' ?>>แยกภาษีมูลค่าเพิ่ม</option>
+                                        <option value="inclusive"<?= $editVatMode === 'inclusive' ? ' selected' : '' ?>>รวมภาษีมูลค่าเพิ่มในราคาสินค้า</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pr-summary-totals-stack">
+                        <div class="pr-summary-totals-inner">
+                            <div class="pr-sum-row">
+                                <span class="pr-sum-lbl"><span id="subtotal_label">ยอดรายการ:</span></span>
+                                <span class="pr-sum-val"><span id="subtotal_display" class="fw-semibold text-dark">0.00</span> บาท</span>
+                            </div>
+                            <div id="vat_row" class="pr-sum-row<?= $editVatOn ? '' : ' d-none' ?>">
+                                <span class="pr-sum-lbl">ภาษีมูลค่าเพิ่ม:</span>
+                                <span class="pr-sum-val"><span id="vat_display">0.00</span> บาท</span>
+                            </div>
+                            <div class="pr-grand-total-line mb-0">
+                                <span class="pr-grand-lbl">ยอดรวมสุทธิ:</span>
+                                <span class="pr-grand-amount-wrap"><span id="grand_total">0.00</span><span class="pr-grand-suffix"> บาท</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" name="total_amount" id="total_amount_input" value="0">
+            </div>
+        </div>
+
+        <div class="pr-card pr-quotation-card mt-3 <?= $requestTypeVal === 'hire' ? 'd-none' : '' ?>" id="pr_quotation_purchase_card">
+            <div id="pr_quotation_slot_bottom">
+                <?php if ($requestTypeVal === 'purchase'): ?>
+                <div id="pr_quotation_inner">
+                    <?php if ($isEdit && $quotationPathExisting !== ''): ?>
+                        <div class="small text-muted mb-2">ไฟล์แนบปัจจุบัน: <?= htmlspecialchars($quotationNameExisting !== '' ? $quotationNameExisting : basename($quotationPathExisting), ENT_QUOTES, 'UTF-8') ?> — เลือกไฟล์ใหม่ด้านล่างเพื่อแทนที่</div>
+                    <?php endif; ?>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" value="1" id="quotation_attach" name="quotation_attach"<?= ($isEdit && $quotationPathExisting !== '') ? ' checked' : '' ?>>
+                        <label class="form-check-label fw-bold" for="quotation_attach">มีใบเสนอราคา</label>
+                    </div>
+                    <div id="quotation_upload_wrap" class="d-none">
+                        <input
+                            type="file"
+                            name="quotation_file"
+                            id="quotation_file"
+                            class="form-control"
+                            accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff"
+                            disabled
+                        >
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </form>
@@ -334,15 +759,15 @@ function addRow() {
 
     newRow.innerHTML = `
         <td class="row-number">${rowCount}</td>
-        <td><input type="text" name="item_description[]" class="form-control" required placeholder="ระบุรายการสินค้า"></td>
-        <td><input type="number" name="item_qty[]" class="form-control qty" step="0.001" min="0" required oninput="calculateTotal()"></td>
-        <td><input type="text" name="item_unit[]" class="form-control" placeholder="หน่วย"></td>
-        <td><input type="number" name="item_price[]" class="form-control price" step="0.01" required oninput="calculateTotal()"></td>
-        <td><input type="text" name="item_discount[]" class="form-control line-discount" maxlength="20" placeholder="ไม่บังคับ — เช่น 10% หรือ 100" oninput="calculateTotal()"></td>
-        <td><input type="text" class="form-control row-total bg-light" value="0.00" readonly></td>
+        <td><input type="text" name="item_description[]" class="form-control" required></td>
+        <td><input type="number" name="item_qty[]" class="form-control qty text-end" step="any" min="0" required oninput="calculateTotal()"></td>
+        <td><input type="text" name="item_unit[]" class="form-control text-end"></td>
+        <td><input type="number" name="item_price[]" class="form-control price text-end" step="any" min="0" oninput="calculateTotal()"></td>
+        <td><input type="text" name="item_discount[]" class="form-control line-discount text-end" maxlength="20" oninput="calculateTotal()"></td>
+        <td><input type="text" class="form-control row-total text-end bg-light" value="0.00" readonly></td>
         <td><button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)"><i class="bi bi-trash-fill"></i></button></td>
     `;
-}
+}   
 
 function prLineAmountAfterDiscount(qty, price, discRaw) {
     const q = parseFloat(String(qty || '').replace(/,/g, '')) || 0;
@@ -425,36 +850,29 @@ function calculateTotal() {
     }
 
     document.getElementById('subtotal_display').innerText = subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    const subtotalLabel = document.getElementById('subtotal_label');
-    if (subtotalLabel) {
-        subtotalLabel.textContent = vatOn && vatMode === 'inclusive'
-            ? 'ยอดก่อน VAT (คำนวณจากราคารวม):'
-            : 'ยอดรายการ (ก่อน VAT):';
-    }
     const vatRow = document.getElementById('vat_row');
     if (vatOn) {
-        vatRow.style.display = 'block';
+        if (vatRow) {
+            vatRow.classList.remove('d-none');
+        }
         document.getElementById('vat_display').innerText = vat.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     } else {
-        vatRow.style.display = 'none';
+        if (vatRow) {
+            vatRow.classList.add('d-none');
+        }
     }
     document.getElementById('grand_total').innerText = grand.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     document.getElementById('total_amount_input').value = grand.toFixed(2);
 
     const vatModeWrap = document.getElementById('vat_mode_wrap');
     if (vatModeWrap) {
-        vatModeWrap.classList.toggle('d-none', !vatOn);
+        vatModeWrap.classList.toggle('pr-vat-select-hidden', !vatOn);
+    }
+    const vatModeEl = document.getElementById('vat_mode');
+    if (vatModeEl) {
+        vatModeEl.tabIndex = vatOn ? 0 : -1;
     }
     const vatHelpText = document.getElementById('vat_help_text');
-    if (vatHelpText) {
-        if (!vatOn) {
-            vatHelpText.textContent = 'ยอดรายการยังไม่รวม VAT';
-        } else if (vatMode === 'inclusive') {
-            vatHelpText.textContent = 'ราคาต่อหน่วยถือว่า "รวม VAT" แล้ว · ระบบถอด VAT 7% ออกให้';
-        } else {
-            vatHelpText.textContent = 'ยอดรายการ = ก่อน VAT · ระบบบวก VAT 7% เพิ่ม';
-        }
-    }
 }
 
 function toggleRequestTypeFields() {
@@ -464,23 +882,28 @@ function toggleRequestTypeFields() {
     const contractValue = document.getElementById('contract_value');
     const installmentTotal = document.getElementById('installment_total');
     const itemTableCard = document.getElementById('item_table_card');
+    const prLinesWrap = document.getElementById('pr_lines_wrap');
     const detailsLabel = document.getElementById('details_label');
     const detailsTextarea = document.getElementById('details_textarea');
     const requestDateLabel = document.getElementById('request_date_label');
+    const prQuotationInner = document.getElementById('pr_quotation_inner');
+    const prQuotationSlotTop = document.getElementById('pr_quotation_slot_top');
+    const prQuotationSlotBottom = document.getElementById('pr_quotation_slot_bottom');
+    const prQuotationTopWrap = document.getElementById('pr_quotation_slot_top_wrap');
+    const prQuotationPurchaseCard = document.getElementById('pr_quotation_purchase_card');
     if (!requestTypeEl || !hireWrap || !contractorName || !contractValue || !installmentTotal || !itemTableCard || !detailsLabel || !detailsTextarea || !requestDateLabel) {
         return;
     }
     const isHire = requestTypeEl.value === 'hire';
     hireWrap.classList.toggle('d-none', !isHire);
-    itemTableCard.classList.toggle('d-none', isHire);
+    if (prLinesWrap) {
+        prLinesWrap.classList.toggle('d-none', isHire);
+    }
     contractorName.required = isHire;
     contractValue.required = isHire;
     installmentTotal.required = isHire;
-    detailsLabel.textContent = isHire ? 'รายละเอียดการจ้าง' : 'รายละเอียด/วัตถุประสงค์';
+    detailsLabel.textContent = isHire ? 'รายละเอียดการจ้าง' : 'หมายเหตุ';
     requestDateLabel.textContent = isHire ? 'วันที่จัดจ้าง' : 'วันที่ขอซื้อ';
-    detailsTextarea.placeholder = isHire
-        ? 'ระบุรายละเอียดการจ้าง เช่น งานที่จ้าง ขอบเขตงาน เงื่อนไขงวดงาน'
-        : 'ระบุรายละเอียดที่ต้องการจัดซื้อ';
 
     const tableInputs = itemTableCard.querySelectorAll('input[name="item_description[]"], input[name="item_qty[]"], input[name="item_price[]"]');
     tableInputs.forEach((input) => {
@@ -495,6 +918,18 @@ function toggleRequestTypeFields() {
     optionalInputs.forEach((input) => {
         input.disabled = isHire;
     });
+
+    if (prQuotationInner && prQuotationSlotTop && prQuotationSlotBottom && prQuotationTopWrap && prQuotationPurchaseCard) {
+        if (isHire) {
+            prQuotationTopWrap.classList.remove('d-none');
+            prQuotationPurchaseCard.classList.add('d-none');
+            prQuotationSlotTop.appendChild(prQuotationInner);
+        } else {
+            prQuotationTopWrap.classList.add('d-none');
+            prQuotationPurchaseCard.classList.remove('d-none');
+            prQuotationSlotBottom.appendChild(prQuotationInner);
+        }
+    }
 }
 
 document.getElementById('request_type')?.addEventListener('change', function () {

@@ -13,6 +13,7 @@ if (!isset($_SESSION['user_id'])) {
 $id = (int) ($_GET['id'] ?? 0);
 
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/po_document.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_po_payment_slips.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/pr_document.php';
 $poCtx = tnc_purchase_po_print_prepare($id);
 if ($poCtx === null) {
@@ -21,8 +22,8 @@ if ($poCtx === null) {
 extract($poCtx, EXTR_OVERWRITE);
 $paymentStatusPo = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
 $isPoPaid = ($paymentStatusPo === 'paid');
-$paymentSlipRelForPrint = $isPoPaid ? trim((string) ($po['payment_slip_path'] ?? '')) : '';
-$hasPaymentSlipPrint = $paymentSlipRelForPrint !== '';
+$paymentSlipItemsForPrint = $isPoPaid ? tnc_po_payment_slip_items($po) : [];
+$hasPaymentSlipPrint = $paymentSlipItemsForPrint !== [];
 $quotRelPrint = trim((string) ($po['quotation_attachment_path'] ?? ''));
 $quotExtPrint = $quotRelPrint !== '' ? strtolower(pathinfo($quotRelPrint, PATHINFO_EXTENSION)) : '';
 $quotPrintableExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'pdf'];
@@ -231,15 +232,41 @@ $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
         .po-purchase-order-doc .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
         .table-custom { margin-top: 12px; margin-bottom: 0; }
-        .invoice-box.po-purchase-order-doc .table-custom thead th {
+        .po-purchase-order-doc .po-company-name {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1.25;
+        }
+        .po-purchase-order-doc .po-company-detail {
+            font-size: 0.92rem;
+            line-height: 1.5;
+            color: #475569 !important;
+            margin-top: 0.35rem;
+        }
+        .po-purchase-order-doc .po-note-heading {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #111;
+            margin-bottom: 0.35rem;
+        }
+        .po-purchase-order-doc .po-note-body {
+            font-size: 1rem;
+            line-height: 1.5;
+            color: #334155;
+            white-space: pre-line;
+        }
+        .invoice-box.po-purchase-order-doc .table-custom thead th,
+        .invoice-box.po-purchase-order-doc .po-items-table thead th {
             background: #fafafa;
             border-bottom: 2px solid var(--brand-color);
-            font-size: 13px;
-            padding: 10px;
+            font-size: 11px;
+            padding: 7px 8px;
         }
-        .invoice-box .table-custom td {
-            padding: 10px;
-            font-size: 13px;
+        .invoice-box.po-purchase-order-doc .table-custom td,
+        .invoice-box.po-purchase-order-doc .po-items-table tbody td {
+            padding: 7px 8px;
+            font-size: 11px;
             border-bottom: 1px solid #f2f2f2;
         }
 
@@ -376,8 +403,15 @@ $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
 
         @media print {
             @page { size: A4; margin: 0; }
+            html { font-size: 16px; }
             body { background: none; }
             .no-print, nav.navbar { display: none !important; }
+            body,
+            .invoice-box,
+            .invoice-box * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
             .po-view-canvas {
                 max-width: none;
                 margin: 0;
@@ -478,7 +512,8 @@ $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
 <?php
 $pmToolbar = strtolower(trim((string) ($po['payment_method'] ?? 'transfer'))) === 'cash' ? 'cash' : 'transfer';
 $cashByToolbar = trim((string) ($po['payment_cash_paid_by'] ?? ''));
-$slipRelToolbar = trim((string) ($po['payment_slip_path'] ?? ''));
+$slipItemsToolbar = $isPoPaid ? tnc_po_payment_slip_items($po) : [];
+$slipRelToolbar = $slipItemsToolbar !== [] ? (string) ($slipItemsToolbar[0]['path'] ?? '') : '';
 $poListHref = htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8');
 $poViewFullHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8');
 $hasAlerts = !empty($_GET['cancelled'])
@@ -506,13 +541,16 @@ $hasAlerts = !empty($_GET['cancelled'])
                         <?php if ($pmToolbar === 'cash' && $cashByToolbar !== ''): ?>
                             <span class="po-view-chip">จ่ายโดย <?= htmlspecialchars($cashByToolbar, ENT_QUOTES, 'UTF-8') ?></span>
                         <?php endif; ?>
-                        <?php if ($slipRelToolbar !== ''): ?>
-                            <a href="<?= htmlspecialchars(app_path($slipRelToolbar), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="po-view-chip po-view-chip--link text-decoration-none">
-                                <i class="bi bi-receipt"></i>เปิดสลิป
+                        <?php if ($slipItemsToolbar !== []): ?>
+                            <span class="po-view-chip">
+                                <i class="bi bi-receipt"></i>หลักฐาน <?= count($slipItemsToolbar) ?> ไฟล์
+                            </span>
+                            <?php foreach ($slipItemsToolbar as $slipTb): ?>
+                            <a href="<?= htmlspecialchars((string) ($slipTb['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="po-view-chip po-view-chip--link text-decoration-none" title="<?= htmlspecialchars((string) ($slipTb['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                เปิด<?= ($slipTb['is_pdf'] ?? false) ? ' PDF' : '' ?>
                             </a>
+                            <?php endforeach; ?>
                         <?php endif; ?>
-                    <?php else: ?>
-                        <span class="po-view-chip">รอชำระเงิน</span>
                     <?php endif; ?>
                 </div>
             </div>

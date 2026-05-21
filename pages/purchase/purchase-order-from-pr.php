@@ -74,6 +74,54 @@ Db::sortRows($supplier_rows, 'name', false);
 
 $po_number = Purchase::generatePONumber();
 $errorCode = trim((string) ($_GET['error'] ?? ''));
+$prUpdated = !empty($_GET['pr_updated']);
+
+$pr_items_for_edit = [];
+$pr_has_unknown_line_price = false;
+$pr_needs_price_fix = false;
+if ($requestType === 'purchase') {
+    $pr_items_for_edit = Db::filter('purchase_request_items', static function (array $r) use ($pr_id): bool {
+        return isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
+    });
+    Db::sortRows($pr_items_for_edit, 'id', false);
+    $pr_grand_check = (float) ($pr['total_amount'] ?? 0);
+    if (abs($pr_grand_check) < 0.0005) {
+        $pr_needs_price_fix = true;
+    }
+    foreach ($pr_items_for_edit as $pi) {
+        if ((float) ($pi['quantity'] ?? 0) > 0 && (float) ($pi['unit_price'] ?? 0) <= 0) {
+            $pr_has_unknown_line_price = true;
+            $pr_needs_price_fix = true;
+            break;
+        }
+    }
+}
+
+$tnc_po_submit_disabled = ($requestType === 'hire' && $remainingInstallments === 0)
+    || ($requestType === 'purchase' && $pr_has_unknown_line_price);
+$tnc_po_submit_label = $requestType === 'hire'
+    ? 'ยืนยันสร้างใบสั่งจ่ายงวดนี้'
+    : ($pr_has_unknown_line_price ? 'ไม่สามารถออกใบสั่งซื้อได้' : 'สร้างใบสั่งซื้อ');
+
+$pr_details_hidden = trim((string) ($pr['details'] ?? ''));
+$pr_site_id_hidden = (int) ($pr['site_id'] ?? 0);
+$pr_requested_by_hidden = (int) ($pr['requested_by'] ?? 0);
+$pr_created_ymd = '';
+$rawPrCreated = trim((string) ($pr['created_at'] ?? ''));
+if ($rawPrCreated !== '') {
+    $tsPrCreated = strtotime($rawPrCreated);
+    if ($tsPrCreated !== false) {
+        $pr_created_ymd = date('Y-m-d', $tsPrCreated);
+    }
+}
+if ($pr_created_ymd === '') {
+    $pr_created_ymd = date('Y-m-d');
+}
+$pr_fix_vat_on = (int) ($pr['vat_enabled'] ?? 0) === 1;
+$pr_fix_vat_mode = trim((string) ($pr['vat_mode'] ?? 'exclusive'));
+if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
+    $pr_fix_vat_mode = 'exclusive';
+}
 ?>
 
 <!DOCTYPE html>
@@ -120,11 +168,20 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                 <div class="po-from-pr-shell mx-auto">
                 <div class="card po-from-pr-card border-0">
                     <div class="po-from-pr-head">
-                        <h1 class="d-flex align-items-center gap-2">
-                            <i class="bi bi-file-earmark-plus-fill opacity-90"></i>
-                            <?= $requestType === 'hire' ? 'ใบสั่งจ่าย PO' : 'สร้างใบสั่งซื้อ' ?>
-                        </h1>
-                        <div class="sub"><?= $requestType === 'hire' ? 'ออกเอกสารสั่งจ่ายจากใบขอจัดจ้าง' : 'ออก PO จากใบขอซื้อ (PR) — กรอกเฉพาะข้อมูลที่มี' ?></div>
+                        <div class="<?= ($requestType === 'purchase' && $pr_needs_price_fix && count($pr_items_for_edit) > 0) ? 'd-flex flex-wrap justify-content-between align-items-start gap-2 gap-md-3' : '' ?>">
+                            <div class="min-w-0 flex-grow-1">
+                                <h1 class="d-flex align-items-center gap-2 mb-0">
+                                    <i class="bi bi-file-earmark-plus-fill opacity-90"></i>
+                                    <?= $requestType === 'hire' ? 'สร้างใบสั่งจ่าย' : 'สร้างใบสั่งซื้อ' ?>
+                                </h1>
+                                <div class="sub"><?= $requestType === 'hire' ? 'ออกเอกสารสั่งจ่ายจากใบขอจัดจ้าง' : 'ออกใบสั่งซื้อ (PO) -> จากใบขอซื้อ (PR)' ?></div>
+                            </div>
+                            <?php if ($requestType === 'purchase' && $pr_needs_price_fix && count($pr_items_for_edit) > 0): ?>
+                            <button type="button" class="btn btn-warning text-dark fw-semibold rounded-pill px-3 py-2 flex-shrink-0 align-self-start" data-bs-toggle="modal" data-bs-target="#prFixFromPoModal" id="prFixOpenBtn" title="แก้รายการสินค้าและ VAT ในใบขอซื้อ">
+                                <i class="bi bi-pencil-square me-1"></i>แก้ใบขอซื้อ
+                            </button>
+                            <?php endif; ?>
+                        </div>
                     </div>
                     <div class="p-4 p-md-4">
                     <?php if ($errorCode === 'invalid_installment'): ?>
@@ -141,6 +198,9 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                     <?php endif; ?>
                     <?php if ($errorCode === 'invalid_hire_rows'): ?>
                         <div class="alert alert-warning py-2">กรุณากรอกรายการสั่งจ่ายอย่างน้อย 1 รายการให้ถูกต้อง</div>
+                    <?php endif; ?>
+                    <?php if ($requestType === 'purchase' && $prUpdated): ?>
+                        <div class="alert alert-success py-2 border-0"><i class="bi bi-check-circle-fill me-1"></i>อัปเดตใบขอซื้อ (PR) แล้ว — ตรวจสอบยอดด้านล่างแล้วดำเนินการสร้าง PO ต่อได้</div>
                     <?php endif; ?>
                     <?php if ($requestType === 'hire' && $remainingInstallments === 0): ?>
                         <div class="alert alert-info py-2">ออกใบสั่งจ่ายครบทุกงวดแล้ว</div>
@@ -223,8 +283,8 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                         <?php endif; ?>
 
                         <div class="mb-4<?= $requestType === 'hire' ? ' d-none' : '' ?>">
-                            <div class="po-field-label">ผู้ขาย (Supplier) <span class="text-muted fw-normal text-lowercase" style="letter-spacing:0;">— ไม่บังคับ</span></div>
-                            <input type="text" id="supplier_search" class="form-control form-control-lg" list="supplier_list" placeholder="พิมพ์ชื่อผู้ขายเพื่อค้นหา (เว้นว่างได้)" autocomplete="off">
+                            <div class="po-field-label">ผู้ขาย/แหล่งซื้อ</div>
+                            <input type="text" id="supplier_search" class="form-control form-control-lg" list="supplier_list" autocomplete="off">
                             <datalist id="supplier_list">
                                 <?php foreach ($supplier_rows as $s): ?>
                                     <option
@@ -234,33 +294,32 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                                 <?php endforeach; ?>
                             </datalist>
                             <input type="hidden" name="supplier_id" id="supplier_id" value="">
-                            <div class="form-text mt-1">เลือกจากรายการให้ตรงกันทั้งบรรทัด ระบบจะบันทึกรหัสผู้ขายให้อัตโนมัติ</div>
+                        </div>
+
+                        <div class="mb-4<?= $requestType === 'hire' ? ' d-none' : '' ?>">
+                            <label class="po-field-label" for="po_note">หมายเหตุใบสั่งซื้อ</label>
+                            <textarea name="po_note" id="po_note" class="form-control" rows="2" maxlength="500"></textarea>
                         </div>
 
                         <div class="mb-4<?= $requestType === 'hire' ? ' d-none' : '' ?>">
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" value="1" id="has_qt" name="has_qt">
-                                <label class="form-check-label fw-semibold" for="has_qt">มีข้อมูลใบเสนอราคา (QT)</label>
+                                <label class="form-check-label fw-semibold" for="has_qt">มีข้อมูลใบเสนอราคา</label>
                             </div>
                             <div class="rounded-3 border bg-white p-3 p-md-4 mt-2 d-none" id="qt_panel">
                                 <div class="mb-3">
-                                    <label class="form-label small fw-semibold text-secondary mb-1" for="qt_quotation_number">เลขที่ QT</label>
-                                    <input type="text" name="quotation_number" id="qt_quotation_number" class="form-control" maxlength="120" placeholder="เช่น QT-2026-015" disabled>
+                                    <label class="form-label small fw-semibold text-secondary mb-1" for="qt_quotation_number">เลขที่ใบเสนอราคา</label>
+                                    <input type="text" name="quotation_number" id="qt_quotation_number" class="form-control" maxlength="120" disabled>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label small fw-semibold text-secondary mb-1" for="qt_quotation_date">วันที่ใบเสนอราคา</label>
                                     <input type="date" name="quotation_date" id="qt_quotation_date" class="form-control" value="" disabled>
                                 </div>
                                 <div class="mb-0">
-                                    <label class="form-label small fw-semibold text-secondary mb-1" for="qt_quotation_note">หมายเหตุ QT</label>
-                                    <textarea name="quotation_note" id="qt_quotation_note" class="form-control" rows="2" maxlength="500" placeholder="รายละเอียดอ้างอิง QT" disabled></textarea>
+                                    <label class="form-label small fw-semibold text-secondary mb-1" for="qt_quotation_note">หมายเหตุ</label>
+                                    <textarea name="quotation_note" id="qt_quotation_note" class="form-control" rows="2" maxlength="500" disabled></textarea>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="mb-4<?= $requestType === 'hire' ? ' d-none' : '' ?>">
-                            <label class="form-label fw-semibold" for="po_note">หมายเหตุ PO</label>
-                            <textarea name="po_note" id="po_note" class="form-control" rows="2" maxlength="500" placeholder="เช่น เงื่อนไขการส่งมอบ ที่อยู่จัดส่ง หรือข้อควรทราบบนใบสั่งซื้อ (ไม่บังคับ)"></textarea>
                         </div>
 
                         <?php if ($requestType === 'hire'): ?>
@@ -342,7 +401,7 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                         ?>
                         <?php if ($requestType !== 'hire'): ?>
                         <div class="po-panel mb-4">
-                            <div class="small fw-semibold text-secondary text-uppercase mb-2" style="letter-spacing:0.06em;">สรุปยอดจาก PR</div>
+                            <div class="small fw-semibold text-secondary text-uppercase mb-2" style="letter-spacing:0.06em;">สรุปยอดจากใบขอซื้อ</div>
                             <div class="d-flex justify-content-between align-items-center py-1"><span class="text-secondary">ยอดรายการ (ก่อน VAT)</span><strong><?= number_format($pr_sub, 2) ?> บาท</strong></div>
                             <?php if ($pr_vat_on): ?>
                             <div class="d-flex justify-content-between align-items-center py-1 text-success"><span>VAT 7%</span><strong><?= number_format($pr_vat, 2) ?> บาท</strong></div>
@@ -352,13 +411,115 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
                             <hr class="my-2 border-secondary-subtle">
                             <div class="d-flex justify-content-between align-items-center"><span class="fw-bold">ยอดรวมสุทธิ</span><strong class="fs-5 text-primary"><?= number_format($pr_grand, 2) ?> บาท</strong></div>
                         </div>
+                        <?php if ($pr_needs_price_fix && count($pr_items_for_edit) > 0): ?>
+                        <div class="alert alert-warning border-0 py-2 px-3 small mb-4 mb-md-0">
+                            <div class="fw-semibold mb-0"><i class="bi bi-exclamation-triangle-fill me-1"></i>ใบ PR นี้มีรายการยังไม่มีราคา หรือยอดรวมสุทธิเป็น 0 — กรุณากดปุ่ม <strong>แก้ใบขอซื้อ</strong> มุมขวาบนหัวการ์ดเพื่อแก้รายการสินค้า + VAT ให้ครบก่อนสร้าง PO</div>
+                        </div>
+                        <?php elseif ($pr_needs_price_fix && count($pr_items_for_edit) === 0): ?>
+                        <div class="alert alert-danger border-0 py-2 px-3 small mb-4 mb-md-0">
+                            ไม่พบรายการสินค้าใน PR — กรุณา<a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $pr_id ?>" class="alert-link">แก้ไขใบขอซื้อเต็มแบบฟอร์ม</a>
+                        </div>
+                        <?php endif; ?>
                         <?php endif; ?>
 
                         <div class="d-grid gap-2 mt-1">
-                            <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm fw-semibold py-3"<?= $requestType === 'hire' && $remainingInstallments === 0 ? ' disabled' : '' ?>><?= $requestType === 'hire' ? 'ยืนยันสร้างใบสั่งจ่ายงวดนี้' : 'สร้างใบสั่งซื้อ' ?></button>
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm fw-semibold py-3"<?= $tnc_po_submit_disabled ? ' disabled' : '' ?>><?= htmlspecialchars($tnc_po_submit_label, ENT_QUOTES, 'UTF-8') ?></button>
                             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $pr_id ?>" class="btn btn-outline-danger btn-lg rounded-pill fw-semibold py-2">ยกเลิก</a>
                         </div>
                     </form>
+                    <?php if ($requestType === 'purchase' && count($pr_items_for_edit) > 0 && $pr_needs_price_fix): ?>
+                    <div class="modal fade" id="prFixFromPoModal" tabindex="-1" aria-labelledby="prFixFromPoModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header border-bottom">
+                                    <h2 class="modal-title fs-5 fw-bold" id="prFixFromPoModalLabel"><i class="bi bi-pencil-square text-warning me-2"></i>แก้ใบขอซื้อ — <?= htmlspecialchars((string) ($pr['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></h2>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                                </div>
+                                <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_pr" method="POST" id="prFixFromPoForm" data-tnc-fullnav="1">
+                                    <?php csrf_field(); ?>
+                                    <input type="hidden" name="pr_id" value="<?= (int) ($pr['id'] ?? 0) ?>">
+                                    <input type="hidden" name="after_pr_update" value="po_from_pr">
+                                    <input type="hidden" name="site_id" value="<?= (int) $pr_site_id_hidden ?>">
+                                    <input type="hidden" name="created_at" value="<?= htmlspecialchars($pr_created_ymd, ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="requested_by" value="<?= (int) $pr_requested_by_hidden ?>">
+                                    <div class="modal-body">
+                                        <textarea name="details" class="d-none" tabindex="-1" aria-hidden="true"><?= htmlspecialchars($pr_details_hidden, ENT_QUOTES, 'UTF-8') ?></textarea>
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-md-6">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" name="vat_enabled" id="pr_fix_vat_enabled" value="1"<?= $pr_fix_vat_on ? ' checked' : '' ?>>
+                                                    <label class="form-check-label fw-semibold" for="pr_fix_vat_enabled">รวมภาษีมูลค่าเพิ่ม (VAT 7%)</label>
+                                                </div>
+                                                <div class="mt-2<?= $pr_fix_vat_on ? '' : ' d-none' ?>" id="pr_fix_vat_mode_wrap">
+                                                    <label class="form-label small text-secondary mb-1" for="pr_fix_vat_mode">รูปแบบภาษีมูลค่าเพิ่ม</label>
+                                                    <select class="form-select form-select-sm" name="vat_mode" id="pr_fix_vat_mode">
+                                                        <option value="exclusive"<?= $pr_fix_vat_mode === 'exclusive' ? ' selected' : '' ?>>แยกภาษีมูลค่าเพิ่ม</option>
+                                                        <option value="inclusive"<?= $pr_fix_vat_mode === 'inclusive' ? ' selected' : '' ?>>รวมภาษีมูลค่าเพิ่มในราคาสินค้า</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6 text-md-end small text-muted align-self-end">
+                                                <div><span id="pr_fix_subtotal_label">ยอดรายการ (ก่อน VAT):</span> <span id="pr_fix_subtotal_display" class="fw-semibold text-dark">0.00</span> บาท</div>
+                                                <div id="pr_fix_vat_row" class="mb-1<?= $pr_fix_vat_on ? '' : ' d-none' ?>"><span>VAT 7%:</span> <span id="pr_fix_vat_display" class="fw-semibold text-success">0.00</span> บาท</div>
+                                                <div class="fs-6 fw-bold text-primary mt-1">ยอดรวมสุทธิ: <span id="pr_fix_grand_total">0.00</span> บาท</div>
+                                                <input type="hidden" name="total_amount" id="pr_fix_total_amount_input" value="0">
+                                            </div>
+                                        </div>
+                                        <div class="table-responsive border rounded-3">
+                                            <table class="table table-sm align-middle mb-0" id="pr_fix_prTable">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th style="width:2.5rem;">#</th>
+                                                        <th>รายการสินค้า</th>
+                                                        <th style="width:6.5rem;">จำนวน</th>
+                                                        <th style="width:5.5rem;">หน่วย</th>
+                                                        <th style="width:7rem;">ราคา/หน่วย</th>
+                                                        <th style="width:6.5rem;">ส่วนลด</th>
+                                                        <th style="width:7rem;">รวม</th>
+                                                        <th style="width:2.5rem;"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <?php $prFixRn = 0; ?>
+                                                    <?php foreach ($pr_items_for_edit as $it): ?>
+                                                        <?php
+                                                        $prFixRn++;
+                                                        $discEdit = trim((string) ($it['discount_input'] ?? ''));
+                                                        if ($discEdit === '') {
+                                                            $dt = (string) ($it['discount_type'] ?? 'amount');
+                                                            $dv = (float) ($it['discount_value'] ?? 0);
+                                                            if ($dv > 0) {
+                                                                $discEdit = $dt === 'percent'
+                                                                    ? (rtrim(rtrim(number_format($dv, 4, '.', ''), '0'), '.') . '%')
+                                                                    : (string) $dv;
+                                                            }
+                                                        }
+                                                        ?>
+                                                        <tr>
+                                                            <td class="pr-fix-row-number"><?= $prFixRn ?></td>
+                                                            <td><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($it['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                                            <td><input type="number" name="item_qty[]" class="form-control form-control-sm pr-fix-qty" step="0.001" min="0" required value="<?= htmlspecialchars((string) ($it['quantity'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                                            <td><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($it['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                                            <td><input type="number" name="item_price[]" class="form-control form-control-sm pr-fix-price" step="0.01" min="0" value="<?= htmlspecialchars((string) ($it['unit_price'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>" placeholder="0 = ยังไม่ทราบราคา"></td>
+                                                            <td><input type="text" name="item_discount[]" class="form-control form-control-sm pr-fix-discount" maxlength="20" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>"></td>
+                                                            <td><input type="text" class="form-control form-control-sm pr-fix-row-total bg-light" value="<?= number_format((float) ($it['total'] ?? 0), 2, '.', '') ?>" readonly></td>
+                                                            <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger border-0 pr-fix-remove-row" title="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>
+                                                        </tr>
+                                                    <?php endforeach; ?>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mt-2 rounded-pill" id="pr_fix_add_row"><i class="bi bi-plus-circle me-1"></i>เพิ่มรายการสินค้า</button>
+                                    </div>
+                                    <div class="modal-footer border-top bg-light">
+                                        <button type="button" class="btn btn-outline-secondary rounded-pill px-3" data-bs-dismiss="modal">ปิด</button>
+                                        <button type="submit" class="btn btn-warning text-dark fw-semibold rounded-pill px-4"><i class="bi bi-save me-1"></i>บันทึกลงใบขอซื้อ</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                     </div>
                 </div>
                 </div>
@@ -576,6 +737,171 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
 
     updateRemoveButtons();
     recalc();
+})();
+</script>
+<script>
+(function () {
+    const table = document.getElementById('pr_fix_prTable');
+    if (!table) {
+        return;
+    }
+    const tbody = table.querySelector('tbody');
+    const vatOnEl = document.getElementById('pr_fix_vat_enabled');
+    const vatModeEl = document.getElementById('pr_fix_vat_mode');
+    const vatModeWrap = document.getElementById('pr_fix_vat_mode_wrap');
+    const subtotalDisplay = document.getElementById('pr_fix_subtotal_display');
+    const subtotalLabel = document.getElementById('pr_fix_subtotal_label');
+    const vatRow = document.getElementById('pr_fix_vat_row');
+    const vatDisplay = document.getElementById('pr_fix_vat_display');
+    const grandTotalEl = document.getElementById('pr_fix_grand_total');
+    const totalAmountInput = document.getElementById('pr_fix_total_amount_input');
+    const addRowBtn = document.getElementById('pr_fix_add_row');
+
+    function prFixLineAmountAfterDiscount(qty, price, discRaw) {
+        const q = parseFloat(String(qty || '').replace(/,/g, '')) || 0;
+        const p = parseFloat(String(price || '').replace(/,/g, '')) || 0;
+        const base = Math.round(q * p * 100) / 100;
+        const dRaw = String(discRaw || '').trim();
+        let discount = 0;
+        if (dRaw !== '') {
+            const pctMatch = dRaw.match(/^([0-9]+(?:\.[0-9]+)?)\s*%$/);
+            if (pctMatch) {
+                let pct = parseFloat(pctMatch[1]) || 0;
+                if (pct < 0) pct = 0;
+                if (pct > 100) pct = 100;
+                discount = Math.round(base * pct / 100 * 100) / 100;
+            } else {
+                discount = Math.round((parseFloat(dRaw.replace(/,/g, '')) || 0) * 100) / 100;
+                if (discount < 0) discount = 0;
+                if (discount > base) discount = base;
+            }
+        }
+        return Math.round((base - discount) * 100) / 100;
+    }
+
+    function prFixUpdateRowNumbers() {
+        table.querySelectorAll('.pr-fix-row-number').forEach(function (td, index) {
+            td.textContent = String(index + 1);
+        });
+    }
+
+    function prFixCalculateTotal() {
+        if (!tbody) return;
+        const vatOn = !!(vatOnEl && vatOnEl.checked);
+        const vatMode = (vatModeEl && vatModeEl.value) || 'exclusive';
+        let lineAmount = 0;
+        for (let i = 0; i < tbody.rows.length; i++) {
+            const row = tbody.rows[i];
+            const qtyEl = row.querySelector('.pr-fix-qty');
+            const priceEl = row.querySelector('.pr-fix-price');
+            const discEl = row.querySelector('.pr-fix-discount');
+            const totalEl = row.querySelector('.pr-fix-row-total');
+            const total = prFixLineAmountAfterDiscount(
+                qtyEl ? qtyEl.value : 0,
+                priceEl ? priceEl.value : 0,
+                discEl ? discEl.value : ''
+            );
+            if (totalEl) {
+                totalEl.value = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            lineAmount += total;
+        }
+        lineAmount = Math.round(lineAmount * 100) / 100;
+        let subtotal = lineAmount;
+        let vat = 0;
+        let grand = lineAmount;
+        if (vatOn) {
+            if (vatMode === 'inclusive') {
+                vat = Math.round((lineAmount * 7 / 107) * 100) / 100;
+                subtotal = Math.round((lineAmount - vat) * 100) / 100;
+                grand = lineAmount;
+            } else {
+                subtotal = lineAmount;
+                vat = Math.round(subtotal * 0.07 * 100) / 100;
+                grand = Math.round((subtotal + vat) * 100) / 100;
+            }
+        }
+        if (subtotalLabel) {
+            subtotalLabel.textContent = vatOn && vatMode === 'inclusive'
+                ? 'ยอดก่อน VAT (คำนวณจากราคารวม):'
+                : 'ยอดรายการ (ก่อน VAT):';
+        }
+        if (subtotalDisplay) {
+            subtotalDisplay.textContent = subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        if (vatRow) {
+            vatRow.classList.toggle('d-none', !vatOn);
+        }
+        if (vatDisplay) {
+            vatDisplay.textContent = vat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        if (grandTotalEl) {
+            grandTotalEl.textContent = grand.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        if (totalAmountInput) {
+            totalAmountInput.value = grand.toFixed(2);
+        }
+        if (vatModeWrap) {
+            vatModeWrap.classList.toggle('d-none', !vatOn);
+        }
+    }
+
+    function prFixUpdateRemoveButtons() {
+        const rows = tbody.querySelectorAll('tr');
+        const one = rows.length <= 1;
+        rows.forEach(function (row) {
+            const btn = row.querySelector('.pr-fix-remove-row');
+            if (btn) btn.disabled = one;
+        });
+    }
+
+    function prFixBindRow(row) {
+        row.querySelectorAll('.pr-fix-qty, .pr-fix-price, .pr-fix-discount').forEach(function (el) {
+            el.addEventListener('input', prFixCalculateTotal);
+        });
+        const removeBtn = row.querySelector('.pr-fix-remove-row');
+        removeBtn?.addEventListener('click', function () {
+            if (tbody.querySelectorAll('tr').length <= 1) return;
+            row.remove();
+            prFixUpdateRowNumbers();
+            prFixUpdateRemoveButtons();
+            prFixCalculateTotal();
+        });
+    }
+
+    tbody.querySelectorAll('tr').forEach(prFixBindRow);
+    prFixUpdateRemoveButtons();
+    vatOnEl?.addEventListener('change', prFixCalculateTotal);
+    vatModeEl?.addEventListener('change', prFixCalculateTotal);
+
+    addRowBtn?.addEventListener('click', function () {
+        if (!tbody) return;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="pr-fix-row-number">0</td>
+            <td><input type="text" name="item_description[]" class="form-control form-control-sm" required placeholder="รายการสินค้า"></td>
+            <td><input type="number" name="item_qty[]" class="form-control form-control-sm pr-fix-qty" step="0.001" min="0" required value="1"></td>
+            <td><input type="text" name="item_unit[]" class="form-control form-control-sm"></td>
+            <td><input type="number" name="item_price[]" class="form-control form-control-sm pr-fix-price" step="0.01" min="0" value="0" placeholder="0 = ยังไม่ทราบราคา"></td>
+            <td><input type="text" name="item_discount[]" class="form-control form-control-sm pr-fix-discount" maxlength="20"></td>
+            <td><input type="text" class="form-control form-control-sm pr-fix-row-total bg-light" value="0.00" readonly></td>
+            <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger border-0 pr-fix-remove-row" title="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>
+        `;
+        tbody.appendChild(tr);
+        prFixBindRow(tr);
+        prFixUpdateRowNumbers();
+        prFixUpdateRemoveButtons();
+        prFixCalculateTotal();
+    });
+
+    function prFixInitTotals() {
+        prFixCalculateTotal();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', prFixInitTotals);
+    } else {
+        prFixInitTotals();
+    }
 })();
 </script>
 </body>

@@ -102,6 +102,16 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         $prDocTitle = 'PR-' . (int) ($pr['id'] ?? $pr_id);
     }
 
+    $poStatus = '';
+    $isPoCancelled = false;
+    if (is_array($existing_po)) {
+        $poStatus = strtolower(trim((string) ($existing_po['status'] ?? 'ordered')));
+        if ($poStatus === '') {
+            $poStatus = 'ordered';
+        }
+        $isPoCancelled = ($poStatus === 'cancelled');
+    }
+
     return [
         'pr' => $pr,
         'com' => $com,
@@ -124,6 +134,8 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         'detailsText' => $detailsText,
         'hireTableNote' => $hireTableNote,
         'existing_po' => $existing_po,
+        'poStatus' => $poStatus,
+        'isPoCancelled' => $isPoCancelled,
         'poShortcutUrl' => $poShortcutUrl,
         'prDocTitle' => $prDocTitle,
     ];

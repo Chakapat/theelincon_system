@@ -50,22 +50,102 @@ extract($prCtx, EXTR_OVERWRITE);
             overflow: hidden;
         }
 
+        .pr-cancelled-watermark {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) rotate(-32deg);
+            font-size: clamp(2.5rem, 12vw, 4.5rem);
+            font-weight: 800;
+            color: rgba(220, 38, 38, 0.38);
+            letter-spacing: 0.18em;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 60;
+            user-select: none;
+            text-transform: uppercase;
+        }
+
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
         .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
-        .table-custom { margin-top: 12px; margin-bottom: 0; }
-        .table-custom thead th { background: #fafafa; border-bottom: 2px solid var(--brand-color); font-size: 13px; padding: 10px; }
-        .table-custom td { padding: 10px; font-size: 13px; border-bottom: 1px solid #f2f2f2; }
 
-        /* ยอดรวม + ลายเซ็น ติดขอบล่างกระดาษ A4 (เหมือน PO) */
-        .footer-sticky { position: absolute; bottom: 12mm; left: 15mm; right: 15mm; }
-        .summary-item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 14px; }
-        .grand-total-row {
-            display: flex; justify-content: space-between; align-items: center;
-            background: var(--brand-color); color: white; padding: 12px; border-radius: 5px; margin-top: 8px;
+        /* ตารางรายการ — ระยะห่างและบรรทัดอ่านง่าย */
+        .pr-purchase-requisition-doc .table-custom {
+            margin-top: 10px;
+            margin-bottom: 0;
         }
-        .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; text-align: center; margin-top: 22px; }
-        .sig-space { height: 72px; }
-        .sig-box { border-top: 1px solid #333; padding-top: 10px; font-size: 13px; font-weight: 600; }
+        .pr-purchase-requisition-doc .table-custom thead th {
+            background: #fafafa;
+            border-bottom: 2px solid var(--brand-color);
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.45;
+            padding: 9px 11px;
+            vertical-align: middle;
+        }
+        .pr-purchase-requisition-doc .table-custom tbody td {
+            padding: 9px 11px;
+            font-size: 12px;
+            line-height: 1.45;
+            border-bottom: 1px solid #f2f2f2;
+            vertical-align: middle;
+        }
+        .pr-purchase-requisition-doc .table-custom tbody td.fw-bold {
+            line-height: 1.4;
+        }
+
+        /* ยอดรวม + ลายเซ็น ติดขอบล่างกระดาษ A4 */
+        .pr-purchase-requisition-doc .footer-sticky {
+            position: absolute;
+            bottom: 12mm;
+            left: 15mm;
+            right: 15mm;
+        }
+        .pr-purchase-requisition-doc .pr-footer-panel {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        .pr-purchase-requisition-doc .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.75rem;
+            padding: 3px 0;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+        .pr-purchase-requisition-doc .summary-box {
+            background: #f8fbff;
+            border: 1px solid #c7dbfa;
+            border-radius: 0.5rem;
+            padding: 0.65rem 0.9rem;
+        }
+        .pr-purchase-requisition-doc .grand-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--brand-color);
+            color: #fff;
+            padding: 10px 12px;
+            border-radius: 5px;
+            margin-top: 6px;
+            line-height: 1.35;
+        }
+        .pr-purchase-requisition-doc .signature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            text-align: center;
+            margin-top: 16px;
+        }
+        .pr-purchase-requisition-doc .sig-space { height: 56px; }
+        .pr-purchase-requisition-doc .sig-box {
+            border-top: 1px solid #333;
+            padding-top: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.4;
+        }
 
         .pr-view-toolbar {
             border-bottom: 1px solid #e2e8f0;
@@ -73,7 +153,10 @@ extract($prCtx, EXTR_OVERWRITE);
         }
         .pr-view-toolbar .btn { font-weight: 600; }
         .pr-view-toolbar-inner { max-width: 210mm; margin: 0 auto; }
-        .pr-doc-main { padding-bottom: 52mm; box-sizing: border-box; }
+        .pr-purchase-requisition-doc .pr-doc-main {
+            padding-bottom: 50mm;
+            box-sizing: border-box;
+        }
 
         @media (max-width: 575.98px) {
             body { background: #fff; }
@@ -85,18 +168,188 @@ extract($prCtx, EXTR_OVERWRITE);
                 box-shadow: none;
                 overflow: visible;
             }
-            .pr-doc-main { padding-bottom: 0; }
-            .footer-sticky { position: static; bottom: auto; left: auto; right: auto; margin-top: 1.25rem; }
-            .signature-grid { grid-template-columns: 1fr; gap: 18px; }
+            .pr-purchase-requisition-doc .pr-doc-main { padding-bottom: 0; }
+            .pr-purchase-requisition-doc .footer-sticky {
+                position: static;
+                bottom: auto;
+                left: auto;
+                right: auto;
+                margin-top: 1.25rem;
+            }
+            .pr-purchase-requisition-doc .signature-grid { grid-template-columns: 1fr; gap: 18px; }
         }
 
         @media print {
-            @page { size: A4; margin: 0; }
-            body { background: none; }
-            .no-print { display: none !important; }
-            nav, .navbar { display: none !important; }
-            .invoice-box { margin: 0; box-shadow: none; border-top: 8px solid var(--brand-color); height: 297mm; }
-            .footer-sticky { position: absolute; bottom: 12mm; left: 15mm; right: 15mm; }
+            @page {
+                size: A4 portrait;
+                margin: 0;
+            }
+
+            html {
+                font-size: 15px;
+            }
+
+            body {
+                background: none !important;
+                margin: 0;
+                font-weight: 500;
+            }
+
+            body,
+            .invoice-box,
+            .invoice-box * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .no-print,
+            nav,
+            .navbar {
+                display: none !important;
+            }
+
+            .invoice-box.pr-purchase-requisition-doc {
+                width: 210mm;
+                max-width: 210mm;
+                height: 297mm;
+                min-height: 297mm;
+                max-height: 297mm;
+                margin: 0;
+                padding: 8mm 12mm;
+                box-shadow: none;
+                border-top: 6px solid var(--brand-color);
+                overflow: hidden;
+                page-break-after: avoid;
+                break-after: avoid;
+            }
+
+            .pr-purchase-requisition-doc .pr-doc-main {
+                padding-bottom: 46mm;
+            }
+
+            .pr-purchase-requisition-doc .company-logo {
+                max-height: 20mm;
+            }
+
+            .pr-purchase-requisition-doc .invoice-title {
+                font-size: 24px;
+                line-height: 1.15;
+            }
+
+            .pr-purchase-requisition-doc .table-custom {
+                margin-top: 8px;
+            }
+
+            .pr-purchase-requisition-doc .table-custom thead th {
+                font-size: 10.5px;
+                font-weight: 700;
+                line-height: 1.45;
+                padding: 7px 10px;
+                background: #fafafa !important;
+                border-bottom: 2px solid #28a745 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .pr-purchase-requisition-doc .table-custom tbody td {
+                font-size: 10.5px;
+                line-height: 1.45;
+                padding: 7px 10px;
+                vertical-align: middle;
+            }
+
+            .pr-purchase-requisition-doc .table-custom tbody tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            .pr-purchase-requisition-doc .footer-sticky {
+                position: absolute;
+                bottom: 8mm;
+                left: 12mm;
+                right: 12mm;
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            .pr-purchase-requisition-doc .pr-footer-panel {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            .pr-purchase-requisition-doc .summary-box {
+                padding: 0.5rem 0.75rem;
+                background: #f8fbff !important;
+                border-color: #c7dbfa !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .pr-purchase-requisition-doc .summary-item {
+                font-size: 12px;
+                line-height: 1.45;
+                padding: 2px 0;
+            }
+
+            .pr-purchase-requisition-doc .grand-total-row {
+                padding: 8px 10px;
+                margin-top: 5px;
+                background: #28a745 !important;
+                color: #fff !important;
+                page-break-inside: avoid;
+                break-inside: avoid;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .pr-purchase-requisition-doc .grand-total-row span {
+                color: #fff !important;
+            }
+
+            .pr-purchase-requisition-doc .grand-total-row .fw-bold {
+                font-size: 12px !important;
+            }
+
+            .pr-purchase-requisition-doc .grand-total-row span:last-child {
+                font-size: 16px !important;
+                font-weight: 800 !important;
+            }
+
+            .pr-purchase-requisition-doc .signature-grid {
+                margin-top: 10px;
+                gap: 28px;
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            .pr-purchase-requisition-doc .sig-space {
+                height: 40px;
+            }
+
+            .pr-purchase-requisition-doc .sig-box {
+                font-size: 11px;
+                line-height: 1.4;
+                padding-top: 6px;
+            }
+
+            /* หัวเอกสาร / บล็อกข้อมูล — กระชับลงเล็กน้อย */
+            .pr-purchase-requisition-doc .row.mb-2.mt-3,
+            .pr-purchase-requisition-doc .row.mb-2 {
+                margin-bottom: 0.4rem !important;
+            }
+
+            .pr-purchase-requisition-doc .mb-3 {
+                margin-bottom: 0.5rem !important;
+            }
+
+            .pr-cancelled-watermark {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                color: rgba(185, 28, 28, 0.48) !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
         }
     </style>
 </head>
@@ -108,6 +361,11 @@ extract($prCtx, EXTR_OVERWRITE);
     <div class="px-3 pr-view-toolbar-inner">
         <?php if (!empty($_GET['error']) && $_GET['error'] === 'po_exists'): ?>
             <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ใบขอซื้อนี้มีใบสั่งซื้อแล้ว ไม่สามารถออกซ้ำได้</div>
+        <?php endif; ?>
+        <?php if (!empty($isPoCancelled)): ?>
+            <div class="alert alert-danger py-2 px-3 mb-3 border-0 shadow-sm">
+                <i class="bi bi-x-octagon me-1"></i>ใบสั่งซื้อ (PO) ที่เชื่อมกับ PR นี้ถูกยกเลิกแล้ว (CANCELLED)
+            </div>
         <?php endif; ?>
         <div class="d-flex flex-wrap align-items-stretch justify-content-between gap-3">
             <div class="d-flex flex-wrap align-items-center gap-2">

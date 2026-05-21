@@ -8,31 +8,31 @@ session_start();
 use Theelincon\Rtdb\Dsr;
 
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/daily_site_report_projects.php';
+
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
     exit;
 }
 
+$userId = (int) $_SESSION['user_id'];
+$isAdmin = user_is_admin_role();
+$dsrFormProjectOptions = daily_site_report_project_options();
+$dsrFormSiteOptions = ['Building H'];
+$dsrFormCompanies = \Theelincon\Rtdb\Db::tableRows('company');
+\Theelincon\Rtdb\Db::sortRows($dsrFormCompanies, 'name', false);
+$dsrFormSaveUrl = app_path('actions/daily-site-report-save.php');
+$dsrFormMaxPhotos = 2;
+$dsrCalendarJsPath = dirname(__DIR__, 2) . '/assets/js/dsr-calendar-interaction.js';
+$dsrCalendarJsVersion = is_file($dsrCalendarJsPath) ? (string) filemtime($dsrCalendarJsPath) : (string) time();
+
 $rows = Dsr::listRowsForCalendarPage();
 $normalized = [];
-$companies = [];
-$sites = [];
-$projects = [];
 
 foreach ($rows as $r) {
     $companyName = trim((string) ($r['company_name'] ?? ''));
     $siteName = trim((string) ($r['site_name'] ?? ''));
     $projectName = trim((string) ($r['project_name'] ?? ''));
-
-    if ($companyName !== '') {
-        $companies[$companyName] = true;
-    }
-    if ($siteName !== '') {
-        $sites[$siteName] = true;
-    }
-    if ($projectName !== '') {
-        $projects[$projectName] = true;
-    }
 
     $photos = [];
     foreach (($r['photos'] ?? []) as $ph) {
@@ -41,13 +41,17 @@ foreach ($rows as $r) {
             continue;
         }
         $photos[] = [
+            'id' => (int) ($ph['id'] ?? 0),
             'url' => app_path($filePath),
+            'file_path' => $filePath,
             'caption' => (string) ($ph['caption'] ?? ''),
         ];
     }
 
     $normalized[] = [
         'id' => (int) ($r['id'] ?? 0),
+        'created_by' => (int) ($r['created_by'] ?? 0),
+        'company_id' => (int) ($r['company_id'] ?? 0),
         'report_no' => (string) ($r['report_no'] ?? ''),
         'report_date' => (string) ($r['report_date'] ?? ''),
         'company_name' => $companyName,
@@ -63,16 +67,9 @@ foreach ($rows as $r) {
         'updated_at' => (string) ($r['updated_at'] ?? ''),
         'photos' => $photos,
         'view_url' => app_path('pages/daily-site-reports/daily-site-report-view.php') . '?id=' . (int) ($r['id'] ?? 0),
-        'edit_url' => app_path('pages/daily-site-reports/daily-site-report-form.php') . '?id=' . (int) ($r['id'] ?? 0),
+        'edit_url' => daily_site_report_hub_url() . '?open_id=' . (int) ($r['id'] ?? 0),
     ];
 }
-
-$companyOptions = array_keys($companies);
-$siteOptions = array_keys($sites);
-$projectOptions = array_keys($projects);
-sort($companyOptions, SORT_NATURAL | SORT_FLAG_CASE);
-sort($siteOptions, SORT_NATURAL | SORT_FLAG_CASE);
-sort($projectOptions, SORT_NATURAL | SORT_FLAG_CASE);
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -83,6 +80,7 @@ sort($projectOptions, SORT_NATURAL | SORT_FLAG_CASE);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/dsr-calendar.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
         body { font-family: 'Sarabun', sans-serif; background: #fffaf5; }
         .calendar-wrap { border: 1px solid rgba(253, 126, 20, .2); border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.05); }
@@ -192,7 +190,7 @@ sort($projectOptions, SORT_NATURAL | SORT_FLAG_CASE);
         }
     </style>
 </head>
-<body>
+<body class="dsr-calendar-page">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -200,70 +198,37 @@ sort($projectOptions, SORT_NATURAL | SORT_FLAG_CASE);
     <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb mb-0 small">
             <li class="breadcrumb-item"><a href="<?= htmlspecialchars(app_path('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-decoration-none text-warning-emphasis">หน้าแรก</a></li>
-            <li class="breadcrumb-item"><a href="<?= htmlspecialchars(app_path('pages/daily-site-reports/daily-site-report-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-decoration-none text-warning-emphasis">สมุดรายวันหน้างาน</a></li>
-            <li class="breadcrumb-item active" aria-current="page">ปฏิทิน DSR</li>
+            <li class="breadcrumb-item active" aria-current="page">สมุดรายวันหน้างาน</li>
         </ol>
     </nav>
 
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
-        <div>
-            <h4 class="fw-bold mb-1"><i class="bi bi-calendar3 text-warning me-2"></i>ปฏิทินสมุดรายวันหน้างาน <span class="text-muted fs-6 fw-normal">Daily Site Report Calendar</span></h4>
-        </div>
-        <div class="d-flex gap-2">
-            <a href="<?= htmlspecialchars(app_path('pages/daily-site-reports/daily-site-report-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill"><i class="bi bi-list-ul me-1"></i>มุมมองรายการ</a>
-            <a href="<?= htmlspecialchars(app_path('pages/daily-site-reports/daily-site-report-form.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-warning text-dark fw-bold rounded-pill"><i class="bi bi-plus-lg me-1"></i>สร้าง DSR</a>
-        </div>
-    </div>
+    <h4 class="fw-bold mb-3"><i class="bi bi-calendar3 text-warning me-2"></i>ปฏิทินสมุดรายวันหน้างาน</h4>
 
-    <div class="card border-0 shadow-sm rounded-4 mb-3">
-        <div class="card-body p-3 p-lg-4">
-            <div class="row g-2 g-lg-3 align-items-end">
-                <div class="col-sm-6 col-lg-3">
-                    <label for="filterCompany" class="form-label fw-semibold small">บริษัท</label>
-                    <select id="filterCompany" class="form-select form-select-sm">
-                        <option value="">ทั้งหมด</option>
-                        <?php foreach ($companyOptions as $name): ?>
-                            <option value="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-sm-6 col-lg-3">
-                    <label for="filterSite" class="form-label fw-semibold small">ไซต์งาน</label>
-                    <select id="filterSite" class="form-select form-select-sm">
-                        <option value="">ทั้งหมด</option>
-                        <?php foreach ($siteOptions as $name): ?>
-                            <option value="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-sm-6 col-lg-3">
-                    <label for="filterProject" class="form-label fw-semibold small">โครงการ</label>
-                    <select id="filterProject" class="form-select form-select-sm">
-                        <option value="">ทั้งหมด</option>
-                        <?php foreach ($projectOptions as $name): ?>
-                            <option value="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-sm-6 col-lg-3">
-                    <button id="btnResetFilter" type="button" class="btn btn-outline-secondary btn-sm rounded-pill w-100">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i>ล้างตัวกรอง
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php if (!empty($_GET['err'])): ?>
+        <?php
+        $errMsg = match ((string) ($_GET['err'] ?? '')) {
+            'missing' => 'ไม่พบรายงานที่ต้องการ',
+            'forbidden' => 'คุณไม่มีสิทธิ์เข้าถึงรายงานนี้',
+            default => 'เกิดข้อผิดพลาด',
+        };
+        ?>
+        <div class="alert alert-danger rounded-3 small py-2"><?= htmlspecialchars($errMsg, ENT_QUOTES, 'UTF-8') ?></div>
+    <?php elseif (!empty($_GET['saved'])): ?>
+        <div class="alert alert-success rounded-3 small py-2">บันทึกรายงานเรียบร้อยแล้ว</div>
+    <?php elseif (!empty($_GET['deleted'])): ?>
+        <div class="alert alert-warning rounded-3 small py-2">ลบรายงานเรียบร้อยแล้ว</div>
+    <?php endif; ?>
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div class="btn-group" role="group" aria-label="เปลี่ยนเดือน">
-            <button type="button" id="btnPrevMonth" class="btn btn-outline-warning"><i class="bi bi-chevron-left"></i></button>
-            <button type="button" id="btnToday" class="btn btn-warning text-dark fw-semibold">เดือนปัจจุบัน</button>
-            <button type="button" id="btnNextMonth" class="btn btn-outline-warning"><i class="bi bi-chevron-right"></i></button>
+    <div class="dsr-month-toolbar d-flex flex-nowrap align-items-center gap-2 gap-md-3 mb-3">
+        <div class="btn-group flex-shrink-0" role="group" aria-label="เปลี่ยนเดือน">
+            <button type="button" id="btnPrevMonth" class="btn btn-outline-warning btn-sm" data-dsr-month="prev" aria-label="เดือนก่อนหน้า"><i class="bi bi-chevron-left"></i></button>
+            <button type="button" id="btnToday" class="btn btn-warning text-dark fw-semibold btn-sm" data-dsr-month="today">เดือนนี้</button>
+            <button type="button" id="btnNextMonth" class="btn btn-outline-warning btn-sm" data-dsr-month="next" aria-label="เดือนถัดไป"><i class="bi bi-chevron-right"></i></button>
         </div>
-        <h5 id="calendarTitle" class="fw-bold mb-0"></h5>
-        <div class="small text-muted" id="calendarCountLabel"></div>
+        <h5 id="calendarTitle" class="fw-bold mb-0 flex-grow-1 text-center text-truncate">—</h5>
+        <div class="small text-muted flex-shrink-0 text-nowrap mb-0" id="calendarCountLabel"></div>
     </div>
-    <div class="calendar-wrap">
+    <div class="calendar-shell">
         <div class="calendar-grid" id="weekdayRow"></div>
         <div class="calendar-grid" id="calendarGrid"></div>
     </div>
@@ -275,7 +240,7 @@ sort($projectOptions, SORT_NATURAL | SORT_FLAG_CASE);
                 </span>
                 <div>
                     <h6 class="print-month-title">พิมพ์รายงานรายเดือน</h6>
-                    <p class="print-month-desc">พิมพ์เฉพาะเดือนที่กำลังแสดงในปฏิทิน และยึดตามตัวกรองที่เลือกอยู่</p>
+                    <p class="print-month-desc">พิมพ์เฉพาะเดือนที่กำลังแสดงในปฏิทิน</p>
                 </div>
             </div>
             <button type="button" id="btnPrintMonth" class="btn btn-warning text-dark btn-print-month">
@@ -285,417 +250,33 @@ sort($projectOptions, SORT_NATURAL | SORT_FLAG_CASE);
     </div>
 </div>
 
-<div class="modal fade" id="dsrDetailModal" tabindex="-1" aria-labelledby="dsrDetailModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content rounded-4 border-0 shadow">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold" id="dsrDetailModalLabel">รายละเอียด DSR</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row g-3 mb-3">
-                    <div class="col-lg-4"><div class="small text-muted">เลขที่รายงาน</div><div id="mReportNo" class="fw-semibold"></div></div>
-                    <div class="col-lg-4"><div class="small text-muted">วันที่รายงาน</div><div id="mReportDate" class="fw-semibold"></div></div>
-                    <div class="col-lg-4"><div class="small text-muted">ผู้บันทึก</div><div id="mRecorder" class="fw-semibold"></div></div>
-                </div>
-                <div class="row g-3 mb-3">
-                    <div class="col-lg-4"><div class="small text-muted">บริษัท</div><div id="mCompany"></div></div>
-                    <div class="col-lg-4"><div class="small text-muted">ไซต์งาน</div><div id="mSite"></div></div>
-                    <div class="col-lg-4"><div class="small text-muted">โครงการ</div><div id="mProject"></div></div>
-                </div>
-                <div class="row g-3 mb-3">
-                    <div class="col-lg-6"><div class="small text-muted">สภาพอากาศ</div><div id="mWeather"></div></div>
-                    <div class="col-lg-6"><div class="small text-muted">จำนวนคนงาน</div><div id="mWorkerCount"></div></div>
-                </div>
+<?php include dirname(__DIR__, 2) . '/includes/daily_site_report_calendar_modals.php'; ?>
 
-                <div class="mb-2 fw-semibold text-warning-emphasis">รายละเอียดงานที่ทำ</div>
-                <pre class="detail-pre" id="mWorkProgress"></pre>
-                <div class="mb-2 mt-3 fw-semibold text-warning-emphasis">วัสดุและเครื่องจักร</div>
-                <pre class="detail-pre" id="mMaterials"></pre>
-                <div class="mb-2 mt-3 fw-semibold text-warning-emphasis">ปัญหาและอุปสรรค</div>
-                <pre class="detail-pre" id="mIssues"></pre>
-                <div class="mb-2 mt-3 fw-semibold text-warning-emphasis">รูปภาพประกอบ</div>
-                <div id="mPhotos"></div>
-            </div>
-            <div class="modal-footer">
-                <a href="#" id="mViewUrl" target="_blank" rel="noopener" class="btn btn-outline-secondary rounded-pill"><i class="bi bi-eye me-1"></i>เปิดหน้ารายละเอียด</a>
-                <a href="#" id="mEditUrl" target="_blank" rel="noopener" class="btn btn-outline-warning rounded-pill"><i class="bi bi-pencil me-1"></i>แก้ไข</a>
-                <button type="button" class="btn btn-warning text-dark fw-bold rounded-pill px-4" data-bs-dismiss="modal">ปิด</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+window.DSR_CALENDAR_CONFIG = {
+    reports: <?= json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+    userId: <?= (int) $userId ?>,
+    isAdmin: <?= $isAdmin ? 'true' : 'false' ?>,
+    maxPhotos: <?= (int) $dsrFormMaxPhotos ?>,
+    csrf: <?= json_encode(csrf_token(), JSON_UNESCAPED_UNICODE) ?>
+};
+</script>
+<script src="<?= htmlspecialchars(app_path('assets/js/dsr-calendar-interaction.js') . '?v=' . $dsrCalendarJsVersion, ENT_QUOTES, 'UTF-8') ?>"></script>
+<script>
 (function () {
-    const reports = <?= json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
-    const weekdays = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
-    const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-    const today = new Date();
-    let currentYear = today.getFullYear();
-    let currentMonth = today.getMonth();
-
-    const elWeekdayRow = document.getElementById('weekdayRow');
-    const elCalendarGrid = document.getElementById('calendarGrid');
-    const elCalendarTitle = document.getElementById('calendarTitle');
-    const elCalendarCountLabel = document.getElementById('calendarCountLabel');
-    const filterCompany = document.getElementById('filterCompany');
-    const filterSite = document.getElementById('filterSite');
-    const filterProject = document.getElementById('filterProject');
-    const btnResetFilter = document.getElementById('btnResetFilter');
-    const modalEl = document.getElementById('dsrDetailModal');
-    const detailModal = modalEl ? new bootstrap.Modal(modalEl) : null;
     const btnPrintMonth = document.getElementById('btnPrintMonth');
     const monthlyReportBaseUrl = <?= json_encode(app_path('pages/daily-site-reports/daily-site-report-monthly-report.php'), JSON_UNESCAPED_SLASHES) ?>;
-
-    function pad2(v) {
-        return String(v).padStart(2, '0');
-    }
-
-    function formatDateThai(dateText) {
-        if (!dateText) return '—';
-        const dt = new Date(dateText + 'T00:00:00');
-        if (Number.isNaN(dt.getTime())) return dateText;
-        const d = pad2(dt.getDate());
-        const m = pad2(dt.getMonth() + 1);
-        const y = dt.getFullYear() + 543;
-        return d + '/' + m + '/' + y;
-    }
-
-    function formatDatePrint(dateText) {
-        if (!dateText) return '—';
-        const dt = new Date(dateText + 'T00:00:00');
-        if (Number.isNaN(dt.getTime())) return dateText;
-        const d = pad2(dt.getDate());
-        const m = pad2(dt.getMonth() + 1);
-        const y = dt.getFullYear();
-        return d + ' - ' + m + ' - ' + y;
-    }
-
-    function formatDateTimeThai(dateText) {
-        if (!dateText) return '—';
-        const dt = new Date(String(dateText).replace(' ', 'T'));
-        if (Number.isNaN(dt.getTime())) return dateText;
-        const d = pad2(dt.getDate());
-        const m = pad2(dt.getMonth() + 1);
-        const y = dt.getFullYear() + 543;
-        const hh = pad2(dt.getHours());
-        const mm = pad2(dt.getMinutes());
-        return d + '/' + m + '/' + y + ' ' + hh + ':' + mm;
-    }
-
-    function toDateKey(year, month, day) {
-        return year + '-' + pad2(month + 1) + '-' + pad2(day);
-    }
-
-    function esc(s) {
-        return String(s || '').replace(/[&<>"']/g, function (m) {
-            return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[m];
-        });
-    }
-
-    function textOrDash(v) {
-        const txt = String(v || '').trim();
-        return txt === '' ? '—' : txt;
-    }
-
-    function filteredReports() {
-        const company = String(filterCompany.value || '').trim();
-        const site = String(filterSite.value || '').trim();
-        const project = String(filterProject.value || '').trim();
-        return reports.filter(function (r) {
-            if (company !== '' && String(r.company_name || '').trim() !== company) return false;
-            if (site !== '' && String(r.site_name || '').trim() !== site) return false;
-            if (project !== '' && String(r.project_name || '').trim() !== project) return false;
-            return true;
-        });
-    }
-
-    function groupByDate(items) {
-        const map = {};
-        items.forEach(function (r) {
-            const key = String(r.report_date || '').trim();
-            if (key === '') return;
-            if (!map[key]) map[key] = [];
-            map[key].push(r);
-        });
-        Object.keys(map).forEach(function (k) {
-            map[k].sort(function (a, b) {
-                return Number(b.id || 0) - Number(a.id || 0);
-            });
-        });
-        return map;
-    }
-
-    function renderWeekdayRow() {
-        if (!elWeekdayRow) return;
-        elWeekdayRow.innerHTML = weekdays.map(function (d) {
-            return '<div class="calendar-weekday">' + d + '</div>';
-        }).join('');
-    }
-
-    function showDetailModal(item) {
-        if (!detailModal) return;
-        const photos = Array.isArray(item.photos) ? item.photos : [];
-        document.getElementById('mReportNo').textContent = textOrDash(item.report_no);
-        document.getElementById('mReportDate').textContent = formatDateThai(item.report_date);
-        document.getElementById('mRecorder').textContent = textOrDash(item.recorder_name);
-        document.getElementById('mCompany').textContent = textOrDash(item.company_name);
-        document.getElementById('mSite').textContent = textOrDash(item.site_name);
-        document.getElementById('mProject').textContent = textOrDash(item.project_name);
-        document.getElementById('mWeather').textContent = textOrDash(item.weather);
-        document.getElementById('mWorkerCount').textContent = textOrDash(item.worker_count);
-        document.getElementById('mWorkProgress').textContent = textOrDash(item.work_progress);
-        document.getElementById('mMaterials').textContent = textOrDash(item.materials_equipment);
-        document.getElementById('mIssues').textContent = textOrDash(item.issues_remarks);
-
-        const photoWrap = document.getElementById('mPhotos');
-        if (photoWrap) {
-            if (photos.length === 0) {
-                photoWrap.innerHTML = '<div class="text-muted small">ไม่มีรูปภาพประกอบ</div>';
-            } else {
-                photoWrap.innerHTML = '<div class="photo-grid">' + photos.map(function (p) {
-                    const cap = String(p.caption || '').trim();
-                    return '<div class="photo-item">' +
-                        '<img src="' + esc(p.url) + '" alt="">' +
-                        (cap !== '' ? '<div class="small mt-1 text-muted">' + esc(cap) + '</div>' : '') +
-                        '</div>';
-                }).join('') + '</div>';
-            }
-        }
-
-        const viewLink = document.getElementById('mViewUrl');
-        const editLink = document.getElementById('mEditUrl');
-        if (viewLink) viewLink.setAttribute('href', String(item.view_url || '#'));
-        if (editLink) editLink.setAttribute('href', String(item.edit_url || '#'));
-        detailModal.show();
-    }
-
-    function renderCalendar() {
-        if (!elCalendarGrid) return;
-        const items = filteredReports();
-        const mapByDate = groupByDate(items);
-        const firstDay = new Date(currentYear, currentMonth, 1);
-        const startWeekDay = firstDay.getDay();
-        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-        const prevMonthDays = new Date(currentYear, currentMonth, 0).getDate();
-        const totalCells = 42;
-        const html = [];
-
-        for (let i = 0; i < totalCells; i++) {
-            let dayNum = 0;
-            let cellMonth = currentMonth;
-            let cellYear = currentYear;
-            let otherMonth = false;
-
-            if (i < startWeekDay) {
-                dayNum = prevMonthDays - startWeekDay + i + 1;
-                cellMonth = currentMonth - 1;
-                if (cellMonth < 0) {
-                    cellMonth = 11;
-                    cellYear -= 1;
-                }
-                otherMonth = true;
-            } else if (i >= startWeekDay + daysInMonth) {
-                dayNum = i - (startWeekDay + daysInMonth) + 1;
-                cellMonth = currentMonth + 1;
-                if (cellMonth > 11) {
-                    cellMonth = 0;
-                    cellYear += 1;
-                }
-                otherMonth = true;
-            } else {
-                dayNum = i - startWeekDay + 1;
-            }
-
-            const dateKey = toDateKey(cellYear, cellMonth, dayNum);
-            const dayItems = mapByDate[dateKey] || [];
-            const isToday = (cellYear === today.getFullYear() && cellMonth === today.getMonth() && dayNum === today.getDate());
-
-            html.push('<div class="calendar-day' +
-                (otherMonth ? ' other-month' : '') +
-                (isToday ? ' today' : '') + '">');
-            html.push('<div class="calendar-day-head">');
-            html.push('<span class="calendar-day-num">' + dayNum + '</span>');
-            html.push(dayItems.length > 0 ? '<span class="badge bg-warning text-dark rounded-pill">' + dayItems.length + '</span>' : '');
-            html.push('</div>');
-            html.push('<div class="event-list">');
-
-            if (dayItems.length === 0) {
-                html.push('<div class="event-empty">—</div>');
-            } else {
-                dayItems.forEach(function (item) {
-                    const titleParts = [];
-                    if (String(item.report_no || '').trim() !== '') titleParts.push(item.report_no);
-                    if (String(item.project_name || '').trim() !== '') titleParts.push(item.project_name);
-                    if (String(item.site_name || '').trim() !== '') titleParts.push(item.site_name);
-                    const title = titleParts.join(' | ');
-                    const hasIssues = String(item.issues_remarks || '').trim() !== '';
-                    html.push('<button type="button" class="event-chip' + (hasIssues ? ' event-chip-danger' : '') + '" data-report-id="' + Number(item.id || 0) + '" title="' + esc(title) + '">' + esc(title || 'DSR') + '</button>');
-                });
-            }
-            html.push('</div></div>');
-        }
-
-        elCalendarGrid.innerHTML = html.join('');
-        elCalendarTitle.textContent = monthNames[currentMonth] + ' ' + (currentYear + 543);
-        elCalendarCountLabel.textContent = 'จำนวนรายงานที่แสดง: ' + items.length + ' รายการ';
-
-        elCalendarGrid.querySelectorAll('.event-chip').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                const id = Number(btn.getAttribute('data-report-id') || '0');
-                const found = reports.find(function (r) { return Number(r.id || 0) === id; });
-                if (found) showDetailModal(found);
-            });
-        });
-    }
-
-    function reportsForCurrentMonth() {
-        return filteredReports().filter(function (r) {
-            const key = String(r.report_date || '').trim();
-            if (key === '') return false;
-            const dt = new Date(key + 'T00:00:00');
-            if (Number.isNaN(dt.getTime())) return false;
-            return dt.getFullYear() === currentYear && dt.getMonth() === currentMonth;
-        });
-    }
-
-    function buildPrintBlock(item, idx) {
-        const photos = Array.isArray(item.photos) ? item.photos : [];
-        return '<div class="rep-item">' +
-            '<h4>รายการที่ ' + idx + ' [' + esc(item.report_no || 'DSR') + ']</h4>' +
-            '<ul class="rep-list">' +
-            '<li><span class="li-title">รายละเอียดที่ 1</span> ' + esc(textOrDash(item.work_progress)) + '</li>' +
-            '<li><span class="li-title">รายละเอียดที่ 2</span> ' + esc(textOrDash(item.materials_equipment)) + '</li>' +
-            '<li><span class="li-title">รายละเอียดที่ 3</span> ' + esc(textOrDash(item.issues_remarks)) + '</li>' +
-            '<li><span class="li-title">[รูป]</span></li>' +
-            '</ul>' +
-            (photos.length > 0
-                ? '<div class="photos">' + photos.map(function (p) {
-                    return '<div class="photo-item"><img src="' + esc(p.url) + '" alt=""></div>';
-                }).join('') + '</div>'
-                : '<div class="no-photo">- ไม่มีรูปภาพ</div>') +
-            '</div>';
-    }
-
-    function openPrintWindow(title, groupedRows) {
-        const w = window.open('', '_blank');
-        if (!w) {
-            alert('ไม่สามารถเปิดหน้าพิมพ์ได้ กรุณาอนุญาต pop-up');
-            return;
-        }
-        const body = groupedRows.map(function (group) {
-            const sections = group.items.map(function (item, idx) {
-                return buildPrintBlock(item, idx + 1);
-            }).join('');
-            return '<section class="day-group">' +
-                '<h3>*** วันที่ ' + esc(formatDatePrint(group.date)) + '</h3>' +
-                sections +
-                '</section>';
-        }).join('');
-
-        w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>' + esc(title) + '</title>' +
-            '<style>' +
-            'body{font-family:Sarabun,Arial,sans-serif;color:#111;margin:22px 28px;line-height:1.55;font-size:18px;}' +
-            'h1{font-size:46px;margin:0 0 18px;text-align:center;font-weight:700;}' +
-            '.sub{font-size:14px;color:#555;margin-bottom:16px;text-align:center;}' +
-            '.day-group{margin-bottom:22px;page-break-inside:avoid;}' +
-            '.day-group>h3{font-size:40px;margin:0 0 10px;font-weight:700;}' +
-            '.rep-item{margin:0 0 14px 0;}' +
-            '.rep-item h4{font-size:34px;margin:0 0 6px;color:#9a3412;font-weight:700;}' +
-            '.rep-list{margin:0 0 0 20px;padding-left:18px;} .rep-list li{margin:4px 0;font-size:31px;}' +
-            '.li-title{display:inline-block;min-width:180px;}' +
-            '.photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:8px 0 0 24px;max-width:980px;}' +
-            '.photo-item img{width:100%;height:220px;object-fit:contain;border:1px solid #bbb;background:#fff;}' +
-            '.no-photo{margin-left:24px;font-size:26px;}' +
-            '@media print{@page{size:A4;margin:10mm;} body{margin:0;font-size:13px;} h1{font-size:22px;} .sub{font-size:10px;} .day-group>h3{font-size:18px;} .rep-item h4{font-size:16px;} .rep-list li{font-size:14px;} .li-title{min-width:110px;} .photo-item img{height:160px;} .no-print{display:none;}}' +
-            '</style></head><body>' +
-            '<div class="no-print" style="margin-bottom:10px;"><button onclick="window.print()">พิมพ์</button> <button onclick="window.close()">ปิด</button></div>' +
-            '<h1>สรุปรายงานประจำเดือน</h1>' +
-            '<div class="sub">' + esc(title) + ' | ออกเอกสารเมื่อ: ' + esc(formatDateTimeThai(new Date().toISOString())) + '</div>' +
-            body +
-            '</body></html>');
-        w.document.close();
-    }
-
-    function groupRowsByDate(rows) {
-        const map = {};
-        rows.forEach(function (r) {
-            const k = String(r.report_date || '').trim();
-            if (k === '') return;
-            if (!map[k]) map[k] = [];
-            map[k].push(r);
-        });
-        return Object.keys(map).sort().map(function (dateKey) {
-            return { date: dateKey, items: map[dateKey].sort(function (a, b) { return Number(a.id || 0) - Number(b.id || 0); }) };
-        });
-    }
-
-    const btnPrevMonth = document.getElementById('btnPrevMonth');
-    const btnNextMonth = document.getElementById('btnNextMonth');
-    const btnToday = document.getElementById('btnToday');
-    if (btnPrevMonth) {
-        btnPrevMonth.addEventListener('click', function () {
-            currentMonth -= 1;
-            if (currentMonth < 0) {
-                currentMonth = 11;
-                currentYear -= 1;
-            }
-            renderCalendar();
-        });
-    }
-    if (btnNextMonth) {
-        btnNextMonth.addEventListener('click', function () {
-            currentMonth += 1;
-            if (currentMonth > 11) {
-                currentMonth = 0;
-                currentYear += 1;
-            }
-            renderCalendar();
-        });
-    }
-    if (btnToday) {
-        btnToday.addEventListener('click', function () {
-            currentYear = today.getFullYear();
-            currentMonth = today.getMonth();
-            renderCalendar();
-        });
-    }
-    if (btnPrintMonth) {
-        btnPrintMonth.addEventListener('click', function () {
-            const rows = reportsForCurrentMonth();
-            if (rows.length === 0) {
-                alert('ไม่พบข้อมูล DSR สำหรับการพิมพ์ในเดือนนี้');
-                return;
-            }
-            const params = new URLSearchParams();
-            params.set('year', String(currentYear));
-            params.set('month', String(currentMonth + 1));
-            const company = String(filterCompany ? (filterCompany.value || '') : '').trim();
-            const site = String(filterSite ? (filterSite.value || '') : '').trim();
-            const project = String(filterProject ? (filterProject.value || '') : '').trim();
-            if (company !== '') params.set('company', company);
-            if (site !== '') params.set('site', site);
-            if (project !== '') params.set('project', project);
-            window.open(monthlyReportBaseUrl + '?' + params.toString(), '_blank', 'noopener');
-        });
-    }
-    [filterCompany, filterSite, filterProject].forEach(function (el) {
-        if (!el) return;
-        el.addEventListener('change', renderCalendar);
+    if (!btnPrintMonth) return;
+    btnPrintMonth.addEventListener('click', function () {
+        const today = new Date();
+        const cm = window.dsrCalendarGetMonth ? window.dsrCalendarGetMonth() : { year: today.getFullYear(), month: today.getMonth() };
+        const params = new URLSearchParams();
+        params.set('year', String(cm.year));
+        params.set('month', String(cm.month + 1));
+        window.location.href = monthlyReportBaseUrl + '?' + params.toString();
     });
-    if (btnResetFilter) {
-        btnResetFilter.addEventListener('click', function () {
-            if (filterCompany) filterCompany.value = '';
-            if (filterSite) filterSite.value = '';
-            if (filterProject) filterProject.value = '';
-            renderCalendar();
-        });
-    }
-
-    renderWeekdayRow();
-    renderCalendar();
 })();
 </script>
 </body>

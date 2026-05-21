@@ -8,6 +8,7 @@ session_start();
 use Theelincon\Rtdb\Db;
 
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/daily_site_report_projects.php';
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
     exit;
@@ -17,13 +18,13 @@ $userId = (int) $_SESSION['user_id'];
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if ($id <= 0) {
-    header('Location: ' . app_path('pages/daily-site-reports/daily-site-report-list.php'));
+    header('Location: ' . daily_site_report_hub_url());
     exit;
 }
 
 $report = Db::rowByIdField('daily_site_reports', $id);
 if (!$report) {
-    header('Location: ' . app_path('pages/daily-site-reports/daily-site-report-list.php') . '?err=missing');
+    header('Location: ' . daily_site_report_hub_url() . '?err=missing');
     exit;
 }
 
@@ -61,8 +62,8 @@ function dsr_nl2(?string $s): string {
     return nl2br(dsr_esc($s ?? ''));
 }
 
-$listUrl = htmlspecialchars(app_path('pages/daily-site-reports/daily-site-report-list.php'), ENT_QUOTES, 'UTF-8');
-$editUrl = htmlspecialchars(app_path('pages/daily-site-reports/daily-site-report-form.php'), ENT_QUOTES, 'UTF-8') . '?id=' . $id;
+$hubUrl = htmlspecialchars(daily_site_report_hub_url(), ENT_QUOTES, 'UTF-8');
+$editUrl = htmlspecialchars(daily_site_report_hub_url(), ENT_QUOTES, 'UTF-8') . '?open_id=' . $id;
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -187,7 +188,7 @@ $editUrl = htmlspecialchars(app_path('pages/daily-site-reports/daily-site-report
         <nav aria-label="breadcrumb" class="mb-0">
             <ol class="breadcrumb mb-0 small">
                 <li class="breadcrumb-item"><a href="<?= htmlspecialchars(app_path('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-decoration-none text-warning-emphasis">หน้าแรก</a></li>
-                <li class="breadcrumb-item"><a href="<?= $listUrl ?>" class="text-decoration-none text-warning-emphasis">สมุดรายวันหน้างาน</a></li>
+                <li class="breadcrumb-item"><a href="<?= $hubUrl ?>" class="text-decoration-none text-warning-emphasis">สมุดรายวันหน้างาน</a></li>
                 <li class="breadcrumb-item active"><?= dsr_esc($report['report_no']) ?></li>
             </ol>
         </nav>

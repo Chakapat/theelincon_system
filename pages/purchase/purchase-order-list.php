@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_po_payment_slips.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -75,7 +76,8 @@ foreach (Db::tableRows('purchase_orders') as $po) {
     if (!in_array($paymentStatus, ['paid', 'unpaid'], true)) {
         $paymentStatus = 'unpaid';
     }
-    $paymentSlipPath = trim((string) ($po['payment_slip_path'] ?? ''));
+    $slipItems = tnc_po_payment_slip_items($po);
+    $paymentSlipPath = $slipItems !== [] ? (string) ($slipItems[0]['path'] ?? '') : trim((string) ($po['payment_slip_path'] ?? ''));
     $merged = array_merge($po, [
         'supplier_name' => $s['name'] ?? '',
         'created_by_name' => trim(($u['fname'] ?? '') . ' ' . ($u['lname'] ?? '')),
@@ -83,7 +85,9 @@ foreach (Db::tableRows('purchase_orders') as $po) {
         'status' => $status,
         'payment_status' => $paymentStatus,
         'payment_slip_path' => $paymentSlipPath,
-        'payment_slip_url' => $paymentSlipPath !== '' ? app_path($paymentSlipPath) : '',
+        'payment_slip_url' => $slipItems !== [] ? (string) ($slipItems[0]['url'] ?? '') : ($paymentSlipPath !== '' ? app_path($paymentSlipPath) : ''),
+        'payment_slip_items' => $slipItems,
+        'payment_slip_count' => count($slipItems),
         'payment_method' => strtolower(trim((string) ($po['payment_method'] ?? 'transfer'))) === 'cash' ? 'cash' : 'transfer',
         'payment_cash_paid_by' => trim((string) ($po['payment_cash_paid_by'] ?? '')),
         'total_amount' => $amt,
@@ -186,7 +190,7 @@ foreach ($po_rows_display as $sumRow) {
             <?php
             $errorCode = trim((string) ($_GET['error'] ?? ''));
             if ($errorCode === 'upload_type') {
-                echo 'ไฟล์แนบต้องเป็นรูปภาพเท่านั้น (JPG, JPEG, PNG, WEBP, GIF)';
+                echo 'ไฟล์แนบต้องเป็นรูปภาพหรือ PDF (JPG, PNG, WEBP, GIF, PDF)';
             } elseif ($errorCode === 'upload_failed') {
                 echo 'อัปโหลดรูปหลักฐานไม่สำเร็จ กรุณาลองใหม่';
             } elseif ($errorCode === 'payment_slip_required') {
@@ -207,6 +211,12 @@ foreach ($po_rows_display as $sumRow) {
                 echo 'เกิดข้อผิดพลาดในการจัดการใบสั่งซื้อ กรุณาลองใหม่';
             }
             ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+    <?php if (!empty($_GET['payment_slips_updated'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            อัปเดตไฟล์หลักฐานการจ่ายเรียบร้อยแล้ว
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
@@ -256,29 +266,29 @@ foreach ($po_rows_display as $sumRow) {
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <h2 class="fw-bold mb-0"><i class="bi bi-file-earmark-check-fill text-primary"></i>รายการใบสั่งซื้อ (Purchase orders List)</h2>
         <div class="d-flex flex-wrap gap-2 align-items-center">
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3 shadow-sm">
-                <i class="bi bi-arrow-left-circle me-1"></i>รายการใบขอซื้อ (PR)
-            </a>
-            <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm no-print" id="poBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก">
-                <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
-            </button>
             <div class="dropdown">
                 <button class="btn btn-primary rounded-pill px-4 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-plus-lg"></i> สร้างเอกสาร
+                    <i class="bi bi-plus-lg"></i> สร้างใบสั่งซื้อใหม่
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-sm">
                     <li>
                         <a class="dropdown-item" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php')) ?>">
-                            <i class="bi bi-file-earmark-plus me-1"></i> สร้าง PO โดยตรง
+                            <i class="bi bi-file-earmark-plus me-1"></i> สร้างใบสั่งซื้อโดยตรง
                         </a>
                     </li>
                     <li>
                         <a class="dropdown-item" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php')) ?>">
-                            <i class="bi bi-link-45deg me-1"></i> สร้างจาก PR
+                            <i class="bi bi-link-45deg me-1"></i> สร้างใบสั่งซื้อจากใบขอซื้อ
                         </a>
                     </li>
                 </ul>
             </div>
+            <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm no-print" id="poBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก">
+                <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
+            </button>
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3 shadow-sm">
+                <i class="bi bi-arrow-left-circle me-1"></i>รายการใบขอซื้อ
+            </a>
         </div>
     </div>
 
@@ -356,16 +366,18 @@ foreach ($po_rows_display as $sumRow) {
                         <tr><td colspan="8" class="text-center py-4 text-muted"><?= count($po_rows) === 0 ? 'ยังไม่มีการออกใบสั่งซื้อ' : 'ไม่มีรายการตามเงื่อนไขที่เลือก — ลองเปลี่ยนตัวกรองวันที่' ?></td></tr>
                     <?php else: ?>
                         <?php foreach ($po_rows_display as $row): ?>
-                    <tr>
+                    <?php $poCancelled = ($row['status'] ?? '') === 'cancelled'; ?>
+                    <tr<?= $poCancelled ? ' class="po-row-cancelled"' : '' ?>>
                         <td class="text-center align-middle no-print">
                             <input type="checkbox" class="form-check-input m-0 js-po-print-cb" value="<?= (int) ($row['id'] ?? 0) ?>" aria-label="เลือกพิมพ์ <?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                         </td>
                         <td>
-                            <div class="fw-bold text-primary">
+                            <div class="fw-bold <?= $poCancelled ? 'text-danger' : 'text-primary' ?>">
                                 <?php
                                 $poNoDisp = htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8');
                                 $poViewHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . (int) ($row['id'] ?? 0);
-                                echo '<a href="' . $poViewHref . '" class="text-primary text-decoration-none" title="ดูรายละเอียด">' . $poNoDisp . '</a>';
+                                $poLinkClass = $poCancelled ? 'text-danger' : 'text-primary';
+                                echo '<a href="' . $poViewHref . '" class="' . $poLinkClass . ' text-decoration-none" title="ดูรายละเอียด">' . $poNoDisp . '</a>';
                                 ?>
                             </div>
                             <div class="small text-muted"><?php $cb = trim((string)($row['created_by_name'] ?? '')); echo $cb !== '' ? htmlspecialchars($cb) : '—'; ?></div>
@@ -400,7 +412,7 @@ foreach ($po_rows_display as $sumRow) {
                             <?php endif; ?>
                         </td>
                         <td class="text-end">
-                            <div class="fw-bold text-primary"><?= number_format((float)$row['total_amount'], 2) ?></div>
+                            <div class="fw-bold <?= $poCancelled ? 'text-danger' : 'text-primary' ?>"><?= number_format((float)$row['total_amount'], 2) ?></div>
                             <?php if ((int)($row['vat_enabled'] ?? 0) === 1): ?>
                                 <span class="badge bg-success rounded-pill mt-1" style="font-size:0.7rem;">รวม VAT 7%</span>
                             <?php else: ?>
@@ -408,8 +420,8 @@ foreach ($po_rows_display as $sumRow) {
                             <?php endif; ?>
                         </td>
                         <td class="text-center">
-                            <?php if (($row['status'] ?? '') === 'cancelled'): ?>
-                                <span class="badge bg-danger rounded-pill">CANCELLED</span>
+                            <?php if ($poCancelled): ?>
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill fw-semibold">CANCELLED</span>
                             <?php elseif (($row['status'] ?? '') !== 'ordered'): ?>
                                 <span class="badge bg-secondary rounded-pill"><?= htmlspecialchars((string) ($row['status_label'] ?? 'UNKNOWN')) ?></span>
                             <?php endif; ?>
@@ -419,8 +431,10 @@ foreach ($po_rows_display as $sumRow) {
                                     <button
                                         type="button"
                                         class="btn btn-success btn-sm rounded-pill py-0 px-3 mt-1 js-show-slip"
+                                        data-po-id="<?= (int) ($row['id'] ?? 0) ?>"
                                         data-po-number="<?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                         data-slip-url="<?= htmlspecialchars((string) ($row['payment_slip_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-slip-path="<?= htmlspecialchars((string) ($row['payment_slip_path'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                         data-payment-method="<?= htmlspecialchars((string) ($row['payment_method'] ?? 'transfer'), ENT_QUOTES, 'UTF-8') ?>"
                                         data-cash-paid-by="<?= htmlspecialchars((string) ($row['payment_cash_paid_by'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     >จ่ายแล้ว</button>
@@ -502,9 +516,9 @@ foreach ($po_rows_display as $sumRow) {
                         <input type="text" class="form-control" name="payment_cash_paid_by" id="markPaidCashBy" maxlength="255" placeholder="เช่น ชื่อผู้รับเงิน / แผนก">
                         <div class="form-text">บังคับเมื่อเลือกเงินสด — เก็บในฐานข้อมูลพร้อม PO</div>
                     </div>
-                    <label class="form-label fw-semibold">ไฟล์รูปหลักฐาน <span class="text-danger">*</span></label>
-                    <input type="file" name="payment_slip" id="markPaidFile" class="form-control" accept="image/*" required>
-                    <div class="form-text">เมื่อแนบไฟล์แล้ว ระบบจะเปลี่ยนสถานะเป็น "จ่ายแล้ว" และสร้างบันทึกบิลโครงการอัตโนมัติ (ถ้าเป็น PO จัดซื้อ)</div>
+                    <label class="form-label fw-semibold" id="markPaidFileLabel">ไฟล์หลักฐาน <span class="text-danger" id="markPaidFileReq">*</span></label>
+                    <input type="file" name="payment_slips[]" id="markPaidFile" class="form-control" accept="image/*,.pdf" multiple required>
+                    <div class="form-text">เลือกได้หลายไฟล์ (รูปหรือ PDF) — เมื่อบันทึกแล้ว ระบบจะเปลี่ยนสถานะเป็น «จ่ายแล้ว» และสร้างบันทึกบิลโครงการอัตโนมัติ (ถ้าเป็น PO จัดซื้อ)</div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
@@ -524,8 +538,32 @@ foreach ($po_rows_display as $sumRow) {
             </div>
             <div class="modal-body text-center">
                 <div id="showSlipPayMeta" class="text-start small text-muted mb-2 d-none"></div>
-                <img id="showSlipImage" src="" alt="Payment slip" class="img-fluid rounded border" style="max-height:70vh; object-fit:contain;">
+                <img id="showSlipImage" src="" alt="Payment slip" class="img-fluid rounded border" style="max-height:55vh; object-fit:contain;">
+                <div id="showSlipPdfHint" class="text-muted py-4 d-none">
+                    <i class="bi bi-file-earmark-pdf fs-1 text-danger d-block mb-2"></i>
+                    ไฟล์นี้เป็น PDF — ใช้ปุ่ม «เปิดไฟล์เต็ม» เพื่อดู หรืออัปโหลดไฟล์ใหม่ด้านล่าง
+                </div>
                 <div id="showSlipNoImage" class="text-muted py-4 d-none">ไม่พบไฟล์หลักฐานการจ่ายเงิน</div>
+                <form
+                    action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=replace_po_payment_slip"
+                    method="POST"
+                    enctype="multipart/form-data"
+                    id="replaceSlipForm"
+                    class="border-top pt-3 mt-3 text-start"
+                    onsubmit="return confirm('ยืนยันเปลี่ยนไฟล์หลักฐานการจ่าย? ไฟล์เดิมจะถูกแทนที่');"
+                >
+                    <?php csrf_field(); ?>
+                    <input type="hidden" name="po_id" id="replaceSlipPoId" value="">
+                    <input type="hidden" name="slip_path" id="replaceSlipPath" value="">
+                    <label class="form-label fw-semibold mb-1" for="replaceSlipFile">
+                        <i class="bi bi-arrow-repeat me-1"></i>เปลี่ยนรูป / ไฟล์หลักฐาน
+                    </label>
+                    <input type="file" name="payment_slip" id="replaceSlipFile" class="form-control form-control-sm mb-2" accept="image/*,.pdf" required>
+                    <div class="form-text mb-2">เลือกรูปหรือ PDF ใหม่เพื่อแทนที่ไฟล์ปัจจุบัน</div>
+                    <button type="submit" class="btn btn-warning btn-sm rounded-pill px-3">
+                        <i class="bi bi-upload me-1"></i>บันทึกรูปใหม่
+                    </button>
+                </form>
             </div>
             <div class="modal-footer">
                 <a id="showSlipOpenLink" href="#" target="_blank" rel="noopener" class="btn btn-outline-primary d-none">เปิดไฟล์เต็ม</a>
@@ -654,22 +692,41 @@ foreach ($po_rows_display as $sumRow) {
     const poIdInput = document.getElementById('markPaidPoId');
     const poNumberLabel = document.getElementById('markPaidPoNumber');
     const markPaidFile = document.getElementById('markPaidFile');
+    const markPaidFileReq = document.getElementById('markPaidFileReq');
     const showSlipPoNumber = document.getElementById('showSlipPoNumber');
     const showSlipImage = document.getElementById('showSlipImage');
     const showSlipNoImage = document.getElementById('showSlipNoImage');
     const showSlipOpenLink = document.getElementById('showSlipOpenLink');
     const showSlipPayMeta = document.getElementById('showSlipPayMeta');
+    const showSlipPdfHint = document.getElementById('showSlipPdfHint');
+    const replaceSlipPoId = document.getElementById('replaceSlipPoId');
+    const replaceSlipPath = document.getElementById('replaceSlipPath');
+    const replaceSlipFile = document.getElementById('replaceSlipFile');
     const payMethodTransfer = document.getElementById('payMethodTransfer');
     const payMethodCash = document.getElementById('payMethodCash');
     const markPaidCashWrap = document.getElementById('markPaidCashWrap');
     const markPaidCashBy = document.getElementById('markPaidCashBy');
     const markPaidForm = document.getElementById('markPaidForm');
 
+    function tncEscHtml(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
     function syncMarkPaidCashUi() {
         if (!markPaidCashWrap || !markPaidCashBy || !payMethodCash) return;
         const isCash = payMethodCash.checked;
         markPaidCashWrap.classList.toggle('d-none', !isCash);
         markPaidCashBy.required = isCash;
+        if (markPaidFile) {
+            markPaidFile.required = !isCash;
+        }
+        if (markPaidFileReq) {
+            markPaidFileReq.classList.toggle('d-none', isCash);
+        }
         if (!isCash) {
             markPaidCashBy.value = '';
         }
@@ -685,7 +742,11 @@ foreach ($po_rows_display as $sumRow) {
                 e.preventDefault();
                 alert('กรุณากรอก «จ่ายโดย» เมื่อเลือกชำระด้วยเงินสด');
                 markPaidCashBy?.focus();
+                return;
             }
+        } else if (markPaidFile && (!markPaidFile.files || markPaidFile.files.length === 0)) {
+            e.preventDefault();
+            alert('กรุณาแนบไฟล์หลักฐานอย่างน้อย 1 ไฟล์');
         }
     });
 
@@ -693,9 +754,7 @@ foreach ($po_rows_display as $sumRow) {
         btn.addEventListener('click', () => {
             poIdInput.value = btn.getAttribute('data-po-id') || '';
             poNumberLabel.textContent = btn.getAttribute('data-po-number') || '-';
-            if (markPaidFile) {
-                markPaidFile.value = '';
-            }
+            if (markPaidFile) markPaidFile.value = '';
             if (payMethodTransfer) payMethodTransfer.checked = true;
             if (payMethodCash) payMethodCash.checked = false;
             if (markPaidCashBy) markPaidCashBy.value = '';
@@ -704,21 +763,19 @@ foreach ($po_rows_display as $sumRow) {
         });
     });
 
-    function tncEscHtml(s) {
-        return String(s)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-
     document.querySelectorAll('.js-show-slip').forEach((btn) => {
         btn.addEventListener('click', () => {
+            const poId = btn.getAttribute('data-po-id') || '';
             const poNumber = btn.getAttribute('data-po-number') || '-';
             const slipUrl = btn.getAttribute('data-slip-url') || '';
+            const slipPath = btn.getAttribute('data-slip-path') || '';
             const pm = (btn.getAttribute('data-payment-method') || 'transfer').toLowerCase();
             const paidBy = btn.getAttribute('data-cash-paid-by') || '';
+            const isPdf = /\.pdf(\?|$)/i.test(slipUrl);
             showSlipPoNumber.textContent = poNumber;
+            if (replaceSlipPoId) replaceSlipPoId.value = poId;
+            if (replaceSlipPath) replaceSlipPath.value = slipPath;
+            if (replaceSlipFile) replaceSlipFile.value = '';
             if (showSlipPayMeta) {
                 if (pm === 'cash') {
                     showSlipPayMeta.classList.remove('d-none');
@@ -730,14 +787,22 @@ foreach ($po_rows_display as $sumRow) {
                 }
             }
             if (slipUrl !== '') {
-                showSlipImage.src = slipUrl;
-                showSlipImage.classList.remove('d-none');
                 showSlipNoImage.classList.add('d-none');
                 showSlipOpenLink.href = slipUrl;
                 showSlipOpenLink.classList.remove('d-none');
+                if (isPdf) {
+                    showSlipImage.src = '';
+                    showSlipImage.classList.add('d-none');
+                    showSlipPdfHint?.classList.remove('d-none');
+                } else {
+                    showSlipImage.src = slipUrl;
+                    showSlipImage.classList.remove('d-none');
+                    showSlipPdfHint?.classList.add('d-none');
+                }
             } else {
                 showSlipImage.src = '';
                 showSlipImage.classList.add('d-none');
+                showSlipPdfHint?.classList.add('d-none');
                 showSlipNoImage.classList.remove('d-none');
                 showSlipOpenLink.href = '#';
                 showSlipOpenLink.classList.add('d-none');

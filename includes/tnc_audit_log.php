@@ -205,6 +205,23 @@ if (!function_exists('tnc_audit_normalize_detail_arg')) {
     }
 }
 
+if (!function_exists('tnc_audit_logs_count')) {
+    function tnc_audit_logs_count(): int
+    {
+        return count(Db::tableRows('audit_logs'));
+    }
+}
+
+if (!function_exists('tnc_audit_logs_purge_all')) {
+    /** ลบรายการ audit_logs ทั้งหมด — คืนจำนวนที่ลบ */
+    function tnc_audit_logs_purge_all(): int
+    {
+        return Db::deleteRowsMatching('audit_logs', static function (): bool {
+            return true;
+        });
+    }
+}
+
 if (!function_exists('tnc_audit_log')) {
     /**
      * @param array<string, mixed>|null $detail source, action, before, after, nested[], meta หรือ meta แบบเดิม (flat)

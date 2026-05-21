@@ -22,18 +22,23 @@ $companies = Db::tableRows('company');
 Db::sortRows($companies, 'name', false);
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+if ($id <= 0) {
+    header('Location: ' . daily_site_report_hub_url());
+    exit;
+}
+
 $report = null;
 $photos = [];
 
 if ($id > 0) {
     $report = Db::rowByIdField('daily_site_reports', $id);
     if (!$report) {
-        header('Location: ' . app_path('pages/daily-site-reports/daily-site-report-list.php') . '?err=missing');
+        header('Location: ' . daily_site_report_hub_url() . '?err=missing');
         exit;
     }
     $creator = (int) ($report['created_by'] ?? 0);
     if ($creator !== $userId && !user_is_admin_role()) {
-        header('Location: ' . app_path('pages/daily-site-reports/daily-site-report-list.php') . '?err=forbidden');
+        header('Location: ' . daily_site_report_hub_url() . '?err=forbidden');
         exit;
     }
 
@@ -50,7 +55,7 @@ if ($id > 0) {
 }
 
 $saveUrl = htmlspecialchars(app_path('actions/daily-site-report-save.php'), ENT_QUOTES, 'UTF-8');
-$listUrl = htmlspecialchars(app_path('pages/daily-site-reports/daily-site-report-list.php'), ENT_QUOTES, 'UTF-8');
+$hubUrl = htmlspecialchars(daily_site_report_hub_url(), ENT_QUOTES, 'UTF-8');
 $isEdit = $report !== null;
 $maxPhotos = 2;
 
@@ -87,7 +92,7 @@ $pageTitle = $isEdit ? 'แก้ไขรายงานหน้างาน' 
     <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb mb-0 small">
             <li class="breadcrumb-item"><a href="<?= htmlspecialchars(app_path('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-decoration-none text-warning-emphasis">หน้าแรก</a></li>
-            <li class="breadcrumb-item"><a href="<?= $listUrl ?>" class="text-decoration-none text-warning-emphasis">สมุดรายวันหน้างาน</a></li>
+            <li class="breadcrumb-item"><a href="<?= $hubUrl ?>" class="text-decoration-none text-warning-emphasis">สมุดรายวันหน้างาน</a></li>
             <li class="breadcrumb-item active" aria-current="page"><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></li>
         </ol>
     </nav>
@@ -227,7 +232,7 @@ $pageTitle = $isEdit ? 'แก้ไขรายงานหน้างาน' 
         </div>
 
         <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-5">
-            <a href="<?= $listUrl ?>" class="btn btn-outline-secondary rounded-pill">ยกเลิก</a>
+            <a href="<?= $hubUrl ?>" class="btn btn-outline-secondary rounded-pill">ยกเลิก</a>
             <button type="submit" class="btn btn-warning text-dark fw-bold rounded-pill px-4 shadow-sm">
                 <i class="bi bi-check2-circle me-1"></i>บันทึกรายงาน
             </button>

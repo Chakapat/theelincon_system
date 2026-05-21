@@ -6,6 +6,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -17,6 +18,12 @@ if (!user_is_admin_only_role()) {
     http_response_code(403);
     exit('ไม่มีสิทธิ์เข้าถึง — หน้านี้สำหรับผู้ดูแลระบบ (ADMIN) เท่านั้น');
 }
+
+$auditLogLimit = 1000;
+$auditLogCount = tnc_audit_logs_count();
+$auditLogOverLimit = $auditLogCount >= $auditLogLimit;
+$auditLogPurged = isset($_GET['purged']) ? (int) $_GET['purged'] : -1;
+$auditLogPurgeDeclined = !empty($_GET['purge_declined']);
 
 $rows = Db::tableRows('audit_logs');
 usort($rows, static function (array $a, array $b): int {
@@ -169,6 +176,30 @@ if (!function_exists('tnc_audit_log_format_datetime_th')) {
         <span class="badge text-bg-secondary rounded-pill">เฉพาะผู้ดูแลระบบ</span>
     </div>
 
+    <?php if ($auditLogPurged >= 0): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            ลบบันทึก Audit ออกจากฐานข้อมูลแล้ว <?= number_format($auditLogPurged) ?> รายการ
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+    <?php if ($auditLogPurgeDeclined): ?>
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            ยังคงเก็บบันทึก Audit ไว้ — จำนวนรายการยังเกิน <?= number_format($auditLogLimit) ?> รายการ
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+    <?php if ($auditLogOverLimit): ?>
+        <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4" role="alert">
+            <div>
+                <strong>มีบันทึก Audit <?= number_format($auditLogCount) ?> รายการ</strong> (เกิน <?= number_format($auditLogLimit) ?> รายการ) —
+                แนะนำลบ log เก่าออกจากฐานข้อมูลเพื่อลดภาระระบบ
+            </div>
+            <button type="button" class="btn btn-warning btn-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#auditPurgeModal">
+                <i class="bi bi-trash3 me-1"></i>ลบ log ทั้งหมด
+            </button>
+        </div>
+    <?php endif; ?>
+
     <div class="card audit-card">
         <div class="card-body p-3 p-md-4">
             <div class="audit-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
@@ -239,6 +270,35 @@ if (!function_exists('tnc_audit_log_format_datetime_th')) {
         </div>
     </div>
 </div>
+
+<?php if ($auditLogOverLimit): ?>
+<div class="modal fade" id="auditPurgeModal" tabindex="-1" aria-labelledby="auditPurgeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:12px;">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold" id="auditPurgeModalLabel"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>ลบบันทึก Audit</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">ระบบมีบันทึก Audit <strong><?= number_format($auditLogCount) ?> รายการ</strong> (เกิน <?= number_format($auditLogLimit) ?> รายการ)</p>
+                <p class="text-muted small mb-0">ต้องการลบ log ทั้งหมดออกจากฐานข้อมูลหรือไม่? การดำเนินการนี้ลบเฉพาะตาราง <code>audit_logs</code> และไม่สามารถกู้คืนได้</p>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 gap-2">
+                <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-8') ?>?action=purge_audit_logs" class="d-inline">
+                    <?php csrf_field(); ?>
+                    <input type="hidden" name="confirm_purge" value="no">
+                    <button type="submit" class="btn btn-outline-secondary">ไม่</button>
+                </form>
+                <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-8') ?>?action=purge_audit_logs" class="d-inline" data-tnc-fullnav="1">
+                    <?php csrf_field(); ?>
+                    <input type="hidden" name="confirm_purge" value="yes">
+                    <button type="submit" class="btn btn-danger fw-semibold">ใช่ — ลบทั้งหมด</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="modal fade" id="auditDetailModal" tabindex="-1" aria-labelledby="auditDetailModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -334,6 +394,13 @@ window.TNC_AUDIT_PAYLOADS = <?= json_encode($auditUiPayloads, JSON_UNESCAPED_UNI
         });
     });
 })();
+<?php if ($auditLogOverLimit && $auditLogPurged < 0): ?>
+(function () {
+    var purgeModal = document.getElementById('auditPurgeModal');
+    if (!purgeModal || typeof bootstrap === 'undefined') return;
+    bootstrap.Modal.getOrCreateInstance(purgeModal).show();
+})();
+<?php endif; ?>
 </script>
 </body>
 </html>

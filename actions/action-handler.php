@@ -6,6 +6,7 @@ session_start();
 require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/tnc_action_response.php';
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
+require_once __DIR__ . '/../includes/purchase_po_payment_slips.php';
 
 use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\Purchase;
@@ -60,7 +61,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // POST-only actions: prevent direct GET access to write endpoints.
-if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'update_po_direct' || $action === 'cancel_purchase_order' || $action === 'update_my_profile')
+if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'add_po_payment_slips' || $action === 'remove_po_payment_slip' || $action === 'replace_po_payment_slip' || $action === 'update_po_direct' || $action === 'cancel_purchase_order' || $action === 'update_my_profile')
     && strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
     $fallback = match ($action) {
         'create_po_direct' => app_path('pages/purchase/purchase-order-create.php'),
@@ -99,6 +100,22 @@ if (in_array($action, $tncDeletePwdActions, true)) {
 $admin_only_actions = ['delete', 'delete_quotation', 'delete_pr', 'add_member', 'edit_member', 'delete_supplier'];
 if (in_array($action, $admin_only_actions, true) && !user_is_admin_role()) {
     exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
+}
+
+if ($action === 'purge_audit_logs') {
+    if (!user_is_admin_only_role()) {
+        http_response_code(403);
+        exit('ไม่มีสิทธิ์ — หน้านี้สำหรับผู้ดูแลระบบ (ADMIN) เท่านั้น');
+    }
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
+        tnc_action_redirect(app_path('pages/internal/audit-log.php') . '?error=invalid_method');
+    }
+    $confirm = trim((string) ($_POST['confirm_purge'] ?? ''));
+    if ($confirm !== 'yes') {
+        tnc_action_redirect(app_path('pages/internal/audit-log.php') . '?purge_declined=1');
+    }
+    $deleted = tnc_audit_logs_purge_all();
+    tnc_action_redirect(app_path('pages/internal/audit-log.php') . '?purged=' . $deleted);
 }
 
 if ($action === 'update_my_profile') {
@@ -754,6 +771,7 @@ if ($action === 'save_pr') {
     } else {
         $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
         $subtotal = 0.0;
+        $purchaseLineCount = 0;
         foreach ($_POST['item_description'] ?? [] as $key => $desc) {
             if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
                 continue;
@@ -762,13 +780,17 @@ if ($action === 'save_pr') {
                 continue;
             }
             $qty = (float) $_POST['item_qty'][$key];
-            $price = (float) $_POST['item_price'][$key];
+            if ($qty <= 0) {
+                continue;
+            }
+            $purchaseLineCount++;
+            $price = max(0.0, (float) $_POST['item_price'][$key]);
             $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
             $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
             $subtotal += $parts['line_total'];
         }
         $subtotal = round($subtotal, 2);
-        if ($subtotal <= 0) {
+        if ($purchaseLineCount <= 0) {
             tnc_action_redirect( app_path('pages/purchase/purchase-request-create.php') . '?error=no_items');
         }
         $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
@@ -879,10 +901,13 @@ if ($action === 'save_pr') {
         if ($desc === '') {
             continue;
         }
-        $iid = Db::nextNumericId('purchase_request_items', 'id');
         $qty = (float) $_POST['item_qty'][$key];
+        if ($qty <= 0) {
+            continue;
+        }
+        $iid = Db::nextNumericId('purchase_request_items', 'id');
         $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
-        $price = (float) $_POST['item_price'][$key];
+        $price = max(0.0, (float) $_POST['item_price'][$key]);
         $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
         $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
         $total = $parts['line_total'];
@@ -997,6 +1022,7 @@ if ($action === 'update_pr') {
     } else {
         $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
         $subtotal = 0.0;
+        $purchaseLineCount = 0;
         foreach ($_POST['item_description'] ?? [] as $key => $desc) {
             if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
                 continue;
@@ -1005,13 +1031,17 @@ if ($action === 'update_pr') {
                 continue;
             }
             $qty = (float) $_POST['item_qty'][$key];
-            $price = (float) $_POST['item_price'][$key];
+            if ($qty <= 0) {
+                continue;
+            }
+            $purchaseLineCount++;
+            $price = max(0.0, (float) $_POST['item_price'][$key]);
             $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
             $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
             $subtotal += $parts['line_total'];
         }
         $subtotal = round($subtotal, 2);
-        if ($subtotal <= 0) {
+        if ($purchaseLineCount <= 0) {
             tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=no_items');
         }
         $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
@@ -1121,10 +1151,13 @@ if ($action === 'update_pr') {
         if ($desc === '') {
             continue;
         }
-        $iid = Db::nextNumericId('purchase_request_items', 'id');
         $qty = (float) $_POST['item_qty'][$key];
+        if ($qty <= 0) {
+            continue;
+        }
+        $iid = Db::nextNumericId('purchase_request_items', 'id');
         $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
-        $price = (float) $_POST['item_price'][$key];
+        $price = max(0.0, (float) $_POST['item_price'][$key]);
         $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
         $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
         $total = $parts['line_total'];
@@ -1163,6 +1196,10 @@ if ($action === 'update_pr') {
         'after' => $prAfterSave,
         'meta' => ['lines' => $prItemsAfter],
     ]);
+
+    if (trim((string) ($_POST['after_pr_update'] ?? '')) === 'po_from_pr' && $pr_id > 0) {
+        tnc_action_redirect(app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&pr_updated=1');
+    }
 
     tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?updated=1');
 }
@@ -1765,11 +1802,7 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
     if (!in_array($vat_mode_post, ['exclusive', 'inclusive'], true)) {
         $vat_mode_post = 'exclusive';
     }
-    $wht_post = trim((string) ($_POST['withholding_type'] ?? 'none'));
-    if ($wht_post !== 'wht3') {
-        $wht_post = 'none';
-    }
-    $totals = tnc_po_compute_totals($lineSum, $vat_enabled, $vat_mode_post, $wht_post);
+    $totals = tnc_po_compute_totals($lineSum, $vat_enabled, $vat_mode_post, 'none');
 
     $issue_date = trim((string) ($_POST['issue_date'] ?? ''));
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $issue_date)) {
@@ -1781,8 +1814,8 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
     Db::setRow('purchase_orders', $pk, array_merge($existing, [
         'issue_date' => $issue_date,
         'supplier_id' => $supplier_id,
-        'quotation_number' => mb_substr(trim((string) ($_POST['quotation_number'] ?? '')), 0, 120),
-        'quotation_note' => mb_substr(trim((string) ($_POST['quotation_note'] ?? '')), 0, 500),
+        'quotation_number' => mb_substr(trim((string) ($existing['quotation_number'] ?? '')), 0, 120),
+        'quotation_note' => mb_substr(trim((string) ($existing['quotation_note'] ?? '')), 0, 500),
         'total_amount' => $totals['net'],
         'gross_amount' => $totals['gross'],
         'subtotal_amount' => $totals['subtotal'],
@@ -1915,37 +1948,52 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
     } else {
         $payment_cash_paid_by = '';
     }
-    if (empty($_FILES['payment_slip']) || (int) ($_FILES['payment_slip']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-        tnc_action_redirect( $listUrl . '?error=payment_slip_required');
+    $newSlipPaths = tnc_po_payment_slip_upload_many($po_id, 'payment_slips');
+    if ($newSlipPaths === [] && !empty($_FILES['payment_slip']) && (int) ($_FILES['payment_slip']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        $legacy = tnc_po_payment_slip_upload_one($po_id, $_FILES['payment_slip']);
+        if ($legacy !== null) {
+            $newSlipPaths[] = $legacy;
+        }
     }
-    $f = $_FILES['payment_slip'];
-    if ((int) ($f['error'] ?? 0) !== UPLOAD_ERR_OK) {
-        tnc_action_redirect( $listUrl . '?error=upload_failed');
+    if ($newSlipPaths === [] && $payment_method !== 'cash') {
+        tnc_action_redirect($listUrl . '?error=payment_slip_required');
     }
-    $tmp = (string) ($f['tmp_name'] ?? '');
-    if ($tmp === '' || !is_uploaded_file($tmp)) {
-        tnc_action_redirect( $listUrl . '?error=upload_failed');
+    if ($newSlipPaths === [] && $payment_method === 'cash') {
+        $poBeforePay = Db::row('purchase_orders', (string) $po_id);
+        Db::mergeRow('purchase_orders', (string) $po_id, [
+            'payment_status' => 'paid',
+            'payment_marked_paid_at' => date('Y-m-d H:i:s'),
+            'payment_method' => $payment_method,
+            'payment_cash_paid_by' => $payment_cash_paid_by,
+        ]);
+        $poAfterPay = Db::row('purchase_orders', (string) $po_id);
+        $poNoMark = $poAfterPay !== null ? trim((string) ($poAfterPay['po_number'] ?? '')) : '';
+        tnc_audit_log('update', 'purchase_order', (string) $po_id, $poNoMark !== '' ? ('จ่ายแล้ว ' . $poNoMark) : 'ทำเครื่องหมายจ่าย PO', [
+            'source' => 'action-handler',
+            'action' => 'update_po_payment_status',
+            'before' => $poBeforePay,
+            'after' => $poAfterPay,
+            'meta' => ['payment_method' => 'cash', 'payment_cash_paid_by' => $payment_cash_paid_by],
+        ]);
+        $uidPay = (int) ($_SESSION['user_id'] ?? 0);
+        $autoBillId = $poAfterPay !== null ? tnc_purchase_bill_create_from_paid_purchase_order($poAfterPay, $uidPay) : null;
+        if ($autoBillId !== null && $autoBillId > 0) {
+            $billMonth = date('Y-m');
+            $paidTs = trim((string) ($poAfterPay['payment_marked_paid_at'] ?? ''));
+            if ($paidTs !== '' && preg_match('/^(\d{4}-\d{2})/', $paidTs, $mm) === 1) {
+                $billMonth = $mm[1];
+            }
+            tnc_action_redirect($listUrl . '?payment_saved=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
+        }
+        tnc_action_redirect($listUrl . '?payment_saved=1&print_po_id=' . $po_id);
     }
-    $originalName = trim((string) ($f['name'] ?? 'slip'));
-    $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-    $allowedExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-    if (!in_array($ext, $allowedExt, true)) {
-        tnc_action_redirect( $listUrl . '?error=upload_type');
-    }
-    $dirAbs = ROOT_PATH . '/uploads/po-payment-slips/' . $po_id;
-    if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
-        tnc_action_redirect( $listUrl . '?error=upload_failed');
-    }
-    $storedName = 'slip_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-    $destAbs = $dirAbs . '/' . $storedName;
-    if (!@move_uploaded_file($tmp, $destAbs)) {
-        tnc_action_redirect( $listUrl . '?error=upload_failed');
-    }
-    $rel = 'uploads/po-payment-slips/' . $po_id . '/' . $storedName;
     $poBeforePay = Db::row('purchase_orders', (string) $po_id);
+    $existingPaths = $poBeforePay !== null ? tnc_po_payment_slip_paths($poBeforePay) : [];
+    $allPaths = array_values(array_unique(array_merge($existingPaths, $newSlipPaths)));
     Db::mergeRow('purchase_orders', (string) $po_id, [
         'payment_status' => 'paid',
-        'payment_slip_path' => $rel,
+        'payment_slip_paths' => json_encode($allPaths, JSON_UNESCAPED_UNICODE),
+        'payment_slip_path' => $allPaths[0] ?? '',
         'payment_marked_paid_at' => date('Y-m-d H:i:s'),
         'payment_method' => $payment_method,
         'payment_cash_paid_by' => $payment_cash_paid_by,
@@ -1958,7 +2006,7 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
         'before' => $poBeforePay,
         'after' => $poAfterPay,
         'meta' => [
-            'payment_slip_path' => $rel,
+            'payment_slip_paths' => $allPaths,
             'payment_method' => $payment_method,
             'payment_cash_paid_by' => $payment_cash_paid_by,
         ],
@@ -1977,6 +2025,140 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
         tnc_action_redirect($listUrl . '?payment_saved=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
     }
     tnc_action_redirect($listUrl . '?payment_saved=1&print_po_id=' . $po_id);
+}
+
+/** เพิ่มไฟล์หลักฐานการจ่าย (หลายไฟล์) สำหรับ PO ที่จ่ายแล้ว */
+if ($action === 'add_po_payment_slips' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $listUrl = app_path('pages/purchase/purchase-order-list.php');
+    $po_id = (int) ($_POST['po_id'] ?? 0);
+    if ($po_id <= 0) {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    $po = Db::row('purchase_orders', (string) $po_id);
+    if ($po === null) {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+        tnc_action_redirect($listUrl . '?error=po_cancelled');
+    }
+    if (strtolower(trim((string) ($po['payment_status'] ?? ''))) !== 'paid') {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    $added = tnc_po_payment_slip_upload_many($po_id, 'payment_slips');
+    if ($added === [] && !empty($_FILES['payment_slip'])) {
+        $one = tnc_po_payment_slip_upload_one($po_id, $_FILES['payment_slip']);
+        if ($one !== null) {
+            $added[] = $one;
+        }
+    }
+    if ($added === []) {
+        tnc_action_redirect($listUrl . '?error=upload_failed');
+    }
+    $before = tnc_po_payment_slip_paths($po);
+    $merged = array_values(array_unique(array_merge($before, $added)));
+    tnc_po_payment_slip_save_paths($po_id, $merged);
+    $poAfter = Db::row('purchase_orders', (string) $po_id);
+    $poNo = trim((string) ($poAfter['po_number'] ?? ''));
+    tnc_audit_log('update', 'purchase_order', (string) $po_id, $poNo !== '' ? ('เพิ่มหลักฐานจ่าย ' . $poNo) : 'เพิ่มหลักฐานจ่าย PO', [
+        'source' => 'action-handler',
+        'action' => 'add_po_payment_slips',
+        'before' => $po,
+        'after' => $poAfter,
+        'meta' => ['added' => $added],
+    ]);
+    tnc_action_redirect($listUrl . '?payment_slips_updated=1');
+}
+
+/** ลบไฟล์หลักฐานการจ่ายรายการเดียว */
+if ($action === 'remove_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $listUrl = app_path('pages/purchase/purchase-order-list.php');
+    $po_id = (int) ($_POST['po_id'] ?? 0);
+    $removePath = trim((string) ($_POST['slip_path'] ?? ''));
+    if ($po_id <= 0 || $removePath === '') {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    $po = Db::row('purchase_orders', (string) $po_id);
+    if ($po === null) {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    if (strtolower(trim((string) ($po['payment_status'] ?? ''))) !== 'paid') {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    $before = tnc_po_payment_slip_paths($po);
+    if (!in_array($removePath, $before, true)) {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    tnc_po_payment_slip_delete_file($removePath);
+    $afterPaths = array_values(array_filter($before, static fn (string $p): bool => $p !== $removePath));
+    tnc_po_payment_slip_save_paths($po_id, $afterPaths);
+    $poAfter = Db::row('purchase_orders', (string) $po_id);
+    $poNo = trim((string) ($poAfter['po_number'] ?? ''));
+    tnc_audit_log('update', 'purchase_order', (string) $po_id, $poNo !== '' ? ('ลบหลักฐานจ่าย ' . $poNo) : 'ลบหลักฐานจ่าย PO', [
+        'source' => 'action-handler',
+        'action' => 'remove_po_payment_slip',
+        'before' => $po,
+        'after' => $poAfter,
+        'meta' => ['removed' => $removePath],
+    ]);
+    tnc_action_redirect($listUrl . '?payment_slips_updated=1');
+}
+
+/** เปลี่ยนไฟล์หลักฐานการจ่าย (แทนที่ไฟล์เดิม) */
+if ($action === 'replace_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $listUrl = app_path('pages/purchase/purchase-order-list.php');
+    $po_id = (int) ($_POST['po_id'] ?? 0);
+    $oldPath = trim((string) ($_POST['slip_path'] ?? ''));
+    if ($po_id <= 0) {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    $po = Db::row('purchase_orders', (string) $po_id);
+    if ($po === null) {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+        tnc_action_redirect($listUrl . '?error=po_cancelled');
+    }
+    if (strtolower(trim((string) ($po['payment_status'] ?? ''))) !== 'paid') {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    $newPath = null;
+    if (!empty($_FILES['payment_slip'])) {
+        $newPath = tnc_po_payment_slip_upload_one($po_id, $_FILES['payment_slip']);
+    }
+    if ($newPath === null) {
+        $uploaded = tnc_po_payment_slip_upload_many($po_id, 'payment_slips');
+        $newPath = $uploaded[0] ?? null;
+    }
+    if ($newPath === null) {
+        tnc_action_redirect($listUrl . '?error=upload_failed');
+    }
+    $before = tnc_po_payment_slip_paths($po);
+    if ($oldPath !== '' && in_array($oldPath, $before, true)) {
+        tnc_po_payment_slip_delete_file($oldPath);
+        $afterPaths = [];
+        foreach ($before as $p) {
+            $afterPaths[] = ($p === $oldPath) ? $newPath : $p;
+        }
+    } elseif ($before !== []) {
+        foreach ($before as $p) {
+            tnc_po_payment_slip_delete_file($p);
+        }
+        $afterPaths = [$newPath];
+    } else {
+        $afterPaths = [$newPath];
+    }
+    $afterPaths = array_values(array_unique($afterPaths));
+    tnc_po_payment_slip_save_paths($po_id, $afterPaths);
+    $poAfter = Db::row('purchase_orders', (string) $po_id);
+    $poNo = trim((string) ($poAfter['po_number'] ?? ''));
+    tnc_audit_log('update', 'purchase_order', (string) $po_id, $poNo !== '' ? ('เปลี่ยนหลักฐานจ่าย ' . $poNo) : 'เปลี่ยนหลักฐานจ่าย PO', [
+        'source' => 'action-handler',
+        'action' => 'replace_po_payment_slip',
+        'before' => $po,
+        'after' => $poAfter,
+        'meta' => ['old' => $oldPath, 'new' => $newPath],
+    ]);
+    tnc_action_redirect($listUrl . '?payment_slips_updated=1');
 }
 
 if ($action === 'upload_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {

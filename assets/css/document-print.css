@@ -34,15 +34,51 @@
     margin-top: 0.2rem;
 }
 
-/* ตาราง PO — ระยะ/ขนาดใกล้เคียง PR ใช้สีส้มแทนเขียว */
-.po-purchase-order-doc .po-items-table thead th {
+/* ใบ PO — ขนาดตัวอักษรให้ตรงหน้า view (purchase-order-view.php) */
+.po-purchase-order-doc .invoice-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: #ea580c;
+    line-height: 1.1;
+}
+
+.po-purchase-order-doc .po-company-name {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.25;
+}
+
+.po-purchase-order-doc .po-company-detail {
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: #475569 !important;
+    margin-top: 0.35rem;
+}
+
+.po-purchase-order-doc .po-note-heading {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 0.35rem;
+}
+
+.po-purchase-order-doc .po-note-body {
+    font-size: 1rem;
+    line-height: 1.5;
+    color: #334155;
+    white-space: pre-line;
+}
+
+.po-purchase-order-doc .po-items-table thead th,
+.po-purchase-order-doc .table-custom thead th {
     background: #fafafa;
     color: #333;
     font-weight: 700;
-    font-size: 13px;
+    font-size: 11px;
     text-transform: none;
     letter-spacing: normal;
-    padding: 10px;
+    padding: 7px 8px;
     border-bottom: 2px solid #ea580c;
     border-top: 1px solid #e9ecef;
     vertical-align: middle;
@@ -52,10 +88,11 @@
     white-space: nowrap;
 }
 
-.po-purchase-order-doc .po-items-table tbody td {
-    padding: 10px;
+.po-purchase-order-doc .po-items-table tbody td,
+.po-purchase-order-doc .table-custom tbody td {
+    padding: 7px 8px;
     vertical-align: middle;
-    font-size: 13px;
+    font-size: 11px;
     border-bottom: 1px solid #f2f2f2;
 }
 
@@ -86,7 +123,8 @@
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    font-size: 0.875rem;
+    padding: 2px 0;
+    font-size: 14px;
 }
 
 .po-purchase-order-doc .po-total-sheet .summary-item > span:last-child {
@@ -114,6 +152,18 @@
     text-align: right;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.po-purchase-order-doc .grand-total-row .fw-bold {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.po-purchase-order-doc .sig-box {
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .po-payment-evidence-card {
@@ -144,8 +194,44 @@
     color: #28a745 !important;
 }
 
+.pr-purchase-requisition-doc .pr-doc-main {
+    padding-bottom: 50mm;
+    box-sizing: border-box;
+}
+
+.pr-purchase-requisition-doc .footer-sticky {
+    position: absolute;
+    bottom: 12mm;
+    left: 15mm;
+    right: 15mm;
+}
+
+.pr-purchase-requisition-doc .footer-sticky,
+.pr-purchase-requisition-doc .pr-footer-panel {
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
 .pr-purchase-requisition-doc .table-custom thead th {
     border-bottom-color: #28a745 !important;
+    background: #fafafa;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.45;
+    padding: 9px 11px;
+    vertical-align: middle;
+}
+
+.pr-purchase-requisition-doc .table-custom tbody td {
+    font-size: 12px;
+    line-height: 1.45;
+    padding: 9px 11px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f2f2f2;
+}
+
+.pr-purchase-requisition-doc .summary-item {
+    line-height: 1.45;
 }
 
 .pr-purchase-requisition-doc .grand-total-row {
@@ -155,6 +241,22 @@
 
 .pr-purchase-requisition-doc .grand-total-row span {
     color: #fff !important;
+}
+
+.pr-purchase-requisition-doc .pr-cancelled-watermark {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(-32deg);
+    font-size: clamp(2.5rem, 12vw, 4.5rem);
+    font-weight: 800;
+    color: rgba(220, 38, 38, 0.38);
+    letter-spacing: 0.18em;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 60;
+    user-select: none;
+    text-transform: uppercase;
 }
 
 .pr-bundle-inline {
@@ -169,7 +271,7 @@
     }
 
     html {
-        font-size: 12.5pt;
+        font-size: 16px;
     }
 
     body,
@@ -189,8 +291,9 @@
         font-weight: 500;
     }
 
-    .table-custom thead th,
-    .table-custom td {
+    /* เอกสารอื่น (ไม่ใช่ PO) — ค่าเดิม */
+    .invoice-box:not(.po-purchase-order-doc):not(.pr-purchase-requisition-doc) .table-custom thead th,
+    .invoice-box:not(.po-purchase-order-doc):not(.pr-purchase-requisition-doc) .table-custom td {
         font-size: 11.5pt !important;
         font-weight: 500 !important;
     }
@@ -199,16 +302,102 @@
         font-weight: 700 !important;
     }
 
-    .invoice-title {
+    .invoice-box:not(.po-purchase-order-doc) .invoice-title {
         font-weight: 800 !important;
     }
 
     .payment-info-box,
-    .summary-box,
-    .summary-item,
-    .sig-box {
+    .invoice-box:not(.po-purchase-order-doc) .summary-box .summary-item,
+    .invoice-box:not(.po-purchase-order-doc) .sig-box {
         font-size: 11pt !important;
         font-weight: 500 !important;
+    }
+
+    /* ใบ PO — บังคับให้ตรงหน้า view */
+    .po-purchase-order-doc .invoice-title {
+        font-size: 28px !important;
+        font-weight: 800 !important;
+        color: #ea580c !important;
+        line-height: 1.1 !important;
+    }
+
+    .po-purchase-order-doc .po-company-name {
+        font-size: 1.25rem !important;
+        font-weight: 800 !important;
+        color: #0f172a !important;
+    }
+
+    .po-purchase-order-doc .po-company-detail {
+        font-size: 0.92rem !important;
+        line-height: 1.5 !important;
+        color: #475569 !important;
+    }
+
+    .po-purchase-order-doc .po-note-heading {
+        font-size: 0.9rem !important;
+        font-weight: 700 !important;
+        color: #111 !important;
+    }
+
+    .po-purchase-order-doc .po-note-body {
+        font-size: 1rem !important;
+        line-height: 1.5 !important;
+        color: #334155 !important;
+    }
+
+    .po-purchase-order-doc .po-items-table thead th,
+    .po-purchase-order-doc .table-custom thead th {
+        font-size: 11px !important;
+        padding: 7px 8px !important;
+        font-weight: 700 !important;
+    }
+
+    .po-purchase-order-doc .po-items-table tbody td,
+    .po-purchase-order-doc .table-custom tbody td {
+        font-size: 11px !important;
+        padding: 7px 8px !important;
+        font-weight: 500 !important;
+    }
+
+    .po-purchase-order-doc .po-total-sheet .summary-item {
+        font-size: 14px !important;
+        font-weight: 500 !important;
+    }
+
+    .po-purchase-order-doc .grand-total-row .fw-bold {
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        color: #fff !important;
+    }
+
+    .po-purchase-order-doc .grand-total-row span:last-child {
+        font-size: 18px !important;
+        font-weight: 800 !important;
+        color: #fff !important;
+    }
+
+    .po-purchase-order-doc .sig-box {
+        font-size: 13px !important;
+        font-weight: 600 !important;
+    }
+
+    .po-purchase-order-doc .po-section-kicker {
+        font-size: 0.65rem !important;
+        color: #ea580c !important;
+    }
+
+    .po-purchase-order-doc .po-section-title {
+        font-size: 0.9rem !important;
+        font-weight: 700 !important;
+    }
+
+    .po-purchase-order-doc .po-section-detail {
+        font-size: 0.72rem !important;
+    }
+
+    .po-purchase-order-doc .small.text-muted,
+    .po-purchase-order-doc .po-section-detail {
+        color: #64748b !important;
     }
 
     .doc-type-text {
@@ -245,9 +434,11 @@
         page-break-inside: avoid !important;
     }
 
-    .po-purchase-order-doc .po-items-table thead th {
+    .po-purchase-order-doc .po-items-table thead th,
+    .po-purchase-order-doc .table-custom thead th {
         background: #fafafa !important;
         color: #111 !important;
+        border-bottom: 2px solid #ea580c !important;
         border-bottom-color: #ea580c !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
@@ -301,18 +492,64 @@
         border-color: #e2e8f0 !important;
     }
 
+    .invoice-box.pr-purchase-requisition-doc {
+        width: 210mm;
+        max-width: 210mm;
+        height: 297mm;
+        min-height: 297mm;
+        max-height: 297mm;
+        margin: 0;
+        padding: 8mm 12mm;
+        overflow: hidden;
+        page-break-after: avoid;
+    }
+
+    .pr-purchase-requisition-doc .pr-doc-main {
+        padding-bottom: 46mm;
+    }
+
+    .pr-purchase-requisition-doc .footer-sticky {
+        bottom: 8mm;
+        left: 12mm;
+        right: 12mm;
+    }
+
     .pr-purchase-requisition-doc .table-custom thead th {
+        font-size: 10.5px !important;
+        line-height: 1.45 !important;
+        padding: 7px 10px !important;
+        border-bottom: 2px solid #28a745 !important;
         border-bottom-color: #28a745 !important;
+        background: #fafafa !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
 
+    .pr-purchase-requisition-doc .table-custom tbody td {
+        font-size: 10.5px !important;
+        line-height: 1.45 !important;
+        padding: 7px 10px !important;
+    }
+
+    .pr-purchase-requisition-doc .table-custom tbody tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
     .pr-purchase-requisition-doc .invoice-title {
         color: #28a745 !important;
+        font-size: 24px !important;
     }
 
     .pr-purchase-requisition-doc.invoice-box {
         border-top-color: #28a745 !important;
+    }
+
+    .pr-purchase-requisition-doc .summary-box,
+    .pr-purchase-requisition-doc .grand-total-row,
+    .pr-purchase-requisition-doc .signature-grid {
+        page-break-inside: avoid;
+        break-inside: avoid;
     }
 
     .pr-purchase-requisition-doc .grand-total-row {
@@ -324,6 +561,20 @@
 
     .pr-purchase-requisition-doc .grand-total-row span {
         color: #fff !important;
+    }
+
+    .pr-purchase-requisition-doc .sig-space {
+        height: 40px !important;
+    }
+
+    .pr-purchase-requisition-doc .pr-cancelled-watermark,
+    .pr-cancelled-watermark {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        color: rgba(185, 28, 28, 0.48) !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 
     .po-print-bundle-pr {

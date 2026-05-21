@@ -28,6 +28,9 @@ declare(strict_types=1);
  */
 ?>
 <div class="invoice-box pr-purchase-requisition-doc">
+    <?php if (!empty($isPoCancelled)): ?>
+    <div class="pr-cancelled-watermark" aria-hidden="true">CANCELLED</div>
+    <?php endif; ?>
     <div class="pr-doc-main">
     <div class="row align-items-start mb-2">
         <div class="col-6">
@@ -150,7 +153,7 @@ declare(strict_types=1);
     </table>
     </div>
 
-    <div class="footer-sticky">
+    <div class="footer-sticky pr-footer-panel">
         <div class="row align-items-end mb-3">
             <div class="col-7 small text-muted">
                 <?php if ($requestType === 'hire' && $hireScope !== '' && !$hireTableNote): ?>
@@ -159,7 +162,7 @@ declare(strict_types=1);
                 <?php endif; ?>
             </div>
             <div class="col-5">
-                <div class="summary-box" style="background: #f8fbff; border: 1px solid #c7dbfa; border-radius: 0.5rem; padding: 0.75rem 1rem;">
+                <div class="summary-box">
                     <div class="summary-item">
                         <span>ยอดรายการ (ก่อน VAT)</span>
                         <span><?= number_format($ps, 2) ?></span>

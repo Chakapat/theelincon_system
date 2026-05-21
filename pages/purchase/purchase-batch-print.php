@@ -230,19 +230,21 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
             padding-bottom: 52mm;
             box-sizing: border-box;
         }
-        .po-cancelled-watermark {
+        .po-cancelled-watermark,
+        .pr-cancelled-watermark {
             position: absolute;
             left: 50%;
-            top: 48%;
+            top: 50%;
             transform: translate(-50%, -50%) rotate(-32deg);
-            font-size: clamp(1.75rem, 6.5vw, 2.85rem);
+            font-size: clamp(2.5rem, 12vw, 4.5rem);
             font-weight: 800;
-            color: rgba(220, 38, 38, 0.42);
+            color: rgba(220, 38, 38, 0.38);
             white-space: nowrap;
             pointer-events: none;
-            z-index: 50;
-            letter-spacing: 0.12em;
+            z-index: 60;
+            letter-spacing: 0.18em;
             user-select: none;
+            text-transform: uppercase;
         }
         @media (max-width: 575.98px) {
             .invoice-box { width: 100%; min-height: 0; height: auto; padding: 1rem; box-shadow: none; overflow: visible; }
@@ -336,8 +338,12 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
                 print-color-adjust: exact;
             }
             <?php endif; ?>
-            .po-cancelled-watermark {
-                color: rgba(185, 28, 28, 0.5);
+            .po-cancelled-watermark,
+            .pr-cancelled-watermark {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                color: rgba(185, 28, 28, 0.48) !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }

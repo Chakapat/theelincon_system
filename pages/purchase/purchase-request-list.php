@@ -29,10 +29,30 @@ unset($row);
 Db::sortRows($pr_rows, 'created_at', true);
 
 $pr_ids_with_po = [];
+/** PR id => true when linked PO status is cancelled (lowercase in DB) */
+$pr_ids_po_cancelled = [];
 foreach (Db::tableRows('purchase_orders') as $poRow) {
     $pRid = (int) ($poRow['pr_id'] ?? 0);
     if ($pRid > 0) {
         $pr_ids_with_po[$pRid] = true;
+        $poSt = strtolower(trim((string) ($poRow['status'] ?? 'ordered')));
+        if ($poSt === 'cancelled') {
+            $pr_ids_po_cancelled[$pRid] = true;
+        }
+    }
+}
+
+/** PR id => true ถ้ามีบรรทัดจัดซื้อที่มีจำนวนแต่ราคา/หน่วย = 0 (ยังไม่ทราบราคา) */
+$pr_ids_unknown_unit_price = [];
+foreach (Db::tableRows('purchase_request_items') as $pri) {
+    $pid = (int) ($pri['pr_id'] ?? 0);
+    if ($pid <= 0) {
+        continue;
+    }
+    $qty = (float) ($pri['quantity'] ?? 0);
+    $unitPrice = (float) ($pri['unit_price'] ?? 0);
+    if ($qty > 0 && $unitPrice <= 0) {
+        $pr_ids_unknown_unit_price[$pid] = true;
     }
 }
 ?>
@@ -64,6 +84,13 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
         }
         .pr-po-status-dot--no-po { background-color: #ffc107; }
         .pr-po-status-dot--has-po { background-color: #198754; }
+        .pr-po-status-dot--po-cancelled { background-color: #dc3545; }
+        .pr-po-status-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        .pr-po-status-label--cancelled { color: #dc3545; }
         @media print {
             nav, .navbar, .no-print { display: none !important; }
             body { background: #fff !important; font-size: 11pt; }
@@ -121,14 +148,14 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
             <i class="bi bi-cart-check-fill text-warning me-2"></i> รายการใบขอซื้อ (Purchase requests List)
         </h3>
         <div class="d-flex flex-wrap gap-2 no-print">
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4 shadow-sm">
+                <i class="bi bi-plus-lg"></i> สร้างใบขอซื้อใหม่
+            </a>
             <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm" id="prBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก">
                 <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
             </button>
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-primary rounded-pill px-3 shadow-sm">
-                <i class="bi bi-receipt me-1"></i>รายการใบสั่งซื้อ
-            </a>
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4 shadow-sm">
-                <i class="bi bi-plus-lg"></i> สร้างใบขอซื้อใหม่
+                <i class="bi bi-arrow-right-circle me-1"></i>ไปหน้ารายการใบสั่งซื้อ
             </a>
         </div>
     </div>
@@ -160,19 +187,23 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
                         <?php
                             $rowPrId = (int) ($row['id'] ?? 0);
                             $prHasPo = $rowPrId > 0 && !empty($pr_ids_with_po[$rowPrId]);
+                            $prPoCancelled = $rowPrId > 0 && !empty($pr_ids_po_cancelled[$rowPrId]);
                         ?>
                         <tr>
                             <td class="text-center align-middle no-print">
                                 <input type="checkbox" class="form-check-input m-0 js-pr-print-cb" value="<?= $rowPrId ?>" aria-label="เลือกพิมพ์ <?= htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                             </td>
                             <td>
-                                <div class="fw-bold text-primary">
-                                    <span class="d-inline-flex align-items-center gap-2">
+                                <div class="fw-bold <?= $prPoCancelled ? 'text-danger' : 'text-primary' ?>">
+                                    <span class="d-inline-flex align-items-center gap-2 flex-wrap">
                                         <?php
                                         $prNoDisp = htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8');
                                         $prViewHref = htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . (int) $row['id'];
-                                        echo '<a href="' . $prViewHref . '" class="text-primary text-decoration-none" title="ดูรายละเอียด">' . $prNoDisp . '</a>';
-                                        if ($prHasPo) {
+                                        $prLinkClass = $prPoCancelled ? 'text-danger' : 'text-primary';
+                                        echo '<a href="' . $prViewHref . '" class="' . $prLinkClass . ' text-decoration-none" title="ดูรายละเอียด">' . $prNoDisp . '</a>';
+                                        if ($prPoCancelled) {
+                                            echo '<span class="pr-po-status-dot pr-po-status-dot--po-cancelled" role="img" aria-label="PO ยกเลิกแล้ว" title="PO ยกเลิกแล้ว"></span>';
+                                        } elseif ($prHasPo) {
                                             echo '<span class="pr-po-status-dot pr-po-status-dot--has-po" role="img" aria-label="ออก PO แล้ว" title="ออก PO แล้ว"></span>';
                                         } else {
                                             echo '<span class="pr-po-status-dot pr-po-status-dot--no-po" role="img" aria-label="ยังไม่ออก PO" title="ยังไม่ออก PO"></span>';
@@ -198,8 +229,22 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
                                     <span class="badge bg-light text-secondary border rounded-pill" style="font-size:0.75rem;">จัดซื้อ</span>
                                 <?php endif; ?>
                             </td>
-                            <td class="text-end">
-                                <div class="fw-bold"><?= number_format((float)$row['total_amount'], 2) ?></div>
+                            <?php
+                                $totalAmt = (float) ($row['total_amount'] ?? 0);
+                                $totalIsZero = abs($totalAmt) < 0.0005;
+                                $hasUnknownLinePrice = $reqType === 'purchase' && !empty($pr_ids_unknown_unit_price[$rowPrId]);
+                            ?>
+                            <td class="text-end" data-order="<?= htmlspecialchars((string) $totalAmt, ENT_QUOTES, 'UTF-8') ?>">
+                                <div class="fw-bold"><?php
+                                    if ($totalIsZero) {
+                                        echo '<span class="text-warning">รอราคา</span>';
+                                    } else {
+                                        echo number_format($totalAmt, 2);
+                                    }
+                                ?></div>
+                                <?php if ($hasUnknownLinePrice): ?>
+                                    <div class="small text-muted mt-1">มีสินค้าไม่ทราบราคา</div>
+                                <?php endif; ?>
                             </td>
                             <td class="text-center">
                                 <div class="btn-group shadow-sm rounded">
@@ -266,7 +311,7 @@ foreach (Db::tableRows('purchase_orders') as $poRow) {
     if ($('#prTable tbody tr td[colspan]').length === 0 && $('#prTable tbody tr').length) {
         $('#prTable').DataTable({
             order: [[1, 'desc']],
-            pageLength: 25,
+            pageLength: 10,
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
             columnDefs: [{ targets: [0, 6], orderable: false, searchable: false }]
         });

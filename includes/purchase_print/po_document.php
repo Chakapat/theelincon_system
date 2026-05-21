@@ -216,22 +216,30 @@ function tnc_purchase_po_print_render(array $ctx): void
     include __DIR__ . '/po_invoice_body.php';
 }
 
-/** พิมพ์ควบคู่ใบ PO: แสดงสลิปหน้าใหม่เมื่อจ่ายแล้วและมีไฟล์แนบ */
+/** พิมพ์ควบคู่ใบ PO: แสดงสลิปหน้าใหม่เมื่อจ่ายแล้วและมีไฟล์แนบ (รองรับหลายไฟล์) */
 function tnc_purchase_po_payment_slip_print_render(array $po): void
 {
     if (strtolower(trim((string) ($po['payment_status'] ?? ''))) !== 'paid') {
         return;
     }
-    $rel = trim((string) ($po['payment_slip_path'] ?? ''));
-    if ($rel === '') {
+    if (!function_exists('tnc_po_payment_slip_items')) {
+        require_once dirname(__DIR__) . '/purchase_po_payment_slips.php';
+    }
+    $slipItems = tnc_po_payment_slip_items($po);
+    if ($slipItems === []) {
         return;
     }
     $po_doc_header_po_number = trim((string) ($po['po_number'] ?? ''));
     if ($po_doc_header_po_number === '') {
         $po_doc_header_po_number = 'PO-' . (int) ($po['id'] ?? 0);
     }
-    $po_slip_image_url = tnc_po_public_absolute_url(app_path($rel));
-    include __DIR__ . '/po_payment_slip_print.php';
+    foreach ($slipItems as $slipItem) {
+        if (!($slipItem['is_image'] ?? false)) {
+            continue;
+        }
+        $po_slip_image_url = tnc_po_public_absolute_url((string) ($slipItem['url'] ?? ''));
+        include __DIR__ . '/po_payment_slip_print.php';
+    }
 }
 
 /** พิมพ์ควบคู่ใบ PO: ไฟล์แนบใบเสนอราคา (รูปหรือ PDF) */

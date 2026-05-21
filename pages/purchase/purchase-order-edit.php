@@ -67,6 +67,7 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
         ? substr($fallbackDate, 0, 10)
         : date('Y-m-d');
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -141,13 +142,6 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
         }
         .po-table-wrap tbody td { padding: 0.5rem 0.45rem; vertical-align: middle; }
         .po-table-wrap .form-control-sm { min-height: calc(1.5em + 0.6rem + 2px); }
-        .po-wht-box {
-            border: 1px solid #fee2e2;
-            border-radius: 0.75rem;
-            padding: 0.85rem 1rem;
-            background: linear-gradient(180deg, #fffefe 0%, #fff7f7 100%);
-        }
-        .po-wht-box .form-check-input { cursor: pointer; }
         .summary-box {
             background: linear-gradient(180deg, #f8fbff 0%, #f0f7ff 100%);
             border: 1px solid #c7dbfa;
@@ -158,10 +152,17 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
         @media (min-width: 992px) {
             .po-summary-sticky { position: sticky; top: 5.5rem; }
         }
-        .summary-line { display: grid; grid-template-columns: 1fr minmax(6.5rem, max-content); align-items: center; gap: 12px; width: 100%; margin-bottom: 10px; }
+        .summary-line {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            column-gap: 1rem;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 10px;
+        }
         .summary-line:last-child { margin-bottom: 0; }
-        .summary-label { color: #475569; font-weight: 600; font-size: 0.9rem; }
-        .summary-value { font-weight: 700; white-space: nowrap; text-align: right; justify-self: end; font-variant-numeric: tabular-nums; }
+        .summary-label { justify-self: start; text-align: left; color: #475569; font-weight: 600; font-size: 0.9rem; }
+        .summary-value { justify-self: end; font-weight: 700; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
         .summary-grand { padding-top: 0.35rem; margin-top: 0.25rem; border-top: 2px dashed rgba(13, 110, 253, 0.25); }
         .summary-grand .summary-label { font-size: 1rem; color: #0f172a; }
         .summary-grand .summary-value { font-size: 1.25rem; color: #0d6efd !important; }
@@ -179,14 +180,12 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
         <header class="po-create-hero p-4 p-md-4 mb-4">
             <div class="row align-items-center g-3">
                 <div class="col-lg">
-                    <div class="hero-kicker">แก้ไขเอกสาร</div>
-                    <h1 class="mb-2 mt-1"><i class="bi bi-pencil-square me-2 opacity-90"></i>แก้ไขใบสั่งซื้อ (PO)</h1>
-                    <p class="hero-lead mb-0">ปรับรายการ วันที่ ผู้ขาย หรือภาษี แล้วกดบันทึก — เลขที่ <?= htmlspecialchars((string) ($po['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?> คงเดิม</p>
+                    <h1 class="mb-2 mt-1"><i class="bi bi-pencil-square me-2 opacity-90"></i>แก้ไขใบสั่งซื้อ</h1>
                 </div>
                 <div class="col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php')) ?>?id=<?= (int) $poId ?>" class="btn btn-outline-light rounded-pill px-3"><i class="bi bi-eye me-1"></i>ดูใบ PO</a>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php')) ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>รายการ PO</a>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php')) ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับหน้ารายการใบสั่งซื้อ</a>
                     <button type="submit" class="btn btn-primary rounded-pill px-4 shadow"><i class="bi bi-check2-circle me-1"></i>บันทึกการแก้ไข</button>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php')) ?>?id=<?= (int) $poId ?>" class="btn btn-outline-light rounded-pill px-3"><i class="bi bi-eye me-1"></i>ดูใบสั่งซื้อ</a>
                 </div>
             </div>
         </header>
@@ -244,22 +243,9 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
 
         <div class="card card-soft p-4 p-md-4 mb-4">
             <div class="po-section-head">
-                <div class="po-section-icon" aria-hidden="true"><i class="bi bi-file-earmark-text"></i></div>
-                <div>
-                    <h2 class="section-title">ใบเสนอราคา (QT)</h2>
-                    <p class="section-sub">เลขที่อ้างอิง QT (ถ้ามี) — หมายเหตุแยกไว้ด้านล่างของฟอร์ม</p>
-                </div>
-            </div>
-            <label class="fw-semibold small text-secondary" for="quotation_number">เลขที่ใบเสนอราคา (QT No.)</label>
-            <input type="text" name="quotation_number" id="quotation_number" class="form-control mt-1" maxlength="120" value="<?= htmlspecialchars((string) ($po['quotation_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="เช่น QT-2026-015">
-        </div>
-
-        <div class="card card-soft p-4 p-md-4 mb-4">
-            <div class="po-section-head">
                 <div class="po-section-icon" aria-hidden="true"><i class="bi bi-list-check"></i></div>
                 <div class="flex-grow-1">
                     <h2 class="section-title">รายการสินค้า / บริการ</h2>
-                    <p class="section-sub mb-0">แก้จำนวน ราคา หรือเพิ่มแถว — ยอดรวมและภาษีคำนวณให้อัตโนมัติ</p>
                 </div>
             </div>
 
@@ -297,7 +283,6 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
             </div>
 
             <div class="po-actions-bar">
-                <span class="small text-muted"><i class="bi bi-grip-vertical me-1"></i>แถวแรกไม่มีปุ่มลบ · เพิ่มรายการได้ไม่จำกัด</span>
                 <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm" onclick="addRow()">
                     <i class="bi bi-plus-lg me-1"></i>เพิ่มรายการ
                 </button>
@@ -305,14 +290,7 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
 
             <div class="row g-4 mt-1">
                 <div class="col-lg-7 order-2 order-lg-1">
-                    <div class="d-flex align-items-center gap-2 mb-3">
-                        <span class="rounded-circle bg-primary bg-opacity-10 text-primary p-2"><i class="bi bi-percent"></i></span>
-                        <div>
-                            <div class="fw-bold text-dark">ภาษีและการหักเงิน</div>
-                            <div class="small text-muted">VAT 7% และหัก ณ ที่จ่าย (ถ้ามี)</div>
-                        </div>
-                    </div>
-                    <label class="small fw-bold text-secondary text-uppercase mb-2" style="letter-spacing:0.05em;">ภาษีมูลค่าเพิ่ม</label>
+                    
                     <div class="po-vat-panel p-3 mb-3">
                         <div class="form-check form-switch mb-2">
                             <input class="form-check-input" type="checkbox" role="switch" name="vat_enabled" id="vat_enabled" value="1" onchange="calculateTotal()"<?= (int) ($po['vat_enabled'] ?? 0) === 1 ? ' checked' : '' ?>>
@@ -329,27 +307,14 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
                                 <label class="form-check-label" for="vat_basis_exclusive">แยก VAT <span class="text-muted small">(บวก 7% จากฐาน)</span></label>
                             </div>
                         </div>
-                        <div class="mt-3 mb-0">
-                            <label class="small text-muted mb-1" for="vat_rate">อัตรา VAT (%)</label>
-                            <input type="number" class="form-control form-control-sm bg-white" id="vat_rate" step="0.01" min="0" max="100" value="7" readonly aria-readonly="true">
-                        </div>
-                    </div>
-                    <?php $withholdingType = trim((string) ($po['withholding_type'] ?? 'none')); if ($withholdingType === 'wht5') { $withholdingType = 'wht3'; } ?>
-                    <div class="po-wht-box">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="wht_enabled" onchange="calculateTotal()"<?= $withholdingType === 'wht3' ? ' checked' : '' ?>>
-                            <label class="form-check-label fw-semibold text-danger" for="wht_enabled">หัก ณ ที่จ่าย 3%</label>
-                        </div>
-                        <div class="small text-muted ps-1 mt-1">คิดจากยอดก่อน VAT</div>
                     </div>
                 </div>
                 <div class="col-lg-5 order-1 order-lg-2">
-                    <div class="small fw-bold text-secondary text-uppercase mb-2" style="letter-spacing:0.06em;">สรุปยอดเงิน</div>
                     <div class="summary-box po-summary-sticky">
+                        <label class="small fw-bold text-secondary text-uppercase mb-2" style="letter-spacing:0.05em;"></label>
                         <div class="summary-line small text-muted"><span class="summary-label" id="subtotal_label">ยอดรายการ (ก่อน VAT)</span><strong class="summary-value text-end"><span id="subtotal_display">0.00</span> บาท</strong></div>
-                        <div class="summary-line small text-success" id="vat_row" style="display:none;"><span class="summary-label">VAT 7%</span><strong class="summary-value text-end"><span id="vat_display">0.00</span> บาท</strong></div>
-                        <div class="summary-line small text-danger" id="wht_row" style="display:none;"><span class="summary-label">หัก ณ ที่จ่าย</span><strong class="summary-value text-end">- <span id="wht_display">0.00</span> บาท</strong></div>
-                        <div class="summary-line summary-grand fw-bold"><span class="summary-label">ยอดรวมสุทธิ</span><span class="summary-value text-primary"><span id="grand_total">0.00</span> บาท</span></div>
+                        <div class="summary-line small text-success" id="vat_row" style="display:none;"><span class="summary-label">ภาษีมูลค่าเพิ่ม</span><strong class="summary-value text-end"><span id="vat_display">0.00</span> บาท</strong></div>
+                        <div class="summary-line summary-grand fw-bold"><span class="summary-label">ยอดรวมสุทธิ</span><strong class="summary-value text-end text-primary"><span id="grand_total">0.00</span> บาท</strong></div>
                     </div>
                     <input type="hidden" name="total_amount" id="total_amount_input" value="0">
                     <input type="hidden" name="withholding_type" id="withholding_type" value="none">
@@ -359,16 +324,6 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
             </div>
         </div>
 
-        <div class="card card-soft p-4 p-md-4 mb-2">
-            <div class="po-section-head border-0 pb-0 mb-3">
-                <div class="po-section-icon" aria-hidden="true"><i class="bi bi-chat-left-text"></i></div>
-                <div>
-                    <h2 class="section-title">หมายเหตุ</h2>
-                    <p class="section-sub">แสดงบนใบ PO (ถ้ามี)</p>
-                </div>
-            </div>
-            <textarea name="quotation_note" id="quotation_note" class="form-control" rows="3" maxlength="500" placeholder="เช่น เงื่อนไขจัดส่ง กำหนดส่งของ หรือข้อตกลงพิเศษ"><?= htmlspecialchars((string) ($po['quotation_note'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
-        </div>
 
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-2 d-md-none">
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php')) ?>" class="btn btn-outline-secondary rounded-pill">ยกเลิก</a>
@@ -458,7 +413,6 @@ function updatePoVatBasisUi() {
 function calculateTotal() {
     const FIXED_VAT_RATE = 7;
     const vatModeInput = document.getElementById('vat_mode');
-    const vatRateInput = document.getElementById('vat_rate');
     const vatOn = document.getElementById('vat_enabled').checked;
     let vatMode = 'exclusive';
     if (vatOn) {
@@ -467,11 +421,9 @@ function calculateTotal() {
     }
     if (!['inclusive', 'exclusive'].includes(vatMode)) vatMode = 'exclusive';
     if (vatModeInput) vatModeInput.value = vatMode;
-    if (vatRateInput) vatRateInput.value = String(FIXED_VAT_RATE);
 
     let lineAmount = 0;
     const rows = document.getElementById('poTable').getElementsByTagName('tbody')[0].rows;
-    const whtOn = document.getElementById('wht_enabled').checked;
 
     for (const row of rows) {
         const qty = parseFloat(row.querySelector('.qty').value) || 0;
@@ -497,20 +449,17 @@ function calculateTotal() {
             gross = lineAmount;
         }
     }
-    const whtType = whtOn ? 'wht3' : 'none';
-    const whtRate = whtOn ? 0.03 : 0;
-    const wht = Math.round(subtotal * whtRate * 100) / 100;
-    const grand = Math.round((gross - wht) * 100) / 100;
+    const grand = gross;
     const withholdingTypeInput = document.getElementById('withholding_type');
     if (withholdingTypeInput) {
-        withholdingTypeInput.value = whtType;
+        withholdingTypeInput.value = 'none';
     }
     updatePoVatBasisUi();
     const subtotalLabel = document.getElementById('subtotal_label');
     if (subtotalLabel) {
         subtotalLabel.textContent = vatOn && vatMode === 'inclusive'
-            ? 'ยอดก่อน VAT (ถอดจากยอดรวม)'
-            : 'ยอดรายการ (ก่อน VAT)';
+            ? 'ยอดรายการ'
+            : 'ยอดรายการ';
     }
 
     document.getElementById('subtotal_display').innerText = subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -520,13 +469,6 @@ function calculateTotal() {
         document.getElementById('vat_display').innerText = vat.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     } else {
         vatRow.style.display = 'none';
-    }
-    const whtRow = document.getElementById('wht_row');
-    if (wht > 0) {
-        whtRow.style.display = 'block';
-        document.getElementById('wht_display').innerText = wht.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    } else {
-        whtRow.style.display = 'none';
     }
     document.getElementById('grand_total').innerText = grand.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     document.getElementById('total_amount_input').value = grand.toFixed(2);

@@ -29,7 +29,6 @@ declare(strict_types=1);
  * @var bool $isPoCancelled
  */
 
-$poPaymentStatusRow = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
 ?>
 <div class="invoice-box po-purchase-order-doc">
     <?php if ($isPoCancelled): ?>
@@ -41,8 +40,8 @@ $poPaymentStatusRow = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid
             <?php if (!empty($data['logo'])): ?>
                 <img src="<?= htmlspecialchars(upload_logo_url($data['logo'])) ?>" class="company-logo" alt="Logo">
             <?php endif; ?>
-            <div class="fw-bold mt-2" style="font-size: 16px;"><?= $data['name']; ?></div>
-            <div class="small text-muted" style="font-size: 11px; line-height: 1.4;">
+            <div class="fw-bold mt-2 po-company-name"><?= $data['name']; ?></div>
+            <div class="small text-muted po-company-detail">
                 <?= $data['address']; ?><br>
                 โทร: <?= $data['phone']; ?> | Tax ID: <?= $data['tax_id']; ?>
             </div>
@@ -55,8 +54,6 @@ $poPaymentStatusRow = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid
                 <span class="po-po-number-value text-dark fw-bold" style="font-size: 18px;"><?= htmlspecialchars((string) ($data['po_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
                 <?php if ($isPoCancelled): ?>
                     <span class="badge rounded-pill text-bg-danger po-po-status-badge">ยกเลิก</span>
-                <?php elseif ($poPaymentStatusRow !== 'paid'): ?>
-                    <span class="badge rounded-pill border text-secondary bg-white po-po-status-badge">รอชำระ</span>
                 <?php endif; ?>
             </div>
             <?php $quotationNo = trim((string) ($data['quotation_number'] ?? '')); ?>
@@ -125,7 +122,7 @@ $poPaymentStatusRow = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid
                 ?>
                 <tr>
                     <td class="fw-bold text-dark text-start"><?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
-                    <td class="text-center po-td-num"><?= number_format((float) ($item['quantity'] ?? 0), 0); ?></td>
+                    <td class="text-center po-td-num"><?= number_format((float) ($item['quantity'] ?? 0), 2); ?></td>
                     <td class="text-center po-td-num text-muted"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—'; ?></td>
                     <td class="text-end po-td-num"><?= number_format((float) ($item['unit_price'] ?? 0), 2); ?></td>
                     <td class="text-end text-muted small po-td-num">
@@ -153,14 +150,14 @@ $poPaymentStatusRow = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid
         <div class="row align-items-end mb-3">
             <div class="col-7 small text-muted italic">
                 <?php if ($poNotePo !== ''): ?>
-                    <div style="font-size: 11px; font-weight: 700; color: #111; margin-bottom: 4px;">หมายเหตุ PO</div>
-                    <div style="font-size: 12px; line-height: 1.45; color: #444; white-space: pre-line; margin-bottom: <?= $poNoteQt !== '' ? '12px' : '0' ?>;">
+                    <div class="po-note-heading">หมายเหตุ PO</div>
+                    <div class="po-note-body" style="margin-bottom: <?= $poNoteQt !== '' ? '12px' : '0' ?>;">
                         <?= htmlspecialchars($poNotePo, ENT_QUOTES, 'UTF-8'); ?>
                     </div>
                 <?php endif; ?>
                 <?php if ($poNoteQt !== ''): ?>
-                    <div style="font-size: 11px; font-weight: 700; color: #111; margin-bottom: 4px;"><?= $poNotePo !== '' ? 'หมายเหตุ / เงื่อนไข (QT)' : 'หมายเหตุ' ?></div>
-                    <div style="font-size: 12px; line-height: 1.45; color: #444; white-space: pre-line;">
+                    <div class="po-note-heading"><?= $poNotePo !== '' ? 'หมายเหตุ / เงื่อนไข (QT)' : 'หมายเหตุ' ?></div>
+                    <div class="po-note-body">
                         <?= htmlspecialchars($poNoteQt, ENT_QUOTES, 'UTF-8'); ?>
                     </div>
                 <?php endif; ?>

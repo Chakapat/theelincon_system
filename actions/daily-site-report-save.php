@@ -18,8 +18,18 @@ if (!isset($_SESSION['user_id'])) {
 $userId = (int) $_SESSION['user_id'];
 
 $action = $_POST['action'] ?? '';
-$listUrl = app_path('pages/daily-site-reports/daily-site-report-list.php');
+$hubUrl = daily_site_report_hub_url();
 $formBase = app_path('pages/daily-site-reports/daily-site-report-form.php');
+
+function dsr_success_redirect_url(): string
+{
+    return daily_site_report_hub_url() . '?saved=1';
+}
+
+function dsr_delete_redirect_url(): string
+{
+    return daily_site_report_hub_url() . '?deleted=1';
+}
 
 function dsr_redirect(string $url): void
 {
@@ -76,7 +86,7 @@ function dsr_save_upload(array $file, int $reportId): array
 }
 
 if ($action !== '' && !csrf_verify_request()) {
-    dsr_redirect($listUrl . '?err=forbidden');
+    dsr_redirect($hubUrl . '?err=forbidden');
 }
 
 if ($action === 'create' || $action === 'update') {
@@ -135,12 +145,12 @@ if ($action === 'create' || $action === 'update') {
 
         $existing = Db::row('daily_site_reports', (string) $reportId);
         if ($existing === null) {
-            dsr_redirect($listUrl . '?err=missing');
+            dsr_redirect($hubUrl . '?err=missing');
         }
         $dailyReportBefore = $existing;
         $creator = (int) ($existing['created_by'] ?? 0);
         if ($creator !== $userId && !user_is_admin_role()) {
-            dsr_redirect($listUrl . '?err=forbidden');
+            dsr_redirect($hubUrl . '?err=forbidden');
         }
 
         Db::setRow('daily_site_reports', (string) $reportId, array_merge($existing, [
@@ -252,21 +262,21 @@ if ($action === 'create' || $action === 'update') {
         ]
     );
 
-    dsr_redirect($listUrl . '?saved=1');
+    dsr_redirect(dsr_success_redirect_url());
 }
 
 if ($action === 'delete') {
     $reportId = (int) ($_POST['id'] ?? 0);
     if ($reportId <= 0) {
-        dsr_redirect($listUrl . '?err=id');
+        dsr_redirect($hubUrl . '?err=id');
     }
     $existing = Db::row('daily_site_reports', (string) $reportId);
     if ($existing === null) {
-        dsr_redirect($listUrl . '?err=missing');
+        dsr_redirect($hubUrl . '?err=missing');
     }
     $creator = (int) ($existing['created_by'] ?? 0);
     if ($creator !== $userId && !user_is_admin_role()) {
-        dsr_redirect($listUrl . '?err=forbidden');
+        dsr_redirect($hubUrl . '?err=forbidden');
     }
 
     $photosBeforeDel = [];
@@ -307,7 +317,7 @@ if ($action === 'delete') {
         'before' => $existing,
         'meta' => ['photos_removed' => $photosBeforeDel],
     ]);
-    dsr_redirect($listUrl . '?deleted=1');
+    dsr_redirect(dsr_delete_redirect_url());
 }
 
-dsr_redirect($listUrl);
+dsr_redirect($hubUrl);
