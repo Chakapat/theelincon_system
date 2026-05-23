@@ -836,6 +836,62 @@ if (!in_array($currentVatMode, ['none', 'inclusive', 'exclusive'], true)) {
     }
 })();
 
+/** Shared screen + @media print rules for bill report popups */
+function tncBillPrintBaseCss() {
+    return [
+        'body{font-family:Sarabun,sans-serif;padding:28px 34px;color:#1f2937;}',
+        '.doc-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;}',
+        '.doc-title{font-size:20px;font-weight:700;margin:0;color:#0f172a;}',
+        '.doc-sub{font-size:12px;color:#64748b;margin-top:4px;}',
+        '.doc-meta{font-size:12px;color:#475569;text-align:right;line-height:1.5;}',
+        '.doc-box{border:1px solid #dbe3ef;border-radius:10px;padding:14px 14px 8px 14px;}',
+        '.doc-box--flush{padding:0;overflow:hidden;}',
+        'table{width:100%;border-collapse:collapse;font-size:13px;}',
+        'thead th{background:#f8fafc;color:#334155;font-weight:700;padding:9px 10px;border-bottom:1px solid #dbe3ef;text-align:left;}',
+        'tbody td{padding:9px 10px;border-bottom:1px solid #eef2f7;vertical-align:top;}',
+        'tbody tr:last-child td{border-bottom:0;}',
+        'td.text-end,th.text-end{text-align:right;}',
+        'td.text-center,th.text-center{text-align:center;}',
+        '.doc-footer{margin-top:14px;display:flex;justify-content:flex-end;}',
+        '.doc-footer--split{justify-content:space-between;align-items:center;gap:12px;}',
+        '.total-card{min-width:260px;border:1px solid #dbe3ef;border-radius:10px;padding:10px 12px;}',
+        '.total-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;}',
+        '.total-row strong{font-size:16px;color:#0f172a;}',
+        '.muted{font-size:12px;color:#64748b;}',
+        '.col-date{width:14%;}.col-vendor{width:42%;}.col-site{width:28%;}.col-amount{width:16%;}',
+        '.amount{font-weight:700;color:#0f172a;white-space:nowrap;}',
+        '.btn{display:none!important;}',
+        'a{color:inherit;text-decoration:none;}',
+        '.bill-card{border:1px solid #dbe3ef;border-radius:10px;padding:12px 14px;margin-bottom:12px;}',
+        '.bill-head{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;font-size:9.5pt;line-height:1.35;padding-bottom:7px;border-bottom:1px solid #e5eaf3;}',
+        '.bill-head strong{font-weight:600;font-size:10pt;color:#0f172a;}',
+        '.bill-items{margin-top:8px;}',
+        '.col-item{white-space:nowrap;}',
+        '.doc-title--detail{font-size:14pt;}',
+        '.doc-sub--detail{font-size:12pt;}'
+    ].join('');
+}
+
+function tncBillPrintMediaCss() {
+    return [
+        '@media print{',
+        '@page{margin:12mm 10mm;}',
+        'body{padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}',
+        '.doc-header{break-after:avoid;page-break-after:avoid;}',
+        '.print-section,.bill-card,.doc-footer,.total-card{',
+        'break-inside:avoid;page-break-inside:avoid;',
+        '}',
+        '.print-report .doc-box{overflow:visible;border-color:#cbd5e1;}',
+        'thead{display:table-header-group;}',
+        'tbody{display:table-row-group;}',
+        'table{break-inside:auto;page-break-inside:auto;}',
+        'tbody tr{break-inside:avoid;page-break-inside:avoid;}',
+        '.bill-head{break-after:avoid;page-break-after:avoid;}',
+        '.bill-items thead{break-after:avoid;page-break-after:avoid;}',
+        '}'
+    ].join('');
+}
+
 (function () {
     const toggleBtn = document.getElementById('toggleSiteExpenseBtn');
     const content = document.getElementById('siteExpenseSummaryContent');
@@ -895,23 +951,12 @@ if (!in_array($currentVatMode, ['none', 'inclusive', 'exclusive'], true)) {
         popup.document.write('<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>ค่าใช้จ่ายแต่ละไซต์</title>');
         popup.document.write('<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">');
         popup.document.write('<style>');
-        popup.document.write('body{font-family:Sarabun,sans-serif;padding:28px 34px;color:#1f2937;}');
-        popup.document.write('.doc-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;}');
-        popup.document.write('.doc-title{font-size:20px;font-weight:700;margin:0;color:#0f172a;}');
-        popup.document.write('.doc-sub{font-size:12px;color:#64748b;margin-top:4px;}');
-        popup.document.write('.doc-meta{font-size:12px;color:#475569;text-align:right;line-height:1.5;}');
-        popup.document.write('.doc-box{border:1px solid #dbe3ef;border-radius:10px;padding:14px 14px 8px 14px;}');
-        popup.document.write('table{width:100%;border-collapse:collapse;font-size:13px;}');
-        popup.document.write('thead th{background:#f1f5f9;color:#334155;font-weight:700;padding:9px 10px;border-bottom:1px solid #dbe3ef;text-align:left;}');
-        popup.document.write('tbody td{padding:9px 10px;border-bottom:1px solid #eef2f7;}');
-        popup.document.write('td.text-end,th.text-end{text-align:right;} td.text-center,th.text-center{text-align:center;}');
-        popup.document.write('.doc-footer{margin-top:14px;display:flex;justify-content:flex-end;}');
-        popup.document.write('.total-card{min-width:260px;border:1px solid #dbe3ef;border-radius:10px;padding:10px 12px;}');
-        popup.document.write('.total-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;}');
-        popup.document.write('.total-row strong{font-size:16px;color:#0f172a;}');
-        popup.document.write('@media print{body{padding:12mm 10mm;} .doc-box{border:1px solid #cbd5e1;}}');
+        popup.document.write(tncBillPrintBaseCss());
+        popup.document.write('thead th{background:#f1f5f9;}');
+        popup.document.write(tncBillPrintMediaCss());
         popup.document.write('</style>');
         popup.document.write('</head><body>');
+        popup.document.write('<section class="print-report">');
         popup.document.write('<div class="doc-header">');
         popup.document.write('<div><h1 class="doc-title">รายงานค่าใช้จ่ายแต่ละไซต์</h1><div class="doc-sub">จากข้อมูลบิลซื้อประจำเดือน ' + monthText + '</div></div>');
         popup.document.write('<div class="doc-meta">THEELIN CON CO., LTD.<br>พิมพ์เมื่อ: ' + printedAt + '</div>');
@@ -919,6 +964,7 @@ if (!in_array($currentVatMode, ['none', 'inclusive', 'exclusive'], true)) {
         popup.document.write('<div class="doc-box">');
         popup.document.write(clonedTableHtml);
         popup.document.write('</div>');
+        popup.document.write('</section>');
         popup.document.write('<div class="doc-footer"><div class="total-card"><div class="total-row"><span>ยอดรวมทั้งสิ้น</span><strong>฿ ' + totalAmountText + '</strong></div></div></div>');
         popup.document.write('</body></html>');
         popup.document.close();
@@ -966,34 +1012,20 @@ if (!in_array($currentVatMode, ['none', 'inclusive', 'exclusive'], true)) {
         popup.document.write('<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>รายการบิลซื้อ</title>');
         popup.document.write('<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">');
         popup.document.write('<style>');
-        popup.document.write('body{font-family:Sarabun,sans-serif;padding:28px 34px;color:#1f2937;}');
-        popup.document.write('.doc-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;}');
-        popup.document.write('.doc-title{font-size:20px;font-weight:700;margin:0;color:#0f172a;}');
-        popup.document.write('.doc-sub{font-size:12px;color:#64748b;margin-top:4px;}');
-        popup.document.write('.doc-meta{font-size:12px;color:#475569;text-align:right;line-height:1.5;}');
-        popup.document.write('.doc-box{border:1px solid #dbe3ef;border-radius:10px;padding:0;overflow:hidden;}');
-        popup.document.write('table{width:100%;border-collapse:collapse;font-size:13px;}');
-        popup.document.write('thead th{background:#f8fafc;color:#334155;font-weight:700;padding:10px 12px;border-bottom:1px solid #dbe3ef;text-align:left;white-space:nowrap;}');
-        popup.document.write('tbody td{padding:10px 12px;border-bottom:1px solid #eef2f7;vertical-align:top;}');
-        popup.document.write('tbody tr:last-child td{border-bottom:0;}');
-        popup.document.write('.col-date{width:14%;} .col-vendor{width:42%;} .col-site{width:28%;} .col-amount{width:16%;}');
-        popup.document.write('.text-end{text-align:right;}');
-        popup.document.write('.amount{font-weight:700;color:#0f172a;white-space:nowrap;}');
-        popup.document.write('.doc-footer{margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;}');
-        popup.document.write('.muted{font-size:12px;color:#64748b;}');
-        popup.document.write('.total-card{min-width:260px;border:1px solid #dbe3ef;border-radius:10px;padding:10px 12px;}');
-        popup.document.write('.total-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;}');
-        popup.document.write('.total-row strong{font-size:16px;color:#0f172a;}');
-        popup.document.write('.btn{display:none!important;} a{color:inherit;text-decoration:none;}');
-        popup.document.write('@media print{body{padding:12mm 10mm;}}');
+        popup.document.write(tncBillPrintBaseCss());
+        popup.document.write('thead th{padding:10px 12px;white-space:nowrap;}');
+        popup.document.write('tbody td{padding:10px 12px;}');
+        popup.document.write('.doc-box{padding:0;}');
+        popup.document.write(tncBillPrintMediaCss());
         popup.document.write('</style></head><body>');
+        popup.document.write('<section class="print-report">');
         popup.document.write('<div class="doc-header">');
         popup.document.write('<div><h1 class="doc-title">รายงานรายการบิลซื้อ</h1><div class="doc-sub">เดือนรายงาน ' + monthValue + '</div></div>');
         popup.document.write('<div class="doc-meta">THEELIN CON CO., LTD.<br>พิมพ์เมื่อ: ' + printedAt + '</div>');
         popup.document.write('</div>');
-        popup.document.write('<div class="doc-box">');
+        popup.document.write('<div class="doc-box doc-box--flush">');
         if (!rows || rows.length === 0) {
-            popup.document.write('<div class="muted">ไม่พบรายการตามตัวกรอง</div>');
+            popup.document.write('<div class="muted" style="padding:14px;">ไม่พบรายการตามตัวกรอง</div>');
         } else {
             popup.document.write('<table>');
             popup.document.write('<thead><tr><th class="col-date">วันที่</th><th class="col-vendor">ซื้อจาก</th><th class="col-site">ไซต์</th><th class="col-amount text-end">ยอดรวม</th></tr></thead>');
@@ -1005,7 +1037,8 @@ if (!in_array($currentVatMode, ['none', 'inclusive', 'exclusive'], true)) {
             popup.document.write('</tbody></table>');
         }
         popup.document.write('</div>');
-        popup.document.write('<div class="doc-footer">');
+        popup.document.write('</section>');
+        popup.document.write('<div class="doc-footer doc-footer--split">');
         popup.document.write('<div class="muted">จำนวนบิลทั้งหมด ' + billCount.toLocaleString('en-US') + ' รายการ</div>');
         popup.document.write('<div class="total-card"><div class="total-row"><span>ยอดรวมทั้งสิ้น</span><strong>฿ ' + totalAmountText + '</strong></div></div>');
         popup.document.write('</div>');
@@ -1069,29 +1102,18 @@ if (!in_array($currentVatMode, ['none', 'inclusive', 'exclusive'], true)) {
         popup.document.write('<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>รายการบิลซื้อ (พร้อมรายละเอียด)</title>');
         popup.document.write('<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">');
         popup.document.write('<style>');
-        popup.document.write('body{font-family:Sarabun,sans-serif;padding:28px 34px;color:#1f2937;}');
-        popup.document.write('.doc-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;}');
-        popup.document.write('.doc-title{font-size:14pt;font-weight:700;margin:0;color:#0f172a;}');
-        popup.document.write('.doc-sub{font-size:12pt;color:#64748b;margin-top:4px;}');
-        popup.document.write('.doc-meta{font-size:12px;color:#475569;text-align:right;line-height:1.5;}');
-        popup.document.write('.bill-card{border:1px solid #dbe3ef;border-radius:10px;padding:12px 14px;margin-bottom:12px;}');
-        popup.document.write('.bill-head{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;font-size:9.5pt;line-height:1.35;padding-bottom:7px;border-bottom:1px solid #e5eaf3;}');
-        popup.document.write('.bill-head strong{font-weight:600;font-size:10pt;color:#0f172a;}');
-        popup.document.write('.bill-items{margin-top:8px;}');
-        popup.document.write('table{width:100%;border-collapse:collapse;font-size:11pt;}');
-        popup.document.write('thead th{background:#f8fafc;color:#334155;font-weight:700;padding:8px;border-bottom:1px solid #dbe3ef;text-align:left;}');
-        popup.document.write('tbody td{padding:7px 8px;border-bottom:1px solid #eef2f7;vertical-align:top;}');
-        popup.document.write('.col-item{white-space:nowrap;}');
-        popup.document.write('tbody tr:last-child td{border-bottom:0;}');
-        popup.document.write('.text-end{text-align:right;}');
-        popup.document.write('.doc-footer{margin-top:14px;display:flex;justify-content:flex-end;}');
-        popup.document.write('.total-card{min-width:280px;border:1px solid #dbe3ef;border-radius:10px;padding:10px 12px;}');
-        popup.document.write('.total-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;}');
-        popup.document.write('.total-row strong{font-size:16px;color:#0f172a;}');
-        popup.document.write('@media print{body{padding:10mm 8mm;}}');
+        popup.document.write(tncBillPrintBaseCss());
+        popup.document.write('.doc-title.doc-title--detail{font-size:14pt;}');
+        popup.document.write('.doc-sub.doc-sub--detail{font-size:12pt;}');
+        popup.document.write('table{font-size:11pt;}');
+        popup.document.write('thead th{padding:8px;}');
+        popup.document.write('tbody td{padding:7px 8px;}');
+        popup.document.write('.total-card{min-width:280px;}');
+        popup.document.write(tncBillPrintMediaCss());
+        popup.document.write('@media print{@page{margin:10mm 8mm;}}');
         popup.document.write('</style></head><body>');
         popup.document.write('<div class="doc-header">');
-        popup.document.write('<div><h1 class="doc-title">รายงานรายการบิลซื้อ (พร้อมรายละเอียด)</h1><div class="doc-sub">เดือนรายงาน ' + monthValue + '</div></div>');
+        popup.document.write('<div><h1 class="doc-title doc-title--detail">รายงานรายการบิลซื้อ (พร้อมรายละเอียด)</h1><div class="doc-sub doc-sub--detail">เดือนรายงาน ' + monthValue + '</div></div>');
         popup.document.write('<div class="doc-meta">THEELIN CON CO., LTD.<br>พิมพ์เมื่อ: ' + printedAt + '</div>');
         popup.document.write('</div>');
 

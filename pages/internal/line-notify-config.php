@@ -20,53 +20,6 @@ if (!user_is_admin_only_role()) {
     exit;
 }
 
-/**
- * @return list<string>
- */
-function line_notify_split_line_user_ids(string $raw): array
-{
-    $raw = trim($raw);
-    if ($raw === '') {
-        return [];
-    }
-    $out = [];
-    foreach (explode(',', $raw) as $part) {
-        $p = trim($part);
-        if ($p !== '') {
-            $out[] = $p;
-        }
-    }
-
-    return array_values(array_unique($out));
-}
-
-/**
- * @param array<int, array<string, mixed>> $userRows
- * @param list<string> $lineIds
- *
- * @return list<int>
- */
-function line_notify_internal_ids_matching_line_ids(array $userRows, array $lineIds): array
-{
-    if ($lineIds === []) {
-        return [];
-    }
-    $set = array_fill_keys($lineIds, true);
-    $out = [];
-    foreach ($userRows as $u) {
-        $lid = trim((string) ($u['user_line_id'] ?? ''));
-        if ($lid === '' || !isset($set[$lid])) {
-            continue;
-        }
-        $uid = (int) ($u['userid'] ?? 0);
-        if ($uid > 0) {
-            $out[] = $uid;
-        }
-    }
-
-    return array_values(array_unique($out));
-}
-
 $userRows = Db::tableRows('users');
 usort($userRows, static function (array $a, array $b): int {
     return strcasecmp(
@@ -81,7 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_line_notify'])) 
     if (!csrf_verify_request()) {
         $configError = 'csrf';
     } else {
-        $targetGroup = trim((string) ($_POST['target_group_id'] ?? ''));
+        $channelAccessToken = trim((string) ($_POST['channel_access_token'] ?? ''));
+        $channelSecret = trim((string) ($_POST['channel_secret'] ?? ''));
+        $botUserId = trim((string) ($_POST['bot_user_id'] ?? ''));
         $selectedRaw = $_POST['approver_userids'] ?? [];
         $selectedIds = is_array($selectedRaw) ? array_map('intval', $selectedRaw) : [];
         $selectedIds = array_values(array_unique(array_filter($selectedIds, static fn (int $id): bool => $id > 0)));
@@ -109,7 +64,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_line_notify'])) 
             $lineCfgBefore = Db::row(LINE_NOTIFY_CONFIG_TABLE, LINE_NOTIFY_CONFIG_PK);
             $approverCsv = implode(',', $lineIds);
             Db::mergeRow(LINE_NOTIFY_CONFIG_TABLE, LINE_NOTIFY_CONFIG_PK, [
-                'target_group_id' => $targetGroup === '' ? null : $targetGroup,
+                'channel_access_token' => $channelAccessToken === '' ? null : $channelAccessToken,
+                'channel_secret' => $channelSecret === '' ? null : $channelSecret,
+                'bot_user_id' => $botUserId === '' ? null : $botUserId,
                 'approver_user_id' => $approverCsv === '' ? null : $approverCsv,
                 'updated_at' => date('Y-m-d H:i:s'),
                 'updated_by' => (int) $_SESSION['user_id'],
@@ -130,22 +87,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_line_notify'])) 
     }
 }
 
-$row = line_notify_config_row();
-$formGroup = line_notify_field_string($row, 'target_group_id');
-$savedLineIds = line_notify_split_line_user_ids(line_notify_field_string($row, 'approver_user_id'));
-$formApproverUserIds = line_notify_internal_ids_matching_line_ids($userRows, $savedLineIds);
+$formChannelToken = line_notify_field('channel_access_token');
+$formChannelSecret = line_notify_field('channel_secret');
+$formBotUserId = line_notify_field('bot_user_id');
+$formApproverUserIds = line_notify_internal_ids_matching_line_ids(
+    $userRows,
+    line_notify_split_csv_ids(line_effective_approver_user_id())
+);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_line_notify']) && $configError !== '') {
-    $formGroup = trim((string) ($_POST['target_group_id'] ?? ''));
+    $formChannelToken = trim((string) ($_POST['channel_access_token'] ?? ''));
+    $formChannelSecret = trim((string) ($_POST['channel_secret'] ?? ''));
+    $formBotUserId = trim((string) ($_POST['bot_user_id'] ?? ''));
     $selectedRaw = $_POST['approver_userids'] ?? [];
     $formApproverUserIds = is_array($selectedRaw)
         ? array_values(array_unique(array_filter(array_map('intval', $selectedRaw), static fn (int $x): bool => $x > 0)))
         : [];
 }
-
-$effectiveGroup = line_effective_target_group_id();
-$effectiveApproverRaw = line_effective_approver_user_id();
-$effectiveLineIds = line_notify_split_line_user_ids($effectiveApproverRaw);
 
 /** @var list<array{id: int, name: string, code: string, lineId: string, hasLine: bool}> $usersForJs */
 $usersForJs = [];
@@ -166,18 +124,6 @@ foreach ($userRows as $u) {
         'hasLine' => $lid !== '',
     ];
 }
-
-/** สำหรับการ์ดสรุป: แต่ละ LINE user id → ชื่อพนักงาน */
-$lineIdToName = [];
-foreach ($userRows as $u) {
-    $lid = trim((string) ($u['user_line_id'] ?? ''));
-    if ($lid === '') {
-        continue;
-    }
-    $nm = trim((string) (($u['fname'] ?? '') . ' ' . ($u['lname'] ?? '')));
-    $code = trim((string) ($u['user_code'] ?? ''));
-    $lineIdToName[$lid] = $nm !== '' ? $nm : ($code !== '' ? $code : ('#' . (int) ($u['userid'] ?? 0)));
-}
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -196,77 +142,6 @@ foreach ($userRows as $u) {
             border-radius: 12px;
             box-shadow: 0 .28rem .95rem rgba(0,0,0,.055);
             background: #fff;
-        }
-        .line-summary-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: .7rem;
-        }
-        .line-summary-title {
-            display: inline-flex;
-            align-items: center;
-            gap: .55rem;
-            font-weight: 700;
-            color: #1f2937;
-        }
-        .line-icon-badge {
-            width: 1.95rem;
-            height: 1.95rem;
-            border-radius: .55rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(6, 199, 85, .12);
-            color: #06c755;
-            font-size: 1.1rem;
-        }
-        .status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: .35rem;
-            padding: .26rem .62rem;
-            border-radius: 999px;
-            font-size: .8rem;
-            font-weight: 700;
-            border: 1px solid rgba(6, 199, 85, .35);
-            color: #087f3e;
-            background: rgba(6, 199, 85, .12);
-        }
-        .status-dot {
-            width: .5rem;
-            height: .5rem;
-            border-radius: 999px;
-            background: #06c755;
-            box-shadow: 0 0 0 .14rem rgba(6, 199, 85, .25);
-        }
-        .summary-token-wrap {
-            display: flex;
-            align-items: center;
-            gap: .45rem;
-            flex-wrap: wrap;
-        }
-        .summary-token-value {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: .34rem .52rem;
-            word-break: break-all;
-        }
-        .summary-token-toggle {
-            min-height: 32px;
-            border-radius: 8px;
-            border: 1px solid #d7dce2;
-            background: #fff;
-            color: #374151;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: .25rem .55rem;
-        }
-        .summary-token-toggle:hover {
-            background: #f3f4f6;
         }
         .token-group .form-control {
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -366,7 +241,6 @@ foreach ($userRows as $u) {
         #approver-picker-list .form-check:last-child { border-bottom: none; }
         @media (max-width: 767.98px) {
             .line-shell { padding-left: .55rem; padding-right: .55rem; }
-            .line-summary-header { align-items: flex-start; flex-direction: column; }
             .token-group .btn { min-width: 42px; }
             .btn-add-approver,
             .btn-save-primary { width: 100%; }
@@ -401,19 +275,37 @@ foreach ($userRows as $u) {
                 <?php csrf_field(); ?>
                 <input type="hidden" name="save_line_notify" value="1">
 
+                <p class="text-muted small mb-3">ค่าด้านล่างบันทึกลงระบบและใช้กับ Webhook / ส่งข้อความ LINE โดยอัตโนมัติ</p>
+
                 <div class="mb-3">
-                    <label class="form-label fw-semibold" for="target_group_id">LINE Target Group Token</label>
+                    <label class="form-label fw-semibold" for="channel_access_token">Channel Access Token</label>
                     <div class="input-group token-group">
-                        <input type="password" class="form-control" id="target_group_id" name="target_group_id"
-                               value="<?= htmlspecialchars($formGroup, ENT_QUOTES, 'UTF-8') ?>"
-                               autocomplete="off" placeholder="กลุ่มรับข้อความ (ถ้ามี)">
-                        <button class="btn token-action-btn" type="button" id="btn-toggle-token" title="แสดง/ซ่อนโทเค็น" aria-label="แสดงหรือซ่อนโทเค็น">
+                        <input type="password" class="form-control" id="channel_access_token" name="channel_access_token"
+                               value="<?= htmlspecialchars($formChannelToken, ENT_QUOTES, 'UTF-8') ?>"
+                               autocomplete="off" placeholder="จาก LINE Developers Console">
+                        <button class="btn token-action-btn" type="button" data-toggle-target="channel_access_token" title="แสดง/ซ่อน" aria-label="แสดงหรือซ่อน">
                             <i class="bi bi-eye"></i>
                         </button>
-                        <button class="btn token-action-btn" type="button" id="btn-copy-token" title="คัดลอกโทเค็น" aria-label="คัดลอกโทเค็น">
-                            <i class="bi bi-clipboard"></i>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="channel_secret">Channel Secret</label>
+                    <div class="input-group token-group">
+                        <input type="password" class="form-control" id="channel_secret" name="channel_secret"
+                               value="<?= htmlspecialchars($formChannelSecret, ENT_QUOTES, 'UTF-8') ?>"
+                               autocomplete="off" placeholder="ใช้ตรวจสอบลายเซ็น Webhook">
+                        <button class="btn token-action-btn" type="button" data-toggle-target="channel_secret" title="แสดง/ซ่อน" aria-label="แสดงหรือซ่อน">
+                            <i class="bi bi-eye"></i>
                         </button>
                     </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="bot_user_id">Bot User ID <span class="text-muted fw-normal">(ไม่บังคับ)</span></label>
+                    <input type="text" class="form-control token-group" id="bot_user_id" name="bot_user_id"
+                           value="<?= htmlspecialchars($formBotUserId, ENT_QUOTES, 'UTF-8') ?>"
+                           autocomplete="off" placeholder="Uxxxxxxxx... สำหรับตรวจ @mention">
                 </div>
 
                 <div class="mb-4">
@@ -578,30 +470,16 @@ foreach ($userRows as $u) {
         }
     });
 
-    var tokenInput = document.getElementById('target_group_id');
-    var btnToggleToken = document.getElementById('btn-toggle-token');
-    var btnCopyToken = document.getElementById('btn-copy-token');
-    if (tokenInput && btnToggleToken) {
-        btnToggleToken.addEventListener('click', function () {
-            var isHidden = tokenInput.type === 'password';
-            tokenInput.type = isHidden ? 'text' : 'password';
-            btnToggleToken.innerHTML = isHidden ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+    document.querySelectorAll('[data-toggle-target]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var id = btn.getAttribute('data-toggle-target');
+            var inp = id ? document.getElementById(id) : null;
+            if (!inp) return;
+            var isHidden = inp.type === 'password';
+            inp.type = isHidden ? 'text' : 'password';
+            btn.innerHTML = isHidden ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
         });
-    }
-    if (tokenInput && btnCopyToken) {
-        btnCopyToken.addEventListener('click', async function () {
-            var value = tokenInput.value || '';
-            if (value.trim() === '') return;
-            try {
-                await navigator.clipboard.writeText(value);
-                btnCopyToken.innerHTML = '<i class="bi bi-check2"></i>';
-                setTimeout(function () { btnCopyToken.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1200);
-            } catch (e) {
-                tokenInput.select();
-                document.execCommand('copy');
-            }
-        });
-    }
+    });
 
     var formEl = document.getElementById('line-notify-form');
     var saveBtn = document.getElementById('btn-save-line-config');

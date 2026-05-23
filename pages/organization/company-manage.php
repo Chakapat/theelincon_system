@@ -13,7 +13,12 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$is_admin = user_is_admin_role();
+if (!user_is_admin_role()) {
+    header('Location: ' . app_path('index.php'));
+    exit();
+}
+
+$is_admin = true;
 
 $companies = Db::tableRows('company');
 Db::sortRows($companies, 'id', true);
@@ -227,7 +232,7 @@ function confirmDelete(id, type) {
 }
 
 function editCompany(id) {
-    fetch(`${actionHandlerUrl}?action=get_data&type=company&id=${id}`)
+    fetch(`${actionHandlerUrl}?action=get_data&type=company&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`)
     .then(res => res.json()).then(data => {
         ['id','name','tax_id','address','phone','email'].forEach(k => document.getElementById(`edit_${k}`).value = data[k]);
         document.getElementById('edit_logo_preview').innerHTML = data.logo ? `<img src="${uploadsLogosBase}${encodeURIComponent(data.logo)}" class="logo-preview border p-1 shadow-sm mb-2" style="width:100px;height:100px">` : `<div class="logo-preview mx-auto d-flex align-items-center justify-content-center border mb-2" style="width:100px;height:100px"><i class="bi bi-image fs-2"></i></div>`;

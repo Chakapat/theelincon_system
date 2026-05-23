@@ -390,26 +390,34 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                         <?php endif; ?>
 
                         <?php
-                        $pr_vat_on = (int) ($pr['vat_enabled'] ?? 0);
-                        $pr_vat = (float)($pr['vat_amount'] ?? 0);
-                        $pr_grand = (float)$pr['total_amount'];
+                        $pr_vat_on = (int) ($pr['vat_enabled'] ?? 0) === 1;
+                        $pr_vat = (float) ($pr['vat_amount'] ?? 0);
+                        $pr_grand = (float) $pr['total_amount'];
                         if (isset($pr['subtotal_amount']) && $pr['subtotal_amount'] !== null && $pr['subtotal_amount'] !== '') {
-                            $pr_sub = (float)$pr['subtotal_amount'];
+                            $pr_sub = (float) $pr['subtotal_amount'];
                         } else {
                             $pr_sub = round($pr_grand - $pr_vat, 2);
                         }
+                        $pr_vat_mode_display = trim((string) ($pr['vat_mode'] ?? 'exclusive'));
+                        if (!in_array($pr_vat_mode_display, ['exclusive', 'inclusive'], true)) {
+                            $pr_vat_mode_display = 'exclusive';
+                        }
+                        if (!function_exists('tnc_purchase_vat_print_summary')) {
+                            require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.php';
+                        }
+                        $prVatPrintFromPo = tnc_purchase_vat_print_summary($pr_vat_on, $pr_vat_mode_display, $pr_sub, $pr_vat, $pr_grand);
                         ?>
                         <?php if ($requestType !== 'hire'): ?>
                         <div class="po-panel mb-4">
                             <div class="small fw-semibold text-secondary text-uppercase mb-2" style="letter-spacing:0.06em;">สรุปยอดจากใบขอซื้อ</div>
-                            <div class="d-flex justify-content-between align-items-center py-1"><span class="text-secondary">ยอดรายการ (ก่อน VAT)</span><strong><?= number_format($pr_sub, 2) ?> บาท</strong></div>
-                            <?php if ($pr_vat_on): ?>
-                            <div class="d-flex justify-content-between align-items-center py-1 text-success"><span>VAT 7%</span><strong><?= number_format($pr_vat, 2) ?> บาท</strong></div>
+                            <div class="d-flex justify-content-between align-items-center py-1"><span class="text-secondary">ยอดรายการ</span><strong><?= number_format((float) $prVatPrintFromPo['line_amount'], 2) ?> บาท</strong></div>
+                            <?php if ($pr_vat_on && (float) $prVatPrintFromPo['vat_amount'] > 0): ?>
+                            <div class="d-flex justify-content-between align-items-center py-1 text-success"><span><?= htmlspecialchars((string) $prVatPrintFromPo['vat_label'], ENT_QUOTES, 'UTF-8') ?></span><strong><?= number_format((float) $prVatPrintFromPo['vat_amount'], 2) ?> บาท</strong></div>
                             <?php else: ?>
                             <div class="text-muted small py-1">ไม่รวม VAT</div>
                             <?php endif; ?>
                             <hr class="my-2 border-secondary-subtle">
-                            <div class="d-flex justify-content-between align-items-center"><span class="fw-bold">ยอดรวมสุทธิ</span><strong class="fs-5 text-primary"><?= number_format($pr_grand, 2) ?> บาท</strong></div>
+                            <div class="d-flex justify-content-between align-items-center"><span class="fw-bold">ยอดสุทธิ</span><strong class="fs-5 text-primary"><?= number_format((float) $prVatPrintFromPo['net_amount'], 2) ?> บาท</strong></div>
                         </div>
                         <?php if ($pr_needs_price_fix && count($pr_items_for_edit) > 0): ?>
                         <div class="alert alert-warning border-0 py-2 px-3 small mb-4 mb-md-0">
@@ -459,8 +467,8 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                                 </div>
                                             </div>
                                             <div class="col-md-6 text-md-end small text-muted align-self-end">
-                                                <div><span id="pr_fix_subtotal_label">ยอดรายการ (ก่อน VAT):</span> <span id="pr_fix_subtotal_display" class="fw-semibold text-dark">0.00</span> บาท</div>
-                                                <div id="pr_fix_vat_row" class="mb-1<?= $pr_fix_vat_on ? '' : ' d-none' ?>"><span>VAT 7%:</span> <span id="pr_fix_vat_display" class="fw-semibold text-success">0.00</span> บาท</div>
+                                                <div><span id="pr_fix_subtotal_label">ยอดรายการ:</span> <span id="pr_fix_subtotal_display" class="fw-semibold text-dark">0.00</span> บาท</div>
+                                                <div id="pr_fix_vat_row" class="mb-1<?= $pr_fix_vat_on ? '' : ' d-none' ?>"><span id="pr_fix_vat_label">ภาษีมูลค่าเพิ่ม:</span> <span id="pr_fix_vat_display" class="fw-semibold text-success">0.00</span> บาท</div>
                                                 <div class="fs-6 fw-bold text-primary mt-1">ยอดรวมสุทธิ: <span id="pr_fix_grand_total">0.00</span> บาท</div>
                                                 <input type="hidden" name="total_amount" id="pr_fix_total_amount_input" value="0">
                                             </div>
@@ -751,6 +759,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
     const vatModeWrap = document.getElementById('pr_fix_vat_mode_wrap');
     const subtotalDisplay = document.getElementById('pr_fix_subtotal_display');
     const subtotalLabel = document.getElementById('pr_fix_subtotal_label');
+    const vatLabel = document.getElementById('pr_fix_vat_label');
     const vatRow = document.getElementById('pr_fix_vat_row');
     const vatDisplay = document.getElementById('pr_fix_vat_display');
     const grandTotalEl = document.getElementById('pr_fix_grand_total');
@@ -822,12 +831,19 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
             }
         }
         if (subtotalLabel) {
-            subtotalLabel.textContent = vatOn && vatMode === 'inclusive'
-                ? 'ยอดก่อน VAT (คำนวณจากราคารวม):'
-                : 'ยอดรายการ (ก่อน VAT):';
+            subtotalLabel.textContent = 'ยอดรายการ:';
+        }
+        if (vatLabel) {
+            if (!vatOn) {
+                vatLabel.textContent = 'ภาษีมูลค่าเพิ่ม:';
+            } else if (vatMode === 'inclusive') {
+                vatLabel.textContent = 'ภาษีมูลค่าเพิ่มในราคาสินค้า:';
+            } else {
+                vatLabel.textContent = 'ภาษีมูลค่าเพิ่มแยกจากราคาสินค้า:';
+            }
         }
         if (subtotalDisplay) {
-            subtotalDisplay.textContent = subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            subtotalDisplay.textContent = lineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
         if (vatRow) {
             vatRow.classList.toggle('d-none', !vatOn);

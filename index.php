@@ -77,8 +77,6 @@ if (isset($_GET['ajax_search'])) {
     exit;
 }
 
-$stats = Portal::invoiceSummary();
-
 /** เมนูหมวดซ้ายหน้าแรก: true = ปิดทุกหมวดตอนโหลดเสมอ, false = เปิดหมวด «ข้อมูลหลัก» ไว้ */
 $index_hub_start_all_collapsed = true;
 ?>
@@ -365,9 +363,9 @@ $index_hub_start_all_collapsed = true;
         }
         /* เลขที่ใบแจ้งหนี้: สถานะใบกำกับภาษี */
         .inv-badge-tax-pending {
-            background-color: rgba(220, 53, 69, 0.14);
-            color: #b02a37;
-            border: 1px solid rgba(220, 53, 69, 0.4);
+            background-color: rgba(255, 193, 7, 0.22);
+            color: #856404;
+            border: 1px solid rgba(255, 193, 7, 0.55);
             font-weight: 600;
         }
         .inv-badge-tax-issued {
@@ -888,7 +886,6 @@ $index_hub_start_all_collapsed = true;
                     <div class="home-hub-panel-inner pb-1">
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cart-plus me-2 text-secondary"></i>ใบขอซื้อ (Purchase Request)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-bag-check me-2 text-secondary"></i>ใบสั่งซื้อ (Purchase Order)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/quotations/quotation-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-ui-checks me-2 text-secondary"></i>ใบเสนอราคา (Quotation)</a>
                     </div>
                 </div>
             </div>
@@ -931,35 +928,6 @@ $index_hub_start_all_collapsed = true;
 
     <main class="col-lg-8 col-xl-9 index-main-col order-2 order-lg-2 min-w-0" id="main-content">
     <div class="index-dashboard-block">
-    <div class="row g-4 mb-4">
-        <div class="col-md-4">
-            <div class="card card-stats border-0 shadow-sm p-4">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 bg-white text-warning p-3 rounded-3 border" style="border-color: rgba(0,0,0,0.06) !important;">
-                        <i class="bi bi-file-earmark-text fs-3"></i>
-                    </div>
-                    <div class="ms-3">
-                        <div class="index-stat-label mb-1">จำนวนใบแจ้งหนี้ทั้งหมด</div>
-                        <div class="index-stat-value text-dark"><?= number_format($stats['total_count']) ?></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-8">
-            <div class="card card-stats border-0 shadow-sm p-4" style="border-left-color: rgba(25, 135, 84, 0.35) !important;">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 bg-white text-success p-3 rounded-3 border" style="border-color: rgba(0,0,0,0.06) !important;">
-                        <i class="bi bi-wallet2 fs-3"></i>
-                    </div>
-                    <div class="ms-3 min-w-0">
-                        <div class="index-stat-label mb-1 text-truncate" title="ผลรวมยอดสุทธิจากใบแจ้งหนี้ทั้งหมดในระบบ">ยอดสุทธิรวม <span class="fw-normal text-lowercase" style="letter-spacing:0;">(ใบแจ้งหนี้ในระบบ)</span></div>
-                        <div class="index-stat-value text-success" id="indexFinalNetSum" data-target="<?= htmlspecialchars((string) ($stats['final_net_sum'] ?? 0), ENT_QUOTES, 'UTF-8') ?>">฿0.00</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="card index-table-card border-0 shadow-sm overflow-hidden mb-0 bg-white">
         <div class="card-header bg-white border-bottom py-3 px-3 px-md-4">
             <div class="row align-items-center g-3">
@@ -1078,6 +1046,7 @@ function refreshInvoiceDataTable() {
         return;
     }
     TncLiveDT.init('#invoice_table', {
+        pageLength: 5,
         order: [],
         dom: 'lrtip',
         columnDefs: [{ orderable: false, targets: [0, 4] }]
@@ -1340,48 +1309,9 @@ function indexMoveMenuToNavbarOnMobile() {
     }
 }
 
-function indexAnimateCurrencyCountUp() {
-    var el = document.getElementById('indexFinalNetSum');
-    if (!el) return;
-    var target = Number(el.getAttribute('data-target') || '0');
-    if (!Number.isFinite(target)) {
-        el.textContent = '฿0.00';
-        return;
-    }
-
-    var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) {
-        el.textContent = '฿' + target.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        return;
-    }
-
-    var duration = 1200;
-    var start = null;
-    var from = 0;
-    var diff = target - from;
-
-    function render(v) {
-        el.textContent = '฿' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-
-    function step(ts) {
-        if (start === null) start = ts;
-        var p = Math.min((ts - start) / duration, 1);
-        var eased = 1 - Math.pow(1 - p, 3);
-        render(from + (diff * eased));
-        if (p < 1) {
-            requestAnimationFrame(step);
-        } else {
-            render(target);
-        }
-    }
-    requestAnimationFrame(step);
-}
-
 window.onload = () => {
     indexMoveMenuToNavbarOnMobile();
     indexMarkSidebarActive();
-    indexAnimateCurrencyCountUp();
     var si = document.getElementById('search_invoice');
     loadTable(si ? si.value : '');
     const params = new URLSearchParams(window.location.search);

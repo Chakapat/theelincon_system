@@ -65,8 +65,6 @@ if (!in_array($editVatMode, ['exclusive', 'inclusive'], true)) {
     $editVatMode = 'exclusive';
 }
 $editRequestedBy = $isEdit ? (int) ($editPr['requested_by'] ?? $uid) : $uid;
-$quotationPathExisting = $isEdit ? trim((string) ($editPr['quotation_attachment_path'] ?? '')) : '';
-$quotationNameExisting = $isEdit ? trim((string) ($editPr['quotation_attachment_name'] ?? '')) : '';
 $hireContractorEdit = $isEdit ? trim((string) ($editPr['contractor_name'] ?? ($editPr['hire_contractor_name'] ?? ''))) : '';
 $hireValueEdit = $isEdit ? (float) ($editPr['contract_value'] ?? ($editPr['hire_total_value'] ?? 0)) : 0.0;
 $hireInstallEdit = $isEdit ? (int) ($editPr['installment_total'] ?? ($editPr['hire_installment_count'] ?? 1)) : 1;
@@ -259,10 +257,6 @@ usort($sites, static function (array $a, array $b): int {
             background: #fff7ed;
             border-color: var(--pr-brand);
             color: var(--pr-brand);
-        }
-        .pr-quotation-card .form-check-label {
-            font-weight: 600;
-            color: #334155;
         }
         /* VAT selection — compact card, toggle + dropdown inline when space allows */
         .pr-vat-inline-box {
@@ -516,8 +510,8 @@ usort($sites, static function (array $a, array $b): int {
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-1">
             <h1 class="pr-page-title mb-0"><i class="bi bi-cart-plus-fill text-warning me-2"></i><?= $isEdit ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)' ?></h1>
             <div class="d-flex flex-wrap gap-2">
-                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-pr-cancel">ยกเลิก</a>
-                <button type="submit" class="btn btn-pr-primary" <?= count($sites) === 0 ? 'disabled' : '' ?>><?= $isEdit ? 'บันทึกการแก้ไข' : 'บันทึกใบขอซื้อ' ?></button>
+                <button type="submit" class="btn btn-pr-primary" <?= count($sites) === 0 ? 'disabled' : '' ?>><i class="bi bi-save me-1"></i>บันทึกใบขอซื้อ</button>
+                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-danger rounded-pill fw-semibold px-4"><i class="bi bi-x-circle me-1"></i>ยกเลิก</a>
             </div>
         </div>
 
@@ -580,30 +574,6 @@ usort($sites, static function (array $a, array $b): int {
                         <div class="col-12">
                             <label class="pr-field-label" id="details_label">รายละเอียด/วัตถุประสงค์</label>
                             <textarea name="details" id="details_textarea" class="form-control form-control-sm" rows="2"><?= htmlspecialchars($editDetails, ENT_QUOTES, 'UTF-8') ?></textarea>
-                        </div>
-                        <div class="col-12 <?= $requestTypeVal === 'purchase' ? 'd-none' : '' ?>" id="pr_quotation_slot_top_wrap">
-                            <div id="pr_quotation_slot_top">
-                                <?php if ($requestTypeVal === 'hire'): ?>
-                                <div id="pr_quotation_inner">
-                                    <?php if ($isEdit && $quotationPathExisting !== ''): ?>
-                                        <div class="small text-muted mb-1" style="font-size:0.8rem;">ไฟล์แนบปัจจุบัน: <?= htmlspecialchars($quotationNameExisting !== '' ? $quotationNameExisting : basename($quotationPathExisting), ENT_QUOTES, 'UTF-8') ?> — เลือกไฟล์ใหม่ด้านล่างเพื่อแทนที่</div>
-                                    <?php endif; ?>
-                                    <div class="form-check mb-1">
-                                        <input class="form-check-input" type="checkbox" value="1" id="quotation_attach" name="quotation_attach"<?= ($isEdit && $quotationPathExisting !== '') ? ' checked' : '' ?>>
-                                    </div>
-                                    <div id="quotation_upload_wrap" class="d-none">
-                                        <input
-                                            type="file"
-                                            name="quotation_file"
-                                            id="quotation_file"
-                                            class="form-control form-control-sm"
-                                            accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff"
-                                            disabled
-                                        >
-                                    </div>
-                                </div>
-                                <?php endif; ?>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -718,31 +688,6 @@ usort($sites, static function (array $a, array $b): int {
             </div>
         </div>
 
-        <div class="pr-card pr-quotation-card mt-3 <?= $requestTypeVal === 'hire' ? 'd-none' : '' ?>" id="pr_quotation_purchase_card">
-            <div id="pr_quotation_slot_bottom">
-                <?php if ($requestTypeVal === 'purchase'): ?>
-                <div id="pr_quotation_inner">
-                    <?php if ($isEdit && $quotationPathExisting !== ''): ?>
-                        <div class="small text-muted mb-2">ไฟล์แนบปัจจุบัน: <?= htmlspecialchars($quotationNameExisting !== '' ? $quotationNameExisting : basename($quotationPathExisting), ENT_QUOTES, 'UTF-8') ?> — เลือกไฟล์ใหม่ด้านล่างเพื่อแทนที่</div>
-                    <?php endif; ?>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" value="1" id="quotation_attach" name="quotation_attach"<?= ($isEdit && $quotationPathExisting !== '') ? ' checked' : '' ?>>
-                        <label class="form-check-label fw-bold" for="quotation_attach">มีใบเสนอราคา</label>
-                    </div>
-                    <div id="quotation_upload_wrap" class="d-none">
-                        <input
-                            type="file"
-                            name="quotation_file"
-                            id="quotation_file"
-                            class="form-control"
-                            accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff"
-                            disabled
-                        >
-                    </div>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
     </form>
 
 </div>
@@ -886,11 +831,6 @@ function toggleRequestTypeFields() {
     const detailsLabel = document.getElementById('details_label');
     const detailsTextarea = document.getElementById('details_textarea');
     const requestDateLabel = document.getElementById('request_date_label');
-    const prQuotationInner = document.getElementById('pr_quotation_inner');
-    const prQuotationSlotTop = document.getElementById('pr_quotation_slot_top');
-    const prQuotationSlotBottom = document.getElementById('pr_quotation_slot_bottom');
-    const prQuotationTopWrap = document.getElementById('pr_quotation_slot_top_wrap');
-    const prQuotationPurchaseCard = document.getElementById('pr_quotation_purchase_card');
     if (!requestTypeEl || !hireWrap || !contractorName || !contractValue || !installmentTotal || !itemTableCard || !detailsLabel || !detailsTextarea || !requestDateLabel) {
         return;
     }
@@ -919,17 +859,6 @@ function toggleRequestTypeFields() {
         input.disabled = isHire;
     });
 
-    if (prQuotationInner && prQuotationSlotTop && prQuotationSlotBottom && prQuotationTopWrap && prQuotationPurchaseCard) {
-        if (isHire) {
-            prQuotationTopWrap.classList.remove('d-none');
-            prQuotationPurchaseCard.classList.add('d-none');
-            prQuotationSlotTop.appendChild(prQuotationInner);
-        } else {
-            prQuotationTopWrap.classList.add('d-none');
-            prQuotationPurchaseCard.classList.remove('d-none');
-            prQuotationSlotBottom.appendChild(prQuotationInner);
-        }
-    }
 }
 
 document.getElementById('request_type')?.addEventListener('change', function () {
@@ -976,25 +905,6 @@ document.getElementById('request_type')?.addEventListener('change', function () 
 document.addEventListener('DOMContentLoaded', calculateTotal);
 document.addEventListener('DOMContentLoaded', toggleRequestTypeFields);
 
-(function () {
-    const cb = document.getElementById('quotation_attach');
-    const wrap = document.getElementById('quotation_upload_wrap');
-    const file = document.getElementById('quotation_file');
-    function syncQuotationUpload() {
-        const on = cb && cb.checked;
-        if (wrap) {
-            wrap.classList.toggle('d-none', !on);
-        }
-        if (file) {
-            file.disabled = !on;
-            if (!on) {
-                file.value = '';
-            }
-        }
-    }
-    cb?.addEventListener('change', syncQuotationUpload);
-    document.addEventListener('DOMContentLoaded', syncQuotationUpload);
-})();
 </script>
 </body>
 </html>

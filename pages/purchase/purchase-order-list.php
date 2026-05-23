@@ -267,18 +267,10 @@ foreach ($po_rows_display as $sumRow) {
         <h2 class="fw-bold mb-0"><i class="bi bi-file-earmark-check-fill text-primary"></i>รายการใบสั่งซื้อ (Purchase orders List)</h2>
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <div class="dropdown">
-                <button class="btn btn-primary rounded-pill px-4 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-plus-lg"></i> สร้างใบสั่งซื้อใหม่
-                </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-sm">
                     <li>
-                        <a class="dropdown-item" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php')) ?>">
-                            <i class="bi bi-file-earmark-plus me-1"></i> สร้างใบสั่งซื้อโดยตรง
-                        </a>
-                    </li>
-                    <li>
                         <a class="dropdown-item" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php')) ?>">
-                            <i class="bi bi-link-45deg me-1"></i> สร้างใบสั่งซื้อจากใบขอซื้อ
+                            <i class="bi bi-link-45deg me-1"></i> เลือกใบขอซื้อเพื่อสร้าง PO
                         </a>
                     </li>
                 </ul>
@@ -301,8 +293,7 @@ foreach ($po_rows_display as $sumRow) {
                             <label class="form-label small text-muted mb-1 text-nowrap">ค้นหาตามช่วงวันที่</label>
                             <select name="po_filter" id="poFilterType" class="form-select form-select-sm" style="min-width: 7.5rem;" aria-label="ประเภทตัวกรอง">
                                 <option value="all" <?= $poFilterType === 'all' ? 'selected' : '' ?>>ทั้งหมด</option>
-                                <option value="day" <?= $poFilterType === 'day' ? 'selected' : '' ?>>รายวัน</option>
-                                <option value="month" <?= $poFilterType === 'month' ? 'selected' : '' ?>>รายเดือน</option>
+                                <option value="day" <?= $poFilterType === 'day' ? 'selected' : '' ?>>เลือกวันที่</option>
                             </select>
                         </div>
                         <div class="col-auto po-filter-day-wrap" style="<?= $poFilterType === 'day' ? '' : 'display:none;' ?>">

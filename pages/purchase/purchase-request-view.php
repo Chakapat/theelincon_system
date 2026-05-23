@@ -383,11 +383,11 @@ extract($prCtx, EXTR_OVERWRITE);
                     </a>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light border rounded-pill px-3">รายการ PO</a>
                 <?php elseif ($requestType !== 'hire'): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary rounded-pill px-4 shadow-sm" title="คีย์ลัด: Ctrl+Shift+G">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary rounded-pill px-4 shadow-sm" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-file-earmark-plus me-1"></i>สร้างใบสั่งซื้อ (PO)
                     </a>
                 <?php else: ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary rounded-pill px-3 shadow-sm" title="คีย์ลัด: Ctrl+Shift+G">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary rounded-pill px-3 shadow-sm" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-file-earmark-plus me-1"></i>ออก PO / สั่งจ่าย
                     </a>
                     <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-view.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-outline-secondary rounded-pill px-3">

@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/line_notify_runtime.php';
-require_once __DIR__ . '/../includes/line_petty_cash_webhook_shared.php';
-require_once __DIR__ . '/../includes/tnc_audit_log.php';
-
-use Theelincon\Rtdb\Db;
 
 header('Content-Type: application/json; charset=UTF-8');
 
@@ -24,7 +20,7 @@ function line_is_mention_to_bot(array $event): bool
     $text = (string) ($message['text'] ?? '');
     $mention = $message['mention'] ?? null;
     if (is_array($mention) && isset($mention['mentionees']) && is_array($mention['mentionees'])) {
-        $botUserId = (string) (defined('LINE_BOT_USER_ID') ? LINE_BOT_USER_ID : '');
+        $botUserId = line_effective_bot_user_id();
         foreach ($mention['mentionees'] as $m) {
             if (!is_array($m)) {
                 continue;
@@ -38,38 +34,7 @@ function line_is_mention_to_bot(array $event): bool
         }
     }
 
-    // Fallback text check for clients where mention metadata is missing.
     return mb_strpos($text, '@') !== false;
-}
-
-function line_reply_text(string $channelToken, string $replyToken, string $text): void
-{
-    if ($replyToken === '' || $channelToken === '') {
-        return;
-    }
-    $payload = [
-        'replyToken' => $replyToken,
-        'messages' => [[
-            'type' => 'text',
-            'text' => $text,
-        ]],
-    ];
-    $ch = curl_init('https://api.line.me/v2/bot/message/reply');
-    if ($ch === false) {
-        return;
-    }
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $channelToken,
-        ],
-        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
-        CURLOPT_TIMEOUT => 10,
-    ]);
-    curl_exec($ch);
-    curl_close($ch);
 }
 
 $rawBody = file_get_contents('php://input');
@@ -80,7 +45,7 @@ if ($rawBody === false) {
 }
 
 $lineSignature = (string) ($_SERVER['HTTP_X_LINE_SIGNATURE'] ?? '');
-$channelSecret = (string) LINE_MESSAGING_CHANNEL_SECRET;
+$channelSecret = line_effective_channel_secret();
 
 if ($channelSecret === '') {
     http_response_code(500);
@@ -104,17 +69,6 @@ if (!is_array($payload)) {
 
 $events = $payload['events'] ?? [];
 $capturedSources = [];
-$channelToken = (string) LINE_MESSAGING_CHANNEL_ACCESS_TOKEN;
-$onlyApproverRaw = trim(line_effective_approver_user_id());
-$onlyApproverUserIds = [];
-if ($onlyApproverRaw !== '') {
-    $parts = array_map('trim', explode(',', $onlyApproverRaw));
-    foreach ($parts as $part) {
-        if ($part !== '') {
-            $onlyApproverUserIds[] = $part;
-        }
-    }
-}
 if (is_array($events)) {
     foreach ($events as $event) {
         if (!is_array($event)) {
@@ -130,84 +84,10 @@ if (is_array($events)) {
         $roomId = isset($source['roomId']) ? trim((string) $source['roomId']) : '';
         $sourceType = (string) ($source['type'] ?? '');
         $eventType = (string) ($event['type'] ?? '');
-        $replyToken = (string) ($event['replyToken'] ?? '');
 
-        // คำสั่งรายงานสดย่อย: ไม่บังคับ @mention ในกลุ่ม (ต่างจากข้อความทั่วไป)
-        if ($eventType === 'message') {
-            $msgPc = $event['message'] ?? null;
-            if (is_array($msgPc) && (string) ($msgPc['type'] ?? '') === 'text') {
-                $textPc = trim((string) ($msgPc['text'] ?? ''));
-                if ($textPc !== '' && line_petty_cash_message_requests_report($textPc)) {
-                    if (function_exists('date_default_timezone_set')) {
-                        @date_default_timezone_set('Asia/Bangkok');
-                    }
-                    line_petty_cash_handle_text_command($channelToken, $replyToken, $source, $userId, $textPc);
-                    continue;
-                }
-            }
-        }
-
-        // Group/room mode: only process text messages that mention the bot.
         if (($sourceType === 'group' || $sourceType === 'room') && $eventType === 'message') {
             if (!line_is_mention_to_bot($event)) {
                 continue;
-            }
-        }
-
-        // Handle approval decisions from Flex postback.
-        if ($eventType === 'postback') {
-            $postback = $event['postback'] ?? null;
-            $postbackData = is_array($postback) ? trim((string) ($postback['data'] ?? '')) : '';
-            if ($postbackData !== '') {
-                parse_str($postbackData, $pb);
-                $pbAction = (string) ($pb['action'] ?? '');
-                if ($pbAction === 'line_quote_decision') {
-                    $pbId = (int) ($pb['id'] ?? 0);
-                    $pbDecision = (string) ($pb['decision'] ?? '');
-                    $pbToken = trim((string) ($pb['token'] ?? ''));
-
-                    if (count($onlyApproverUserIds) > 0 && !in_array($userId, $onlyApproverUserIds, true)) {
-                        line_reply_text($channelToken, $replyToken, 'ไม่มีสิทธิ์อนุมัติรายการนี้');
-                        continue;
-                    }
-
-                    $quote = Db::rowByIdField('quotations', $pbId);
-                    $ok = $quote !== null
-                        && $pbToken !== ''
-                        && hash_equals((string) ($quote['line_approval_token'] ?? ''), $pbToken)
-                        && (string) ($quote['status'] ?? '') === 'pending'
-                        && in_array($pbDecision, ['approve', 'reject'], true);
-
-                    if ($ok) {
-                        $nextStatus = $pbDecision === 'approve' ? 'approved' : 'rejected';
-                        $qpk = Db::pkForLogicalId('quotations', $pbId);
-                        $cur = Db::row('quotations', $qpk) ?? [];
-                        $quoteBefore = $cur;
-                        Db::setRow('quotations', $qpk, array_merge($cur, [
-                            'status' => $nextStatus,
-                            'line_decision' => $pbDecision,
-                            'line_decided_at' => date('Y-m-d H:i:s'),
-                            'line_decided_by_line_user_id' => $userId,
-                            'line_approval_token' => '',
-                        ]));
-                        $quoteAfter = Db::row('quotations', $qpk);
-                        $qNoW = $quoteAfter !== null ? trim((string) ($quoteAfter['quote_number'] ?? '')) : '';
-                        tnc_audit_log('update', 'quotation', (string) $pbId, $qNoW !== '' ? $qNoW : ('QT #' . $pbId), [
-                            'source' => 'line-webhook',
-                            'action' => 'line_quote_decision_postback',
-                            'before' => $quoteBefore,
-                            'after' => $quoteAfter,
-                            'meta' => [
-                                'decision' => $pbDecision,
-                                'line_user_id' => $userId,
-                            ],
-                        ]);
-                        line_reply_text($channelToken, $replyToken, 'บันทึกผลใบเสนอราคาเรียบร้อย: ' . strtoupper($nextStatus));
-                    } else {
-                        line_reply_text($channelToken, $replyToken, 'ไม่สามารถดำเนินการได้ (ลิงก์หมดอายุหรือมีการตัดสินใจไปแล้ว)');
-                    }
-                    continue;
-                }
             }
         }
 
@@ -238,7 +118,6 @@ if (is_file($logPath)) {
     }
 }
 
-// Upsert records by identity so file does not grow on every message.
 $indexByKey = [];
 foreach ($existing as $idx => $row) {
     if (!is_array($row)) {
@@ -279,4 +158,3 @@ echo json_encode([
     'ok' => true,
     'captured_count' => count($capturedSources),
 ], JSON_UNESCAPED_UNICODE);
-

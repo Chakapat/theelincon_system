@@ -145,6 +145,17 @@ function tnc_purchase_po_print_prepare(int $id): ?array
     $po_vat_enabled = (int) ($data['vat_enabled'] ?? 0);
     $po_vat_amount = (float) ($data['vat_amount'] ?? 0);
     $po_grand_total = (float) $data['total_amount'];
+    $poVatMode = trim((string) ($data['vat_mode'] ?? ''));
+    if (!in_array($poVatMode, ['exclusive', 'inclusive'], true)) {
+        if ($po_vat_enabled && is_array($pr)) {
+            $poVatMode = trim((string) ($pr['vat_mode'] ?? 'exclusive'));
+        } else {
+            $poVatMode = 'exclusive';
+        }
+        if (!in_array($poVatMode, ['exclusive', 'inclusive'], true)) {
+            $poVatMode = 'exclusive';
+        }
+    }
     $issueDate = (string) ($data['issue_date'] ?? '');
     if (trim($issueDate) === '') {
         $issueDate = (string) ($data['created_at'] ?? '');
@@ -158,6 +169,16 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         $po_subtotal = round($po_grand_total - $po_vat_amount, 2);
     }
     $po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_amount'] : ($po_subtotal + $po_vat_amount));
+    if (!function_exists('tnc_purchase_vat_print_summary')) {
+        require_once __DIR__ . '/vat_print_summary.php';
+    }
+    $poVatPrint = tnc_purchase_vat_print_summary(
+        $po_vat_enabled === 1,
+        $poVatMode,
+        $po_subtotal,
+        $po_vat_amount,
+        $po_grand_total
+    );
     $poStatus = strtolower(trim((string) ($data['status'] ?? 'ordered')));
     $isPoCancelled = ($poStatus === 'cancelled');
 
@@ -183,6 +204,8 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         'poNoteQt' => $poNoteQt,
         'poSiteDisplay' => $poSiteDisplay,
         'po_vat_enabled' => $po_vat_enabled,
+        'poVatMode' => $poVatMode,
+        'poVatPrint' => $poVatPrint,
         'po_vat_amount' => $po_vat_amount,
         'po_grand_total' => $po_grand_total,
         'po_subtotal' => $po_subtotal,

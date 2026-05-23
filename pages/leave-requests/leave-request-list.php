@@ -144,7 +144,7 @@ Db::sortRows($allRows, 'created_at', true);
                                     <i class="bi bi-eye-fill"></i>
                                 </a>
                                 <?php if ($isAdmin): ?>
-                                    <a href="<?= htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-8') ?>?action=delete_leave_request&id=<?= (int) ($row['id'] ?? 0) ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger" title="ลบใบลา" onclick="return confirm('ยืนยันการลบใบลา <?= htmlspecialchars((string) ($row['leave_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?> ?');">
+                                    <a href="<?= htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-8') ?>?action=delete_leave_request&amp;id=<?= (int) ($row['id'] ?? 0) ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger tnc-delete-post" title="ลบใบลา (ต้องใส่รหัสผ่าน)">
                                         <i class="bi bi-trash-fill"></i>
                                     </a>
                                 <?php endif; ?>
@@ -161,6 +161,8 @@ Db::sortRows($allRows, 'created_at', true);
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-delete-confirm.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
 </body>
 </html>
 

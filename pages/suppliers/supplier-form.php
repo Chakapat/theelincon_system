@@ -108,10 +108,10 @@ if ($id > 0) {
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label">เบอร์โทรศัพท์ <span class="text-danger">*</span></label>
+                            <label class="form-label">เบอร์โทรศัพท์</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-telephone"></i></span>
-                                <input type="text" name="phone" class="form-control" value="<?= htmlspecialchars($supplier['phone']) ?>" required placeholder="0XX-XXX-XXXX">
+                                <input type="text" name="phone" class="form-control" value="<?= htmlspecialchars($supplier['phone']) ?>" placeholder="012-345-6789">
                             </div>
                         </div>
 

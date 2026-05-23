@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+/**
+ * ค่า LINE ทั้งระบบ — โหลดจาก RTDB line_notify_config/default (ตั้งค่าที่ line-notify-config.php)
+ */
+
 require_once __DIR__ . '/../config/connect_database.php';
-require_once __DIR__ . '/../config/line_settings.php';
 
 use Theelincon\Rtdb\Db;
 
-/** แถวเดียวใต้ theelincon_mirror/line_notify_config/default */
 const LINE_NOTIFY_CONFIG_TABLE = 'line_notify_config';
 const LINE_NOTIFY_CONFIG_PK = 'default';
 
@@ -30,28 +32,85 @@ function line_notify_config_row(): array
     return $cached;
 }
 
-/**
- * ค่าจาก RTDB เท่านั้น — null / ว่าง = ไม่มีการตั้งค่า (ไม่ fallback ไปที่ไฟล์).
- */
-function line_notify_field_string(array $row, string $key): string
+function line_notify_field(string $key): string
 {
-    if (!array_key_exists($key, $row)) {
-        return '';
-    }
-    $v = $row[$key];
-    if ($v === null) {
+    $row = line_notify_config_row();
+    if (!array_key_exists($key, $row) || $row[$key] === null) {
         return '';
     }
 
-    return trim((string) $v);
+    return trim((string) $row[$key]);
 }
 
-function line_effective_target_group_id(): string
+function line_effective_channel_access_token(): string
 {
-    return line_notify_field_string(line_notify_config_row(), 'target_group_id');
+    return line_notify_field('channel_access_token');
+}
+
+function line_effective_channel_secret(): string
+{
+    return line_notify_field('channel_secret');
+}
+
+function line_effective_bot_user_id(): string
+{
+    return line_notify_field('bot_user_id');
 }
 
 function line_effective_approver_user_id(): string
 {
-    return line_notify_field_string(line_notify_config_row(), 'approver_user_id');
+    return line_notify_field('approver_user_id');
+}
+
+/** @return list<string> LINE userId ของผู้อนุมัติ (คั่นด้วย comma ใน DB) */
+function line_notify_approver_line_user_ids(): array
+{
+    return line_notify_split_csv_ids(line_effective_approver_user_id());
+}
+
+/**
+ * @return list<string>
+ */
+function line_notify_split_csv_ids(string $raw): array
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return [];
+    }
+    $out = [];
+    foreach (preg_split('/\s*,\s*/', $raw) ?: [] as $part) {
+        $p = trim((string) $part);
+        if ($p !== '') {
+            $out[] = $p;
+        }
+    }
+
+    return array_values(array_unique($out));
+}
+
+/**
+ * @param array<int, array<string, mixed>> $userRows
+ * @param list<string> $lineIds
+ *
+ * @return list<int>
+ */
+function line_notify_internal_ids_matching_line_ids(array $userRows, array $lineIds): array
+{
+    if ($lineIds === []) {
+        return [];
+    }
+    $set = array_fill_keys($lineIds, true);
+    $out = [];
+    foreach ($userRows as $u) {
+        $lid = trim((string) ($u['user_line_id'] ?? ''));
+        if ($lid === '' || !isset($set[$lid])) {
+            continue;
+        }
+        $uid = (int) ($u['userid'] ?? 0);
+        if ($uid > 0) {
+            $out[] = $uid;
+        }
+    }
+
+    return array_values(array_unique($out));
 }

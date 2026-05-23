@@ -76,6 +76,14 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         $ps = round($pg - $pv, 2);
     }
     $vatOn = (int) ($pr['vat_enabled'] ?? 0) === 1;
+    $vatMode = trim((string) ($pr['vat_mode'] ?? 'exclusive'));
+    if (!in_array($vatMode, ['exclusive', 'inclusive'], true)) {
+        $vatMode = 'exclusive';
+    }
+    if (!function_exists('tnc_purchase_vat_print_summary')) {
+        require_once __DIR__ . '/vat_print_summary.php';
+    }
+    $vatPrint = tnc_purchase_vat_print_summary($vatOn, $vatMode, $ps, $pv, $pg);
 
     $siteDisplay = trim((string) ($pr['site_name'] ?? ''));
     $siteIdPr = (int) ($pr['site_id'] ?? 0);
@@ -127,6 +135,8 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         'pg' => $pg,
         'ps' => $ps,
         'vatOn' => $vatOn,
+        'vatMode' => $vatMode,
+        'vatPrint' => $vatPrint,
         'siteDisplay' => $siteDisplay,
         'createdRaw' => $createdRaw,
         'quotationAttach' => $quotationAttach,

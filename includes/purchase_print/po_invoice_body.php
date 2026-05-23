@@ -21,6 +21,8 @@ declare(strict_types=1);
  * @var string $poNoteQt
  * @var string $poSiteDisplay
  * @var int $po_vat_enabled
+ * @var string $poVatMode
+ * @var array{vat_mode: string, line_amount: float, vat_label: string, vat_amount: float, net_amount: float} $poVatPrint
  * @var float $po_vat_amount
  * @var float $po_grand_total
  * @var float $po_subtotal
@@ -166,13 +168,13 @@ declare(strict_types=1);
             <div class="col-5">
                 <div class="summary-box po-total-sheet">
                     <div class="summary-item">
-                        <span>ยอดรวม</span>
-                        <span><?= number_format($po_subtotal, 2); ?></span>
+                        <span>ยอดรายการ</span>
+                        <span><?= number_format((float) ($poVatPrint['line_amount'] ?? $po_subtotal), 2); ?></span>
                     </div>
-                    <?php if ($po_vat_enabled && $po_vat_amount > 0): ?>
-                    <div class="summary-item po-vat-line">
-                        <span>VAT 7%</span>
-                        <span><?= number_format($po_vat_amount, 2); ?></span>
+                    <?php if ($po_vat_enabled && (float) ($poVatPrint['vat_amount'] ?? 0) > 0): ?>
+                    <div class="summary-item po-vat-line vat-print-line">
+                        <span><?= htmlspecialchars((string) ($poVatPrint['vat_label'] ?? 'ภาษีมูลค่าเพิ่ม'), ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span><?= number_format((float) $poVatPrint['vat_amount'], 2); ?></span>
                     </div>
                     <?php endif; ?>
                     <?php if ($withholdingType !== 'none' && $withholdingAmount > 0): ?>
@@ -193,9 +195,9 @@ declare(strict_types=1);
                         <span><?= number_format($po_gross_amount, 2); ?></span>
                     </div>
                     <?php endif; ?>
-                    <div class="grand-total-row" role="group" aria-label="ยอดสุทธิทั้งสิ้น">
-                        <span class="fw-bold" style="font-size: 14px;">ยอดสุทธิทั้งสิ้น</span>
-                        <span style="font-size: 18px; font-weight: 800;"><?= number_format($po_grand_total, 2); ?></span>
+                    <div class="grand-total-row" role="group" aria-label="ยอดสุทธิ">
+                        <span class="fw-bold" style="font-size: 14px;">ยอดสุทธิ</span>
+                        <span style="font-size: 18px; font-weight: 800;"><?= number_format((float) ($poVatPrint['net_amount'] ?? $po_grand_total), 2); ?></span>
                     </div>
                 </div>
             </div>

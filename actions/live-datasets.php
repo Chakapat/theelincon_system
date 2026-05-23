@@ -19,6 +19,7 @@ if (!isset($_SESSION['user_id'])) {
 $dataset = trim((string) ($_GET['dataset'] ?? ''));
 
 if ($dataset === 'hire_contracts') {
+    tnc_require_finance_role();
     $rows = tnc_dataset_hire_contract_rows();
     $checksum = hash('sha256', json_encode($rows, JSON_UNESCAPED_UNICODE));
     echo json_encode(['ok' => true, 'checksum' => $checksum, 'rows' => $rows], JSON_UNESCAPED_UNICODE);
@@ -60,15 +61,14 @@ if ($dataset === 'stock_movements_site') {
 $allowedMirror = [
     'purchase_requests',
     'purchase_orders',
-    'quotations',
     'suppliers',
     'invoices',
     'tax_invoices',
-    'attendance_logs',
     'employee_payslip_requests',
 ];
 
 if ($dataset === 'mirror_table') {
+    tnc_require_finance_role();
     $table = trim((string) ($_GET['table'] ?? ''));
     if (!in_array($table, $allowedMirror, true)) {
         http_response_code(400);

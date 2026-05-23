@@ -209,7 +209,7 @@ if ($invDocTitle === '') {
             <?php if(!empty($data['logo'])): ?>
                 <img src="<?= htmlspecialchars(upload_logo_url($data['logo'])) ?>" class="company-logo" alt="Logo">
             <?php endif; ?>
-            <div class="fw-bold" style="font-size: 15px;"><?= $data['name']; ?></div>
+            <div class="fw-bold" style="font-size: 15px;"><?= h((string) ($data['name'] ?? '')); ?></div>
             <div class="small text-muted" style="font-size: 11px; line-height: 1.2;">
                 <?= htmlspecialchars($company_detail_line, ENT_QUOTES, 'UTF-8'); ?>
             </div>
@@ -224,7 +224,7 @@ if ($invDocTitle === '') {
     <div class="row mb-2 mt-3">
         <div class="col-7">
             <div style="font-size: 11px; color: var(--orange); font-weight: bold; border-bottom: 1px solid #eee; margin-bottom: 3px;">BILLED TO / ลูกค้า</div>
-            <div class="fw-bold" style="font-size: 14px;"><?= $data['customer_name']; ?></div>
+            <div class="fw-bold" style="font-size: 14px;"><?= h((string) ($data['customer_name'] ?? '')); ?></div>
             <div class="small text-muted" style="font-size: 11px;">
                 <?php if ($customer_address_one_line !== ''): ?><?= htmlspecialchars($customer_address_one_line, ENT_QUOTES, 'UTF-8'); ?><?php endif; ?><?php if ($customer_address_one_line !== '' && $customer_tax_trim !== ''): ?> | <?php endif; ?><?php if ($customer_tax_trim !== ''): ?><strong>Tax ID:</strong> <?= htmlspecialchars($customer_tax_trim, ENT_QUOTES, 'UTF-8'); ?><?php endif; ?>
             </div>
@@ -265,9 +265,9 @@ if ($invDocTitle === '') {
             <div class="col-7">
                 <div class="payment-info-box">
                     <div style="font-size: 9px; color: var(--orange); font-weight: bold; margin-bottom: 3px; border-bottom: 1px solid #ddd;">PAYMENT INFO</div>
-                    <strong>ธนาคาร:</strong> <?= $data['bank_name']; ?><br>
-                    <strong>ชื่อบัญชี:</strong> <?= $data['bank_account_name']; ?><br>
-                    <strong>เลขที่บัญชี:</strong> <span style="font-family: monospace; font-weight: bold; font-size: 13px;"><?= $data['bank_account_number']; ?></span>
+                    <strong>ธนาคาร:</strong> <?= h((string) ($data['bank_name'] ?? '')); ?><br>
+                    <strong>ชื่อบัญชี:</strong> <?= h((string) ($data['bank_account_name'] ?? '')); ?><br>
+                    <strong>เลขที่บัญชี:</strong> <span style="font-family: monospace; font-weight: bold; font-size: 13px;"><?= h((string) ($data['bank_account_number'] ?? '')); ?></span>
                 </div>
             </div>
 

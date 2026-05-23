@@ -31,9 +31,6 @@ $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 
 $month = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['month'] ?? '')) ? $_GET['month'] : date('Y-m');
 $searchDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['entry_date'] ?? '')) ? (string) $_GET['entry_date'] : '';
-/** ค่าเริ่มต้นช่องเลือกวันที่รายงาน LINE: ถ้ากรองวันเดียวอยู่ให้ตรงกับตัวกรอง ไม่เช่นนั้นเป็นวันนี้ (เวลาไทย) */
-$lineReportDate = $searchDate !== '' ? $searchDate : date('Y-m-d');
-$lineReportDateMax = date('Y-m-d');
 $ymStart = $month . '-01';
 $ymEnd = date('Y-m-t', strtotime($ymStart));
 $editId = isset($_GET['edit']) ? (int) $_GET['edit'] : 0;
@@ -480,13 +477,6 @@ $net = $sumIncome - $sumExpense;
             <h4 class="fw-bold mb-1 ledger-hero-title"><i class="bi bi-speedometer2 text-warning me-2"></i>รายการบันทึกสดย่อย (Petty Cash Ledger)</h4>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <form id="cashLedgerLineReportForm" method="post" action="<?= htmlspecialchars($cashHandlerUrl, ENT_QUOTES, 'UTF-8') ?>?action=send_line_daily_report" class="d-none" aria-hidden="true">
-                <?php csrf_field(); ?>
-                <input type="hidden" name="report_date" id="cashLedgerLineReportDateInput" value="">
-            </form>
-            <button type="button" class="btn ledger-cta-btn ledger-cta-secondary px-3" id="btnOpenLineReportSend" title="ส่ง Flex รายงานสดย่อยไป LINE">
-                <i class="bi bi-chat-left-text me-1"></i>ส่งสรุป LINE
-            </button>
             <button type="button" class="btn ledger-cta-btn ledger-cta-secondary px-3" onclick="window.print()">
                 <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
             </button>
@@ -728,12 +718,6 @@ if (params.get('saved') === '1') {
 if (params.get('deleted') === '1') {
     Swal.fire({ icon: 'success', title: 'ลบแล้ว', confirmButtonColor: '#fd7e14' });
 }
-if (params.get('line_notify') === 'ok') {
-    Swal.fire({ icon: 'success', title: 'ส่ง LINE แล้ว', text: 'ส่งรายงานสดย่อยไป LINE เรียบร้อย', confirmButtonColor: '#fd7e14' });
-}
-if (params.get('line_notify') === 'fail') {
-    Swal.fire({ icon: 'error', title: 'ส่ง LINE ไม่สำเร็จ', text: 'ตรวจสอบโทเค็น / กลุ่มหรือผู้ใช้ปลายทาง LINE', confirmButtonColor: '#fd7e14' });
-}
 if (params.get('err')) {
     const map = {
         amount: 'จำนวนเงินต้องมากกว่า 0',
@@ -763,51 +747,6 @@ if (ledgerFormCollapse && toggleLedgerFormBtn && toggleLedgerFormIcon) {
     updateLedgerFormToggle();
 }
 
-(function () {
-    const defaultDate = <?= json_encode($lineReportDate, JSON_UNESCAPED_UNICODE) ?>;
-    const maxDate = <?= json_encode($lineReportDateMax, JSON_UNESCAPED_UNICODE) ?>;
-    const btn = document.getElementById('btnOpenLineReportSend');
-    const form = document.getElementById('cashLedgerLineReportForm');
-    const hiddenDate = document.getElementById('cashLedgerLineReportDateInput');
-    if (!btn || !form || !hiddenDate) {
-        return;
-    }
-    btn.addEventListener('click', function () {
-        Swal.fire({
-            title: 'ส่งสรุปรายงานไป LINE',
-            html: '<p class="text-start text-secondary small mb-3">โปรดเลือกวันที่ต้องการส่ง</p>'
-                + '<label for="swalCashLedgerLineReportDate" class="form-label small fw-semibold d-block text-start">วันที่รายงาน</label>'
-                + '<input type="date" id="swalCashLedgerLineReportDate" class="form-control form-control-lg rounded-3" value="' + defaultDate + '" max="' + maxDate + '">',
-            showCancelButton: true,
-            confirmButtonText: 'ส่ง',
-            cancelButtonText: 'ยกเลิก',
-            confirmButtonColor: '#fd7e14',
-            cancelButtonColor: '#6c757d',
-            focusConfirm: false,
-            width: '26rem',
-            didOpen: () => {
-                const el = document.getElementById('swalCashLedgerLineReportDate');
-                if (el) {
-                    el.focus();
-                }
-            },
-            preConfirm: () => {
-                const el = document.getElementById('swalCashLedgerLineReportDate');
-                const v = el && el.value ? el.value.trim() : '';
-                if (!v) {
-                    Swal.showValidationMessage('กรุณาเลือกวันที่');
-                    return false;
-                }
-                return v;
-            },
-        }).then(function (res) {
-            if (res.isConfirmed && res.value) {
-                hiddenDate.value = res.value;
-                form.submit();
-            }
-        });
-    });
-})();
 </script>
 </body>
 </html>

@@ -19,6 +19,8 @@ declare(strict_types=1);
  * @var float $pg
  * @var float $ps
  * @var bool $vatOn
+ * @var string $vatMode
+ * @var array{vat_mode: string, line_amount: float, vat_label: string, vat_amount: float, net_amount: float} $vatPrint
  * @var string $siteDisplay
  * @var string $createdRaw
  * @var string $quotationAttach
@@ -164,18 +166,18 @@ declare(strict_types=1);
             <div class="col-5">
                 <div class="summary-box">
                     <div class="summary-item">
-                        <span>ยอดรายการ (ก่อน VAT)</span>
-                        <span><?= number_format($ps, 2) ?></span>
+                        <span>ยอดรายการ</span>
+                        <span><?= number_format((float) ($vatPrint['line_amount'] ?? $ps), 2) ?></span>
                     </div>
-                    <?php if ($vatOn && $pv > 0): ?>
-                    <div class="summary-item text-success">
-                        <span>VAT 7%</span>
-                        <span><?= number_format($pv, 2) ?></span>
+                    <?php if ($vatOn && (float) ($vatPrint['vat_amount'] ?? 0) > 0): ?>
+                    <div class="summary-item text-success vat-print-line">
+                        <span><?= htmlspecialchars((string) ($vatPrint['vat_label'] ?? 'ภาษีมูลค่าเพิ่ม'), ENT_QUOTES, 'UTF-8') ?></span>
+                        <span><?= number_format((float) $vatPrint['vat_amount'], 2) ?></span>
                     </div>
                     <?php endif; ?>
                     <div class="grand-total-row">
-                        <span class="fw-bold" style="font-size: 14px;">ยอดรวมสุทธิ</span>
-                        <span style="font-size: 18px; font-weight: 800;">฿ <?= number_format($pg, 2) ?></span>
+                        <span class="fw-bold" style="font-size: 14px;">ยอดสุทธิ</span>
+                        <span style="font-size: 18px; font-weight: 800;">฿ <?= number_format((float) ($vatPrint['net_amount'] ?? $pg), 2) ?></span>
                     </div>
                 </div>
             </div>

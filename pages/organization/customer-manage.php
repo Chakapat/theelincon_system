@@ -13,6 +13,11 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+if (!user_can_edit_invoice()) {
+    header('Location: ' . app_path('index.php'));
+    exit();
+}
+
 $is_admin = user_is_admin_role();
 
 $customers = Db::tableRows('customers');
@@ -47,6 +52,7 @@ Db::sortRows($customers, 'id', true);
     </div>
 
     <div class="row g-4">
+        <?php if ($is_admin): ?>
         <div class="col-lg-4">
             <div class="card shadow-sm border-0 rounded-4">
                 <div class="card-body p-4">
@@ -85,8 +91,9 @@ Db::sortRows($customers, 'id', true);
                 </div>
             </div>
         </div>
+        <?php endif; ?>
 
-        <div class="col-lg-8">
+        <div class="col-lg-<?= $is_admin ? '8' : '12' ?>">
             <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0" id="customerTable" width="100%">
@@ -116,11 +123,13 @@ Db::sortRows($customers, 'id', true);
                                 </td>
                                 <td><span class="badge bg-warning-subtle text-dark fw-normal border"><?= htmlspecialchars($row['tax_id'] ?: '-') ?></span></td>
                                 <td class="small">
-                                    <div><i class="bi bi-telephone text-warning me-1"></i><?= $row['phone'] ?></div>
-                                    <div class="text-muted"><i class="bi bi-envelope text-warning me-1"></i><?= $row['email'] ?></div>
+                                    <div><i class="bi bi-telephone text-warning me-1"></i><?= h((string) ($row['phone'] ?? '')) ?></div>
+                                    <div class="text-muted"><i class="bi bi-envelope text-warning me-1"></i><?= h((string) ($row['email'] ?? '')) ?></div>
                                 </td>
                                 <td class="text-end pe-4">
-                                    <button onclick="editCustomer(<?= $row['id'] ?>)" class="btn btn-sm btn-outline-warning rounded-circle me-1"><i class="bi bi-pencil-square"></i></button>
+                                    <?php if ($is_admin): ?>
+                                    <button type="button" onclick="editCustomer(<?= (int) $row['id'] ?>)" class="btn btn-sm btn-outline-warning rounded-circle me-1"><i class="bi bi-pencil-square"></i></button>
+                                    <?php endif; ?>
                                     <?php if($is_admin): ?>
                                     <button onclick="confirmDelete(<?= $row['id'] ?>, 'customer')" class="btn btn-sm btn-outline-danger rounded-circle"><i class="bi bi-trash3"></i></button>
                                     <?php endif; ?>
@@ -171,7 +180,7 @@ const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'),
 const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
 const uploadsLogosBase = <?= json_encode(upload_logos_base_url(), JSON_UNESCAPED_SLASHES) ?>;
 function editCustomer(id) {
-    fetch(`${actionHandlerUrl}?action=get_data&type=customer&id=${id}`).then(res => res.json()).then(data => {
+    fetch(`${actionHandlerUrl}?action=get_data&type=customer&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`).then(res => res.json()).then(data => {
         const fields = { id: 'edit_cust_id', name: 'edit_cust_name', tax_id: 'edit_cust_tax', address: 'edit_cust_address', phone: 'edit_cust_phone', email: 'edit_cust_email' };
         Object.keys(fields).forEach(key => document.getElementById(fields[key]).value = data[key]);
         document.getElementById('edit_cust_logo_view').innerHTML = data.logo ? `<img src="${uploadsLogosBase}${encodeURIComponent(data.logo)}" class="logo-preview" style="width:70px;height:70px">` : `<div class="logo-preview mx-auto d-flex align-items-center justify-content-center border" style="width:70px;height:70px"><i class="bi bi-person fs-2"></i></div>`;

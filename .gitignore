@@ -3,6 +3,7 @@ config/*firebase-adminsdk*.json
 
 /vendor/
 /node_modules/
+.builds/
 
 # ข้อมูลอัปโหลดและ secret ภายในเครื่อง
 /uploads/

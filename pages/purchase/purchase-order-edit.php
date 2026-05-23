@@ -13,6 +13,11 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+if (!user_is_finance_role()) {
+    header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?error=forbidden');
+    exit();
+}
+
 $poId = (int) ($_GET['id'] ?? 0);
 $po = Db::rowByIdField('purchase_orders', $poId);
 if ($po === null) {
@@ -55,10 +60,24 @@ if (count($items) === 0) {
     ]];
 }
 
+$poPrId = (int) ($po['pr_id'] ?? 0);
+$linkedPr = $poPrId > 0 ? Db::rowByIdField('purchase_requests', $poPrId) : null;
+$vatLockedFromPr = $linkedPr !== null;
 $poVatModeStored = trim((string) ($po['vat_mode'] ?? 'exclusive'));
-if (!in_array($poVatModeStored, ['exclusive', 'inclusive'], true)) {
+if ($vatLockedFromPr) {
+    $poVatModeStored = trim((string) ($linkedPr['vat_mode'] ?? 'exclusive'));
+    if (!in_array($poVatModeStored, ['exclusive', 'inclusive'], true)) {
+        $poVatModeStored = 'exclusive';
+    }
+} elseif (!in_array($poVatModeStored, ['exclusive', 'inclusive'], true)) {
     $poVatModeStored = 'exclusive';
 }
+$poVatEnabledStored = $vatLockedFromPr
+    ? ((int) ($linkedPr['vat_enabled'] ?? 0) === 1 ? 1 : 0)
+    : ((int) ($po['vat_enabled'] ?? 0) === 1 ? 1 : 0);
+$poNoteVal = trim((string) ($po['po_note'] ?? ''));
+$quotationNoteVal = trim((string) ($po['quotation_note'] ?? ''));
+$linkedPrNumber = $vatLockedFromPr ? trim((string) ($linkedPr['pr_number'] ?? ('PR-' . $poPrId))) : '';
 
 $issueDateVal = trim((string) ($po['issue_date'] ?? ''));
 if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal)) {
@@ -290,10 +309,24 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
 
             <div class="row g-4 mt-1">
                 <div class="col-lg-7 order-2 order-lg-1">
-                    
                     <div class="po-vat-panel p-3 mb-3">
+                        <div class="small fw-bold text-secondary text-uppercase mb-2" style="letter-spacing:0.05em;">ภาษีมูลค่าเพิ่ม<?= $vatLockedFromPr ? ' (จากใบขอซื้อ)' : '' ?></div>
+                        <?php if ($vatLockedFromPr): ?>
+                        <?php if ($poVatEnabledStored): ?>
+                        <div class="small mb-2">
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                <?= $poVatModeStored === 'inclusive' ? 'รวมภาษีมูลค่าเพิ่มในราคาสินค้า' : 'แยกภาษีมูลค่าเพิ่มจากราคาสินค้า' ?>
+                            </span>
+                        </div>
+                        <?php else: ?>
+                        <div class="small text-muted mb-2">ไม่มี VAT ในใบขอซื้อ <?= htmlspecialchars($linkedPrNumber, ENT_QUOTES, 'UTF-8') ?></div>
+                        <?php endif; ?>
+                        <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $poPrId, ENT_QUOTES, 'UTF-8') ?>" class="small text-primary text-decoration-none"><i class="bi bi-pencil-square me-1"></i>แก้ไข VAT ที่ใบขอซื้อ (PR)</a>
+                        <input type="hidden" name="vat_enabled" id="vat_enabled" value="<?= $poVatEnabledStored ?>">
+                        <input type="hidden" name="vat_mode" id="vat_mode" value="<?= htmlspecialchars($poVatModeStored, ENT_QUOTES, 'UTF-8') ?>">
+                        <?php else: ?>
                         <div class="form-check form-switch mb-2">
-                            <input class="form-check-input" type="checkbox" role="switch" name="vat_enabled" id="vat_enabled" value="1" onchange="calculateTotal()"<?= (int) ($po['vat_enabled'] ?? 0) === 1 ? ' checked' : '' ?>>
+                            <input class="form-check-input" type="checkbox" role="switch" name="vat_enabled" id="vat_enabled" value="1" onchange="calculateTotal()"<?= $poVatEnabledStored === 1 ? ' checked' : '' ?>>
                             <label class="form-check-label fw-semibold" for="vat_enabled">มี VAT</label>
                         </div>
                         <input type="hidden" name="vat_mode" id="vat_mode" value="<?= htmlspecialchars($poVatModeStored, ENT_QUOTES, 'UTF-8') ?>">
@@ -307,14 +340,15 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
                                 <label class="form-check-label" for="vat_basis_exclusive">แยก VAT <span class="text-muted small">(บวก 7% จากฐาน)</span></label>
                             </div>
                         </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="col-lg-5 order-1 order-lg-2">
                     <div class="summary-box po-summary-sticky">
                         <label class="small fw-bold text-secondary text-uppercase mb-2" style="letter-spacing:0.05em;"></label>
-                        <div class="summary-line small text-muted"><span class="summary-label" id="subtotal_label">ยอดรายการ (ก่อน VAT)</span><strong class="summary-value text-end"><span id="subtotal_display">0.00</span> บาท</strong></div>
-                        <div class="summary-line small text-success" id="vat_row" style="display:none;"><span class="summary-label">ภาษีมูลค่าเพิ่ม</span><strong class="summary-value text-end"><span id="vat_display">0.00</span> บาท</strong></div>
-                        <div class="summary-line summary-grand fw-bold"><span class="summary-label">ยอดรวมสุทธิ</span><strong class="summary-value text-end text-primary"><span id="grand_total">0.00</span> บาท</strong></div>
+                        <div class="summary-line small text-muted"><span class="summary-label" id="subtotal_label">ยอดรายการ</span><strong class="summary-value text-end"><span id="subtotal_display">0.00</span> บาท</strong></div>
+                        <div class="summary-line small text-success" id="vat_row" style="display:none;"><span class="summary-label" id="vat_label">ภาษีมูลค่าเพิ่ม</span><strong class="summary-value text-end"><span id="vat_display">0.00</span> บาท</strong></div>
+                        <div class="summary-line summary-grand fw-bold"><span class="summary-label">ยอดสุทธิ</span><strong class="summary-value text-end text-primary"><span id="grand_total">0.00</span> บาท</strong></div>
                     </div>
                     <input type="hidden" name="total_amount" id="total_amount_input" value="0">
                     <input type="hidden" name="withholding_type" id="withholding_type" value="none">
@@ -324,6 +358,25 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
             </div>
         </div>
 
+        <div class="card card-soft p-4 p-md-4 mb-4">
+            <div class="po-section-head border-0 pb-0 mb-3">
+                <div class="po-section-icon" aria-hidden="true"><i class="bi bi-chat-left-text"></i></div>
+                <div>
+                    <h2 class="section-title">หมายเหตุ</h2>
+                    <p class="section-sub">แสดงบนใบ PO เมื่อพิมพ์ (ถ้ามี)</p>
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="po-field-label" for="po_note">หมายเหตุ PO</label>
+                    <textarea name="po_note" id="po_note" class="form-control" rows="3" maxlength="500" placeholder="หมายเหตุใบสั่งซื้อ"><?= htmlspecialchars($poNoteVal, ENT_QUOTES, 'UTF-8') ?></textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="po-field-label" for="quotation_note">หมายเหตุ / เงื่อนไข (QT)</label>
+                    <textarea name="quotation_note" id="quotation_note" class="form-control" rows="3" maxlength="500" placeholder="เงื่อนไขจากใบเสนอราคา (ถ้ามี)"><?= htmlspecialchars($quotationNoteVal, ENT_QUOTES, 'UTF-8') ?></textarea>
+                </div>
+            </div>
+        </div>
 
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-2 d-md-none">
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php')) ?>" class="btn btn-outline-secondary rounded-pill">ยกเลิก</a>
@@ -413,14 +466,16 @@ function updatePoVatBasisUi() {
 function calculateTotal() {
     const FIXED_VAT_RATE = 7;
     const vatModeInput = document.getElementById('vat_mode');
-    const vatOn = document.getElementById('vat_enabled').checked;
-    let vatMode = 'exclusive';
-    if (vatOn) {
+    const vatEnabledEl = document.getElementById('vat_enabled');
+    const vatBasisWrap = document.getElementById('vat_basis_wrap');
+    const vatOn = !!(vatEnabledEl && (vatEnabledEl.type === 'hidden' ? String(vatEnabledEl.value) === '1' : vatEnabledEl.checked));
+    let vatMode = (vatModeInput && vatModeInput.value) ? vatModeInput.value : 'exclusive';
+    if (vatOn && vatBasisWrap) {
         const selectedBasis = document.querySelector('input[name="vat_basis"]:checked');
-        vatMode = selectedBasis ? selectedBasis.value : 'inclusive';
+        vatMode = selectedBasis ? selectedBasis.value : vatMode;
     }
     if (!['inclusive', 'exclusive'].includes(vatMode)) vatMode = 'exclusive';
-    if (vatModeInput) vatModeInput.value = vatMode;
+    if (vatModeInput && vatBasisWrap) vatModeInput.value = vatMode;
 
     let lineAmount = 0;
     const rows = document.getElementById('poTable').getElementsByTagName('tbody')[0].rows;
@@ -454,15 +509,26 @@ function calculateTotal() {
     if (withholdingTypeInput) {
         withholdingTypeInput.value = 'none';
     }
-    updatePoVatBasisUi();
+    if (typeof updatePoVatBasisUi === 'function') {
+        updatePoVatBasisUi();
+    }
     const subtotalLabel = document.getElementById('subtotal_label');
+    const vatLabel = document.getElementById('vat_label');
+    const lineDisplay = lineAmount;
     if (subtotalLabel) {
-        subtotalLabel.textContent = vatOn && vatMode === 'inclusive'
-            ? 'ยอดรายการ'
-            : 'ยอดรายการ';
+        subtotalLabel.textContent = 'ยอดรายการ';
+    }
+    if (vatLabel) {
+        if (!vatOn) {
+            vatLabel.textContent = 'ภาษีมูลค่าเพิ่ม';
+        } else if (vatMode === 'inclusive') {
+            vatLabel.textContent = 'ภาษีมูลค่าเพิ่มในราคาสินค้า';
+        } else {
+            vatLabel.textContent = 'ภาษีมูลค่าเพิ่มแยกจากราคาสินค้า';
+        }
     }
 
-    document.getElementById('subtotal_display').innerText = subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('subtotal_display').innerText = lineDisplay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     const vatRow = document.getElementById('vat_row');
     if (vatOn) {
         vatRow.style.display = 'block';

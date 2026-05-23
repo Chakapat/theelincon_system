@@ -177,6 +177,53 @@ if (!function_exists('user_can_edit_invoice')) {
     }
 }
 
+if (!function_exists('h')) {
+    /** Escape for HTML text nodes and attributes (UTF-8). */
+    function h(?string $value): string
+    {
+        return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
+    }
+}
+
+if (!function_exists('tnc_sanitize_api_row')) {
+    /**
+     * Strip sensitive fields before returning RTDB rows to the browser (get_data, etc.).
+     *
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    function tnc_sanitize_api_row(array $row): array
+    {
+        foreach (['password', 'password_hash', 'line_approval_token', 'csrf', '_csrf'] as $key) {
+            unset($row[$key]);
+        }
+
+        return $row;
+    }
+}
+
+if (!function_exists('tnc_require_finance_role')) {
+    /** @return never on failure */
+    function tnc_require_finance_role(): void
+    {
+        if (!user_is_finance_role()) {
+            http_response_code(403);
+            exit('Access Denied: เฉพาะฝ่ายการเงิน/ผู้ดูแลระบบเท่านั้น');
+        }
+    }
+}
+
+if (!function_exists('tnc_require_admin_role')) {
+    /** @return never on failure */
+    function tnc_require_admin_role(): void
+    {
+        if (!user_is_admin_role()) {
+            http_response_code(403);
+            exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้น');
+        }
+    }
+}
+
 if (!function_exists('member_user_code_prefix')) {
     /** Prefix รหัสพนักงานอัตโนมัติ เช่น emptnc000 */
     function member_user_code_prefix(): string

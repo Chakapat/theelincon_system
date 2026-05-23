@@ -15,47 +15,6 @@ $action = $_GET['action'] ?? '';
 $type = $_GET['type'] ?? '';
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
-if ($action === 'line_quote_decision') {
-    $decision = (string) ($_GET['decision'] ?? '');
-    $token = trim((string) ($_GET['token'] ?? ''));
-    $quote = Db::rowByIdField('quotations', $id);
-
-    $ok = $quote !== null
-        && $token !== ''
-        && hash_equals((string) ($quote['line_approval_token'] ?? ''), $token)
-        && (string) ($quote['status'] ?? '') === 'pending'
-        && in_array($decision, ['approve', 'reject'], true);
-
-    if ($ok) {
-        $nextStatus = $decision === 'approve' ? 'approved' : 'rejected';
-        $qpk = Db::pkForLogicalId('quotations', $id);
-        $cur = Db::row('quotations', $qpk) ?? [];
-        $quoteBeforeLink = $cur;
-        Db::setRow('quotations', $qpk, array_merge($cur, [
-            'status' => $nextStatus,
-            'line_decision' => $decision,
-            'line_decided_at' => date('Y-m-d H:i:s'),
-            'line_approval_token' => '',
-        ]));
-        $quoteAfterLink = Db::row('quotations', $qpk);
-        $qNoL = $quoteAfterLink !== null ? trim((string) ($quoteAfterLink['quote_number'] ?? '')) : '';
-        tnc_audit_log('update', 'quotation', (string) $id, $qNoL !== '' ? $qNoL : ('QT #' . $id), [
-            'source' => 'action-handler',
-            'action' => 'line_quote_decision_link',
-            'before' => $quoteBeforeLink,
-            'after' => $quoteAfterLink,
-            'meta' => ['decision' => $decision, 'via' => 'email_or_get_link'],
-        ]);
-        http_response_code(200);
-        echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>บันทึกผลแล้ว</title></head><body style="font-family:sans-serif;padding:24px;"><h2>บันทึกผลเรียบร้อย</h2><p>ระบบได้อัปเดตใบเสนอราคาแล้ว: <strong>' . htmlspecialchars(strtoupper($nextStatus), ENT_QUOTES, 'UTF-8') . '</strong></p></body></html>';
-        exit;
-    }
-
-    http_response_code(400);
-    echo '<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>ไม่สามารถดำเนินการได้</title></head><body style="font-family:sans-serif;padding:24px;"><h2>ไม่สามารถดำเนินการได้</h2><p>ลิงก์หมดอายุ หรือรายการนี้ถูกดำเนินการไปแล้ว</p></body></html>';
-    exit;
-}
-
 if (!isset($_SESSION['user_id'])) {
     exit('Access Denied: กรุณาเข้าสู่ระบบ');
 }
@@ -92,12 +51,12 @@ $type = (string) ($_POST['type'] ?? $_GET['type'] ?? '');
 $id = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
 
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
-$tncDeletePwdActions = ['delete', 'delete_quotation', 'delete_supplier', 'delete_pr'];
+$tncDeletePwdActions = ['delete', 'delete_supplier', 'delete_pr', 'delete_leave_request'];
 if (in_array($action, $tncDeletePwdActions, true)) {
     tnc_require_post_confirm_password();
 }
 
-$admin_only_actions = ['delete', 'delete_quotation', 'delete_pr', 'add_member', 'edit_member', 'delete_supplier'];
+$admin_only_actions = ['delete', 'delete_pr', 'add_member', 'edit_member', 'delete_supplier', 'delete_leave_request', 'add_company', 'edit_company', 'add_customer', 'edit_customer'];
 if (in_array($action, $admin_only_actions, true) && !user_is_admin_role()) {
     exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
 }
@@ -645,15 +604,31 @@ function renderPoCreatedPopupAndRedirect(string $poNumber)
 // --- get_data (Modal) ---
 if ($action === 'get_data') {
     header('Content-Type: application/json; charset=UTF-8');
+    if (!csrf_verify_request()) {
+        http_response_code(403);
+        echo json_encode(['error' => 'csrf'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     if ($type === 'member') {
+        if (!user_is_admin_role()) {
+            http_response_code(403);
+            echo json_encode(['error' => 'forbidden'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         $row = Db::row('users', (string) $id);
     } elseif ($type === 'supplier') {
+        tnc_require_finance_role();
         $row = Db::row('suppliers', (string) $id);
-    } else {
+    } elseif ($type === 'company' || $type === 'customer') {
+        tnc_require_finance_role();
         $table = ($type === 'company') ? 'company' : 'customers';
         $row = Db::row($table, (string) $id);
+    } else {
+        http_response_code(400);
+        echo json_encode(['error' => 'bad_type'], JSON_UNESCAPED_UNICODE);
+        exit;
     }
-    echo json_encode($row ?? []);
+    echo json_encode($row !== null ? tnc_sanitize_api_row($row) : [], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -1280,6 +1255,7 @@ if ($action === 'save_standalone_hire_contract' && ($_SERVER['REQUEST_METHOD'] ?
 
 // --- PO from PR ---
 if ($action === 'create_po_from_pr') {
+    tnc_require_finance_role();
     $pr_id = (int) ($_POST['pr_id'] ?? 0);
     $supplier_id = (int) ($_POST['supplier_id'] ?? 0);
     $hire_contract_id = (int) ($_POST['hire_contract_id'] ?? 0);
@@ -1299,7 +1275,10 @@ if ($action === 'create_po_from_pr') {
             return $pr_id > 0 && isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
         });
         if ($dup !== null) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=po_exists');
+            tnc_action_redirect( app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) ($dup['id'] ?? 0));
+        }
+        if ($supplier_id <= 0) {
+            tnc_action_redirect(app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id . '&error=supplier');
         }
     }
 
@@ -1456,6 +1435,11 @@ if ($action === 'create_po_from_pr') {
     $quotation_note = $hasQt ? mb_substr(trim((string) ($_POST['quotation_note'] ?? '')), 0, 500) : '';
     $po_note = mb_substr(trim((string) ($_POST['po_note'] ?? '')), 0, 500);
 
+    $issue_date = trim((string) ($_POST['issue_date'] ?? date('Y-m-d')));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $issue_date)) {
+        $issue_date = date('Y-m-d');
+    }
+
     $prSiteId = (int) ($pr_row['site_id'] ?? 0);
     $prSiteName = trim((string) ($pr_row['site_name'] ?? ''));
     if ($prSiteName === '' && $prSiteId > 0) {
@@ -1473,7 +1457,8 @@ if ($action === 'create_po_from_pr') {
         'hire_contract_id' => $hire_contract_id,
         'supplier_id' => $supplier_id,
         'created_at' => date('Y-m-d'),
-        'issue_date' => date('Y-m-d'),
+        'issue_date' => $issue_date,
+        'reference_pr_number' => trim((string) ($pr_row['pr_number'] ?? '')),
         'quotation_number' => $quotation_number,
         'quotation_date' => $quotation_date,
         'quotation_note' => $quotation_note,
@@ -1482,6 +1467,9 @@ if ($action === 'create_po_from_pr') {
         'status' => 'ordered',
         'created_by' => $created_by,
         'vat_enabled' => $vat_en,
+        'vat_mode' => in_array(trim((string) ($pr_row['vat_mode'] ?? 'exclusive')), ['exclusive', 'inclusive'], true)
+            ? trim((string) ($pr_row['vat_mode'] ?? 'exclusive'))
+            : 'exclusive',
         'subtotal_amount' => $sub_amt,
         'vat_amount' => $vat_amt,
         'order_type' => 'purchase',
@@ -1514,15 +1502,23 @@ if ($action === 'create_po_from_pr') {
 
 // --- PO โดยตรง (ไม่อิง PR) ---
 if ($action === 'create_po_direct') {
+    tnc_require_finance_role();
     $supplier_id = (int) ($_POST['supplier_id'] ?? 0);
     $hire_contract_id = (int) ($_POST['hire_contract_id'] ?? 0);
+    $pr_id_link = (int) ($_POST['pr_id'] ?? 0);
     $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
     $created_by = (int) $_SESSION['user_id'];
     $po_number = Purchase::generatePONumber();
     $hireFallback = $hire_contract_id > 0
         ? app_path('pages/purchase/purchase-order-from-hire-contract.php') . '?hire_contract_id=' . $hire_contract_id
-        : app_path('pages/purchase/purchase-order-create.php');
+        : ($pr_id_link > 0
+            ? app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id_link
+            : app_path('pages/purchase/purchase-request-list.php'));
     $hireFbSep = str_contains($hireFallback, '?') ? '&' : '?';
+
+    if ($pr_id_link <= 0 && $hire_contract_id <= 0) {
+        tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php'));
+    }
 
     $hc = null;
     if ($hire_contract_id > 0) {
@@ -1577,6 +1573,15 @@ if ($action === 'create_po_direct') {
     if (!in_array($vat_mode_post, ['exclusive', 'inclusive'], true)) {
         $vat_mode_post = 'exclusive';
     }
+    if ($pr_id_link > 0) {
+        $prRowVat = Db::rowByIdField('purchase_requests', $pr_id_link);
+        if ($prRowVat === null) {
+            tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?error=not_found');
+        }
+        $vat_enabled = (int) ($prRowVat['vat_enabled'] ?? 0) === 1 ? 1 : 0;
+        $vmPr = trim((string) ($prRowVat['vat_mode'] ?? 'exclusive'));
+        $vat_mode_post = in_array($vmPr, ['exclusive', 'inclusive'], true) ? $vmPr : 'exclusive';
+    }
     $wht_post = trim((string) ($_POST['withholding_type'] ?? 'none'));
     if ($wht_post !== 'wht3') {
         $wht_post = 'none';
@@ -1606,6 +1611,7 @@ if ($action === 'create_po_direct') {
         }
     }
     $quotation_note = mb_substr(trim((string) ($_POST['quotation_note'] ?? '')), 0, 500);
+    $po_note_direct = mb_substr(trim((string) ($_POST['po_note'] ?? '')), 0, 500);
 
     $retention = 0.0;
     $payable = $gross;
@@ -1680,13 +1686,14 @@ if ($action === 'create_po_direct') {
     Db::setRow('purchase_orders', (string) $po_id, array_merge([
         'id' => $po_id,
         'po_number' => $po_number,
-        'pr_id' => 0,
+        'pr_id' => $pr_id_link > 0 ? $pr_id_link : 0,
         'hire_contract_id' => $hire_contract_id,
         'supplier_id' => $supplier_id,
         'created_at' => date('Y-m-d'),
         'issue_date' => $issue_date,
         'quotation_number' => $quotation_number,
         'quotation_note' => $quotation_note,
+        'po_note' => $po_note_direct,
         'quotation_attachment_path' => $quoteAttachmentPath,
         'quotation_attachment_name' => $quoteAttachmentName,
         'quotation_attachment_mime' => $quoteAttachmentMime,
@@ -1761,6 +1768,7 @@ if ($action === 'create_po_direct') {
 
 // --- แก้ไข PO โดยตรง (purchase-order-edit.php) ---
 if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    tnc_require_finance_role();
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $editUrl = app_path('pages/purchase/purchase-order-edit.php');
     $po_id = (int) ($_GET['id'] ?? $_POST['po_id'] ?? $_POST['id'] ?? 0);
@@ -1797,10 +1805,19 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=no_items');
     }
 
+    $po_pr_id = (int) ($existing['pr_id'] ?? 0);
     $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
     $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
     if (!in_array($vat_mode_post, ['exclusive', 'inclusive'], true)) {
         $vat_mode_post = 'exclusive';
+    }
+    if ($po_pr_id > 0) {
+        $prRowPoEdit = Db::rowByIdField('purchase_requests', $po_pr_id);
+        if ($prRowPoEdit !== null) {
+            $vat_enabled = (int) ($prRowPoEdit['vat_enabled'] ?? 0) === 1 ? 1 : 0;
+            $vmPoPr = trim((string) ($prRowPoEdit['vat_mode'] ?? 'exclusive'));
+            $vat_mode_post = in_array($vmPoPr, ['exclusive', 'inclusive'], true) ? $vmPoPr : 'exclusive';
+        }
     }
     $totals = tnc_po_compute_totals($lineSum, $vat_enabled, $vat_mode_post, 'none');
 
@@ -1815,7 +1832,8 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         'issue_date' => $issue_date,
         'supplier_id' => $supplier_id,
         'quotation_number' => mb_substr(trim((string) ($existing['quotation_number'] ?? '')), 0, 120),
-        'quotation_note' => mb_substr(trim((string) ($existing['quotation_note'] ?? '')), 0, 500),
+        'quotation_note' => mb_substr(trim((string) ($_POST['quotation_note'] ?? ($existing['quotation_note'] ?? ''))), 0, 500),
+        'po_note' => mb_substr(trim((string) ($_POST['po_note'] ?? ($existing['po_note'] ?? ''))), 0, 500),
         'total_amount' => $totals['net'],
         'gross_amount' => $totals['gross'],
         'subtotal_amount' => $totals['subtotal'],
@@ -1877,6 +1895,7 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
 
 // --- ยกเลิกใบสั่งซื้อ (สถานะ cancelled) ---
 if ($action === 'cancel_purchase_order' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    tnc_require_finance_role();
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $viewUrl = app_path('pages/purchase/purchase-order-view.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
@@ -1922,6 +1941,7 @@ if ($action === 'cancel_purchase_order' && ($_SERVER['REQUEST_METHOD'] ?? '') ==
 
 /** รายการ PO: แนบสลิป + ตั้งสถานะจ่ายแล้ว (purchase_orders.payment_slip_path) */
 if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    tnc_require_finance_role();
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
     $payment_status = strtolower(trim((string) ($_POST['payment_status'] ?? '')));
@@ -2029,6 +2049,7 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
 
 /** เพิ่มไฟล์หลักฐานการจ่าย (หลายไฟล์) สำหรับ PO ที่จ่ายแล้ว */
 if ($action === 'add_po_payment_slips' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    tnc_require_finance_role();
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
     if ($po_id <= 0) {
@@ -2071,6 +2092,7 @@ if ($action === 'add_po_payment_slips' && ($_SERVER['REQUEST_METHOD'] ?? '') ===
 
 /** ลบไฟล์หลักฐานการจ่ายรายการเดียว */
 if ($action === 'remove_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    tnc_require_finance_role();
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
     $removePath = trim((string) ($_POST['slip_path'] ?? ''));
@@ -2105,6 +2127,7 @@ if ($action === 'remove_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') =
 
 /** เปลี่ยนไฟล์หลักฐานการจ่าย (แทนที่ไฟล์เดิม) */
 if ($action === 'replace_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    tnc_require_finance_role();
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
     $oldPath = trim((string) ($_POST['slip_path'] ?? ''));
@@ -2162,6 +2185,7 @@ if ($action === 'replace_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') 
 }
 
 if ($action === 'upload_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    tnc_require_finance_role();
     $po_id = (int) ($_POST['po_id'] ?? 0);
     $payment_id = (int) ($_POST['payment_id'] ?? 0);
     $backTo = trim((string) ($_POST['back_to'] ?? ''));
@@ -2483,122 +2507,6 @@ if ($action === 'save_project_purchase_bill' && ($_SERVER['REQUEST_METHOD'] ?? '
     tnc_action_redirect( app_path('pages/purchase/purchase-bill.php') . '?month=' . rawurlencode($month) . '&site_id=' . $site_id . '&' . $resultKey);
 }
 
-// --- Quotation ---
-if ($action === 'create_quotation' || $action === 'edit_quotation') {
-    $issue_date = (string) ($_POST['issue_date'] ?? '');
-    $company_id = (int) ($_POST['company_id'] ?? 0);
-    $customer_id = (int) ($_POST['customer_id'] ?? 0);
-    $subtotal = (float) ($_POST['subtotal'] ?? 0);
-    $vat_amount = !empty($_POST['vat_enabled']) ? ($subtotal * 0.07) : 0.0;
-    $grand_total = $subtotal + $vat_amount;
-    $quotationAuditBefore = null;
-    $quote_number = '';
-
-    if ($action === 'create_quotation') {
-        $quote_number = trim((string) ($_POST['quote_number'] ?? ''));
-        $created_by = (int) $_SESSION['user_id'];
-        $q_id = Db::nextNumericId('quotations', 'id');
-        Db::setRow('quotations', (string) $q_id, [
-            'id' => $q_id,
-            'quote_number' => $quote_number,
-            'date' => $issue_date,
-            'company_id' => $company_id,
-            'customer_id' => $customer_id,
-            'subtotal' => $subtotal,
-            'vat_amount' => $vat_amount,
-            'grand_total' => $grand_total,
-            'status' => 'pending',
-            'created_by' => $created_by,
-        ]);
-        $target_id = $q_id;
-    } else {
-        $target_id = (int) ($_POST['quotation_id'] ?? 0);
-        $cur = Db::row('quotations', (string) $target_id) ?? [];
-        $quote_number = trim((string) ($cur['quote_number'] ?? ''));
-        $qLinesBefore = [];
-        foreach (Db::filter('quotation_items', static function (array $r) use ($target_id): bool {
-            return isset($r['quotation_id']) && (int) $r['quotation_id'] === $target_id;
-        }) as $ql) {
-            if (!is_array($ql)) {
-                continue;
-            }
-            $qLinesBefore[] = $ql;
-            if (count($qLinesBefore) >= 120) {
-                break;
-            }
-        }
-        $quotationAuditBefore = ['header' => $cur, 'lines' => $qLinesBefore];
-        Db::setRow('quotations', (string) $target_id, array_merge($cur, [
-            'date' => $issue_date,
-            'company_id' => $company_id,
-            'customer_id' => $customer_id,
-            'subtotal' => $subtotal,
-            'vat_amount' => $vat_amount,
-            'grand_total' => $grand_total,
-        ]));
-        Db::deleteWhereEquals('quotation_items', 'quotation_id', (string) $target_id);
-        $curQuoteNo = trim((string) ($cur['quote_number'] ?? ''));
-    }
-
-    foreach ($_POST['description'] ?? [] as $key => $desc) {
-        $desc = trim((string) $desc);
-        if ($desc === '') {
-            continue;
-        }
-        $qty = (float) ($_POST['quantity'][$key] ?? 0);
-        $unit = trim((string) ($_POST['unit'][$key] ?? ''));
-        $price = (float) ($_POST['price'][$key] ?? 0);
-        $total = (float) ($_POST['total'][$key] ?? 0);
-        $iid = Db::nextNumericId('quotation_items', 'id');
-        Db::setRow('quotation_items', (string) $iid, [
-            'id' => $iid,
-            'quotation_id' => $target_id,
-            'description' => $desc,
-            'quantity' => $qty,
-            'unit' => $unit,
-            'unit_price' => $price,
-            'total' => $total,
-        ]);
-
-    }
-
-    $qRowAfter = Db::row('quotations', (string) $target_id);
-    $qItemsAfter = [];
-    foreach (Db::filter('quotation_items', static function (array $r) use ($target_id): bool {
-        return isset($r['quotation_id']) && (int) $r['quotation_id'] === $target_id;
-    }) as $ql2) {
-        if (!is_array($ql2)) {
-            continue;
-        }
-        $qItemsAfter[] = $ql2;
-        if (count($qItemsAfter) >= 120) {
-            break;
-        }
-    }
-    $qSummary = $qRowAfter !== null ? trim((string) ($qRowAfter['quote_number'] ?? '')) : $quote_number;
-    if ($action === 'create_quotation') {
-        tnc_audit_log('create', 'quotation', (string) $target_id, $qSummary !== '' ? $qSummary : ('#' . $target_id), [
-            'source' => 'action-handler',
-            'action' => 'create_quotation',
-            'after' => $qRowAfter,
-            'meta' => ['lines' => $qItemsAfter],
-        ]);
-    } else {
-        $curQuoteNo = $qSummary !== '' ? $qSummary : ('#' . $target_id);
-        tnc_audit_log('update', 'quotation', (string) $target_id, $curQuoteNo, [
-            'source' => 'action-handler',
-            'action' => 'edit_quotation',
-            'before' => $quotationAuditBefore !== null ? ($quotationAuditBefore['header'] ?? null) : null,
-            'after' => $qRowAfter,
-            'meta' => [
-                'lines_before' => $quotationAuditBefore !== null ? ($quotationAuditBefore['lines'] ?? []) : [],
-                'lines_after' => $qItemsAfter,
-            ],
-        ]);
-    }
-    tnc_action_redirect( app_path('pages/quotations/quotation-list.php') . '?success=1');
-}
-
 // --- company / customer / member ---
 if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_customer', 'add_member', 'edit_member'], true)) {
     if (strpos($action, 'member') !== false) {
@@ -2740,12 +2648,24 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
     }
 }
 
-// --- delete ---
-if ($action === 'delete_quotation' && $id > 0) {
-    $action = 'delete';
-    $type = 'quotation';
+// --- ลบใบลา (admin + POST + รหัสผ่านยืนยัน) ---
+if ($action === 'delete_leave_request' && $id > 0) {
+    $leave = Db::rowByIdField('leave_requests', $id);
+    if ($leave === null) {
+        tnc_action_redirect(app_path('pages/leave-requests/leave-request-list.php') . '?scope=all&error=not_found');
+    }
+    $leaveNo = trim((string) ($leave['leave_number'] ?? ''));
+    Db::deleteRow('leave_requests', Db::pkForLogicalId('leave_requests', $id));
+    tnc_audit_log('delete', 'leave_request', (string) $id, $leaveNo !== '' ? $leaveNo : ('#' . $id), [
+        'source' => 'action-handler',
+        'action' => 'delete_leave_request',
+        'before' => $leave,
+    ]);
+    $scopeQ = isset($_GET['scope']) && (string) $_GET['scope'] === 'all' ? '&scope=all' : '';
+    tnc_action_redirect(app_path('pages/leave-requests/leave-request-list.php') . '?scope=all&deleted=1');
 }
 
+// --- delete ---
 if ($action === 'delete' && $id > 0) {
     if ($type === 'invoice') {
         $invPk = Db::pkForLogicalId('invoices', $id);
@@ -2808,31 +2728,6 @@ if ($action === 'delete' && $id > 0) {
             ],
         ]);
         tnc_action_redirect( app_path('index.php') . '?deleted=1');
-    } elseif ($type === 'quotation') {
-        $qPk = Db::pkForLogicalId('quotations', $id);
-        $qSnap = Db::row('quotations', $qPk);
-        $qNo = $qSnap !== null ? trim((string) ($qSnap['quote_number'] ?? '')) : '';
-        $qItemsDel = [];
-        foreach (Db::filter('quotation_items', static function (array $r) use ($id): bool {
-            return isset($r['quotation_id']) && (int) $r['quotation_id'] === $id;
-        }) as $qr) {
-            if (!is_array($qr)) {
-                continue;
-            }
-            $qItemsDel[] = $qr;
-            if (count($qItemsDel) >= 120) {
-                break;
-            }
-        }
-        Db::deleteWhereEquals('quotation_items', 'quotation_id', (string) $id);
-        Db::deleteRow('quotations', (string) $qPk);
-        tnc_audit_log('delete', 'quotation', (string) $id, $qNo !== '' ? $qNo : ('#' . $id), [
-            'source' => 'action-handler',
-            'action' => 'delete',
-            'before' => $qSnap,
-            'meta' => ['quotation_items' => $qItemsDel],
-        ]);
-        tnc_action_redirect( app_path('pages/quotations/quotation-list.php') . '?deleted=1');
     } elseif ($type === 'member') {
         $uSnap = Db::row('users', (string) $id);
         $uLabel = $uSnap !== null ? trim((string) (($uSnap['fname'] ?? '') . ' ' . ($uSnap['lname'] ?? ''))) : '';

@@ -20,7 +20,15 @@ if (!function_exists('tnc_audit_sensitive_keys')) {
      */
     function tnc_audit_sensitive_keys(): array
     {
-        return ['password', 'password_hash', 'line_approval_token', 'csrf', '_csrf'];
+        return [
+            'password',
+            'password_hash',
+            'line_approval_token',
+            'channel_access_token',
+            'channel_secret',
+            'csrf',
+            '_csrf',
+        ];
     }
 }
 

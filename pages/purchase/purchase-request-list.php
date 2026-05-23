@@ -242,9 +242,6 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                                         echo number_format($totalAmt, 2);
                                     }
                                 ?></div>
-                                <?php if ($hasUnknownLinePrice): ?>
-                                    <div class="small text-muted mt-1">มีสินค้าไม่ทราบราคา</div>
-                                <?php endif; ?>
                             </td>
                             <td class="text-center">
                                 <div class="btn-group shadow-sm rounded">

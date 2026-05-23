@@ -155,7 +155,7 @@ function normalizeRoleForSelect(raw) {
 }
 
 function editMember(id) {
-    fetch(`${actionHandlerUrl}?action=get_data&type=member&id=${id}`)
+    fetch(`${actionHandlerUrl}?action=get_data&type=member&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`)
     .then(res => res.json())
     .then(data => {
         document.getElementById('edit_member_id').value = data.userid;
