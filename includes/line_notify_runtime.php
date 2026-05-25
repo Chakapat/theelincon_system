@@ -52,9 +52,9 @@ function line_effective_channel_secret(): string
     return line_notify_field('channel_secret');
 }
 
-function line_effective_bot_user_id(): string
+function line_effective_target_group_id(): string
 {
-    return line_notify_field('bot_user_id');
+    return line_notify_field('target_group_id');
 }
 
 function line_effective_approver_user_id(): string
@@ -86,6 +86,52 @@ function line_notify_split_csv_ids(string $raw): array
     }
 
     return array_values(array_unique($out));
+}
+
+/**
+ * กลุ่ม LINE ที่เคยเห็นจาก Webhook (uploads/line-user-ids.json)
+ *
+ * @return list<array{id: string, label: string, last_seen: string}>
+ */
+function line_notify_captured_groups(): array
+{
+    $logPath = defined('ROOT_PATH') ? ROOT_PATH . '/uploads/line-user-ids.json' : '';
+    if ($logPath === '' || !is_file($logPath)) {
+        return [];
+    }
+    $raw = file_get_contents($logPath);
+    if ($raw === false) {
+        return [];
+    }
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        return [];
+    }
+
+    $byGroup = [];
+    foreach ($decoded as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $gid = trim((string) ($row['groupId'] ?? ''));
+        if ($gid === '') {
+            continue;
+        }
+        $seen = trim((string) ($row['last_seen_at'] ?? ($row['timestamp'] ?? '')));
+        if (!isset($byGroup[$gid]) || $seen > (string) ($byGroup[$gid]['last_seen'] ?? '')) {
+            $byGroup[$gid] = [
+                'id' => $gid,
+                'label' => $gid,
+                'last_seen' => $seen,
+            ];
+        }
+    }
+    $out = array_values($byGroup);
+    usort($out, static function (array $a, array $b): int {
+        return strcmp((string) ($b['last_seen'] ?? ''), (string) ($a['last_seen'] ?? ''));
+    });
+
+    return $out;
 }
 
 /**

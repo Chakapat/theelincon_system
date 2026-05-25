@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/line_pr_approval.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -108,7 +109,30 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
     <div class="no-print">
     <?php if (!empty($_GET['success'])): ?>
         <div class="alert alert-success alert-dismissible fade show" role="alert">
-            บันทึกใบขอซื้อ (PR) เรียบร้อยแล้ว — พิมพ์หรือออก PO จากหน้ารายละเอียดได้ทันที
+            บันทึกใบขอซื้อ (PR) เรียบร้อยแล้ว — ส่งขออนุมัติ LINE หรือให้ ADMIN อนุมัติได้จากหน้ารายละเอียด PR
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+    <?php
+    $lineNotify = trim((string) ($_GET['line_notify'] ?? ''));
+    if ($lineNotify === 'sent'): ?>
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            ส่งข้อความขออนุมัติไป LINE แล้ว
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php elseif ($lineNotify === 'missing_token'): ?>
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            บันทึก PR แล้ว แต่ยังไม่ได้ตั้ง Channel Access Token — ไปที่หน้าตั้งค่า LINE
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php elseif ($lineNotify === 'missing_target'): ?>
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            บันทึก PR แล้ว แต่ยังไม่ได้ตั้ง <strong>กลุ่ม LINE</strong> ในหน้าตั้งค่า LINE — ไปที่เมนูตั้งค่า LINE แล้วเลือก Group ID
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php elseif ($lineNotify !== '' && $lineNotify !== 'sent'): ?>
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            บันทึก PR แล้ว แต่ส่ง LINE ไม่สำเร็จ (<?= htmlspecialchars($lineNotify, ENT_QUOTES, 'UTF-8') ?>) — ตรวจสอบการตั้งค่า LINE
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
@@ -132,6 +156,8 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                 echo 'ไม่พบรหัสใบขอซื้อที่ถูกต้อง';
             } elseif ($err === 'pr_has_po') {
                 echo 'ใบขอซื้อนี้มีใบสั่งซื้อ (PO) แล้ว ไม่สามารถแก้ไขได้';
+            } elseif ($err === 'pr_approved_locked') {
+                echo 'ใบขอซื้ออนุมัติแล้ว ไม่สามารถแก้ไขได้';
             } elseif ($err === 'delete_pr_failed') {
                 echo 'ไม่สามารถลบใบขอซื้อได้ กรุณาลองใหม่หรือติดต่อผู้ดูแลระบบ';
             } else {
@@ -177,6 +203,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                         <th>วันที่ขอซื้อ/จัดจ้าง</th>
                         <th>ไซต์งาน</th>
                         <th class="text-center">ประเภท</th>
+                        <th class="text-center">อนุมัติ</th>
                         <th class="text-end">ยอดรวมสุทธิ</th>
                         <th class="text-center">การจัดการ</th>
                     </tr>
@@ -229,6 +256,14 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                                     <span class="badge bg-light text-secondary border rounded-pill" style="font-size:0.75rem;">จัดซื้อ</span>
                                 <?php endif; ?>
                             </td>
+                            <td class="text-center">
+                                <?php
+                                $apSt = line_pr_normalize_status($row);
+                                $apLbl = line_pr_status_label_th($apSt);
+                                $apCls = line_pr_status_badge_class($apSt);
+                                ?>
+                                <span class="badge rounded-pill <?= htmlspecialchars($apCls, ENT_QUOTES, 'UTF-8') ?>" style="font-size:0.72rem;"><?= htmlspecialchars($apLbl, ENT_QUOTES, 'UTF-8') ?></span>
+                            </td>
                             <?php
                                 $totalAmt = (float) ($row['total_amount'] ?? 0);
                                 $totalIsZero = abs($totalAmt) < 0.0005;
@@ -245,7 +280,10 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                             </td>
                             <td class="text-center">
                                 <div class="btn-group shadow-sm rounded">
-                                    <?php if (!$prHasPo): ?>
+                                    <?php
+                                    $prCanEdit = !$prHasPo && line_pr_normalize_status($row) !== 'approved';
+                                    ?>
+                                    <?php if ($prCanEdit): ?>
                                         <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['id'] ?>" class="btn btn-sm btn-white text-warning border" title="แก้ไขใบขอซื้อ">
                                             <i class="bi bi-pencil-fill"></i>
                                         </a>
@@ -268,7 +306,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">ไม่พบข้อมูลใบขอซื้อ</td>
+                            <td colspan="8" class="text-center py-4 text-muted">ไม่พบข้อมูลใบขอซื้อ</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>

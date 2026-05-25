@@ -79,7 +79,7 @@ foreach ($_POST['description'] ?? [] as $key => $desc) {
         $final_unit_price = round($line_total / ($qty ?: 1), 4);
     } else {
         $final_unit_price = (float) $price_input;
-        $line_total = $money2($final_unit_price);
+        $line_total = $money2($qty * $final_unit_price);
     }
 
     $subtotal += $line_total;

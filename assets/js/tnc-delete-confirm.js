@@ -8,7 +8,7 @@
 
     /**
      * ปุ่มลูกตาแสดง/ซ่อนรหัสผ่านใน Swal (เรียกจาก didOpen)
-     * ห้ามห่อ/ย้าย .swal2-input — SweetAlert2 หา input ด้วย .swal2-popup > .swal2-input
+     * ห่อเฉพาะช่อง input ใน wrapper — parent เดิมมักเป็น .swal2-popup ทำให้ top:50% เพี้ยน
      */
     window.tncSwalAttachPasswordReveal = function () {
         if (typeof Swal === 'undefined') {
@@ -27,40 +27,44 @@
                 return;
             }
             input.setAttribute('data-tnc-pass-reveal', '1');
-            popup.classList.add('tnc-delete-pass-host');
-            if (!popup.querySelector('.tnc-delete-pass-toggle')) {
-                var toggle = document.createElement('button');
+
+            var passHost = input.closest('.tnc-delete-pass-input-wrap');
+            if (!passHost) {
+                passHost = document.createElement('div');
+                passHost.className = 'tnc-delete-pass-input-wrap';
+                var parent = input.parentNode;
+                if (!parent) {
+                    return;
+                }
+                parent.insertBefore(passHost, input);
+                passHost.appendChild(input);
+            }
+
+            var toggle = passHost.querySelector('.tnc-delete-pass-toggle');
+            if (!toggle) {
+                toggle = document.createElement('button');
                 toggle.type = 'button';
                 toggle.className = 'tnc-delete-pass-toggle';
                 toggle.setAttribute('aria-label', 'แสดงรหัสผ่าน');
                 toggle.setAttribute('title', 'แสดงรหัสผ่าน');
                 toggle.innerHTML = tncPassEyeSvg;
-                var positionToggle = function () {
-                    var ir = input.getBoundingClientRect();
-                    var pr = popup.getBoundingClientRect();
-                    var w = 38;
-                    toggle.style.position = 'absolute';
-                    toggle.style.left = Math.max(0, ir.right - pr.left - w) + 'px';
-                    toggle.style.top = (ir.top - pr.top + ir.height / 2) + 'px';
-                    toggle.style.transform = 'translateY(-50%)';
-                    toggle.style.right = 'auto';
-                };
                 toggle.addEventListener('click', function (e) {
                     e.preventDefault();
+                    e.stopPropagation();
                     var hidden = input.type === 'password';
                     input.type = hidden ? 'text' : 'password';
                     toggle.innerHTML = hidden ? tncPassEyeSlashSvg : tncPassEyeSvg;
                     toggle.setAttribute('aria-label', hidden ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน');
                     toggle.setAttribute('title', hidden ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน');
-                    positionToggle();
                 });
-                popup.appendChild(toggle);
-                positionToggle();
+                passHost.appendChild(toggle);
             }
             input.focus();
         };
         requestAnimationFrame(function () {
-            requestAnimationFrame(run);
+            requestAnimationFrame(function () {
+                run();
+            });
         });
     };
 
@@ -82,9 +86,10 @@
             '.swal2-popup.tnc-delete-popup .swal2-confirm{background:#dc3545!important;box-shadow:0 .45rem .95rem rgba(220,53,69,.26)!important;}' +
             '.swal2-popup.tnc-delete-popup .swal2-cancel{background:rgba(255,255,255,.72)!important;color:#475569!important;border:1px solid rgba(100,116,139,.28)!important;}' +
             '.tnc-delete-alert-icon{width:68px;height:68px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;margin:0 auto .35rem;background:rgba(220,53,69,.12);border:1px solid rgba(220,53,69,.3);color:#dc3545;font-size:1.95rem;animation:tncDeletePulse 1.2s ease-in-out infinite;}' +
-            '.swal2-popup.tnc-delete-pass-host{position:relative!important;}' +
-            '.swal2-popup.tnc-delete-pass-host .swal2-input[data-tnc-pass-reveal="1"]{padding-right:2.75rem!important;box-sizing:border-box!important;}' +
-            '.tnc-delete-pass-toggle{z-index:20;display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border:none;background:rgba(248,250,252,.92);color:#64748b;line-height:1;padding:0;border-radius:8px;cursor:pointer;box-shadow:0 0 0 1px rgba(148,163,184,.35);}' +
+            '.tnc-delete-pass-input-wrap{position:relative!important;display:block!important;width:calc(100% - 1.6em)!important;max-width:100%!important;margin:.5em auto 0!important;box-sizing:border-box!important;}' +
+            '.tnc-delete-pass-input-wrap .swal2-input{display:block!important;width:100%!important;height:44px!important;min-height:44px!important;margin:0!important;padding:0 .75rem!important;padding-right:2.85rem!important;box-sizing:border-box!important;}' +
+            '.tnc-delete-pass-input-wrap .tnc-delete-pass-toggle{position:absolute!important;right:4px!important;top:50%!important;left:auto!important;width:2.35rem!important;height:2.35rem!important;transform:translateY(-50%)!important;z-index:5;margin:0!important;}' +
+            '.tnc-delete-pass-toggle{display:inline-flex;align-items:center;justify-content:center;width:2.1rem;height:2.1rem;border:none;background:transparent;color:#64748b;line-height:1;padding:0;border-radius:8px;cursor:pointer;}' +
             '.tnc-delete-pass-toggle:hover{background:rgba(241,245,249,.95);color:#334155;}' +
             '.tnc-delete-pass-toggle:focus-visible{outline:2px solid rgba(253,126,20,.45);outline-offset:1px;}' +
             '.tnc-delete-pass-shake{animation:tncDeleteShake .34s ease-in-out 1;}' +

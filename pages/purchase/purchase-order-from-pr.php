@@ -8,6 +8,7 @@ use Theelincon\Rtdb\Purchase;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/line_pr_approval.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -21,6 +22,12 @@ $pr = Db::findFirst('purchase_requests', static function (array $r) use ($pr_id)
 });
 if (!$pr) {
     echo "<script>alert('ไม่พบข้อมูลใบขอซื้อ'); window.location.href='" . htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES) . "';</script>";
+    exit();
+}
+if (!line_pr_is_approved_for_po($pr)) {
+    $st = line_pr_normalize_status($pr);
+    $err = $st === 'rejected' ? 'pr_rejected' : 'pr_not_approved';
+    header('Location: ' . app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=' . $err);
     exit();
 }
 

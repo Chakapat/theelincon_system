@@ -8,6 +8,9 @@ use Theelincon\Rtdb\Purchase;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/line_notify_runtime.php';
+
+$prOfferLineOnSave = line_effective_channel_access_token() !== '' && line_effective_target_group_id() !== '';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -507,10 +510,11 @@ usort($sites, static function (array $a, array $b): int {
             <input type="hidden" name="pr_id" value="<?= (int) $editId ?>">
             <input type="hidden" name="request_type" value="<?= htmlspecialchars($requestTypeVal, ENT_QUOTES, 'UTF-8') ?>">
         <?php endif; ?>
+        <input type="hidden" name="send_line_after_save" id="send_line_after_save" value="0">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-1">
             <h1 class="pr-page-title mb-0"><i class="bi bi-cart-plus-fill text-warning me-2"></i><?= $isEdit ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)' ?></h1>
             <div class="d-flex flex-wrap gap-2">
-                <button type="submit" class="btn btn-pr-primary" <?= count($sites) === 0 ? 'disabled' : '' ?>><i class="bi bi-save me-1"></i>บันทึกใบขอซื้อ</button>
+                <button type="button" class="btn btn-pr-primary" id="btnPrSaveOpenModal" <?= count($sites) === 0 ? 'disabled' : '' ?>><i class="bi bi-save me-1"></i>บันทึกใบขอซื้อ</button>
                 <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-danger rounded-pill fw-semibold px-4"><i class="bi bi-x-circle me-1"></i>ยกเลิก</a>
             </div>
         </div>
@@ -689,6 +693,43 @@ usort($sites, static function (array $a, array $b): int {
         </div>
 
     </form>
+
+    <div class="modal fade" id="prSaveConfirmModal" tabindex="-1" aria-labelledby="prSaveConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="prSaveConfirmModalLabel">
+                        <i class="bi bi-cart-check text-warning me-2"></i><?= $isEdit ? 'ยืนยันบันทึกใบขอซื้อ' : 'ยืนยันสร้างใบขอซื้อ' ?>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                </div>
+                <div class="modal-body pt-2">
+                    <p class="text-muted small mb-3">
+                        <?= $isEdit
+                            ? 'ตรวจสอบข้อมูลให้ครบก่อนกดยืนยัน ระบบจะบันทึกใบขอซื้อ (PR) ตามที่กรอก'
+                            : 'ตรวจสอบข้อมูลให้ครบก่อนกดยืนยัน ระบบจะสร้างใบขอซื้อ (PR) ใหม่' ?>
+                    </p>
+                    <?php if ($prOfferLineOnSave): ?>
+                        <div class="form-check p-3 rounded-3 border bg-light">
+                            <input class="form-check-input" type="checkbox" value="1" id="prSendLineOnSaveCheck">
+                            <label class="form-check-label fw-semibold" for="prSendLineOnSaveCheck">
+                                <i class="bi bi-line text-success me-1"></i>ส่งไปยัง LINE ด้วย
+                            </label>
+                            <div class="form-text ms-4">ติ๊กเพื่อส่งคำขออนุมัติไปกลุ่ม LINE — ไม่ติ๊กจะบันทึกอย่างเดียว</div>
+                        </div>
+                    <?php else: ?>
+                        <p class="small text-warning mb-0"><i class="bi bi-info-circle me-1"></i>ยังไม่ได้ตั้งค่า LINE ครบ — บันทึกได้แต่ส่ง LINE ไม่ได้จนกว่าจะตั้งค่าในหน้า LINE แจ้งเตือน</p>
+                    <?php endif; ?>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-pr-primary rounded-pill px-4 fw-semibold" id="btnPrSaveConfirm">
+                        <i class="bi bi-check2-circle me-1"></i><?= $isEdit ? 'ยืนยันบันทึกใบขอซื้อ' : 'ยืนยันสร้างใบขอซื้อ' ?>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </div>
 
@@ -878,27 +919,58 @@ document.getElementById('request_type')?.addEventListener('change', function () 
         });
     }
 
-    const form = dateInput.closest('form');
-    form?.addEventListener('submit', (event) => {
+    function normalizePrCreatedDate() {
+        if (!dateInput) return true;
         const raw = (dateInput.value || '').trim();
         const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
         if (!m) {
-            event.preventDefault();
             alert('กรุณากรอกวันที่เป็นรูปแบบ วัน/เดือน/ปี เช่น 25/04/2026');
             dateInput.focus();
-            return;
+            return false;
         }
         const dd = Number(m[1]);
         const mm = Number(m[2]);
         const yyyy = Number(m[3]);
         const d = new Date(yyyy, mm - 1, dd);
         if (d.getFullYear() !== yyyy || d.getMonth() !== (mm - 1) || d.getDate() !== dd) {
-            event.preventDefault();
             alert('วันที่ไม่ถูกต้อง กรุณาตรวจสอบใหม่');
             dateInput.focus();
-            return;
+            return false;
         }
         dateInput.value = `${String(yyyy)}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+        return true;
+    }
+
+    const form = dateInput ? dateInput.closest('form') : null;
+    const saveModalEl = document.getElementById('prSaveConfirmModal');
+    const saveModal = saveModalEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(saveModalEl) : null;
+    const sendLineHidden = document.getElementById('send_line_after_save');
+    const lineCheck = document.getElementById('prSendLineOnSaveCheck');
+
+    document.getElementById('btnPrSaveOpenModal')?.addEventListener('click', function () {
+        if (lineCheck) {
+            lineCheck.checked = false;
+        }
+        saveModal?.show();
+    });
+
+    document.getElementById('btnPrSaveConfirm')?.addEventListener('click', function () {
+        if (!form || !normalizePrCreatedDate()) {
+            return;
+        }
+        if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+            saveModal?.hide();
+            return;
+        }
+        if (sendLineHidden) {
+            sendLineHidden.value = lineCheck && lineCheck.checked ? '1' : '0';
+        }
+        saveModal?.hide();
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+        } else {
+            form.submit();
+        }
     });
 })();
 

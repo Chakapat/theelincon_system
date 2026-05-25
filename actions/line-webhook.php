@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/line_notify_runtime.php';
+require_once __DIR__ . '/../includes/line_messaging.php';
+require_once __DIR__ . '/../includes/line_pr_approval.php';
+require_once __DIR__ . '/../includes/tnc_audit_log.php';
 
 header('Content-Type: application/json; charset=UTF-8');
 
 /**
- * Return true when LINE group/room text explicitly mentions this bot.
+ * Return true when LINE group/room text @mentions this bot (isSelf จาก LINE API).
  */
 function line_is_mention_to_bot(array $event): bool
 {
@@ -17,24 +20,45 @@ function line_is_mention_to_bot(array $event): bool
         return false;
     }
 
-    $text = (string) ($message['text'] ?? '');
     $mention = $message['mention'] ?? null;
-    if (is_array($mention) && isset($mention['mentionees']) && is_array($mention['mentionees'])) {
-        $botUserId = line_effective_bot_user_id();
-        foreach ($mention['mentionees'] as $m) {
-            if (!is_array($m)) {
-                continue;
-            }
-            if (!empty($m['isSelf'])) {
-                return true;
-            }
-            if ($botUserId !== '' && isset($m['userId']) && (string) $m['userId'] === $botUserId) {
-                return true;
-            }
+    if (!is_array($mention) || !isset($mention['mentionees']) || !is_array($mention['mentionees'])) {
+        return false;
+    }
+    foreach ($mention['mentionees'] as $m) {
+        if (is_array($m) && !empty($m['isSelf'])) {
+            return true;
         }
     }
 
-    return mb_strpos($text, '@') !== false;
+    return false;
+}
+
+/**
+ * @return array<string, string>
+ */
+function line_webhook_parse_postback_data(string $raw): array
+{
+    $out = [];
+    parse_str($raw, $parsed);
+    if (!is_array($parsed)) {
+        return $out;
+    }
+    foreach ($parsed as $k => $v) {
+        $out[(string) $k] = is_scalar($v) ? trim((string) $v) : '';
+    }
+
+    return $out;
+}
+
+function line_webhook_reply_text(string $replyToken, string $text): void
+{
+    $token = line_effective_channel_access_token();
+    if ($token === '' || $replyToken === '') {
+        return;
+    }
+    line_messaging_reply($token, $replyToken, [
+        ['type' => 'text', 'text' => $text],
+    ]);
 }
 
 $rawBody = file_get_contents('php://input');
@@ -69,11 +93,38 @@ if (!is_array($payload)) {
 
 $events = $payload['events'] ?? [];
 $capturedSources = [];
+$postbackHandled = 0;
 if (is_array($events)) {
     foreach ($events as $event) {
         if (!is_array($event)) {
             continue;
         }
+
+        $eventType = (string) ($event['type'] ?? '');
+        if ($eventType === 'postback') {
+            $postback = $event['postback'] ?? null;
+            if (!is_array($postback)) {
+                continue;
+            }
+            $dataRaw = (string) ($postback['data'] ?? '');
+            $params = line_webhook_parse_postback_data($dataRaw);
+            if (($params['action'] ?? '') !== 'line_pr_decision') {
+                continue;
+            }
+            $prId = (int) ($params['id'] ?? 0);
+            $decision = (string) ($params['decision'] ?? '');
+            $approvalToken = (string) ($params['token'] ?? '');
+            $source = $event['source'] ?? [];
+            $lineUserId = is_array($source) ? trim((string) ($source['userId'] ?? '')) : '';
+            $result = line_pr_apply_decision($prId, $decision, $lineUserId, $approvalToken);
+            $replyToken = (string) ($event['replyToken'] ?? '');
+            if ($replyToken !== '') {
+                line_webhook_reply_text($replyToken, $result['message']);
+            }
+            $postbackHandled++;
+            continue;
+        }
+
         $source = $event['source'] ?? null;
         if (!is_array($source)) {
             continue;
@@ -83,9 +134,13 @@ if (is_array($events)) {
         $groupId = isset($source['groupId']) ? trim((string) $source['groupId']) : '';
         $roomId = isset($source['roomId']) ? trim((string) $source['roomId']) : '';
         $sourceType = (string) ($source['type'] ?? '');
-        $eventType = (string) ($event['type'] ?? '');
+        $configuredGroup = line_effective_target_group_id();
+        $inConfiguredGroup = $configuredGroup !== ''
+            && $sourceType === 'group'
+            && $groupId !== ''
+            && $groupId === $configuredGroup;
 
-        if (($sourceType === 'group' || $sourceType === 'room') && $eventType === 'message') {
+        if (($sourceType === 'group' || $sourceType === 'room') && $eventType === 'message' && !$inConfiguredGroup) {
             if (!line_is_mention_to_bot($event)) {
                 continue;
             }
@@ -157,4 +212,5 @@ file_put_contents($logPath, json_encode($existing, JSON_PRETTY_PRINT | JSON_UNES
 echo json_encode([
     'ok' => true,
     'captured_count' => count($capturedSources),
+    'postback_handled' => $postbackHandled,
 ], JSON_UNESCAPED_UNICODE);

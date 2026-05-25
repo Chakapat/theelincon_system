@@ -100,9 +100,21 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
     $detailsText = trim((string) ($pr['details'] ?? ''));
     $hireTableNote = $requestType === 'hire' && count($item_rows) === 0 && $hireScope !== '';
 
-    $poShortcutUrl = app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . (int) $pr['id'];
+    if (!function_exists('line_pr_normalize_status')) {
+        require_once dirname(__DIR__) . '/line_pr_approval.php';
+    }
+    $prApprovalStatus = line_pr_normalize_status($pr);
+    $prIsApprovedForPo = line_pr_is_approved_for_po($pr);
+    $prApprovalLabel = line_pr_status_label_th($prApprovalStatus);
+    $prApprovalBadgeClass = line_pr_status_badge_class($prApprovalStatus);
+
+    $poShortcutUrl = '';
     if (is_array($existing_po) && (int) ($existing_po['id'] ?? 0) > 0) {
         $poShortcutUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $existing_po['id'];
+    } elseif ($prIsApprovedForPo) {
+        $poShortcutUrl = $requestType === 'hire'
+            ? app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . (int) $pr['id']
+            : app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . (int) $pr['id'];
     }
 
     $prDocTitle = trim((string) ($pr['pr_number'] ?? ''));
@@ -148,6 +160,10 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         'isPoCancelled' => $isPoCancelled,
         'poShortcutUrl' => $poShortcutUrl,
         'prDocTitle' => $prDocTitle,
+        'prApprovalStatus' => $prApprovalStatus,
+        'prIsApprovedForPo' => $prIsApprovedForPo,
+        'prApprovalLabel' => $prApprovalLabel,
+        'prApprovalBadgeClass' => $prApprovalBadgeClass,
     ];
 }
 

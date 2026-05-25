@@ -118,7 +118,7 @@ Db::sortRows($customers, 'name', false);
 
         <div class="card mt-4 border-orange">
             <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                <span class="fw-bold" style="color: #FF6600;"><i class="bi bi-list-task me-2"></i>รายการสินค้า</span><span class="small text-muted d-none d-md-inline">(พิมพ์ % ในช่องราคาเพื่อคิดจากยอดสะสม)</span>
+                <span class="fw-bold" style="color: #FF6600;"><i class="bi bi-list-task me-2"></i>รายการสินค้า</span><span class="small text-muted d-none d-md-inline">(รวมเงิน = จำนวน × ราคา/หน่วย · พิมพ์ % ในช่องราคาได้)</span>
                 <button type="button" class="btn btn-success btn-sm rounded-pill px-3" onclick="addRow()"><i class="bi bi-plus"></i> เพิ่มรายการ</button>
             </div>
             <div class="table-responsive">
@@ -128,7 +128,7 @@ Db::sortRows($customers, 'name', false);
                             <th width="40%" class="ps-4">รายละเอียด</th>
                             <th width="10%" class="text-center">จำนวน</th>
                             <th width="10%" class="text-center">หน่วย</th>
-                            <th width="15%" class="text-end">ราคา</th>
+                            <th width="15%" class="text-end">ราคา/หน่วย</th>
                             <th width="15%" class="text-end pe-4">รวมเงิน</th>
                             <th width="5%"></th>
                         </tr>
@@ -241,7 +241,7 @@ function calculate(){
         let pIn = row.querySelector(".price").value.trim();
         let rowTotal = pIn.includes('%')
             ? money2(running * ((parseFloat(pIn) || 0) / 100))
-            : money2(parseFloat(pIn) || 0);
+            : money2(qty * (parseFloat(pIn) || 0));
 
         row.querySelector(".total").value = rowTotal.toFixed(2);
         subtotal += rowTotal;

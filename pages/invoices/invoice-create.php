@@ -43,7 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_invoice'])) {
                 $percent = floatval(str_replace('%', '', $price_val));
                 $item_total = $money2($running_total * ($percent / 100));
             } else {
-                $item_total = $money2(floatval($price_val));
+                $unit_price = floatval($price_val);
+                $item_total = $money2($qty * $unit_price);
             }
             $subtotal += $item_total;
             $running_total += $item_total; 
@@ -86,10 +87,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_invoice'])) {
         if (strpos($price_input, '%') !== false) {
             $percent = floatval(str_replace('%', '', $price_input));
             $row_total = $money2($current_running * ($percent / 100));
-            $final_unit_price = round($row_total / ($qty ?: 1), 4);
+            $final_unit_price = $qty > 0 ? round($row_total / $qty, 4) : 0.0;
         } else {
             $final_unit_price = floatval($price_input);
-            $row_total = $money2($final_unit_price);
+            $row_total = $money2($qty * $final_unit_price);
         }
 
         $iid = Db::nextNumericId('invoice_items', 'id');
@@ -334,8 +335,8 @@ Db::sortRows($customer_data, 'name', false);
         </div>
 
         <div class="card mt-4 overflow-hidden invoice-card">
-            <div class="card-header d-flex justify-content-between align-items-center py-3 bg-white">
-                <span class="fw-bold section-title">รายการสินค้าและบริการ</span>
+            <div class="card-header d-flex justify-content-between align-items-center py-3 bg-white flex-wrap gap-2">
+                <span class="fw-bold section-title">รายการสินค้าและบริการ <span class="small text-muted fw-normal">(รวมเงิน = จำนวน × ราคา/หน่วย · พิมพ์ % ในช่องราคาได้)</span></span>
                 <button type="button" class="btn btn-success btn-sm rounded-pill px-3" onclick="addRow()">+ เพิ่มแถว</button>
             </div>
             <div class="card-body p-0 invoice-table-wrap">
@@ -345,7 +346,7 @@ Db::sortRows($customer_data, 'name', false);
                             <th width="40%" class="text-center">รายการ</th>
                             <th width="12%" class="text-center">จำนวน</th>
                             <th width="12%" class="text-center">หน่วย</th>
-                            <th width="15%" class="text-center">ราคา</th>
+                            <th width="15%" class="text-center">ราคา/หน่วย</th>
                             <th width="15%" class="text-center">รวมเงิน</th>
                             <th width="6%"></th>
                         </tr>
@@ -355,7 +356,7 @@ Db::sortRows($customer_data, 'name', false);
                             <td><input type="text" name="description[]" class="form-control" required></td>
                             <td><input type="number" name="quantity[]" class="form-control qty text-center" value="1" step="0.01"></td>
                             <td><input type="text" name="unit[]" class="form-control text-center"></td>
-                            <td><input type="number" name="price[]" class="form-control price text-end" value="" step="0.01" inputmode="decimal"></td>
+                            <td><input type="text" name="price[]" class="form-control price text-end" value="" placeholder="เช่น 500" inputmode="decimal" autocomplete="off"></td>
                             <td><input type="number" name="total[]" class="form-control total text-end fw-bold" value="0.00" readonly></td>
                             <td class="text-center"><i class="bi bi-trash-fill text-danger remove" style="cursor:pointer;"></i></td>
                         </tr>
@@ -471,12 +472,16 @@ function calculate(){
     };
 
     let subtotal = 0;
+    let running = 0;
     document.querySelectorAll("#items_table tbody tr").forEach(row => {
         let qty = parseFloat(row.querySelector(".qty").value) || 0;
         let p_in = row.querySelector(".price").value.trim();
-        let row_t = money2(parseFloat(p_in) || 0);
+        let row_t = p_in.includes('%')
+            ? money2(running * ((parseFloat(p_in) || 0) / 100))
+            : money2(qty * (parseFloat(p_in) || 0));
         row.querySelector(".total").value = row_t.toFixed(2);
         subtotal += row_t;
+        running += row_t;
     });
     subtotal = money2(subtotal);
     let vat = document.getElementById("vatCheck").checked ? money2(subtotal * 0.07) : 0;

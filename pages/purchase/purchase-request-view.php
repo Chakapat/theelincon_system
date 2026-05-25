@@ -19,6 +19,11 @@ if ($prCtx === null) {
     exit();
 }
 extract($prCtx, EXTR_OVERWRITE);
+
+$isPrAdmin = user_is_admin_only_role();
+$prCanSendLine = in_array($prApprovalStatus, ['pending', 'rejected'], true);
+$prCanWebDecide = $isPrAdmin && $prApprovalStatus === 'pending';
+$prHandlerUrl = app_path('actions/action-handler.php');
 ?>
 
 <!DOCTYPE html>
@@ -151,8 +156,62 @@ extract($prCtx, EXTR_OVERWRITE);
             border-bottom: 1px solid #e2e8f0;
             background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
         }
-        .pr-view-toolbar .btn { font-weight: 600; }
+        .pr-view-toolbar .btn { font-weight: 600; white-space: nowrap; }
         .pr-view-toolbar-inner { max-width: 210mm; margin: 0 auto; }
+        .pr-toolbar-top {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem 1rem;
+            margin-bottom: 0.85rem;
+        }
+        .pr-toolbar-top-left {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem 0.75rem;
+            min-width: 0;
+        }
+        .pr-toolbar-doc-no {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #1f2937;
+            letter-spacing: 0.01em;
+        }
+        .pr-toolbar-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: stretch;
+            gap: 0.65rem;
+        }
+        .pr-toolbar-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.45rem 0.65rem;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,.04);
+        }
+        .pr-toolbar-group-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #9ca3af;
+            padding-right: 0.15rem;
+            white-space: nowrap;
+        }
+        .pr-toolbar-group--approval { border-color: #bbf7d0; background: #f0fdf4; }
+        .pr-toolbar-group--po { border-color: #bfdbfe; background: #eff6ff; }
+        .pr-toolbar-group--util { border-color: #e5e7eb; background: #f9fafb; }
+        @media (max-width: 767.98px) {
+            .pr-toolbar-actions { flex-direction: column; align-items: stretch; }
+            .pr-toolbar-group { justify-content: flex-start; }
+        }
         .pr-purchase-requisition-doc .pr-doc-main {
             padding-bottom: 50mm;
             box-sizing: border-box;
@@ -362,35 +421,114 @@ extract($prCtx, EXTR_OVERWRITE);
         <?php if (!empty($_GET['error']) && $_GET['error'] === 'po_exists'): ?>
             <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ใบขอซื้อนี้มีใบสั่งซื้อแล้ว ไม่สามารถออกซ้ำได้</div>
         <?php endif; ?>
+        <?php if (!empty($_GET['created'])): ?>
+            <div class="alert alert-success py-2 px-3 mb-3 border-0 shadow-sm">บันทึกใบขอซื้อ (PR) เรียบร้อยแล้ว</div>
+        <?php endif; ?>
+        <?php if (!empty($_GET['updated'])): ?>
+            <div class="alert alert-success py-2 px-3 mb-3 border-0 shadow-sm">แก้ไขใบขอซื้อเรียบร้อยแล้ว</div>
+        <?php endif; ?>
+        <?php
+        $lineNotifyView = trim((string) ($_GET['line_notify'] ?? ''));
+        if ($lineNotifyView === 'sent'): ?>
+            <div class="alert alert-info py-2 px-3 mb-3 border-0 shadow-sm">ส่งคำขออนุมัติไป LINE แล้ว</div>
+        <?php elseif ($lineNotifyView === 'missing_target'): ?>
+            <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ยังไม่ได้ตั้งกลุ่ม LINE — ไปที่หน้าตั้งค่า LINE</div>
+        <?php elseif ($lineNotifyView === 'missing_token'): ?>
+            <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ยังไม่ได้ตั้ง Channel Access Token — ไปที่หน้าตั้งค่า LINE</div>
+        <?php elseif ($lineNotifyView !== ''): ?>
+            <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ส่ง LINE ไม่สำเร็จ (<?= htmlspecialchars($lineNotifyView, ENT_QUOTES, 'UTF-8') ?>)</div>
+        <?php endif; ?>
+        <?php if (!empty($_GET['web_approved'])): ?>
+            <div class="alert alert-success py-2 px-3 mb-3 border-0 shadow-sm">อนุมัติ PR บนเว็บแล้ว — สามารถออก PO ได้</div>
+        <?php endif; ?>
+        <?php if (!empty($_GET['web_rejected'])): ?>
+            <div class="alert alert-danger py-2 px-3 mb-3 border-0 shadow-sm">บันทึกผลไม่อนุมัติแล้ว</div>
+        <?php endif; ?>
+        <?php if (!empty($_GET['error']) && $_GET['error'] === 'pr_decision'): ?>
+            <div class="alert alert-danger py-2 px-3 mb-3 border-0 shadow-sm"><?= htmlspecialchars(trim((string) ($_GET['message'] ?? 'ไม่สามารถบันทึกผลได้')), ENT_QUOTES, 'UTF-8') ?></div>
+        <?php endif; ?>
+        <?php if (!empty($_GET['error']) && $_GET['error'] === 'pr_not_approved'): ?>
+            <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">
+                <i class="bi bi-hourglass-split me-1"></i>ใบขอซื้อยังรออนุมัติ — ออก PO ได้หลังอนุมัติ (LINE หรือ ADMIN บนเว็บ)
+            </div>
+        <?php endif; ?>
+        <?php if (!empty($_GET['error']) && $_GET['error'] === 'pr_rejected'): ?>
+            <div class="alert alert-danger py-2 px-3 mb-3 border-0 shadow-sm">
+                <i class="bi bi-x-circle me-1"></i>ใบขอซื้อไม่ได้รับการอนุมัติ — แก้ไข PR แล้วบันทึกใหม่เพื่อส่งขออนุมัติอีกครั้ง
+            </div>
+        <?php endif; ?>
         <?php if (!empty($isPoCancelled)): ?>
             <div class="alert alert-danger py-2 px-3 mb-3 border-0 shadow-sm">
                 <i class="bi bi-x-octagon me-1"></i>ใบสั่งซื้อ (PO) ที่เชื่อมกับ PR นี้ถูกยกเลิกแล้ว (CANCELLED)
             </div>
         <?php endif; ?>
-        <div class="d-flex flex-wrap align-items-stretch justify-content-between gap-3">
-            <div class="d-flex flex-wrap align-items-center gap-2">
-                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3">
+        <?php
+        $prShowApprovalGroup = ($isPrAdmin && $prCanSendLine) || $prCanWebDecide;
+        ?>
+        <div class="pr-toolbar-top">
+            <div class="pr-toolbar-top-left">
+                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                     <i class="bi bi-arrow-left me-1"></i>รายการ PR
                 </a>
+                <span class="pr-toolbar-doc-no"><?= htmlspecialchars($prDocTitle, ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="badge rounded-pill px-3 py-2 <?= htmlspecialchars($prApprovalBadgeClass, ENT_QUOTES, 'UTF-8') ?>">
+                    <?= htmlspecialchars($prApprovalLabel, ENT_QUOTES, 'UTF-8') ?>
+                </span>
             </div>
-            <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 flex-grow-1 flex-lg-grow-0">
-                <button type="button" onclick="window.print()" class="btn btn-success rounded-pill px-4 shadow-sm">
+            <div class="pr-toolbar-group pr-toolbar-group--util">
+                <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                     <i class="bi bi-printer me-1"></i>พิมพ์
                 </button>
+            </div>
+        </div>
+
+        <div class="pr-toolbar-actions">
+            <?php if ($prShowApprovalGroup): ?>
+            <div class="pr-toolbar-group pr-toolbar-group--approval">
+                <span class="pr-toolbar-group-label">อนุมัติ</span>
+                <?php if ($isPrAdmin && $prCanSendLine): ?>
+                    <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3" id="btnPrSendLine" title="ส่งขออนุมัติไปกลุ่ม LINE">
+                        <i class="bi bi-line me-1"></i>ส่ง LINE
+                    </button>
+                <?php endif; ?>
+                <?php if ($prCanWebDecide): ?>
+                    <button type="button" class="btn btn-success btn-sm rounded-pill px-3" id="btnPrWebApprove" title="อนุมัติบนเว็บ (ADMIN)">
+                        <i class="bi bi-check-circle me-1"></i>อนุมัติ
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" id="btnPrWebReject" title="ไม่อนุมัติบนเว็บ (ADMIN)">
+                        <i class="bi bi-x-circle me-1"></i>ไม่อนุมัติ
+                    </button>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+            <div class="pr-toolbar-group pr-toolbar-group--po">
+                <span class="pr-toolbar-group-label">ใบสั่งซื้อ</span>
                 <?php if ($requestType !== 'hire' && $existing_po): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $existing_po['id'] ?>" class="btn btn-outline-primary rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $existing_po['id'] ?>" class="btn btn-primary btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-eye me-1"></i>ดู PO
                     </a>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light border rounded-pill px-3">รายการ PO</a>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">รายการ PO</a>
+                <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo)): ?>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                        <i class="bi bi-file-earmark-plus me-1"></i>สร้าง PO
+                    </a>
                 <?php elseif ($requestType !== 'hire'): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary rounded-pill px-4 shadow-sm" title="คีย์ลัด: Ctrl+Shift+G">
-                        <i class="bi bi-file-earmark-plus me-1"></i>สร้างใบสั่งซื้อ (PO)
+                    <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="รออนุมัติก่อนออก PO">
+                        <i class="bi bi-lock me-1"></i>รออนุมัติ
+                    </span>
+                <?php elseif (!empty($prIsApprovedForPo)): ?>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                        <i class="bi bi-file-earmark-plus me-1"></i>ออก PO
+                    </a>
+                    <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-view.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                        <i class="bi bi-file-earmark-ruled me-1"></i>สัญญาจ้าง
                     </a>
                 <?php else: ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary rounded-pill px-3 shadow-sm" title="คีย์ลัด: Ctrl+Shift+G">
-                        <i class="bi bi-file-earmark-plus me-1"></i>ออก PO / สั่งจ่าย
-                    </a>
-                    <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-view.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-outline-secondary rounded-pill px-3">
+                    <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="รออนุมัติก่อนออก PO">
+                        <i class="bi bi-lock me-1"></i>รออนุมัติ
+                    </span>
+                    <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-view.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                         <i class="bi bi-file-earmark-ruled me-1"></i>สัญญาจ้าง
                     </a>
                 <?php endif; ?>
@@ -401,9 +539,52 @@ extract($prCtx, EXTR_OVERWRITE);
 
 <?php tnc_purchase_pr_print_render($prCtx); ?>
 
+<form method="post" action="<?= htmlspecialchars($prHandlerUrl, ENT_QUOTES, 'UTF-8') ?>" id="prSendLineForm" class="d-none">
+    <?php csrf_field(); ?>
+    <input type="hidden" name="action" value="send_pr_line_approval">
+    <input type="hidden" name="pr_id" value="<?= (int) ($pr['id'] ?? $pr_id) ?>">
+</form>
+<form method="post" action="<?= htmlspecialchars($prHandlerUrl, ENT_QUOTES, 'UTF-8') ?>" id="prWebApproveForm" class="d-none">
+    <?php csrf_field(); ?>
+    <input type="hidden" name="action" value="pr_web_decision">
+    <input type="hidden" name="pr_id" value="<?= (int) ($pr['id'] ?? $pr_id) ?>">
+    <input type="hidden" name="decision" value="approve">
+</form>
+<form method="post" action="<?= htmlspecialchars($prHandlerUrl, ENT_QUOTES, 'UTF-8') ?>" id="prWebRejectForm" class="d-none">
+    <?php csrf_field(); ?>
+    <input type="hidden" name="action" value="pr_web_decision">
+    <input type="hidden" name="pr_id" value="<?= (int) ($pr['id'] ?? $pr_id) ?>">
+    <input type="hidden" name="decision" value="reject">
+</form>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function () {
+    function submitIfConfirm(form, msg) {
+        if (!form) return;
+        if (window.confirm(msg)) {
+            form.submit();
+        }
+    }
+    document.getElementById('btnPrSendLine')?.addEventListener('click', function () {
+        submitIfConfirm(
+            document.getElementById('prSendLineForm'),
+            'ต้องการส่งใบขอซื้อไปยัง LINE หรือไม่?'
+        );
+    });
+    document.getElementById('btnPrWebApprove')?.addEventListener('click', function () {
+        submitIfConfirm(
+            document.getElementById('prWebApproveForm'),
+            'ยืนยันอนุมัติ PR นี้บนเว็บ (ADMIN)?'
+        );
+    });
+    document.getElementById('btnPrWebReject')?.addEventListener('click', function () {
+        submitIfConfirm(
+            document.getElementById('prWebRejectForm'),
+            'ยืนยันไม่อนุมัติ PR นี้?'
+        );
+    });
+
     var u = <?= json_encode($poShortcutUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
     if (!u || typeof u !== 'string') return;
     document.addEventListener('keydown', function (e) {

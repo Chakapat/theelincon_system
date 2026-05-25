@@ -7,6 +7,7 @@ require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/tnc_action_response.php';
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
 require_once __DIR__ . '/../includes/purchase_po_payment_slips.php';
+require_once __DIR__ . '/../includes/line_pr_approval.php';
 
 use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\Purchase;
@@ -20,7 +21,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // POST-only actions: prevent direct GET access to write endpoints.
-if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'add_po_payment_slips' || $action === 'remove_po_payment_slip' || $action === 'replace_po_payment_slip' || $action === 'update_po_direct' || $action === 'cancel_purchase_order' || $action === 'update_my_profile')
+if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'add_po_payment_slips' || $action === 'remove_po_payment_slip' || $action === 'replace_po_payment_slip' || $action === 'update_po_direct' || $action === 'cancel_purchase_order' || $action === 'update_my_profile' || $action === 'send_pr_line_approval' || $action === 'pr_web_decision')
     && strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
     $fallback = match ($action) {
         'create_po_direct' => app_path('pages/purchase/purchase-order-create.php'),
@@ -844,7 +845,13 @@ if ($action === 'save_pr') {
         'site_id' => $site_id,
         'site_name' => $site_name_saved,
         'total_amount' => $total_amount,
-        'status' => 'ready',
+        'status' => 'pending',
+        'line_approval_token' => '',
+        'line_decision' => '',
+        'line_decided_at' => '',
+        'line_decided_by_line_user_id' => '',
+        'line_decided_by_user_id' => 0,
+        'line_decision_source' => '',
         'vat_enabled' => $vat_enabled,
         'vat_mode' => $vat_mode_stored,
         'subtotal_amount' => $subtotal,
@@ -859,7 +866,6 @@ if ($action === 'save_pr') {
         'hire_scope_details' => $hire_scope_details,
         'hire_total_value' => $hire_total_value,
         'hire_installment_count' => $hire_installment_count,
-        'line_approval_token' => '',
         'quotation_attachment_path' => $quoteAttachmentPath,
         'quotation_attachment_url' => $quoteAttachmentUrl,
         'quotation_attachment_name' => $quoteAttachmentName,
@@ -921,7 +927,52 @@ if ($action === 'save_pr') {
         'meta' => ['lines' => $prItemsAfter],
     ]);
 
-    tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?success=1');
+    $viewUrl = app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&created=1';
+    if (!empty($_POST['send_line_after_save'])) {
+        $lineSend = line_pr_prepare_and_send_line($pr_id);
+        if ($lineSend['ok']) {
+            $viewUrl .= '&line_notify=sent';
+        } else {
+            $viewUrl .= '&line_notify=' . rawurlencode((string) ($lineSend['error'] ?? 'failed'));
+        }
+    }
+    tnc_action_redirect($viewUrl);
+}
+
+if ($action === 'send_pr_line_approval') {
+    $pr_id = (int) ($_POST['pr_id'] ?? 0);
+    $viewUrl = $pr_id > 0
+        ? app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id
+        : app_path('pages/purchase/purchase-request-list.php');
+    if ($pr_id <= 0) {
+        tnc_action_redirect($viewUrl . '&error=invalid_pr');
+    }
+    $lineSend = line_pr_prepare_and_send_line($pr_id);
+    if ($lineSend['ok']) {
+        tnc_action_redirect($viewUrl . '&line_notify=sent');
+    }
+    tnc_action_redirect($viewUrl . '&line_notify=' . rawurlencode((string) ($lineSend['error'] ?? 'failed')));
+}
+
+if ($action === 'pr_web_decision') {
+    if (!user_is_admin_only_role()) {
+        http_response_code(403);
+        exit('ไม่มีสิทธิ์ — เฉพาะ ADMIN');
+    }
+    $pr_id = (int) ($_POST['pr_id'] ?? 0);
+    $decision = strtolower(trim((string) ($_POST['decision'] ?? '')));
+    $viewUrl = $pr_id > 0
+        ? app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id
+        : app_path('pages/purchase/purchase-request-list.php');
+    if ($pr_id <= 0) {
+        tnc_action_redirect($viewUrl . '&error=invalid_pr');
+    }
+    $result = line_pr_apply_decision_web($pr_id, $decision, (int) $_SESSION['user_id']);
+    if ($result['ok']) {
+        $q = $decision === 'approve' ? 'web_approved=1' : 'web_rejected=1';
+        tnc_action_redirect($viewUrl . '&' . $q);
+    }
+    tnc_action_redirect($viewUrl . '&error=pr_decision&message=' . rawurlencode($result['message']));
 }
 
 if ($action === 'update_pr') {
@@ -938,6 +989,9 @@ if ($action === 'update_pr') {
     });
     if ($hasPo !== null) {
         tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?error=pr_has_po');
+    }
+    if (line_pr_normalize_status($existing) === 'approved') {
+        tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?error=pr_approved_locked');
     }
 
     $sitesForPr = Db::tableRows('sites');
@@ -1114,6 +1168,13 @@ if ($action === 'update_pr') {
         'quotation_attachment_name' => $quoteAttachmentName,
         'quotation_attachment_mime' => $quoteAttachmentMime,
         'quotation_attachment_size' => $quoteAttachmentSize,
+        'status' => 'pending',
+        'line_approval_token' => '',
+        'line_decision' => '',
+        'line_decided_at' => '',
+        'line_decided_by_line_user_id' => '',
+        'line_decided_by_user_id' => 0,
+        'line_decision_source' => '',
     ]);
     Db::setRow('purchase_requests', (string) $pr_id, $pr_row);
 
@@ -1172,11 +1233,19 @@ if ($action === 'update_pr') {
         'meta' => ['lines' => $prItemsAfter],
     ]);
 
-    if (trim((string) ($_POST['after_pr_update'] ?? '')) === 'po_from_pr' && $pr_id > 0) {
-        tnc_action_redirect(app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&pr_updated=1');
+    $lineNotifyQ = '';
+    if (!empty($_POST['send_line_after_save'])) {
+        $lineSendUp = line_pr_prepare_and_send_line($pr_id);
+        $lineNotifyQ = $lineSendUp['ok']
+            ? '&line_notify=sent'
+            : '&line_notify=' . rawurlencode((string) ($lineSendUp['error'] ?? 'failed'));
     }
 
-    tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?updated=1');
+    if (trim((string) ($_POST['after_pr_update'] ?? '')) === 'po_from_pr' && $pr_id > 0) {
+        tnc_action_redirect(app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&pr_updated=1' . $lineNotifyQ);
+    }
+
+    tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&updated=1' . $lineNotifyQ);
 }
 
 if ($action === 'delete_pr') {
@@ -1265,6 +1334,11 @@ if ($action === 'create_po_from_pr') {
     $pr_row = Db::row('purchase_requests', (string) $pr_id);
     if ($pr_row === null) {
         tnc_action_redirect( app_path('pages/purchase/purchase-request-list.php') . '?error=pr_not_found');
+    }
+    if (!line_pr_is_approved_for_po($pr_row)) {
+        $st = line_pr_normalize_status($pr_row);
+        $err = $st === 'rejected' ? 'pr_rejected' : 'pr_not_approved';
+        tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=' . $err);
     }
 
     $reqType = trim((string) ($pr_row['request_type'] ?? 'purchase'));
@@ -1577,6 +1651,11 @@ if ($action === 'create_po_direct') {
         $prRowVat = Db::rowByIdField('purchase_requests', $pr_id_link);
         if ($prRowVat === null) {
             tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?error=not_found');
+        }
+        if (!line_pr_is_approved_for_po($prRowVat)) {
+            $st = line_pr_normalize_status($prRowVat);
+            $err = $st === 'rejected' ? 'pr_rejected' : 'pr_not_approved';
+            tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id_link . '&error=' . $err);
         }
         $vat_enabled = (int) ($prRowVat['vat_enabled'] ?? 0) === 1 ? 1 : 0;
         $vmPr = trim((string) ($prRowVat['vat_mode'] ?? 'exclusive'));
