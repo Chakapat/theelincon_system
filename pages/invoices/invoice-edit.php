@@ -66,6 +66,33 @@ Db::sortRows($customers, 'name', false);
         .total-box { background: #fff; border-radius: 15px; padding: 25px; border: 1px solid #eee; }
         .remove-row { color: #dc3545; cursor: pointer; font-size: 1.3rem; transition: 0.2s; }
         .remove-row:hover { transform: scale(1.2); }
+        .invoice-add-row-bar {
+            padding: .85rem 1rem 1rem;
+            background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
+            border-top: 1px solid #e5e7eb;
+        }
+        .btn-add-invoice-row {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .45rem;
+            width: 100%;
+            padding: .72rem 1.25rem;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #c2410c;
+            background: rgba(255, 102, 0, .08);
+            border: 2px dashed rgba(255, 102, 0, .45);
+            border-radius: .75rem;
+            transition: background .15s, border-color .15s, transform .12s;
+        }
+        .btn-add-invoice-row:hover {
+            color: #9a3412;
+            background: rgba(255, 102, 0, .14);
+            border-color: rgba(255, 102, 0, .65);
+            transform: translateY(-1px);
+        }
+        .btn-add-invoice-row .bi { font-size: 1.25rem; }
     </style>
 </head>
 <body>
@@ -117,9 +144,8 @@ Db::sortRows($customers, 'name', false);
         </div>
 
         <div class="card mt-4 border-orange">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                <span class="fw-bold" style="color: #FF6600;"><i class="bi bi-list-task me-2"></i>รายการสินค้า</span><span class="small text-muted d-none d-md-inline">(รวมเงิน = จำนวน × ราคา/หน่วย · พิมพ์ % ในช่องราคาได้)</span>
-                <button type="button" class="btn btn-success btn-sm rounded-pill px-3" onclick="addRow()"><i class="bi bi-plus"></i> เพิ่มรายการ</button>
+            <div class="card-header bg-white py-3">
+                <span class="fw-bold" style="color: #FF6600;"><i class="bi bi-list-task me-2"></i>รายการสินค้า</span><span class="small text-muted d-none d-lg-inline">(รวมเงิน = จำนวน × ราคา/หน่วย · พิมพ์ % ในช่องราคาได้)</span>
             </div>
             <div class="table-responsive">
                 <table class="table align-middle" id="items_table">
@@ -146,6 +172,12 @@ Db::sortRows($customers, 'name', false);
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+            <div class="invoice-add-row-bar">
+                <button type="button" class="btn-add-invoice-row" data-invoice-add-row title="เพิ่มรายการ (Ctrl+Enter)">
+                    <i class="bi bi-plus-circle"></i>
+                    <span>เพิ่มรายการ</span>
+                </button>
             </div>
         </div>
 
@@ -279,21 +311,35 @@ function calculate(){
 // ฟังก์ชันอื่นๆ เหมือนเดิม (addRow, confirmUpdate, etc.)
 function addRow(){
     const table = document.querySelector("#items_table tbody");
-    const firstRow = table.querySelector("tr");
-    if (firstRow) {
-        const newRow = firstRow.cloneNode(true);
-        newRow.querySelectorAll("input").forEach(i => {
-            if (i.classList.contains('qty')) i.value = "1";
-            else if (i.classList.contains('total')) i.value = "0.00";
-            else if (i.classList.contains('price')) i.value = "";
-            else i.value = "";
-        });
-        table.appendChild(newRow);
-        calculate();
+    const firstRow = table?.querySelector("tr");
+    if (!firstRow) return;
+    const newRow = firstRow.cloneNode(true);
+    newRow.querySelectorAll("input").forEach(i => {
+        if (i.classList.contains('qty')) i.value = "1";
+        else if (i.classList.contains('total')) i.value = "0.00";
+        else if (i.classList.contains('price')) i.value = "";
+        else i.value = "";
+    });
+    table.appendChild(newRow);
+    calculate();
+    const desc = newRow.querySelector('input[name="description[]"]');
+    if (desc) {
+        desc.focus({ preventScroll: false });
+        newRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 }
 
+function isLastInvoiceItemRow(row) {
+    const tbody = document.querySelector("#items_table tbody");
+    return tbody && row === tbody.rows[tbody.rows.length - 1];
+}
+
 document.addEventListener("click", e => {
+    if (e.target.closest("[data-invoice-add-row]")) {
+        e.preventDefault();
+        addRow();
+        return;
+    }
     if(e.target.closest(".remove")){
         const rows = document.querySelectorAll("#items_table tbody tr");
         if(rows.length > 1) {
@@ -301,6 +347,15 @@ document.addEventListener("click", e => {
             calculate();
         }
     }
+});
+
+document.addEventListener("keydown", e => {
+    if (!(e.ctrlKey || e.metaKey) || e.key !== "Enter") return;
+    const row = e.target.closest("#items_table tbody tr");
+    if (!row || !isLastInvoiceItemRow(row)) return;
+    if (!e.target.matches(".price, .total, .qty, input[name='description[]']")) return;
+    e.preventDefault();
+    addRow();
 });
 
 document.getElementById("invoiceForm").addEventListener("input", e => {

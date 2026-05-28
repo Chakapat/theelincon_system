@@ -190,6 +190,9 @@ Db::sortRows($customer_data, 'name', false);
             color: #4b5563;
         }
         .btn-primary-save {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             background: linear-gradient(135deg, #fd7e14 0%, #f76707 100%);
             color: #fff;
             border: none;
@@ -224,6 +227,38 @@ Db::sortRows($customer_data, 'name', false);
             padding-top: .68rem;
             padding-bottom: .68rem;
             vertical-align: middle;
+        }
+        .invoice-add-row-bar {
+            padding: .85rem 1rem 1rem;
+            background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
+            border-top: 1px solid #e5e7eb;
+        }
+        .btn-add-invoice-row {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .45rem;
+            width: 100%;
+            padding: .72rem 1.25rem;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #c2410c;
+            background: rgba(253, 126, 20, .08);
+            border: 2px dashed rgba(253, 126, 20, .45);
+            border-radius: .75rem;
+            transition: background .15s, border-color .15s, transform .12s;
+        }
+        .btn-add-invoice-row:hover {
+            color: #9a3412;
+            background: rgba(253, 126, 20, .14);
+            border-color: rgba(253, 126, 20, .65);
+            transform: translateY(-1px);
+        }
+        .btn-add-invoice-row:active {
+            transform: translateY(0);
+        }
+        .btn-add-invoice-row .bi {
+            font-size: 1.25rem;
         }
         .total-box {
             background: #fff;
@@ -335,10 +370,6 @@ Db::sortRows($customer_data, 'name', false);
         </div>
 
         <div class="card mt-4 overflow-hidden invoice-card">
-            <div class="card-header d-flex justify-content-between align-items-center py-3 bg-white flex-wrap gap-2">
-                <span class="fw-bold section-title">รายการสินค้าและบริการ <span class="small text-muted fw-normal">(รวมเงิน = จำนวน × ราคา/หน่วย · พิมพ์ % ในช่องราคาได้)</span></span>
-                <button type="button" class="btn btn-success btn-sm rounded-pill px-3" onclick="addRow()">+ เพิ่มแถว</button>
-            </div>
             <div class="card-body p-0 invoice-table-wrap">
                 <table class="table table-hover mb-0" id="items_table">
                     <thead class="table-light">
@@ -356,12 +387,18 @@ Db::sortRows($customer_data, 'name', false);
                             <td><input type="text" name="description[]" class="form-control" required></td>
                             <td><input type="number" name="quantity[]" class="form-control qty text-center" value="1" step="0.01"></td>
                             <td><input type="text" name="unit[]" class="form-control text-center"></td>
-                            <td><input type="text" name="price[]" class="form-control price text-end" value="" placeholder="เช่น 500" inputmode="decimal" autocomplete="off"></td>
+                            <td><input type="text" name="price[]" class="form-control price text-end" value="" inputmode="decimal" autocomplete="off"></td>
                             <td><input type="number" name="total[]" class="form-control total text-end fw-bold" value="0.00" readonly></td>
                             <td class="text-center"><i class="bi bi-trash-fill text-danger remove" style="cursor:pointer;"></i></td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+            <div class="invoice-add-row-bar">
+                <button type="button" class="btn-add-invoice-row" data-invoice-add-row title="เพิ่มรายการ (Ctrl+Enter)">
+                    <i class="bi bi-plus-circle"></i>
+                    <span>เพิ่มรายการ</span>
+                </button>
             </div>
         </div>
 
@@ -399,7 +436,7 @@ Db::sortRows($customer_data, 'name', false);
                         <span class="grand-total-text" id="grand_total">0.00</span>
                     </div>
                 </div>
-                <button type="submit" name="save_invoice" class="btn btn-primary-save w-100 mt-4 shadow py-3 d-none d-md-inline-flex">
+                <button type="submit" name="save_invoice" class="btn btn-primary-save w-100 mt-4 shadow py-3 d-none d-md-flex">
                     <i class="bi bi-save-fill me-2"></i>บันทึกและออกใบแจ้งหนี้
                 </button>
             </div>
@@ -443,6 +480,7 @@ document.getElementById('customer_select').addEventListener('change', function()
 
 function addRow(){
     const tbody = document.querySelector("#items_table tbody");
+    if (!tbody || !tbody.rows.length) return;
     const row = tbody.rows[0].cloneNode(true);
     row.querySelectorAll("input").forEach(i => {
         i.value = i.classList.contains('qty') ? "1"
@@ -451,12 +489,37 @@ function addRow(){
             : "";
     });
     tbody.appendChild(row);
+    calculate();
+    const desc = row.querySelector('input[name="description[]"]');
+    if (desc) {
+        desc.focus({ preventScroll: false });
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 }
 
-document.addEventListener("click", e => { 
+function isLastInvoiceItemRow(row) {
+    const tbody = document.querySelector("#items_table tbody");
+    return tbody && row === tbody.rows[tbody.rows.length - 1];
+}
+
+document.addEventListener("click", e => {
+    if (e.target.closest("[data-invoice-add-row]")) {
+        e.preventDefault();
+        addRow();
+        return;
+    }
     if(e.target.closest(".remove") && document.querySelectorAll("#items_table tbody tr").length > 1) { 
         e.target.closest("tr").remove(); calculate(); 
     } 
+});
+
+document.addEventListener("keydown", e => {
+    if (!(e.ctrlKey || e.metaKey) || e.key !== "Enter") return;
+    const row = e.target.closest("#items_table tbody tr");
+    if (!row || !isLastInvoiceItemRow(row)) return;
+    if (!e.target.matches(".price, .total, .qty, input[name='description[]']")) return;
+    e.preventDefault();
+    addRow();
 });
 
 document.addEventListener("input", calculate);
