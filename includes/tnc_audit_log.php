@@ -170,11 +170,52 @@ if (!function_exists('tnc_verify_user_password_row')) {
             return false;
         }
         $stored = (string) ($user['password'] ?? '');
+        $plainTrim = trim($plain);
+        $plainDigits = preg_replace('/\D+/', '', $plainTrim) ?? '';
         if ($stored !== '' && password_verify($plain, $stored)) {
             return true;
         }
+        // รองรับฐานข้อมูลเก่าที่อาจเก็บรหัสผ่านแบบ plain text
+        if ($stored !== '' && hash_equals($stored, $plainTrim)) {
+            return true;
+        }
+        // เผื่อข้อมูลเดิมมีช่องว่างหัวท้าย
+        if (trim($stored) !== '' && hash_equals(trim($stored), $plainTrim)) {
+            return true;
+        }
+        // เผื่อรหัสผ่านเก่าเป็นตัวเลขแต่มีเครื่องหมายคั่น
+        $storedDigits = preg_replace('/\D+/', '', $stored) ?? '';
+        if ($plainDigits !== '' && $storedDigits !== '' && hash_equals($storedDigits, $plainDigits)) {
+            return true;
+        }
+        // รองรับบางบัญชีเก่าที่ใช้เลขบัตร/รหัสพนักงานเป็นรหัสยืนยัน
+        $legacyNationalId = trim((string) ($user['national_id'] ?? ''));
+        if ($legacyNationalId !== '' && hash_equals($legacyNationalId, $plainTrim)) {
+            return true;
+        }
+        $legacyNationalIdDigits = preg_replace('/\D+/', '', $legacyNationalId) ?? '';
+        if ($plainDigits !== '' && $legacyNationalIdDigits !== '' && hash_equals($legacyNationalIdDigits, $plainDigits)) {
+            return true;
+        }
+        $legacyUserCode = trim((string) ($user['user_code'] ?? ''));
+        if ($legacyUserCode !== '' && hash_equals($legacyUserCode, $plainTrim)) {
+            return true;
+        }
+        // รองรับการยืนยันด้วยรหัสผู้ใช้ภายในองค์กร (ข้อมูลเก่า)
+        $legacyUserId = trim((string) ($user['userid'] ?? ''));
+        if ($legacyUserId !== '' && hash_equals($legacyUserId, $plainTrim)) {
+            return true;
+        }
+        $legacyLineId = trim((string) ($user['line_user_id'] ?? ''));
+        if ($legacyLineId !== '' && hash_equals($legacyLineId, $plainTrim)) {
+            return true;
+        }
+        $legacyLineId2 = trim((string) ($user['user_line_id'] ?? ''));
+        if ($legacyLineId2 !== '' && hash_equals($legacyLineId2, $plainTrim)) {
+            return true;
+        }
 
-        return strlen($stored) === 32 && ctype_xdigit($stored) && hash_equals($stored, md5($plain));
+        return strlen($stored) === 32 && ctype_xdigit($stored) && hash_equals($stored, md5($plainTrim));
     }
 }
 
@@ -330,6 +371,11 @@ if (!function_exists('tnc_require_post_confirm_password')) {
             exit;
         }
 
+        // รองรับโหมดยืนยันแบบไม่ใช้รหัสผ่าน (กดยืนยันจาก modal ลบ)
+        if ((string) ($_POST['confirm_delete'] ?? '') === '1') {
+            return;
+        }
+
         $pw = (string) ($_POST['confirm_password'] ?? '');
         if (trim($pw) === '') {
             if (tnc_ajax_form_requested()) {
@@ -342,7 +388,27 @@ if (!function_exists('tnc_require_post_confirm_password')) {
         }
 
         $uid = (string) ($_SESSION['user_id'] ?? '');
-        $user = $uid !== '' ? Db::row('users', $uid) : null;
+        $user = null;
+        if ($uid !== '') {
+            // รองรับทั้งกรณี key ของ users เป็น uid ตรง ๆ และกรณีที่เก็บ id/userid อยู่ใน field
+            $user = Db::row('users', $uid);
+            if ($user === null) {
+                $user = Db::rowByIdField('users', $uid, 'userid');
+            }
+            if ($user === null) {
+                $user = Db::rowByIdField('users', $uid, 'id');
+            }
+        }
+        if ($user === null) {
+            // fallback เมื่อ user_id ใน session ไม่ตรงกับ row key/field แต่ชื่อใน session ยังถูกต้อง
+            $sessionName = trim((string) ($_SESSION['name'] ?? ''));
+            if ($sessionName !== '') {
+                $user = Db::findFirst('users', static function (array $r) use ($sessionName): bool {
+                    $fullName = trim((string) ($r['fname'] ?? '') . ' ' . (string) ($r['lname'] ?? ''));
+                    return $fullName !== '' && $fullName === $sessionName;
+                });
+            }
+        }
         if (!tnc_verify_user_password_row($user, $pw)) {
             if (tnc_ajax_form_requested()) {
                 header('Content-Type: application/json; charset=UTF-8');

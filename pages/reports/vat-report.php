@@ -74,6 +74,7 @@ foreach (Db::tableRows('suppliers') as $supplier) {
 
 $salesRows = [];
 $purchaseRows = [];
+$purchaseSeen = [];
 $sumSalesBase = 0.0;
 $sumSalesVat = 0.0;
 $sumSalesNet = 0.0;
@@ -124,17 +125,55 @@ foreach (Db::tableRows('purchase_bills') as $bill) {
 
     $subtotal = round((float) ($bill['subtotal_amount'] ?? 0), 2);
     $vatAmount = round((float) ($bill['vat_amount'] ?? 0), 2);
-    $declaredRate = (float) ($bill['vat_rate'] ?? 0);
     $netAmount = round((float) ($bill['amount'] ?? ($subtotal + $vatAmount)), 2);
-    if (!tnc_vat_is_7_percent($subtotal, $vatAmount, $declaredRate)) {
-        continue;
-    }
 
     $supplierName = trim((string) ($bill['supplier_name'] ?? $bill['vendor_name'] ?? ''));
     $supplierTax = $supplierTaxByName[mb_strtolower($supplierName)] ?? '';
+    $billNo = trim((string) ($bill['bill_number'] ?? ''));
+    $seenKey = mb_strtolower($billNo . '|' . $docDate . '|' . number_format($netAmount, 2, '.', '') . '|' . $supplierName);
+    if (isset($purchaseSeen[$seenKey])) {
+        continue;
+    }
+    $purchaseSeen[$seenKey] = true;
     $purchaseRows[] = [
         'doc_date' => $docDate,
-        'bill_no' => trim((string) ($bill['bill_number'] ?? '')),
+        'bill_no' => $billNo,
+        'supplier_name' => $supplierName,
+        'tax_id' => $supplierTax,
+        'base' => $subtotal,
+        'vat' => $vatAmount,
+        'net' => $netAmount,
+    ];
+    $sumPurchaseBase += $subtotal;
+    $sumPurchaseVat += $vatAmount;
+    $sumPurchaseNet += $netAmount;
+}
+
+foreach (Db::tableRows('bills') as $bill) {
+    $docDate = trim((string) ($bill['supplier_invoice_date'] ?? $bill['bill_date'] ?? ''));
+    if ($docDate === '' || $docDate < $fromDate || $docDate > $toDate) {
+        continue;
+    }
+    if (!tnc_doc_is_active($bill)) {
+        continue;
+    }
+    $netAmount = round((float) ($bill['total_amount'] ?? $bill['amount'] ?? 0), 2);
+    $vatAmount = round((float) ($bill['vat_amount'] ?? 0), 2);
+    $subtotal = round((float) ($bill['subtotal_amount'] ?? ($netAmount - $vatAmount)), 2);
+    if ($subtotal < 0) {
+        $subtotal = 0.0;
+    }
+    $supplierName = trim((string) ($bill['supplier_name'] ?? $bill['vendor_name'] ?? ''));
+    $supplierTax = $supplierTaxByName[mb_strtolower($supplierName)] ?? '';
+    $billNo = trim((string) ($bill['supplier_invoice_no'] ?? $bill['bill_number'] ?? ''));
+    $seenKey = mb_strtolower($billNo . '|' . $docDate . '|' . number_format($netAmount, 2, '.', '') . '|' . $supplierName);
+    if (isset($purchaseSeen[$seenKey])) {
+        continue;
+    }
+    $purchaseSeen[$seenKey] = true;
+    $purchaseRows[] = [
+        'doc_date' => $docDate,
+        'bill_no' => $billNo,
         'supplier_name' => $supplierName,
         'tax_id' => $supplierTax,
         'base' => $subtotal,

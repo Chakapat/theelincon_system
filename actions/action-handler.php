@@ -21,7 +21,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // POST-only actions: prevent direct GET access to write endpoints.
-if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'add_po_payment_slips' || $action === 'remove_po_payment_slip' || $action === 'replace_po_payment_slip' || $action === 'update_po_direct' || $action === 'cancel_purchase_order' || $action === 'update_my_profile' || $action === 'send_pr_line_approval' || $action === 'pr_web_decision')
+if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'receive_po_bill' || $action === 'add_po_payment_slips' || $action === 'remove_po_payment_slip' || $action === 'replace_po_payment_slip' || $action === 'update_po_direct' || $action === 'cancel_purchase_order' || $action === 'update_my_profile' || $action === 'send_pr_line_approval' || $action === 'pr_web_decision')
     && strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
     $fallback = match ($action) {
         'create_po_direct' => app_path('pages/purchase/purchase-order-create.php'),
@@ -322,6 +322,12 @@ function tnc_purchase_bill_create_from_paid_purchase_order(?array $po, int $crea
     if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
         return null;
     }
+    $supplierInvoiceNo = trim((string) ($po['supplier_invoice_no'] ?? ''));
+    $hasSlip = tnc_po_payment_slip_paths($po) !== [];
+    // สถานะ PO สมบูรณ์ = มี "สลิป" และ "เลขที่บิลซื้อ" พร้อมกัน
+    if (!$hasSlip || $supplierInvoiceNo === '') {
+        return null;
+    }
     if ((int) ($po['auto_purchase_bill_id'] ?? 0) > 0) {
         return null;
     }
@@ -565,6 +571,60 @@ function tnc_purchase_bill_create_from_paid_purchase_order(?array $po, int $crea
     ]);
 
     return $bid;
+}
+
+/**
+ * Trigger auto purchase bill creation when PO becomes complete.
+ */
+function tnc_po_try_auto_bill_on_complete(int $poId, int $createdBy): ?int
+{
+    if ($poId <= 0 || $createdBy <= 0) {
+        return null;
+    }
+    $po = Db::row('purchase_orders', (string) $poId);
+    if ($po === null) {
+        return null;
+    }
+
+    return tnc_purchase_bill_create_from_paid_purchase_order($po, $createdBy);
+}
+
+/**
+ * Delete all bill records linked to a PO from both /purchase_bills and /bills.
+ *
+ * @return array{purchase_bills: list<array<string,mixed>>, bills: list<array<string,mixed>>}
+ */
+function tnc_delete_linked_bills_by_po(int $poId): array
+{
+    $deletedPurchaseBills = [];
+    $deletedBills = [];
+    if ($poId <= 0) {
+        return ['purchase_bills' => $deletedPurchaseBills, 'bills' => $deletedBills];
+    }
+
+    foreach (Db::tableKeyed('purchase_bills') as $pbPk => $pbRow) {
+        if (!is_array($pbRow) || (int) ($pbRow['source_po_id'] ?? 0) !== $poId) {
+            continue;
+        }
+        $pbId = (int) ($pbRow['id'] ?? 0);
+        if ($pbId > 0) {
+            Db::deleteWhereEquals('purchase_bill_items', 'bill_id', (string) $pbId);
+            Db::deleteWhereEquals('purchase_bill_items', 'purchase_bill_id', (string) $pbId);
+            Db::deleteWhereEquals('purchase_bill_items', 'purchase_bills_id', (string) $pbId);
+        }
+        $deletedPurchaseBills[] = $pbRow;
+        Db::deleteRow('purchase_bills', (string) $pbPk);
+    }
+
+    foreach (Db::tableKeyed('bills') as $bPk => $bRow) {
+        if (!is_array($bRow) || (int) ($bRow['po_id'] ?? 0) !== $poId) {
+            continue;
+        }
+        $deletedBills[] = $bRow;
+        Db::deleteRow('bills', (string) $bPk);
+    }
+
+    return ['purchase_bills' => $deletedPurchaseBills, 'bills' => $deletedBills];
 }
 
 function tnc_po_delete_line_items(int $poId): void
@@ -1265,7 +1325,14 @@ if ($action === 'delete_pr') {
     foreach (Db::filter('purchase_orders', static fn (array $r): bool => isset($r['pr_id']) && (int) $r['pr_id'] === $id) as $poDel) {
         $poid = (int) ($poDel['id'] ?? 0);
         if ($poid > 0) {
+            $linkedBillDeleted = tnc_delete_linked_bills_by_po($poid);
             $nestedDel[] = ['verb' => 'delete', 'entity_type' => 'purchase_order', 'entity_id' => (string) $poid, 'snapshot' => $poDel];
+            foreach ($linkedBillDeleted['purchase_bills'] as $pbDel) {
+                $nestedDel[] = ['verb' => 'delete', 'entity_type' => 'purchase_bill', 'entity_id' => (string) ((int) ($pbDel['id'] ?? 0)), 'snapshot' => $pbDel];
+            }
+            foreach ($linkedBillDeleted['bills'] as $bDel) {
+                $nestedDel[] = ['verb' => 'delete', 'entity_type' => 'bill', 'entity_id' => (string) ((int) ($bDel['id'] ?? 0)), 'snapshot' => $bDel];
+            }
             Db::deleteWhereEquals('po_payments', 'po_id', (string) $poid);
             Db::deleteWhereEquals('purchase_order_items', 'po_id', (string) $poid);
             Db::deleteRow('purchase_orders', (string) $poid);
@@ -1436,6 +1503,8 @@ if ($action === 'create_po_from_pr') {
             'issue_date' => date('Y-m-d'),
             'total_amount' => $gross,
             'status' => 'ordered',
+            'payment_status' => 'unpaid',
+            'billing_status' => 'pending',
             'created_by' => $created_by,
             'vat_enabled' => $vat_en,
             'subtotal_amount' => $hireSubtotal,
@@ -1539,6 +1608,8 @@ if ($action === 'create_po_from_pr') {
         'po_note' => $po_note,
         'total_amount' => $total_amount,
         'status' => 'ordered',
+        'payment_status' => 'unpaid',
+        'billing_status' => 'pending',
         'created_by' => $created_by,
         'vat_enabled' => $vat_en,
         'vat_mode' => in_array(trim((string) ($pr_row['vat_mode'] ?? 'exclusive')), ['exclusive', 'inclusive'], true)
@@ -1779,6 +1850,8 @@ if ($action === 'create_po_direct') {
         'quotation_attachment_size' => $quoteAttachmentSize,
         'total_amount' => $isHireFlow ? $gross : $totals['net'],
         'status' => 'ordered',
+        'payment_status' => 'unpaid',
+        'billing_status' => 'pending',
         'created_by' => $created_by,
         'vat_enabled' => $vat_enabled,
         'vat_mode' => $totals['vat_mode'],
@@ -2075,7 +2148,7 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
             'meta' => ['payment_method' => 'cash', 'payment_cash_paid_by' => $payment_cash_paid_by],
         ]);
         $uidPay = (int) ($_SESSION['user_id'] ?? 0);
-        $autoBillId = $poAfterPay !== null ? tnc_purchase_bill_create_from_paid_purchase_order($poAfterPay, $uidPay) : null;
+        $autoBillId = tnc_po_try_auto_bill_on_complete($po_id, $uidPay);
         if ($autoBillId !== null && $autoBillId > 0) {
             $billMonth = date('Y-m');
             $paidTs = trim((string) ($poAfterPay['payment_marked_paid_at'] ?? ''));
@@ -2111,10 +2184,7 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
         ],
     ]);
     $uidPay = (int) ($_SESSION['user_id'] ?? 0);
-    $autoBillId = null;
-    if ($poAfterPay !== null) {
-        $autoBillId = tnc_purchase_bill_create_from_paid_purchase_order($poAfterPay, $uidPay);
-    }
+    $autoBillId = tnc_po_try_auto_bill_on_complete($po_id, $uidPay);
     if ($autoBillId !== null && $autoBillId > 0) {
         $billMonth = date('Y-m');
         $paidTs = trim((string) ($poAfterPay['payment_marked_paid_at'] ?? ''));
@@ -2124,6 +2194,135 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
         tnc_action_redirect($listUrl . '?payment_saved=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
     }
     tnc_action_redirect($listUrl . '?payment_saved=1&print_po_id=' . $po_id);
+}
+
+/** บันทึกเลขที่บิลซื้อย้อนหลังจาก PO + สร้างรายการใน /bills */
+if ($action === 'receive_po_bill' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    tnc_require_finance_role();
+    $listUrl = app_path('pages/purchase/purchase-order-list.php');
+    $po_id = (int) ($_POST['po_id'] ?? 0);
+    $return_to = trim((string) ($_POST['return_to'] ?? 'list'));
+
+    if ($po_id <= 0) {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+
+    $poPk = Db::pkForLogicalId('purchase_orders', $po_id);
+    $po = Db::row('purchase_orders', $poPk);
+    if ($po === null) {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+        tnc_action_redirect($listUrl . '?error=po_cancelled');
+    }
+
+    $supplierInvoiceNo = mb_substr(trim((string) ($_POST['supplier_invoice_no'] ?? '')), 0, 120);
+    $supplierInvoiceDate = trim((string) ($_POST['supplier_invoice_date'] ?? ''));
+    if ($supplierInvoiceNo === '' || preg_match('/^\d{4}-\d{2}-\d{2}$/', $supplierInvoiceDate) !== 1) {
+        $errUrl = $listUrl . '?error=billing_required';
+        if ($return_to === 'view') {
+            $errUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id . '&error=billing_required';
+        }
+        tnc_action_redirect($errUrl);
+    }
+
+    $postedTotal = trim((string) ($_POST['billed_total_amount'] ?? ''));
+    $postedVat = trim((string) ($_POST['billed_vat_amount'] ?? ''));
+    if ($postedTotal === '' || $postedVat === '') {
+        $errUrl = $listUrl . '?error=billing_amount_invalid';
+        if ($return_to === 'view') {
+            $errUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id . '&error=billing_amount_invalid';
+        }
+        tnc_action_redirect($errUrl);
+    }
+    $billedTotalAmount = (float) str_replace([',', ' '], '', $postedTotal);
+    $billedVatAmount = (float) str_replace([',', ' '], '', $postedVat);
+    if (!is_finite($billedTotalAmount) || !is_finite($billedVatAmount) || $billedTotalAmount < 0 || $billedVatAmount < 0) {
+        $errUrl = $listUrl . '?error=billing_amount_invalid';
+        if ($return_to === 'view') {
+            $errUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id . '&error=billing_amount_invalid';
+        }
+        tnc_action_redirect($errUrl);
+    }
+
+    $supplierId = (int) ($po['supplier_id'] ?? 0);
+    $supplierName = '';
+    if ($supplierId > 0) {
+        $supplierRow = Db::rowByIdField('suppliers', $supplierId);
+        if (is_array($supplierRow)) {
+            $supplierName = trim((string) ($supplierRow['name'] ?? ''));
+        }
+    }
+    if ($supplierName === '') {
+        $supplierName = trim((string) ($po['supplier_name'] ?? $po['contractor_name'] ?? ''));
+    }
+
+    $poBefore = $po;
+    Db::mergeRow('purchase_orders', $poPk, [
+        'billing_status' => 'billed',
+        'supplier_invoice_no' => $supplierInvoiceNo,
+        'supplier_invoice_date' => $supplierInvoiceDate,
+        'billed_total_amount' => round($billedTotalAmount, 2),
+        'billed_vat_amount' => round($billedVatAmount, 2),
+        'billing_recorded_at' => date('Y-m-d H:i:s'),
+        'billing_recorded_by' => (int) ($_SESSION['user_id'] ?? 0),
+    ]);
+    $poAfter = Db::row('purchase_orders', $poPk) ?? [];
+
+    $billId = Db::nextNumericId('bills', 'id');
+    Db::setRow('bills', (string) $billId, [
+        'id' => $billId,
+        'po_id' => (int) ($poAfter['id'] ?? $po_id),
+        'po_number' => trim((string) ($poAfter['po_number'] ?? '')),
+        'supplier_id' => $supplierId,
+        'supplier_name' => $supplierName,
+        'supplier_invoice_no' => $supplierInvoiceNo,
+        'supplier_invoice_date' => $supplierInvoiceDate,
+        'vat_amount' => round($billedVatAmount, 2),
+        'total_amount' => round($billedTotalAmount, 2),
+        'source' => 'po_receive_bill',
+        'created_by' => (int) ($_SESSION['user_id'] ?? 0),
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s'),
+    ]);
+
+    $poNo = trim((string) ($poAfter['po_number'] ?? ''));
+    tnc_audit_log('update', 'purchase_order', (string) $po_id, $poNo !== '' ? ('บันทึกบิลซื้อ ' . $poNo) : ('บันทึกบิลซื้อ PO#' . $po_id), [
+        'source' => 'action-handler',
+        'action' => 'receive_po_bill',
+        'before' => $poBefore,
+        'after' => $poAfter,
+        'meta' => [
+            'bills_id' => $billId,
+            'supplier_invoice_no' => $supplierInvoiceNo,
+            'supplier_invoice_date' => $supplierInvoiceDate,
+            'billed_total_amount' => round($billedTotalAmount, 2),
+            'billed_vat_amount' => round($billedVatAmount, 2),
+        ],
+    ]);
+
+    $uidBill = (int) ($_SESSION['user_id'] ?? 0);
+    $autoBillId = null;
+    if ($uidBill > 0) {
+        $autoBillId = tnc_purchase_bill_create_from_paid_purchase_order($poAfter, $uidBill);
+    }
+
+    if ($return_to === 'view') {
+        $url = app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id . '&billing_saved=1';
+        if ($autoBillId !== null && $autoBillId > 0) {
+            $url .= '&auto_bill=1&bill_id=' . (int) $autoBillId;
+        }
+        tnc_action_redirect($url);
+    }
+    $listRedirect = $listUrl . '?billing_saved=1';
+    if ($autoBillId !== null && $autoBillId > 0) {
+        $billMonth = date('Y-m');
+        if (preg_match('/^(\d{4}-\d{2})/', $supplierInvoiceDate, $mm) === 1) {
+            $billMonth = $mm[1];
+        }
+        $listRedirect .= '&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id;
+    }
+    tnc_action_redirect($listRedirect);
 }
 
 /** เพิ่มไฟล์หลักฐานการจ่าย (หลายไฟล์) สำหรับ PO ที่จ่ายแล้ว */
@@ -2166,6 +2365,16 @@ if ($action === 'add_po_payment_slips' && ($_SERVER['REQUEST_METHOD'] ?? '') ===
         'after' => $poAfter,
         'meta' => ['added' => $added],
     ]);
+    $uidSlip = (int) ($_SESSION['user_id'] ?? 0);
+    $autoBillId = tnc_po_try_auto_bill_on_complete($po_id, $uidSlip);
+    if ($autoBillId !== null && $autoBillId > 0) {
+        $billMonth = date('Y-m');
+        $billDate = trim((string) ($poAfter['supplier_invoice_date'] ?? ''));
+        if (preg_match('/^(\d{4}-\d{2})/', $billDate, $mm) === 1) {
+            $billMonth = $mm[1];
+        }
+        tnc_action_redirect($listUrl . '?payment_slips_updated=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
+    }
     tnc_action_redirect($listUrl . '?payment_slips_updated=1');
 }
 
@@ -2260,6 +2469,16 @@ if ($action === 'replace_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') 
         'after' => $poAfter,
         'meta' => ['old' => $oldPath, 'new' => $newPath],
     ]);
+    $uidReplace = (int) ($_SESSION['user_id'] ?? 0);
+    $autoBillId = tnc_po_try_auto_bill_on_complete($po_id, $uidReplace);
+    if ($autoBillId !== null && $autoBillId > 0) {
+        $billMonth = date('Y-m');
+        $billDate = trim((string) ($poAfter['supplier_invoice_date'] ?? ''));
+        if (preg_match('/^(\d{4}-\d{2})/', $billDate, $mm) === 1) {
+            $billMonth = $mm[1];
+        }
+        tnc_action_redirect($listUrl . '?payment_slips_updated=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
+    }
     tnc_action_redirect($listUrl . '?payment_slips_updated=1');
 }
 
@@ -2875,6 +3094,7 @@ if ($action === 'delete' && $id > 0) {
                 break;
             }
         }
+        $linkedBillDeleted = tnc_delete_linked_bills_by_po($id);
         Db::deleteWhereEquals('po_payments', 'po_id', (string) $id);
         Db::deleteWhereEquals('purchase_order_items', 'po_id', (string) $id);
         Db::deleteRow('purchase_orders', (string) $poPk);
@@ -2885,6 +3105,8 @@ if ($action === 'delete' && $id > 0) {
             'meta' => [
                 'po_payments' => $poPayDel,
                 'purchase_order_items' => $poLinesDel,
+                'linked_purchase_bills' => $linkedBillDeleted['purchase_bills'],
+                'linked_bills' => $linkedBillDeleted['bills'],
             ],
         ]);
         tnc_action_redirect( app_path('pages/purchase/purchase-order-list.php') . '?deleted=1');

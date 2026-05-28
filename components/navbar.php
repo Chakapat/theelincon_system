@@ -147,7 +147,14 @@ if (!function_exists('app_path')) {
 </nav>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <?php if (isset($_SESSION['user_id'])): ?>
-<script src="<?= htmlspecialchars(app_path('assets/js/tnc-delete-confirm.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
+<?php
+$tncDeleteJsPath = dirname(__DIR__) . '/assets/js/tnc-delete-confirm.js';
+$tncDeleteJsVer = @filemtime($tncDeleteJsPath);
+if (!is_int($tncDeleteJsVer) || $tncDeleteJsVer <= 0) {
+    $tncDeleteJsVer = time();
+}
+?>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-delete-confirm.js') . '?v=' . $tncDeleteJsVer, ENT_QUOTES, 'UTF-8') ?>" defer></script>
 <?php endif; ?>
 <script>
 (function () {

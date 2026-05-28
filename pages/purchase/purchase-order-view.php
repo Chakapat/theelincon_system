@@ -22,6 +22,10 @@ if ($poCtx === null) {
 extract($poCtx, EXTR_OVERWRITE);
 $paymentStatusPo = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
 $isPoPaid = ($paymentStatusPo === 'paid');
+$billingStatusPo = strtolower(trim((string) ($po['billing_status'] ?? 'pending')));
+if (!in_array($billingStatusPo, ['pending', 'billed'], true)) {
+    $billingStatusPo = 'pending';
+}
 $paymentSlipItemsForPrint = $isPoPaid ? tnc_po_payment_slip_items($po) : [];
 $hasPaymentSlipPrint = $paymentSlipItemsForPrint !== [];
 $quotRelPrint = trim((string) ($po['quotation_attachment_path'] ?? ''));
@@ -518,6 +522,8 @@ $poListHref = htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'
 $poViewFullHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8');
 $hasAlerts = !empty($_GET['cancelled'])
     || (!empty($_GET['error']) && $_GET['error'] === 'po_paid')
+    || (!empty($_GET['error']) && in_array((string) $_GET['error'], ['billing_required', 'billing_amount_invalid'], true))
+    || !empty($_GET['billing_saved'])
     || ($hasFollowPagesPrint && $poPrintMode === 'po')
     || ($poPrintMode === 'slip')
     || ($poPrintMode === 'all');
@@ -575,6 +581,11 @@ $hasAlerts = !empty($_GET['cancelled'])
                         <button type="submit" class="btn btn-outline-danger rounded-pill px-3"><i class="bi bi-x-circle me-1"></i>ยกเลิก PO</button>
                     </form>
                 <?php endif; ?>
+                <?php if (!$isPoCancelled && $billingStatusPo === 'pending'): ?>
+                    <button type="button" class="btn btn-outline-primary rounded-pill px-3" id="btnOpenReceiveBill">
+                        <i class="bi bi-receipt me-1"></i>บันทึกเลขที่บิลซื้อ
+                    </button>
+                <?php endif; ?>
             </div>
         </div>
         <?php if ($hasAlerts): ?>
@@ -584,6 +595,15 @@ $hasAlerts = !empty($_GET['cancelled'])
                 <?php endif; ?>
                 <?php if (!empty($_GET['error']) && $_GET['error'] === 'po_paid'): ?>
                     <div class="alert alert-warning mb-0">ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถยกเลิกได้</div>
+                <?php endif; ?>
+                <?php if (!empty($_GET['billing_saved'])): ?>
+                    <div class="alert alert-success mb-0">บันทึกเลขที่บิลซื้อเรียบร้อยแล้ว และสร้างข้อมูลในตาราง bills แล้ว</div>
+                <?php endif; ?>
+                <?php if (!empty($_GET['error']) && $_GET['error'] === 'billing_required'): ?>
+                    <div class="alert alert-warning mb-0">กรุณากรอกเลขที่บิลซื้อและวันที่บนบิลให้ครบถ้วน</div>
+                <?php endif; ?>
+                <?php if (!empty($_GET['error']) && $_GET['error'] === 'billing_amount_invalid'): ?>
+                    <div class="alert alert-warning mb-0">ยอดเงินรวมและยอด VAT ต้องไม่เป็นค่าว่างหรือติดลบ</div>
                 <?php endif; ?>
                 <?php if ($hasFollowPagesPrint && $poPrintMode === 'po'): ?>
                     <div class="alert alert-light border mb-0 small">
@@ -607,6 +627,45 @@ $hasAlerts = !empty($_GET['cancelled'])
         <?php endif; ?>
     </div>
 </header>
+
+<div class="modal fade no-print" id="receiveBillModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=receive_po_bill" method="POST" id="receiveBillForm">
+                <?php csrf_field(); ?>
+                <input type="hidden" name="return_to" value="view">
+                <input type="hidden" name="po_id" value="<?= (int) $id ?>">
+                <div class="modal-header">
+                    <h5 class="modal-title">บันทึกเลขที่บิลซื้อ (Receive Bill)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="small text-muted mb-2">PO: <?= htmlspecialchars((string) ($po['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">เลขที่ใบกำกับภาษี/บิลซื้อ <span class="text-danger">*</span></label>
+                        <input type="text" name="supplier_invoice_no" class="form-control" maxlength="120" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">วันที่บนใบกำกับภาษี/บิลซื้อ <span class="text-danger">*</span></label>
+                        <input type="date" name="supplier_invoice_date" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">ยอดเงินรวม (บาท)</label>
+                        <input type="number" name="billed_total_amount" class="form-control" step="0.01" min="0" value="<?= htmlspecialchars(number_format((float) ($po['total_amount'] ?? 0), 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>" required>
+                    </div>
+                    <div class="mb-1">
+                        <label class="form-label fw-semibold">ยอด VAT 7% (บาท)</label>
+                        <input type="number" name="billed_vat_amount" class="form-control" step="0.01" min="0" value="<?= htmlspecialchars(number_format((float) ($po['vat_amount'] ?? 0), 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" class="btn btn-primary">บันทึกบิลซื้อ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <?php if ($hasPrintChoiceModal): ?>
 <div class="modal fade no-print" id="poPrintChoiceModal" tabindex="-1" aria-labelledby="poPrintChoiceModalLabel" aria-hidden="true">
@@ -708,5 +767,18 @@ $hasAlerts = !empty($_GET['cancelled'])
 })();
 </script>
 <?php endif; ?>
+<script>
+(function () {
+    const btn = document.getElementById('btnOpenReceiveBill');
+    const modalEl = document.getElementById('receiveBillModal');
+    if (!btn || !modalEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+        return;
+    }
+    const modal = new bootstrap.Modal(modalEl);
+    btn.addEventListener('click', function () {
+        modal.show();
+    });
+})();
+</script>
 </body>
 </html>

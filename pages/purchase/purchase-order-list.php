@@ -77,6 +77,10 @@ foreach (Db::tableRows('purchase_orders') as $po) {
         $paymentStatus = 'unpaid';
     }
     $slipItems = tnc_po_payment_slip_items($po);
+    $billingStatus = strtolower(trim((string) ($po['billing_status'] ?? 'pending')));
+    if (!in_array($billingStatus, ['pending', 'billed'], true)) {
+        $billingStatus = 'pending';
+    }
     $paymentSlipPath = $slipItems !== [] ? (string) ($slipItems[0]['path'] ?? '') : trim((string) ($po['payment_slip_path'] ?? ''));
     $merged = array_merge($po, [
         'supplier_name' => $s['name'] ?? '',
@@ -88,6 +92,11 @@ foreach (Db::tableRows('purchase_orders') as $po) {
         'payment_slip_url' => $slipItems !== [] ? (string) ($slipItems[0]['url'] ?? '') : ($paymentSlipPath !== '' ? app_path($paymentSlipPath) : ''),
         'payment_slip_items' => $slipItems,
         'payment_slip_count' => count($slipItems),
+        'billing_status' => $billingStatus,
+        'supplier_invoice_no' => trim((string) ($po['supplier_invoice_no'] ?? '')),
+        'supplier_invoice_date' => trim((string) ($po['supplier_invoice_date'] ?? '')),
+        'billed_total_amount' => (float) ($po['billed_total_amount'] ?? $amt),
+        'billed_vat_amount' => (float) ($po['billed_vat_amount'] ?? ($po['vat_amount'] ?? 0)),
         'payment_method' => strtolower(trim((string) ($po['payment_method'] ?? 'transfer'))) === 'cash' ? 'cash' : 'transfer',
         'payment_cash_paid_by' => trim((string) ($po['payment_cash_paid_by'] ?? '')),
         'total_amount' => $amt,
@@ -153,6 +162,9 @@ foreach ($po_rows_display as $sumRow) {
     <style>
         body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
         .main-card { border: none; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
+        #poTable th { white-space: nowrap; font-size: .84rem; }
+        #poTable td { vertical-align: middle; }
+        #poTable .badge { font-size: .72rem; font-weight: 600; letter-spacing: .01em; }
     </style>
 </head>
 <body>
@@ -207,6 +219,10 @@ foreach ($po_rows_display as $sumRow) {
                 echo 'ใบสั่งซื้อนี้ยกเลิกไปแล้ว';
             } elseif ($errorCode === 'po_paid') {
                 echo 'ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถแก้ไข ยกเลิก หรือลบได้';
+            } elseif ($errorCode === 'billing_required') {
+                echo 'กรุณากรอกเลขที่บิลซื้อและวันที่บนบิลให้ครบถ้วน';
+            } elseif ($errorCode === 'billing_amount_invalid') {
+                echo 'ยอดเงินรวมและยอด VAT ต้องไม่เป็นค่าว่างหรือติดลบ';
             } else {
                 echo 'เกิดข้อผิดพลาดในการจัดการใบสั่งซื้อ กรุณาลองใหม่';
             }
@@ -259,6 +275,12 @@ foreach ($po_rows_display as $sumRow) {
                     หรือ <a href="<?= $billListUrl ?>" class="alert-link">ไปหน้ารายการบิลเดือน <?= htmlspecialchars($billMonthQ, ENT_QUOTES, 'UTF-8') ?></a>
                 </div>
             <?php endif; ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+    <?php if (!empty($_GET['billing_saved'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            บันทึกเลขที่บิลซื้อเรียบร้อยแล้ว และสร้างข้อมูลในตาราง bills แล้ว
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
@@ -337,7 +359,7 @@ foreach ($po_rows_display as $sumRow) {
 
     <div class="card main-card p-4">
         <div class="table-responsive">
-            <table class="table table-hover align-middle" id="poTable">
+            <table class="table table-sm table-hover align-middle" id="poTable">
                 <thead class="table-light">
                     <tr>
                         <th class="text-center no-print" style="width:2.5rem;" title="เลือกเพื่อพิมพ์หลายใบ">
@@ -346,28 +368,31 @@ foreach ($po_rows_display as $sumRow) {
                         <th>เลขที่ PO</th>
                         <th>วันที่ออก</th>
                         <th>ผู้ขาย / ผู้รับจ้าง</th>
-                        <th class="text-center">ประเภท</th>
                         <th class="text-end">ยอดเงินรวม</th>
-                        <th class="text-center">สถานะ</th>
                         <th class="text-center">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody id="poTableBody">
                     <?php if (count($po_rows_display) === 0): ?>
-                        <tr><td colspan="8" class="text-center py-4 text-muted"><?= count($po_rows) === 0 ? 'ยังไม่มีการออกใบสั่งซื้อ' : 'ไม่มีรายการตามเงื่อนไขที่เลือก — ลองเปลี่ยนตัวกรองวันที่' ?></td></tr>
+                        <tr><td colspan="6" class="text-center py-4 text-muted"><?= count($po_rows) === 0 ? 'ยังไม่มีการออกใบสั่งซื้อ' : 'ไม่มีรายการตามเงื่อนไขที่เลือก — ลองเปลี่ยนตัวกรองวันที่' ?></td></tr>
                     <?php else: ?>
                         <?php foreach ($po_rows_display as $row): ?>
-                    <?php $poCancelled = ($row['status'] ?? '') === 'cancelled'; ?>
+                    <?php
+                    $poCancelled = ($row['status'] ?? '') === 'cancelled';
+                    $hasBillRef = trim((string) ($row['supplier_invoice_no'] ?? '')) !== '';
+                    $hasSlip = (int) ($row['payment_slip_count'] ?? 0) > 0;
+                    $isDocComplete = $hasSlip && $hasBillRef;
+                    ?>
                     <tr<?= $poCancelled ? ' class="po-row-cancelled"' : '' ?>>
                         <td class="text-center align-middle no-print">
                             <input type="checkbox" class="form-check-input m-0 js-po-print-cb" value="<?= (int) ($row['id'] ?? 0) ?>" aria-label="เลือกพิมพ์ <?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                         </td>
                         <td>
-                            <div class="fw-bold <?= $poCancelled ? 'text-danger' : 'text-primary' ?>">
+                            <div class="fw-bold <?= $poCancelled ? 'text-danger' : ($isDocComplete ? 'text-info' : 'text-warning') ?>">
                                 <?php
                                 $poNoDisp = htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8');
                                 $poViewHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . (int) ($row['id'] ?? 0);
-                                $poLinkClass = $poCancelled ? 'text-danger' : 'text-primary';
+                                $poLinkClass = $poCancelled ? 'text-danger' : ($isDocComplete ? 'text-info' : 'text-warning');
                                 echo '<a href="' . $poViewHref . '" class="' . $poLinkClass . ' text-decoration-none" title="ดูรายละเอียด">' . $poNoDisp . '</a>';
                                 ?>
                             </div>
@@ -391,54 +416,8 @@ foreach ($po_rows_display as $sumRow) {
                             echo htmlspecialchars($supplierDisplay !== '' ? $supplierDisplay : '-', ENT_QUOTES, 'UTF-8');
                             ?>
                         </td>
-                        <td class="text-center small">
-                            <?php $orderType = $orderTypeCell; ?>
-                            <?php if ($orderType === 'hire'): ?>
-                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">จัดจ้าง</span>
-                                <?php if ((int) ($row['installment_no'] ?? 0) > 0 && (int) ($row['installment_total'] ?? 0) > 0): ?>
-                                    <div class="small text-muted mt-1">งวด <?= (int) $row['installment_no'] ?>/<?= (int) $row['installment_total'] ?></div>
-                                <?php endif; ?>
-                            <?php else: ?>
-                                <span class="badge bg-light text-secondary border">จัดซื้อ</span>
-                            <?php endif; ?>
-                        </td>
                         <td class="text-end">
                             <div class="fw-bold <?= $poCancelled ? 'text-danger' : 'text-primary' ?>"><?= number_format((float)$row['total_amount'], 2) ?></div>
-                            <?php if ((int)($row['vat_enabled'] ?? 0) === 1): ?>
-                                <span class="badge bg-success rounded-pill mt-1" style="font-size:0.7rem;">รวม VAT 7%</span>
-                            <?php else: ?>
-                                <span class="badge bg-light text-secondary border mt-1" style="font-size:0.7rem;">ไม่มี VAT</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="text-center">
-                            <?php if ($poCancelled): ?>
-                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill fw-semibold">CANCELLED</span>
-                            <?php elseif (($row['status'] ?? '') !== 'ordered'): ?>
-                                <span class="badge bg-secondary rounded-pill"><?= htmlspecialchars((string) ($row['status_label'] ?? 'UNKNOWN')) ?></span>
-                            <?php endif; ?>
-                            <?php if (($row['status'] ?? '') !== 'cancelled'): ?>
-                            <div class="mt-1">
-                                <?php if (($row['payment_status'] ?? 'unpaid') === 'paid'): ?>
-                                    <button
-                                        type="button"
-                                        class="btn btn-success btn-sm rounded-pill py-0 px-3 mt-1 js-show-slip"
-                                        data-po-id="<?= (int) ($row['id'] ?? 0) ?>"
-                                        data-po-number="<?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                        data-slip-url="<?= htmlspecialchars((string) ($row['payment_slip_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                        data-slip-path="<?= htmlspecialchars((string) ($row['payment_slip_path'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                        data-payment-method="<?= htmlspecialchars((string) ($row['payment_method'] ?? 'transfer'), ENT_QUOTES, 'UTF-8') ?>"
-                                        data-cash-paid-by="<?= htmlspecialchars((string) ($row['payment_cash_paid_by'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    >จ่ายแล้ว</button>
-                                <?php else: ?>
-                                    <button
-                                        type="button"
-                                        class="btn btn-warning btn-sm rounded-pill py-0 px-3 mt-1 js-mark-paid"
-                                        data-po-id="<?= (int) ($row['id'] ?? 0) ?>"
-                                        data-po-number="<?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    >ยังไม่จ่าย</button>
-                                <?php endif; ?>
-                            </div>
-                            <?php endif; ?>
                         </td>
                         <td class="text-center">
                             <?php
@@ -446,23 +425,64 @@ foreach ($po_rows_display as $sumRow) {
                             $poCanEditCancel = ($row['status'] ?? '') !== 'cancelled' && !$rowPaid;
                             $poCanAdminDelete = $isAdmin && !$rowPaid;
                             ?>
-                            <?php if ($poCanEditCancel || $poCanAdminDelete): ?>
-                            <div class="btn-group shadow-sm">
-                                <?php if ($poCanEditCancel): ?>
-                                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php')) ?>?id=<?= (int)$row['id'] ?>" class="btn btn-sm btn-outline-warning" title="แก้ไขใบสั่งซื้อ">
-                                    <i class="bi bi-pencil-square"></i>
-                                </a>
-                                <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=cancel_purchase_order" class="d-inline" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบสั่งซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และแสดงประทับบนใบพิมพ์');">
-                                    <?php csrf_field(); ?>
-                                    <input type="hidden" name="po_id" value="<?= (int) ($row['id'] ?? 0) ?>">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="ยกเลิกใบ PO"><i class="bi bi-x-circle"></i></button>
-                                </form>
-                                <?php endif; ?>
-                                <?php if ($poCanAdminDelete): ?>
-                                    <a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete&type=purchase_order&id=<?= (int) $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger tnc-delete-post" title="ลบใบสั่งซื้อ (ต้องใส่รหัสผ่าน)">
-                                        <i class="bi bi-trash3-fill"></i>
-                                    </a>
-                                <?php endif; ?>
+                            <?php if (($row['status'] ?? '') !== 'cancelled'): ?>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    จัดการ
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                    <?php if (($row['payment_status'] ?? 'unpaid') === 'paid'): ?>
+                                        <li>
+                                            <button
+                                                type="button"
+                                                class="dropdown-item js-show-slip"
+                                                data-po-id="<?= (int) ($row['id'] ?? 0) ?>"
+                                                data-po-number="<?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-slip-url="<?= htmlspecialchars((string) ($row['payment_slip_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-slip-path="<?= htmlspecialchars((string) ($row['payment_slip_path'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-payment-method="<?= htmlspecialchars((string) ($row['payment_method'] ?? 'transfer'), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-cash-paid-by="<?= htmlspecialchars((string) ($row['payment_cash_paid_by'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            ><i class="bi bi-image me-2"></i>ดูสลิปจ่ายเงิน</button>
+                                        </li>
+                                    <?php else: ?>
+                                        <li>
+                                            <button
+                                                type="button"
+                                                class="dropdown-item js-mark-paid"
+                                                data-po-id="<?= (int) ($row['id'] ?? 0) ?>"
+                                                data-po-number="<?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            ><i class="bi bi-cash-coin me-2"></i>แนปสลิป</button>
+                                        </li>
+                                    <?php endif; ?>
+
+                                    <?php if (($row['billing_status'] ?? 'pending') !== 'billed'): ?>
+                                        <li>
+                                            <button
+                                                type="button"
+                                                class="dropdown-item js-receive-bill"
+                                                data-po-id="<?= (int) ($row['id'] ?? 0) ?>"
+                                                data-po-number="<?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-po-total="<?= htmlspecialchars(number_format((float) ($row['total_amount'] ?? 0), 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-po-vat="<?= htmlspecialchars(number_format((float) ($row['vat_amount'] ?? 0), 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            ><i class="bi bi-receipt me-2"></i>เพิ่มเลขบิลซื้อ</button>
+                                        </li>
+                                    <?php endif; ?>
+
+                                    <?php if ($poCanEditCancel || $poCanAdminDelete): ?><li><hr class="dropdown-divider"></li><?php endif; ?>
+                                    <?php if ($poCanEditCancel): ?>
+                                        <li><a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php')) ?>?id=<?= (int)$row['id'] ?>" class="dropdown-item"><i class="bi bi-pencil-square me-2"></i>แก้ไขใบสั่งซื้อ</a></li>
+                                        <li>
+                                            <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=cancel_purchase_order" class="d-inline" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบสั่งซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และแสดงประทับบนใบพิมพ์');">
+                                                <?php csrf_field(); ?>
+                                                <input type="hidden" name="po_id" value="<?= (int) ($row['id'] ?? 0) ?>">
+                                                <button type="submit" class="dropdown-item text-danger"><i class="bi bi-x-circle me-2"></i>ยกเลิกใบสั่งซื้อ</button>
+                                            </form>
+                                        </li>
+                                    <?php endif; ?>
+                                    <?php if ($poCanAdminDelete): ?>
+                                        <li><a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete&type=purchase_order&id=<?= (int) $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item text-danger tnc-delete-post"><i class="bi bi-trash3-fill me-2"></i>ลบใบสั่งซื้อ</a></li>
+                                    <?php endif; ?>
+                                </ul>
                             </div>
                             <?php else: ?>
                                 <span class="text-muted small">—</span>
@@ -473,6 +493,45 @@ foreach ($po_rows_display as $sumRow) {
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="receiveBillModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=receive_po_bill" method="POST" id="receiveBillForm">
+                <?php csrf_field(); ?>
+                <input type="hidden" name="return_to" value="list">
+                <input type="hidden" name="po_id" id="receiveBillPoId" value="">
+                <div class="modal-header">
+                    <h5 class="modal-title">บันทึกเลขที่บิลซื้อ (Receive Bill)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="small text-muted mb-2">PO: <span id="receiveBillPoNumber">-</span></div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">เลขที่ใบกำกับภาษี/บิลซื้อ <span class="text-danger">*</span></label>
+                        <input type="text" name="supplier_invoice_no" id="receiveBillInvoiceNo" class="form-control" maxlength="120" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">วันที่บนใบกำกับภาษี/บิลซื้อ <span class="text-danger">*</span></label>
+                        <input type="date" name="supplier_invoice_date" id="receiveBillInvoiceDate" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">ยอดเงินรวม (บาท)</label>
+                        <input type="number" name="billed_total_amount" id="receiveBillTotalAmount" class="form-control" step="0.01" min="0" required>
+                    </div>
+                    <div class="mb-1">
+                        <label class="form-label fw-semibold">ยอด VAT 7% (บาท)</label>
+                        <input type="number" name="billed_vat_amount" id="receiveBillVatAmount" class="form-control" step="0.01" min="0" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" class="btn btn-primary">บันทึกบิลซื้อ</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -606,7 +665,7 @@ foreach ($po_rows_display as $sumRow) {
             pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
-            columnDefs: [{ targets: [0, 7], orderable: false, searchable: false }]
+            columnDefs: [{ targets: [0, 5], orderable: false, searchable: false }]
         });
     }
     var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_orders'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
@@ -671,6 +730,41 @@ foreach ($po_rows_display as $sumRow) {
             cb.checked = on;
         });
     });
+})();
+
+(function () {
+    const receiveBillModalEl = document.getElementById('receiveBillModal');
+    if (receiveBillModalEl) {
+        const receiveBillModal = new bootstrap.Modal(receiveBillModalEl);
+        const poIdInput = document.getElementById('receiveBillPoId');
+        const poNoEl = document.getElementById('receiveBillPoNumber');
+        const totalEl = document.getElementById('receiveBillTotalAmount');
+        const vatEl = document.getElementById('receiveBillVatAmount');
+        const invNoEl = document.getElementById('receiveBillInvoiceNo');
+        const invDateEl = document.getElementById('receiveBillInvoiceDate');
+        const formEl = document.getElementById('receiveBillForm');
+
+        document.querySelectorAll('.js-receive-bill').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                poIdInput.value = btn.getAttribute('data-po-id') || '';
+                poNoEl.textContent = btn.getAttribute('data-po-number') || '-';
+                totalEl.value = btn.getAttribute('data-po-total') || '0.00';
+                vatEl.value = btn.getAttribute('data-po-vat') || '0.00';
+                invNoEl.value = '';
+                invDateEl.value = '';
+                receiveBillModal.show();
+            });
+        });
+
+        formEl?.addEventListener('submit', function (e) {
+            const totalVal = parseFloat(String(totalEl.value || ''));
+            const vatVal = parseFloat(String(vatEl.value || ''));
+            if (!Number.isFinite(totalVal) || !Number.isFinite(vatVal) || totalVal < 0 || vatVal < 0) {
+                e.preventDefault();
+                alert('ยอดเงินรวมและยอด VAT ต้องไม่เป็นค่าว่างหรือติดลบ');
+            }
+        });
+    }
 })();
 
 (function () {
