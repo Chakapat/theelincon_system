@@ -50,21 +50,6 @@ function tnc_vat_csv_row(array $cells): string
     return implode(',', $out) . "\r\n";
 }
 
-function tnc_vat_purchase_bill_edit_url(int $billId, string $docDate): string
-{
-    if ($billId <= 0) {
-        return '';
-    }
-    $billMonth = date('Y-m');
-    if (preg_match('/^(\d{4}-\d{2})/', $docDate, $m) === 1) {
-        $billMonth = $m[1];
-    }
-
-    return app_path('pages/purchase/purchase-bill.php')
-        . '?month=' . rawurlencode($billMonth)
-        . '&edit=' . $billId;
-}
-
 function tnc_doc_is_active(array $row): bool
 {
     $status = strtolower(trim((string) ($row['status'] ?? '')));
@@ -172,62 +157,7 @@ foreach (Db::tableRows('tax_invoices') as $taxInvoice) {
     $sumSalesNet += $netAmount;
 }
 
-foreach (Db::tableRows('purchase_bills') as $bill) {
-    $docDate = trim((string) ($bill['bill_date'] ?? ''));
-    if ($docDate === '' || $docDate < $fromDate || $docDate > $toDate) {
-        continue;
-    }
-    if (!tnc_doc_is_active($bill)) {
-        continue;
-    }
-
-    $subtotal = round((float) ($bill['subtotal_amount'] ?? 0), 2);
-    $vatAmount = round((float) ($bill['vat_amount'] ?? 0), 2);
-    $netAmount = round((float) ($bill['amount'] ?? ($subtotal + $vatAmount)), 2);
-    $vatRate = (float) ($bill['vat_rate'] ?? 0);
-    if (!tnc_vat_is_7_percent($subtotal, $vatAmount, $vatRate)) {
-        continue;
-    }
-
-    $supplierName = trim((string) ($bill['supplier_name'] ?? $bill['vendor_name'] ?? ''));
-    $billNo = trim((string) ($bill['bill_number'] ?? ''));
-    $seenKey = mb_strtolower($billNo . '|' . $docDate . '|' . number_format($netAmount, 2, '.', '') . '|' . $supplierName);
-    if (isset($purchaseSeen[$seenKey])) {
-        continue;
-    }
-    $purchaseSeen[$seenKey] = true;
-    $billId = (int) ($bill['id'] ?? 0);
-    $purchaseRows[] = [
-        'doc_date' => $docDate,
-        'bill_no' => $billNo,
-        'link_url' => tnc_vat_purchase_bill_edit_url($billId, $docDate),
-        'supplier_name' => $supplierName,
-        'base' => $subtotal,
-        'vat' => $vatAmount,
-        'net' => $netAmount,
-    ];
-    $sumPurchaseBase += $subtotal;
-    $sumPurchaseVat += $vatAmount;
-    $sumPurchaseNet += $netAmount;
-}
-
-$purchaseBillIdByNumber = [];
-$purchaseBillIdByPoId = [];
-foreach (Db::tableRows('purchase_bills') as $pbRow) {
-    $pbId = (int) ($pbRow['id'] ?? 0);
-    if ($pbId <= 0) {
-        continue;
-    }
-    $pbNo = trim((string) ($pbRow['bill_number'] ?? ''));
-    if ($pbNo !== '') {
-        $purchaseBillIdByNumber[mb_strtolower($pbNo)] = $pbId;
-    }
-    $pbPoId = (int) ($pbRow['source_po_id'] ?? 0);
-    if ($pbPoId > 0) {
-        $purchaseBillIdByPoId[$pbPoId] = $pbId;
-    }
-}
-
+// ภาษีซื้อ: ใช้ตาราง bills เป็นแหล่งข้อมูลเดียว (สร้างตอนรับบิลซื้อจาก PO)
 foreach (Db::tableRows('bills') as $bill) {
     $docDate = trim((string) ($bill['supplier_invoice_date'] ?? $bill['bill_date'] ?? ''));
     if ($docDate === '' || $docDate < $fromDate || $docDate > $toDate) {
@@ -253,14 +183,9 @@ foreach (Db::tableRows('bills') as $bill) {
     }
     $purchaseSeen[$seenKey] = true;
     $poId = (int) ($bill['po_id'] ?? 0);
-    $linkedBillId = $purchaseBillIdByNumber[mb_strtolower($billNo)] ?? 0;
-    if ($linkedBillId <= 0 && $poId > 0) {
-        $linkedBillId = $purchaseBillIdByPoId[$poId] ?? 0;
-    }
-    $linkUrl = tnc_vat_purchase_bill_edit_url($linkedBillId, $docDate);
-    if ($linkUrl === '' && $poId > 0) {
-        $linkUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . $poId;
-    }
+    $linkUrl = $poId > 0
+        ? app_path('pages/purchase/purchase-order-view.php') . '?id=' . $poId
+        : '';
     $purchaseRows[] = [
         'doc_date' => $docDate,
         'bill_no' => $billNo,

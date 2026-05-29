@@ -898,12 +898,8 @@ $index_hub_start_all_collapsed = true;
                 <div id="hub-collapse-docs" class="collapse home-hub-panel" aria-labelledby="hub-toggle-docs">
                     <div class="home-hub-panel-inner pb-1">
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-ruled me-2 text-secondary"></i>สัญญาจ้าง (Hire Contract)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/labor-payroll/labor-payroll.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calculator me-2 text-secondary"></i>คำนวณค่าแรง (Wage)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-box-seam me-2 text-secondary"></i>คลังสินค้า (Stock)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/daily-site-reports/daily-site-report-calendar.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calendar3 me-2 text-secondary"></i>สมุดรายวันหน้างาน (DSR)</a>
-                        <?php if ($is_admin): ?>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/tools/employment-certificate.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-medical me-2 text-secondary"></i>หนังสือรับรองการทำงาน (Employment Certificate)</a>
-                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -915,12 +911,9 @@ $index_hub_start_all_collapsed = true;
                 </button>
                 <div id="hub-collapse-cash" class="collapse home-hub-panel" aria-labelledby="hub-toggle-cash">
                     <div class="home-hub-panel-inner pb-1">
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-bill.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-receipt-cutoff me-2 text-secondary"></i>บันทึกบิลซื้อ (Purchase Bill)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/reports/vat-report.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-bar-graph me-2 text-secondary"></i>รายงานภาษีซื้อ/ขาย (VAT Report)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/reports/site-spending-report.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-geo-alt me-2 text-secondary"></i>รายงานใช้จ่ายตามไซต์ (Site Spending)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-speedometer2 me-2 text-secondary"></i>สดย่อย (Petty Cash)</a>
-                        <?php if ($is_finance_hub): ?>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/tools/money-receipt-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-journal-text me-2 text-secondary"></i>รายการใบเสร็จรับเงิน (Money Receipt)</a>
-                        <?php endif; ?>
                     </div>
                 </div>
             </div>

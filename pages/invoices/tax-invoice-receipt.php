@@ -149,10 +149,10 @@ function buildTaxItemsFromPostedRows(array $postedDescriptions, array $postedQua
         if ($priceRaw !== '' && strpos($priceRaw, '%') !== false) {
             $percent = (float) str_replace('%', '', $priceRaw);
             $lineTotal = $money2($running * ($percent / 100.0));
-            $finalUnitPrice = $lineTotal;
+            $finalUnitPrice = $qty > 0 ? round($lineTotal / $qty, 4) : 0.0;
         } else {
             $finalUnitPrice = (float) $priceRaw;
-            $lineTotal = $money2($finalUnitPrice);
+            $lineTotal = $money2($qty * $finalUnitPrice);
         }
 
         $payloads[] = [
@@ -287,7 +287,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($isCreateSubmit || $isUpdateSubmit
                 foreach ($sourceItems as $srcItem) {
                     $qty = (float) ($srcItem['quantity'] ?? 0);
                     $unitPrice = (float) ($srcItem['unit_price'] ?? 0);
-                    $lineTotal = (float) ($srcItem['total'] ?? $money2($unitPrice));
+                    $lineTotal = (float) ($srcItem['total'] ?? $money2($qty * $unitPrice));
                     $subtotal += $lineTotal;
                     $itemPayloads[] = [
                         'description' => (string) ($srcItem['description'] ?? ''),
@@ -978,7 +978,7 @@ function calculate(){
             rowTotal = money2(running * (pct / 100));
         } else {
             let price = parseFloat(pIn) || 0;
-            rowTotal = money2(price);
+            rowTotal = money2(qty * price);
         }
         row.querySelector(".total").value = rowTotal.toFixed(2);
         subtotal += rowTotal;

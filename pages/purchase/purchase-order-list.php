@@ -238,14 +238,7 @@ foreach ($po_rows_display as $sumRow) {
     <?php endif; ?>
     <?php if (!empty($_GET['payment_saved'])): ?>
         <?php
-        $autoBill = !empty($_GET['auto_bill']);
         $printPoIdSaved = (int) ($_GET['print_po_id'] ?? 0);
-        $billMonthQ = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['bill_month'] ?? '')) ? (string) $_GET['bill_month'] : date('Y-m');
-        $billIdQ = (int) ($_GET['bill_id'] ?? 0);
-        $billListUrl = htmlspecialchars(app_path('pages/purchase/purchase-bill.php') . '?month=' . rawurlencode($billMonthQ), ENT_QUOTES, 'UTF-8');
-        $billEditUrl = $billIdQ > 0
-            ? htmlspecialchars(app_path('pages/purchase/purchase-bill.php') . '?month=' . rawurlencode($billMonthQ) . '&edit=' . $billIdQ, ENT_QUOTES, 'UTF-8')
-            : $billListUrl;
         $poAutoprintBase = $printPoIdSaved > 0
             ? htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . $printPoIdSaved, ENT_QUOTES, 'UTF-8')
             : '';
@@ -266,13 +259,6 @@ foreach ($po_rows_display as $sumRow) {
                     <a href="<?= $poAutoprintBothUrl ?>" target="_blank" rel="noopener" class="alert-link fw-semibold">3. ใบสั่งซื้อ + สลิป</a>
                     <span class="text-muted">·</span>
                     <a href="<?= $poAutoprintAllUrl ?>" target="_blank" rel="noopener" class="alert-link fw-semibold">4. PR + PO + สลิป/แนบ</a>
-                </div>
-            <?php endif; ?>
-            <?php if ($autoBill): ?>
-                <div class="mt-2 small">
-                    ระบบบันทึกบิล<strong>บันทึกบิลซื้อตามโครงการ</strong>จาก PO นี้แล้ว
-                    — <a href="<?= $billEditUrl ?>" class="alert-link fw-semibold">เปิดบิลที่สร้างอัตโนมัติ</a>
-                    หรือ <a href="<?= $billListUrl ?>" class="alert-link">ไปหน้ารายการบิลเดือน <?= htmlspecialchars($billMonthQ, ENT_QUOTES, 'UTF-8') ?></a>
                 </div>
             <?php endif; ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>

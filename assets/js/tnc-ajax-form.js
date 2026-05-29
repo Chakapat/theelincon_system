@@ -76,14 +76,11 @@
             a.indexOf('action-handler.php') !== -1
             || a.indexOf('invoice-update.php') !== -1
             || a.indexOf('stock-handler.php') !== -1
-            || a.indexOf('labor-payroll-handler.php') !== -1
-            || a.indexOf('labor-payroll-archive-handler.php') !== -1
             || a.indexOf('cash-ledger-handler.php') !== -1
         );
     }
 
     function shouldBind(form) {
-        if (form.id === 'payrollForm') return false;
         if (form.getAttribute('data-tnc-fullnav') === '1') return false;
         if (form.getAttribute('data-tnc-ajax') === '1' && String(form.getAttribute('method') || '').toLowerCase() === 'post') {
             return true;
