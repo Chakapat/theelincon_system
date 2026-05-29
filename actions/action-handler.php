@@ -474,9 +474,12 @@ function tnc_purchase_bill_create_from_paid_purchase_order(?array $po, int $crea
         }
     }
 
+    $supplierInvoiceDate = trim((string) ($po['supplier_invoice_date'] ?? ''));
     $paidAt = trim((string) ($po['payment_marked_paid_at'] ?? ''));
     $bill_date = date('Y-m-d');
-    if ($paidAt !== '' && preg_match('/^(\d{4}-\d{2}-\d{2})/', $paidAt, $m) === 1) {
+    if ($supplierInvoiceDate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $supplierInvoiceDate) === 1) {
+        $bill_date = $supplierInvoiceDate;
+    } elseif ($paidAt !== '' && preg_match('/^(\d{4}-\d{2}-\d{2})/', $paidAt, $m) === 1) {
         $bill_date = $m[1];
     } elseif (trim((string) ($po['issue_date'] ?? '')) !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $po['issue_date'])) {
         $bill_date = (string) $po['issue_date'];
@@ -523,7 +526,7 @@ function tnc_purchase_bill_create_from_paid_purchase_order(?array $po, int $crea
     $bill_note = mb_substr(implode("\n", $noteParts), 0, 1000);
 
     $bid = Db::nextNumericId('purchase_bills', 'id');
-    $bill_number = tnc_next_purchase_bill_number();
+    $bill_number = mb_substr($supplierInvoiceNo, 0, 120);
     $billPayload = [
         'id' => $bid,
         'bill_number' => $bill_number,
