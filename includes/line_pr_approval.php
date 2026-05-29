@@ -588,7 +588,7 @@ function line_pr_persist_decision(int $prId, string $decision, array $meta): arr
         'line_decided_by_line_user_id' => trim((string) ($meta['line_user_id'] ?? '')),
         'line_decided_by_user_id' => (int) ($meta['web_user_id'] ?? 0),
         'line_decision_source' => trim((string) ($meta['source'] ?? '')),
-        'line_approval_token' => '',
+        // ไม่ล้างโทเคน เพื่อให้ลิงก์ไม่ "หมดอายุ" — ป้องกันกดซ้ำด้วยการเช็คสถานะ (pending) แทน
     ]));
     $after = Db::row('purchase_requests', $pk);
     $prNo = trim((string) ($after['pr_number'] ?? ''));
@@ -632,7 +632,7 @@ function line_pr_apply_decision(int $prId, string $decision, string $lineUserId,
     $expectedToken = trim((string) ($pr['line_approval_token'] ?? ''));
     $token = trim($token);
     if ($expectedToken === '' || $token === '' || !hash_equals($expectedToken, $token)) {
-        return ['ok' => false, 'message' => 'ลิงก์อนุมัติไม่ถูกต้องหรือหมดอายุแล้ว'];
+        return ['ok' => false, 'message' => 'ลิงก์อนุมัติไม่ถูกต้อง'];
     }
 
     $result = line_pr_persist_decision($prId, $decision, [
@@ -689,9 +689,14 @@ function line_pr_prepare_and_send_line(int $prId): array
 
     $pk = Db::pkForLogicalId('purchase_requests', $prId);
     $before = Db::row('purchase_requests', $pk) ?? [];
+    // โทเคนคงที่ถาวรต่อ PR: ถ้าเคยมีแล้วให้ใช้ตัวเดิม เพื่อให้ลิงก์ที่ส่งไปก่อนหน้ายังใช้ได้ (ไม่หมดอายุ)
+    $stableToken = trim((string) ($before['line_approval_token'] ?? ''));
+    if ($stableToken === '') {
+        $stableToken = line_pr_new_approval_token();
+    }
     Db::setRow('purchase_requests', $pk, array_merge($before, [
         'status' => 'pending',
-        'line_approval_token' => line_pr_new_approval_token(),
+        'line_approval_token' => $stableToken,
         'line_decision' => '',
         'line_decided_at' => '',
         'line_decided_by_line_user_id' => '',

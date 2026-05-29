@@ -134,7 +134,8 @@ foreach (Db::tableRows('tax_invoices') as $taxInvoice) {
 
     $subtotal = round((float) ($taxInvoice['subtotal'] ?? 0), 2);
     $vatAmount = round((float) ($taxInvoice['vat_amount'] ?? 0), 2);
-    $netAmount = round((float) ($taxInvoice['grand_total'] ?? ($subtotal + $vatAmount)), 2);
+    // ยอดรวมในรายงาน VAT = มูลค่าสินค้า/บริการ + VAT (ไม่หักภาษี ณ ที่จ่าย/เงินประกัน ซึ่งเป็นคนละส่วนกับ VAT)
+    $netAmount = round($subtotal + $vatAmount, 2);
     if (!tnc_vat_is_7_percent($subtotal, $vatAmount)) {
         continue;
     }
@@ -175,6 +176,8 @@ foreach (Db::tableRows('bills') as $bill) {
     if (!tnc_vat_is_7_percent($subtotal, $vatAmount)) {
         continue;
     }
+    // ยอดรวมในรายงาน VAT = มูลค่าสินค้า/บริการ + VAT (ไม่หักภาษี ณ ที่จ่าย/เงินประกัน ซึ่งเป็นคนละส่วนกับ VAT)
+    $netAmount = round($subtotal + $vatAmount, 2);
     $supplierName = trim((string) ($bill['supplier_name'] ?? $bill['vendor_name'] ?? ''));
     $billNo = trim((string) ($bill['supplier_invoice_no'] ?? $bill['bill_number'] ?? ''));
     $seenKey = mb_strtolower($billNo . '|' . $docDate . '|' . number_format($netAmount, 2, '.', '') . '|' . $supplierName);

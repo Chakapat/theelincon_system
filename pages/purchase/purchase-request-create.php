@@ -84,6 +84,10 @@ usort($sites, static function (array $a, array $b): int {
 
     return strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
 });
+
+require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
+$siteCategoryMap = tnc_site_categories_map_by_site(); // [siteId => [{id,name}], 0 = หมวดกลาง]
+$editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
 ?>
 
 <!DOCTYPE html>
@@ -559,6 +563,13 @@ usort($sites, static function (array $a, array $b): int {
                             </select>
                         </div>
                         <?php endif; ?>
+                        <div class="col-md-6">
+                            <label class="pr-field-label">หมวดค่าใช้จ่าย <span class="text-muted small fw-normal">(หัวข้อย่อยของไซต์)</span></label>
+                            <select name="cost_category_id" id="cost_category_id" class="form-select form-select-sm">
+                                <option value="0">— ไม่ระบุหมวด —</option>
+                            </select>
+                            <div class="form-text">เลือกไซต์ก่อน แล้วระบบจะแสดงหมวดที่ใช้ได้ — เพิ่มหมวดได้ที่หน้า «ไซต์งาน»</div>
+                        </div>
                         <div class="col-12 d-none" id="hire_fields_wrap">
                             <div class="row g-2 g-md-3">
                                 <div class="col-md-4">
@@ -623,7 +634,7 @@ usort($sites, static function (array $a, array $b): int {
                                 <td><input type="text" name="item_description[]" class="form-control" required value="<?= htmlspecialchars((string) ($it['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td><input type="number" name="item_qty[]" class="form-control qty text-end" step="any" min="0" required oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['quantity'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td><input type="text" name="item_unit[]" class="form-control" value="<?= htmlspecialchars((string) ($it['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="number" name="item_price[]" class="form-control price text-end" step="any" min="0" oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['unit_price'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td><input type="number" name="item_price[]" class="form-control price text-end" step="any" oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['unit_price'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td><input type="text" name="item_discount[]" class="form-control line-discount text-end" maxlength="20" oninput="calculateTotal()" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td><input type="text" class="form-control row-total text-end bg-light" value="<?= number_format((float) ($it['total'] ?? 0), 2, '.', '') ?>" readonly></td>
                                 <td><button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)"><i class="bi bi-trash-fill"></i></button></td>
@@ -635,7 +646,7 @@ usort($sites, static function (array $a, array $b): int {
                         <td><input type="text" name="item_description[]" class="form-control" required></td>
                         <td><input type="number" name="item_qty[]" class="form-control qty text-end" step="any" min="0" required oninput="calculateTotal()"></td>
                         <td><input type="text" name="item_unit[]" class="form-control text-end"></td>
-                        <td><input type="number" name="item_price[]" class="form-control price text-end" step="any" min="0" oninput="calculateTotal()"></td>
+                        <td><input type="number" name="item_price[]" class="form-control price text-end" step="any" oninput="calculateTotal()"></td>
                         <td><input type="text" name="item_discount[]" class="form-control line-discount text-end" maxlength="20" oninput="calculateTotal()"></td>
                         <td><input type="text" class="form-control row-total text-end bg-light" value="0.00" readonly></td>
                         <td></td>
@@ -748,7 +759,7 @@ function addRow() {
         <td><input type="text" name="item_description[]" class="form-control" required></td>
         <td><input type="number" name="item_qty[]" class="form-control qty text-end" step="any" min="0" required oninput="calculateTotal()"></td>
         <td><input type="text" name="item_unit[]" class="form-control text-end"></td>
-        <td><input type="number" name="item_price[]" class="form-control price text-end" step="any" min="0" oninput="calculateTotal()"></td>
+        <td><input type="number" name="item_price[]" class="form-control price text-end" step="any" oninput="calculateTotal()"></td>
         <td><input type="text" name="item_discount[]" class="form-control line-discount text-end" maxlength="20" oninput="calculateTotal()"></td>
         <td><input type="text" class="form-control row-total text-end bg-light" value="0.00" readonly></td>
         <td><button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)"><i class="bi bi-trash-fill"></i></button></td>
@@ -761,7 +772,7 @@ function prLineAmountAfterDiscount(qty, price, discRaw) {
     const base = Math.round(q * p * 100) / 100;
     const dRaw = String(discRaw || '').trim();
     let discount = 0;
-    if (dRaw !== '') {
+    if (dRaw !== '' && base > 0) {
         const pctMatch = dRaw.match(/^([0-9]+(?:\.[0-9]+)?)\s*%$/);
         if (pctMatch) {
             let pct = parseFloat(pctMatch[1]) || 0;
@@ -919,9 +930,13 @@ document.getElementById('request_type')?.addEventListener('change', function () 
         });
     }
 
-    function normalizePrCreatedDate() {
+    // ตรวจรูปแบบวันที่ (ไม่แก้ค่าในช่อง) — ใช้ก่อนเปิด modal
+    function validatePrCreatedDate() {
         if (!dateInput) return true;
         const raw = (dateInput.value || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+            return true;
+        }
         const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
         if (!m) {
             alert('กรุณากรอกวันที่เป็นรูปแบบ วัน/เดือน/ปี เช่น 25/04/2026');
@@ -937,8 +952,19 @@ document.getElementById('request_type')?.addEventListener('change', function () 
             dateInput.focus();
             return false;
         }
-        dateInput.value = `${String(yyyy)}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
         return true;
+    }
+
+    // แปลงวันที่เป็น Y-m-d ก่อน submit จริง
+    function normalizePrCreatedDate() {
+        if (!dateInput) return;
+        const raw = (dateInput.value || '').trim();
+        const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (!m) return;
+        const dd = Number(m[1]);
+        const mm = Number(m[2]);
+        const yyyy = Number(m[3]);
+        dateInput.value = `${String(yyyy)}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
     }
 
     const form = dateInput ? dateInput.closest('form') : null;
@@ -948,6 +974,14 @@ document.getElementById('request_type')?.addEventListener('change', function () 
     const lineCheck = document.getElementById('prSendLineOnSaveCheck');
 
     document.getElementById('btnPrSaveOpenModal')?.addEventListener('click', function () {
+        // ตรวจความถูกต้องของฟอร์ม "ก่อน" เปิด modal เพื่อให้ข้อความเตือนของเบราว์เซอร์
+        // แสดงบนช่องที่ผิดได้จริง (ไม่ถูก modal บัง)
+        if (!form || !validatePrCreatedDate()) {
+            return;
+        }
+        if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+            return;
+        }
         if (lineCheck) {
             lineCheck.checked = false;
         }
@@ -955,13 +989,10 @@ document.getElementById('request_type')?.addEventListener('change', function () 
     });
 
     document.getElementById('btnPrSaveConfirm')?.addEventListener('click', function () {
-        if (!form || !normalizePrCreatedDate()) {
+        if (!form) {
             return;
         }
-        if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
-            saveModal?.hide();
-            return;
-        }
+        normalizePrCreatedDate();
         if (sendLineHidden) {
             sendLineHidden.value = lineCheck && lineCheck.checked ? '1' : '0';
         }
@@ -976,6 +1007,40 @@ document.getElementById('request_type')?.addEventListener('change', function () 
 
 document.addEventListener('DOMContentLoaded', calculateTotal);
 document.addEventListener('DOMContentLoaded', toggleRequestTypeFields);
+
+// เติมตัวเลือก "หมวดค่าใช้จ่าย" ตามไซต์ที่เลือก (หมวดกลาง + หมวดเฉพาะไซต์)
+(function () {
+    var catMap = <?= json_encode($siteCategoryMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    var selectedCatId = <?= (int) $editCostCategoryId ?>;
+    var siteEl = document.getElementById('site_id');
+    var catEl = document.getElementById('cost_category_id');
+    if (!catEl) return;
+
+    function populateCategories() {
+        var siteId = siteEl ? parseInt(siteEl.value || '0', 10) || 0 : 0;
+        var list = catMap[siteId] || catMap[0] || [];
+        var prev = parseInt(catEl.value || '0', 10) || selectedCatId || 0;
+        catEl.innerHTML = '<option value="0">— ไม่ระบุหมวด —</option>';
+        list.forEach(function (c) {
+            var opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            if (c.id === prev) opt.selected = true;
+            catEl.appendChild(opt);
+        });
+        // ถ้าค่าที่เคยเลือกไม่อยู่ในไซต์ใหม่ ให้กลับเป็นไม่ระบุ
+        if (![].some.call(catEl.options, function (o) { return o.selected; })) {
+            catEl.value = '0';
+        }
+        selectedCatId = 0; // ใช้ค่าเริ่มต้นครั้งเดียว
+    }
+
+    if (siteEl) {
+        siteEl.addEventListener('change', populateCategories);
+    }
+    document.addEventListener('DOMContentLoaded', populateCategories);
+    populateCategories();
+})();
 
 </script>
 </body>

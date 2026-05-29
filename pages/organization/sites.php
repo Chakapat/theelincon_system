@@ -8,6 +8,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_action_response.php';
+require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -83,9 +84,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site'])) {
     tnc_action_redirect(app_path('pages/organization/sites.php') . '?deleted=1');
 }
 
+// ---- หมวดค่าใช้จ่าย: บันทึก/แก้ไข ----
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_category'])) {
+    if (!csrf_verify_request()) {
+        tnc_action_redirect(app_path('pages/organization/sites.php'));
+    }
+    require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
+    $catId = (int) ($_POST['category_id'] ?? 0);
+    $catSiteId = (int) ($_POST['category_site_id'] ?? 0); // 0 = หมวดกลาง
+    $catName = trim((string) ($_POST['category_name'] ?? ''));
+    if ($catName === '') {
+        tnc_action_redirect(app_path('pages/organization/sites.php') . '?error=invalid_name');
+    }
+    $savedId = tnc_site_category_save($catId, $catSiteId, $catName);
+    if ($savedId > 0) {
+        tnc_audit_log($catId > 0 ? 'update' : 'create', 'site_cost_category', (string) $savedId, $catName, [
+            'source' => 'sites.php',
+            'action' => 'save_site_category',
+            'after' => ['id' => $savedId, 'site_id' => $catSiteId, 'name' => $catName],
+        ]);
+    }
+    $anchor = $catSiteId > 0 ? ('#site-' . $catSiteId) : '#global-categories';
+    tnc_action_redirect(app_path('pages/organization/sites.php') . '?cat_saved=1' . $anchor);
+}
+
+// ---- หมวดค่าใช้จ่าย: ลบ ----
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site_category'])) {
+    if (!csrf_verify_request()) {
+        tnc_action_redirect(app_path('pages/organization/sites.php'));
+    }
+    require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
+    $catId = (int) ($_POST['category_id'] ?? 0);
+    $catSiteId = (int) ($_POST['category_site_id'] ?? 0);
+    if ($catId > 0) {
+        $snap = Db::rowByIdField('site_cost_categories', $catId);
+        tnc_site_category_delete($catId);
+        tnc_audit_log('delete', 'site_cost_category', (string) $catId, (string) ($snap['name'] ?? ('#' . $catId)), [
+            'source' => 'sites.php',
+            'action' => 'delete_site_category',
+            'before' => $snap,
+        ]);
+    }
+    $anchor = $catSiteId > 0 ? ('#site-' . $catSiteId) : '#global-categories';
+    tnc_action_redirect(app_path('pages/organization/sites.php') . '?cat_deleted=1' . $anchor);
+}
+
 $editId = isset($_GET['edit']) ? (int) $_GET['edit'] : 0;
 $editRow = $editId > 0 ? Db::rowByIdField('sites', $editId) : null;
 $isEditing = is_array($editRow);
+
+// หมวดค่าใช้จ่าย: แยกหมวดกลาง + จัดกลุ่มตามไซต์
+$catGlobal = [];
+$catBySite = [];
+foreach (tnc_site_categories_all(true) as $cat) {
+    $sid = (int) ($cat['site_id'] ?? 0);
+    if ($sid === 0) {
+        $catGlobal[] = $cat;
+    } else {
+        $catBySite[$sid][] = $cat;
+    }
+}
+
+/**
+ * เรนเดอร์รายการหมวด + ฟอร์มเพิ่มหมวด สำหรับไซต์หนึ่ง (siteId=0 = หมวดกลาง)
+ *
+ * @param array<int,array<string,mixed>> $cats
+ */
+$renderCategoryBlock = static function (int $siteId, array $cats): void {
+    $selfUrl = htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8');
+    ?>
+    <div class="site-cat-list mb-2">
+        <?php if (count($cats) === 0): ?>
+            <div class="text-muted small fst-italic">ยังไม่มีหัวข้อย่อย</div>
+        <?php else: ?>
+            <?php foreach ($cats as $c): ?>
+                <span class="site-cat-chip">
+                    <i class="bi bi-tag-fill"></i>
+                    <span><?= htmlspecialchars((string) ($c['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                    <form method="post" action="<?= $selfUrl ?>" class="d-inline" onsubmit="return confirm('ลบหัวข้อย่อยนี้?');">
+                        <?php csrf_field(); ?>
+                        <input type="hidden" name="delete_site_category" value="1">
+                        <input type="hidden" name="category_id" value="<?= (int) ($c['id'] ?? 0) ?>">
+                        <input type="hidden" name="category_site_id" value="<?= $siteId ?>">
+                        <button type="submit" class="site-cat-del" title="ลบ" aria-label="ลบหัวข้อย่อย">&times;</button>
+                    </form>
+                </span>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+    <form method="post" action="<?= $selfUrl ?>" class="d-flex gap-2 align-items-center flex-wrap">
+        <?php csrf_field(); ?>
+        <input type="hidden" name="save_site_category" value="1">
+        <input type="hidden" name="category_site_id" value="<?= $siteId ?>">
+        <input type="text" name="category_name" class="form-control form-control-sm site-cat-input" maxlength="150" placeholder="เพิ่มหัวข้อย่อย เช่น ค่าน้ำมันรถ" required style="max-width:280px;">
+        <button type="submit" class="btn btn-sm btn-outline-warning fw-semibold"><i class="bi bi-plus-lg me-1"></i>เพิ่ม</button>
+    </form>
+    <?php
+};
 
 $list = Db::tableRows('sites');
 usort($list, static function (array $a, array $b): int {
@@ -218,6 +313,43 @@ usort($list, static function (array $a, array $b): int {
             border-color: #fd7e14;
             box-shadow: 0 0 0 .2rem rgba(253, 126, 20, 0.14);
         }
+        .site-cat-panel {
+            background: #fffaf3;
+            border-top: 1px dashed #f0c896;
+        }
+        .site-cat-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            background: #fff;
+            border: 1px solid #f0c896;
+            color: #92400e;
+            border-radius: 999px;
+            padding: .2rem .35rem .2rem .7rem;
+            margin: 0 .35rem .35rem 0;
+            font-size: .85rem;
+            font-weight: 600;
+        }
+        .site-cat-chip .bi { color: #fd7e14; font-size: .8rem; }
+        .site-cat-del {
+            border: 0;
+            background: rgba(239, 68, 68, 0.12);
+            color: #dc2626;
+            border-radius: 999px;
+            width: 20px;
+            height: 20px;
+            line-height: 1;
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .site-cat-del:hover { background: rgba(239, 68, 68, 0.22); }
+        .site-cat-input:focus {
+            border-color: #fd7e14;
+            box-shadow: 0 0 0 .2rem rgba(253, 126, 20, 0.14);
+        }
         @media (max-width: 767.98px) {
             .sites-page-wrap {
                 padding-top: .75rem;
@@ -252,6 +384,10 @@ usort($list, static function (array $a, array $b): int {
         <div class="alert alert-warning">กรุณากรอกรหัสผ่านของคุณเพื่อยืนยันการลบ</div>
     <?php elseif (isset($_GET['error']) && $_GET['error'] === 'confirm_password_invalid'): ?>
         <div class="alert alert-danger">รหัสผ่านไม่ถูกต้อง</div>
+    <?php elseif (isset($_GET['cat_saved'])): ?>
+        <div class="alert alert-success">บันทึกหัวข้อย่อยเรียบร้อยแล้ว</div>
+    <?php elseif (isset($_GET['cat_deleted'])): ?>
+        <div class="alert alert-success">ลบหัวข้อย่อยเรียบร้อยแล้ว</div>
     <?php endif; ?>
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
@@ -280,21 +416,48 @@ usort($list, static function (array $a, array $b): int {
             </form>
         </div>
     </div>
+    <div class="card sites-add-card mb-4" id="global-categories">
+        <div class="card-body p-4">
+            <h6 class="sites-add-title mb-1"><i class="bi bi-tags me-2 text-warning"></i>หมวดค่าใช้จ่ายกลาง (ใช้ได้ทุกไซต์)</h6>
+            <p class="text-muted small mb-3">หมวดเหล่านี้จะแสดงเป็นตัวเลือกในทุกไซต์ เช่น ค่าแรง ค่าน้ำมันรถ วัสดุ</p>
+            <?php $renderCategoryBlock(0, $catGlobal); ?>
+        </div>
+    </div>
+
     <div class="card sites-table-card">
+        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap px-4 pt-3 pb-2">
+            <span class="fw-bold text-secondary"><i class="bi bi-geo-alt me-2 text-warning"></i>ไซต์งาน &amp; หัวข้อย่อย</span>
+            <input type="search" id="siteSearchInput" class="form-control form-control-sm sites-input" placeholder="ค้นหาไซต์..." style="max-width:240px;min-height:38px;">
+        </div>
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle" id="sitesTable" width="100%">
-                <thead class="table-light"><tr><th class="ps-4">ชื่อ</th><th class="pe-4 text-end">จัดการ</th></tr></thead>
+                <thead class="table-light"><tr><th class="ps-4">ชื่อ</th><th class="text-center" style="width:9rem;">หัวข้อย่อย</th><th class="pe-4 text-end" style="width:7rem;">จัดการ</th></tr></thead>
                 <tbody>
                     <?php foreach ($list as $r): ?>
-                    <tr>
+                    <?php $rid = (int) ($r['id'] ?? 0); $siteCats = $catBySite[$rid] ?? []; ?>
+                    <tr id="site-<?= $rid ?>">
                         <td class="ps-4 site-name-cell"><?= htmlspecialchars((string) ($r['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-bs-toggle="collapse" data-bs-target="#cat-collapse-<?= $rid ?>" aria-expanded="false">
+                                <i class="bi bi-list-nested me-1"></i><span class="badge bg-warning text-dark"><?= count($siteCats) ?></span>
+                            </button>
+                        </td>
                         <td class="pe-4 text-end">
-                            <a class="site-action-btn site-action-edit" href="?edit=<?= (int) ($r['id'] ?? 0) ?>" aria-label="แก้ไขไซต์">
+                            <a class="site-action-btn site-action-edit" href="?edit=<?= $rid ?>" aria-label="แก้ไขไซต์">
                                 <i class="bi bi-pencil-square"></i>
                             </a>
-                            <a class="site-action-btn site-action-delete tnc-delete-post" href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>?delete_site=1&amp;site_id=<?= (int) ($r['id'] ?? 0) ?>&amp;_csrf=<?= rawurlencode(csrf_token()) ?>" aria-label="ลบไซต์">
+                            <a class="site-action-btn site-action-delete tnc-delete-post" href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>?delete_site=1&amp;site_id=<?= $rid ?>&amp;_csrf=<?= rawurlencode(csrf_token()) ?>" aria-label="ลบไซต์">
                                 <i class="bi bi-trash3"></i>
                             </a>
+                        </td>
+                    </tr>
+                    <tr class="site-cat-row">
+                        <td colspan="3" class="p-0 border-0">
+                            <div class="collapse" id="cat-collapse-<?= $rid ?>">
+                                <div class="site-cat-panel p-3">
+                                    <?php $renderCategoryBlock($rid, $siteCats); ?>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -303,20 +466,25 @@ usort($list, static function (array $a, array $b): int {
         </div>
     </div>
 </div>
-<?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+// ค้นหาไซต์แบบง่าย (ไม่ใช้ DataTables เพราะมีแถวหัวข้อย่อยแบบขยาย)
 (function () {
-    if (typeof $ === 'undefined' || !$.fn.DataTable) return;
-    var dt = $('#sitesTable').DataTable({
-        order: [[0, 'asc']],
-        pageLength: 25,
-        dom: '<"row align-items-center g-2 mb-2"<"col-md-6 col-12"l><"col-md-6 col-12 text-md-end"f>>rt<"row align-items-center g-2 mt-3"<"col-md-5 col-12"i><"col-md-7 col-12 text-md-end"p>>'
+    var input = document.getElementById('siteSearchInput');
+    if (!input) return;
+    input.addEventListener('input', function () {
+        var q = this.value.trim().toLowerCase();
+        document.querySelectorAll('#sitesTable tbody tr[id^="site-"]').forEach(function (row) {
+            var name = (row.querySelector('.site-name-cell')?.textContent || '').toLowerCase();
+            var show = q === '' || name.indexOf(q) !== -1;
+            row.style.display = show ? '' : 'none';
+            var next = row.nextElementSibling;
+            if (next && next.classList.contains('site-cat-row')) {
+                next.style.display = show ? '' : 'none';
+            }
+        });
     });
-    if (dt && dt.columns) {
-        dt.columns.adjust();
-    }
 })();
 </script>
 </body>

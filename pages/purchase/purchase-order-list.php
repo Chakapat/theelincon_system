@@ -103,6 +103,7 @@ foreach (Db::tableRows('purchase_orders') as $po) {
         'order_type' => trim((string) ($po['order_type'] ?? 'purchase')),
         'installment_no' => (int) ($po['installment_no'] ?? 0),
         'installment_total' => (int) ($po['installment_total'] ?? 0),
+        'incomplete_ignored' => (int) ($po['incomplete_ignored'] ?? 0) === 1,
     ]);
     $merged['_list_sort_ymd'] = $poListSortYmd($merged);
     $po_rows[] = $merged;
@@ -118,6 +119,44 @@ usort($po_rows, static function (array $a, array $b): int {
     }
     return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
 });
+
+// ---- PO ไม่สมบูรณ์: ยังไม่ชำระ หรือ ยังไม่มีเลขที่ใบกำกับ (ไม่นับใบที่ยกเลิก) ----
+$poMissingReasons = static function (array $r): array {
+    if (($r['status'] ?? '') === 'cancelled') {
+        return [];
+    }
+    $out = [];
+    if (($r['payment_status'] ?? 'unpaid') !== 'paid') {
+        $out[] = 'ขาดการชำระ';
+    }
+    if (trim((string) ($r['supplier_invoice_no'] ?? '')) === '') {
+        $out[] = 'ขาดเลขที่ใบกำกับ';
+    }
+    return $out;
+};
+$incompletePoList = [];
+$ignoredPoList = [];
+foreach ($po_rows as $r) {
+    $reasons = $poMissingReasons($r);
+    if ($reasons === []) {
+        continue;
+    }
+    $entry = [
+        'id' => (int) ($r['id'] ?? 0),
+        'po_number' => (string) ($r['po_number'] ?? ''),
+        'supplier' => trim((string) (($r['order_type'] ?? '') === 'hire' ? ($r['contractor_name'] ?? '') : ($r['supplier_name'] ?? ''))),
+        'reasons' => $reasons,
+        'need_payment' => in_array('ขาดการชำระ', $reasons, true),
+        'need_invoice' => in_array('ขาดเลขที่ใบกำกับ', $reasons, true),
+    ];
+    if (!empty($r['incomplete_ignored'])) {
+        $ignoredPoList[] = $entry;
+    } else {
+        $incompletePoList[] = $entry;
+    }
+}
+$incompleteCountAll = count($incompletePoList);
+$ignoredCountAll = count($ignoredPoList);
 
 $po_rows_display = $po_rows;
 if ($poFilterType === 'day' && $poFilterDay !== '') {
@@ -165,6 +204,11 @@ foreach ($po_rows_display as $sumRow) {
         #poTable th { white-space: nowrap; font-size: .84rem; }
         #poTable td { vertical-align: middle; }
         #poTable .badge { font-size: .72rem; font-weight: 600; letter-spacing: .01em; }
+        .po-incomplete-box { cursor: pointer; border-left: 5px solid #f59e0b !important; transition: transform .12s ease, box-shadow .2s ease; }
+        .po-incomplete-box:hover, .po-incomplete-box:focus { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(245, 158, 11, .25) !important; outline: none; }
+        .po-incomplete-icon { width: 42px; height: 42px; border-radius: 50%; background: #fff3cd; color: #f59e0b; font-size: 1.3rem; }
+        #incompletePoModal .ipo-item { border: 1px solid #eef0f2; border-radius: .65rem; }
+        #incompletePoModal .ipo-item + .ipo-item { margin-top: .6rem; }
     </style>
 </head>
 <body>
@@ -236,6 +280,12 @@ foreach ($po_rows_display as $sumRow) {
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
+    <?php if (!empty($_GET['payment_reverted'])): ?>
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            ไม่เหลือหลักฐานการจ่าย (โอนเงิน) ระบบจึงคืนสถานะใบสั่งซื้อนี้เป็น <strong>ยังไม่จ่าย</strong> โดยอัตโนมัติ
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
     <?php if (!empty($_GET['payment_saved'])): ?>
         <?php
         $printPoIdSaved = (int) ($_GET['print_po_id'] ?? 0);
@@ -270,6 +320,18 @@ foreach ($po_rows_display as $sumRow) {
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
+    <?php if (!empty($_GET['po_ignored'])): ?>
+        <div class="alert alert-secondary alert-dismissible fade show" role="alert">
+            ปัดทิ้งใบสั่งซื้อเรียบร้อยแล้ว — จะไม่ถูกนับในกล่อง «ใบสั่งซื้อที่ไม่สมบูรณ์» อีก (คืนค่าได้จากในกล่อง)
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+    <?php if (!empty($_GET['po_unignored'])): ?>
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            คืนค่าใบสั่งซื้อกลับมานับใหม่เรียบร้อยแล้ว
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <h2 class="fw-bold mb-0"><i class="bi bi-file-earmark-check-fill text-primary"></i>รายการใบสั่งซื้อ (Purchase orders List)</h2>
@@ -291,6 +353,30 @@ foreach ($po_rows_display as $sumRow) {
             </a>
         </div>
     </div>
+
+    <?php if ($incompleteCountAll > 0): ?>
+        <div class="card border-0 shadow-sm mb-4 po-incomplete-box" role="button" tabindex="0"
+             data-bs-toggle="modal" data-bs-target="#incompletePoModal"
+             title="กดเพื่อดูรายการใบสั่งซื้อที่ยังไม่สมบูรณ์">
+            <div class="card-body d-flex align-items-center gap-3 py-3">
+                <span class="po-incomplete-icon d-inline-flex align-items-center justify-content-center flex-shrink-0">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </span>
+                <div class="flex-grow-1">
+                    <div class="fw-bold text-warning-emphasis">ใบสั่งซื้อที่ไม่สมบูรณ์ <span class="js-incomplete-count"><?= number_format($incompleteCountAll) ?></span> รายการ</div>
+                    <div class="small text-muted">กดเข้าไปเพื่อดูว่าแต่ละใบยังขาดอะไร และแนบสลิป/กรอกเลขที่ใบกำกับได้ทันที</div>
+                </div>
+                <span class="badge rounded-pill bg-warning text-dark fs-6 px-3 py-2 flex-shrink-0 js-incomplete-count"><?= number_format($incompleteCountAll) ?></span>
+                <i class="bi bi-chevron-right fs-5 text-secondary flex-shrink-0"></i>
+            </div>
+        </div>
+    <?php elseif ($ignoredCountAll > 0): ?>
+        <div class="text-end mb-3">
+            <button type="button" class="btn btn-sm btn-link text-muted text-decoration-none" data-bs-toggle="modal" data-bs-target="#incompletePoModal">
+                <i class="bi bi-eye-slash me-1"></i>มีใบสั่งซื้อที่ปัดทิ้งไว้ <?= number_format($ignoredCountAll) ?> ใบ — ดู/คืนค่า
+            </button>
+        </div>
+    <?php endif; ?>
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body py-3">
@@ -483,6 +569,91 @@ foreach ($po_rows_display as $sumRow) {
     </div>
 </div>
 
+<div class="modal fade" id="incompletePoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>ใบสั่งซื้อที่ไม่สมบูรณ์
+                    <span class="badge rounded-pill bg-warning text-dark ms-1 js-incomplete-count"><?= number_format($incompleteCountAll) ?></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">รายการด้านล่างยังขาดข้อมูล — กดปุ่มเพื่อแนบสลิปหรือกรอกเลขที่ใบกำกับ เมื่อครบทั้งสองอย่างใบสั่งซื้อจะถือว่าสมบูรณ์</p>
+                <div id="incompleteActiveList">
+                    <div class="text-center text-muted py-4 <?= $incompleteCountAll === 0 ? '' : 'd-none' ?>" id="incompleteEmptyMsg">ไม่มีใบสั่งซื้อที่ไม่สมบูรณ์</div>
+                    <?php foreach ($incompletePoList as $ip): ?>
+                        <?php
+                        $ipId = (int) $ip['id'];
+                        $ipNo = htmlspecialchars($ip['po_number'] !== '' ? $ip['po_number'] : ('#' . $ipId), ENT_QUOTES, 'UTF-8');
+                        $ipSupplier = htmlspecialchars($ip['supplier'] !== '' ? $ip['supplier'] : '—', ENT_QUOTES, 'UTF-8');
+                        $ipViewHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . $ipId;
+                        ?>
+                        <div class="ipo-item p-3 d-flex flex-wrap align-items-center gap-2" data-ipo-id="<?= $ipId ?>">
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="fw-bold">
+                                    <a href="<?= $ipViewHref ?>" class="text-decoration-none text-warning-emphasis"><?= $ipNo ?></a>
+                                </div>
+                                <div class="small text-muted text-truncate"><?= $ipSupplier ?></div>
+                                <div class="mt-1 d-flex flex-wrap gap-1">
+                                    <?php foreach ($ip['reasons'] as $rsn): ?>
+                                        <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-semibold"><i class="bi bi-exclamation-circle me-1"></i><?= htmlspecialchars($rsn, ENT_QUOTES, 'UTF-8') ?></span>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 flex-shrink-0">
+                                <?php if ($ip['need_payment']): ?>
+                                    <button type="button" class="btn btn-sm btn-warning rounded-pill px-3 js-fix-paid" data-po-id="<?= $ipId ?>">
+                                        <i class="bi bi-cash-coin me-1"></i>แนบสลิป
+                                    </button>
+                                <?php endif; ?>
+                                <?php if ($ip['need_invoice']): ?>
+                                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 js-fix-bill" data-po-id="<?= $ipId ?>">
+                                        <i class="bi bi-receipt me-1"></i>กรอกเลขที่ใบกำกับ
+                                    </button>
+                                <?php endif; ?>
+                                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 js-po-ignore" data-po-id="<?= $ipId ?>" title="ไม่สนใจใบนี้ (ปัดทิ้ง)">
+                                    <i class="bi bi-eye-slash me-1"></i>ปัดทิ้ง
+                                </button>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <?php if ($ignoredCountAll > 0): ?>
+                    <div class="mt-4 pt-3 border-top" id="ignoredSection">
+                        <button type="button" class="btn btn-sm btn-link text-decoration-none px-0" data-bs-toggle="collapse" data-bs-target="#ignoredPoCollapse">
+                            <i class="bi bi-eye-slash me-1"></i>ใบสั่งซื้อที่ปัดทิ้งไว้ (<span class="js-ignored-count"><?= number_format($ignoredCountAll) ?></span>) <i class="bi bi-caret-down-fill small"></i>
+                        </button>
+                        <div class="collapse mt-2" id="ignoredPoCollapse">
+                            <?php foreach ($ignoredPoList as $ip): ?>
+                                <?php
+                                $ipId = (int) $ip['id'];
+                                $ipNo = htmlspecialchars($ip['po_number'] !== '' ? $ip['po_number'] : ('#' . $ipId), ENT_QUOTES, 'UTF-8');
+                                $ipViewHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . $ipId;
+                                ?>
+                                <div class="ipo-item p-2 px-3 d-flex flex-wrap align-items-center gap-2 bg-light" data-ipo-id="<?= $ipId ?>">
+                                    <div class="flex-grow-1 min-w-0">
+                                        <a href="<?= $ipViewHref ?>" class="text-decoration-none text-muted fw-semibold"><?= $ipNo ?></a>
+                                        <span class="small text-muted ms-2"><?= htmlspecialchars(implode(' , ', $ip['reasons']), ENT_QUOTES, 'UTF-8') ?></span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 js-po-unignore" data-po-id="<?= $ipId ?>" title="นำกลับมานับใหม่">
+                                        <i class="bi bi-arrow-counterclockwise me-1"></i>คืนค่า
+                                    </button>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="receiveBillModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -658,6 +829,7 @@ foreach ($po_rows_display as $sumRow) {
     var c = '';
     setInterval(function () {
         if (document.hidden) return;
+        if (window.__poBlockReload) return;
         fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
             if (!d || !d.ok) return;
             if (c === '') { c = d.checksum; return; }
@@ -879,6 +1051,91 @@ foreach ($po_rows_display as $sumRow) {
                 showSlipOpenLink.classList.add('d-none');
             }
             showSlipModal.show();
+        });
+    });
+})();
+
+(function () {
+    const incompleteModalEl = document.getElementById('incompletePoModal');
+    if (!incompleteModalEl || typeof bootstrap === 'undefined') return;
+    const incompleteModal = bootstrap.Modal.getOrCreateInstance(incompleteModalEl);
+    let pendingClickSelector = null;
+
+    const actionUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    const csrfToken = <?= json_encode(csrf_token(), JSON_UNESCAPED_SLASHES) ?>;
+
+    function refreshCounts() {
+        const active = incompleteModalEl.querySelectorAll('#incompleteActiveList .ipo-item').length;
+        document.querySelectorAll('.js-incomplete-count').forEach(function (el) { el.textContent = active; });
+        const emptyMsg = document.getElementById('incompleteEmptyMsg');
+        if (emptyMsg) { emptyMsg.classList.toggle('d-none', active > 0); }
+        const box = document.querySelector('.po-incomplete-box');
+        if (box && active === 0) { box.classList.add('d-none'); }
+
+        const ignored = incompleteModalEl.querySelectorAll('#ignoredPoCollapse .ipo-item').length;
+        document.querySelectorAll('.js-ignored-count').forEach(function (el) { el.textContent = ignored; });
+        const ignoredSection = document.getElementById('ignoredSection');
+        if (ignoredSection && ignored === 0) { ignoredSection.classList.add('d-none'); }
+    }
+
+    function postIgnore(action, poId, btn) {
+        if (!poId) return;
+        const fd = new FormData();
+        fd.append('_csrf', csrfToken);
+        fd.append('po_id', poId);
+        fd.append('ajax', '1');
+        btn.disabled = true;
+        const item = btn.closest('.ipo-item');
+        if (item) { item.style.opacity = '0.45'; }
+        fetch(actionUrl + '?action=' + action, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d || !d.ok) { throw new Error('failed'); }
+                if (item) { item.remove(); }
+                refreshCounts();
+            })
+            .catch(function () {
+                btn.disabled = false;
+                if (item) { item.style.opacity = ''; }
+                alert('ทำรายการไม่สำเร็จ กรุณาลองใหม่');
+            });
+    }
+
+    incompleteModalEl.addEventListener('click', function (e) {
+        const ig = e.target.closest('.js-po-ignore');
+        if (ig) { e.preventDefault(); postIgnore('ignore_incomplete_po', ig.getAttribute('data-po-id'), ig); return; }
+        const un = e.target.closest('.js-po-unignore');
+        if (un) { e.preventDefault(); postIgnore('unignore_incomplete_po', un.getAttribute('data-po-id'), un); return; }
+    });
+
+    function cssQuote(v) {
+        return String(v).replace(/"/g, '\\"');
+    }
+    function deferToRowButton(poId, rowClass) {
+        pendingClickSelector = '#poTable .' + rowClass + '[data-po-id="' + cssQuote(poId) + '"]';
+        incompleteModal.hide();
+    }
+
+    incompleteModalEl.addEventListener('shown.bs.modal', function () { window.__poBlockReload = true; });
+    incompleteModalEl.addEventListener('hidden.bs.modal', function () { window.__poBlockReload = false; });
+
+    incompleteModalEl.addEventListener('hidden.bs.modal', function () {
+        if (!pendingClickSelector) return;
+        const target = document.querySelector(pendingClickSelector);
+        pendingClickSelector = null;
+        if (target) {
+            target.click();
+        }
+    });
+
+    incompleteModalEl.querySelectorAll('.js-fix-paid').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            deferToRowButton(btn.getAttribute('data-po-id') || '', 'js-mark-paid');
+        });
+    });
+    incompleteModalEl.querySelectorAll('.js-fix-bill').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            deferToRowButton(btn.getAttribute('data-po-id') || '', 'js-receive-bill');
         });
     });
 })();

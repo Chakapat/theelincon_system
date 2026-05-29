@@ -1,0 +1,164 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * หมวดค่าใช้จ่ายตามไซต์ (Site Cost Categories) — แบบผสม
+ *   - site_id = 0  : หมวดกลาง ใช้ได้ทุกไซต์
+ *   - site_id > 0  : หมวดเฉพาะไซต์นั้น
+ * ตาราง: site_cost_categories { id, site_id, name, sort_order, active }
+ */
+
+use Theelincon\Rtdb\Db;
+
+if (!function_exists('tnc_site_categories_all')) {
+    /** @return array<int,array<string,mixed>> เฉพาะที่ active เรียงตาม sort_order แล้วชื่อ */
+    function tnc_site_categories_all(bool $activeOnly = true): array
+    {
+        $rows = [];
+        foreach (Db::tableRows('site_cost_categories') as $r) {
+            if (!is_array($r) || (int) ($r['id'] ?? 0) <= 0) {
+                continue;
+            }
+            if ($activeOnly && (int) ($r['active'] ?? 1) !== 1) {
+                continue;
+            }
+            $rows[] = $r;
+        }
+        usort($rows, static function (array $a, array $b): int {
+            $so = ((int) ($a['sort_order'] ?? 0)) <=> ((int) ($b['sort_order'] ?? 0));
+            if ($so !== 0) {
+                return $so;
+            }
+
+            return strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
+        });
+
+        return $rows;
+    }
+}
+
+if (!function_exists('tnc_site_categories_for_site')) {
+    /**
+     * หมวดที่ใช้ได้กับไซต์หนึ่ง = หมวดกลาง (site_id=0) + หมวดเฉพาะไซต์นั้น
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    function tnc_site_categories_for_site(int $siteId): array
+    {
+        $out = [];
+        foreach (tnc_site_categories_all(true) as $r) {
+            $sid = (int) ($r['site_id'] ?? 0);
+            if ($sid === 0 || $sid === $siteId) {
+                $out[] = $r;
+            }
+        }
+
+        return $out;
+    }
+}
+
+if (!function_exists('tnc_site_categories_map_by_site')) {
+    /**
+     * แผนที่สำหรับส่งให้ JS: [siteId => [ {id, name}, ... ]] โดยรวมหมวดกลางไว้ที่คีย์ 0
+     *
+     * @return array<int,array<int,array{id:int,name:string}>>
+     */
+    function tnc_site_categories_map_by_site(): array
+    {
+        $global = [];
+        $bySite = [];
+        foreach (tnc_site_categories_all(true) as $r) {
+            $entry = ['id' => (int) $r['id'], 'name' => (string) ($r['name'] ?? '')];
+            $sid = (int) ($r['site_id'] ?? 0);
+            if ($sid === 0) {
+                $global[] = $entry;
+            } else {
+                $bySite[$sid][] = $entry;
+            }
+        }
+        $map = [0 => $global];
+        foreach ($bySite as $sid => $list) {
+            $map[$sid] = array_merge($global, $list);
+        }
+
+        return $map;
+    }
+}
+
+if (!function_exists('tnc_site_category_name')) {
+    function tnc_site_category_name(int $id): string
+    {
+        if ($id <= 0) {
+            return '';
+        }
+        $row = Db::rowByIdField('site_cost_categories', $id);
+
+        return is_array($row) ? trim((string) ($row['name'] ?? '')) : '';
+    }
+}
+
+if (!function_exists('tnc_site_category_is_valid_for_site')) {
+    /** ตรวจว่าหมวด $id ใช้ได้กับไซต์ $siteId หรือไม่ (หมวดกลางหรือหมวดของไซต์นั้น) */
+    function tnc_site_category_is_valid_for_site(int $id, int $siteId): bool
+    {
+        if ($id <= 0) {
+            return false;
+        }
+        $row = Db::rowByIdField('site_cost_categories', $id);
+        if (!is_array($row) || (int) ($row['active'] ?? 1) !== 1) {
+            return false;
+        }
+        $sid = (int) ($row['site_id'] ?? 0);
+
+        return $sid === 0 || $sid === $siteId;
+    }
+}
+
+if (!function_exists('tnc_site_category_save')) {
+    /** สร้าง/แก้ไขหมวด คืนค่า id */
+    function tnc_site_category_save(int $id, int $siteId, string $name, int $sortOrder = 0): int
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return 0;
+        }
+        $name = mb_substr($name, 0, 150);
+        if ($id > 0) {
+            $pk = Db::pkForLogicalId('site_cost_categories', $id);
+            $cur = $pk !== null ? Db::row('site_cost_categories', $pk) : null;
+            if (is_array($cur)) {
+                Db::setRow('site_cost_categories', $pk, array_merge($cur, [
+                    'name' => $name,
+                    'site_id' => $siteId,
+                    'sort_order' => $sortOrder,
+                ]));
+
+                return $id;
+            }
+        }
+        $nid = Db::nextNumericId('site_cost_categories', 'id');
+        Db::setRow('site_cost_categories', (string) $nid, [
+            'id' => $nid,
+            'site_id' => $siteId,
+            'name' => $name,
+            'sort_order' => $sortOrder,
+            'active' => 1,
+        ]);
+
+        return $nid;
+    }
+}
+
+if (!function_exists('tnc_site_category_delete')) {
+    function tnc_site_category_delete(int $id): void
+    {
+        if ($id <= 0) {
+            return;
+        }
+        $pk = Db::pkForLogicalId('site_cost_categories', $id);
+        if ($pk !== null) {
+            Db::deleteRow('site_cost_categories', $pk);
+        }
+    }
+}

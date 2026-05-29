@@ -515,7 +515,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                                             <td><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($it['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
                                                             <td><input type="number" name="item_qty[]" class="form-control form-control-sm pr-fix-qty" step="0.001" min="0" required value="<?= htmlspecialchars((string) ($it['quantity'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
                                                             <td><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($it['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                                            <td><input type="number" name="item_price[]" class="form-control form-control-sm pr-fix-price" step="0.01" min="0" value="<?= htmlspecialchars((string) ($it['unit_price'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>" placeholder="0 = ยังไม่ทราบราคา"></td>
+                                                            <td><input type="number" name="item_price[]" class="form-control form-control-sm pr-fix-price" step="0.01" value="<?= htmlspecialchars((string) ($it['unit_price'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>" placeholder="0 = ยังไม่ทราบราคา"></td>
                                                             <td><input type="text" name="item_discount[]" class="form-control form-control-sm pr-fix-discount" maxlength="20" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>"></td>
                                                             <td><input type="text" class="form-control form-control-sm pr-fix-row-total bg-light" value="<?= number_format((float) ($it['total'] ?? 0), 2, '.', '') ?>" readonly></td>
                                                             <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger border-0 pr-fix-remove-row" title="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>
@@ -779,7 +779,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
         const base = Math.round(q * p * 100) / 100;
         const dRaw = String(discRaw || '').trim();
         let discount = 0;
-        if (dRaw !== '') {
+        if (dRaw !== '' && base > 0) {
             const pctMatch = dRaw.match(/^([0-9]+(?:\.[0-9]+)?)\s*%$/);
             if (pctMatch) {
                 let pct = parseFloat(pctMatch[1]) || 0;
@@ -905,7 +905,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
             <td><input type="text" name="item_description[]" class="form-control form-control-sm" required placeholder="รายการสินค้า"></td>
             <td><input type="number" name="item_qty[]" class="form-control form-control-sm pr-fix-qty" step="0.001" min="0" required value="1"></td>
             <td><input type="text" name="item_unit[]" class="form-control form-control-sm"></td>
-            <td><input type="number" name="item_price[]" class="form-control form-control-sm pr-fix-price" step="0.01" min="0" value="0" placeholder="0 = ยังไม่ทราบราคา"></td>
+            <td><input type="number" name="item_price[]" class="form-control form-control-sm pr-fix-price" step="0.01" value="0" placeholder="0 = ยังไม่ทราบราคา"></td>
             <td><input type="text" name="item_discount[]" class="form-control form-control-sm pr-fix-discount" maxlength="20"></td>
             <td><input type="text" class="form-control form-control-sm pr-fix-row-total bg-light" value="0.00" readonly></td>
             <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger border-0 pr-fix-remove-row" title="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>

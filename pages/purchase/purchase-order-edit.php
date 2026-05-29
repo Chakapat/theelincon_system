@@ -288,7 +288,7 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
                                 <td><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ระบุรายการ"></td>
                                 <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.01" min="0" required value="<?= htmlspecialchars((string) ($item['quantity'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
                                 <td><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ชิ้น"></td>
-                                <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" min="0" required value="<?= htmlspecialchars((string) ($item['unit_price'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" required value="<?= htmlspecialchars((string) ($item['unit_price'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
                                 <td><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
                                 <td>
                                     <?php if ($index > 0): ?>
@@ -433,7 +433,7 @@ function addRow() {
         <td><input type="text" name="item_description[]" class="form-control form-control-sm" required placeholder="ระบุรายการ"></td>
         <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.01" min="0" required oninput="calculateTotal()"></td>
         <td><input type="text" name="item_unit[]" class="form-control form-control-sm" placeholder="ชิ้น"></td>
-        <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" min="0" required oninput="calculateTotal()"></td>
+        <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" required oninput="calculateTotal()"></td>
         <td><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
         <td><button type="button" class="btn btn-outline-danger btn-sm border-0 rounded-3" onclick="removeRow(this)" title="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>
     `;
