@@ -252,13 +252,13 @@ foreach ($po_rows_display as $sumRow) {
             <?php if ($printPoIdSaved > 0 && $poAutoprintPoUrl !== ''): ?>
                 <div class="mt-2 small">
                     <span class="text-muted">พิมพ์อัตโนมัติ:</span>
-                    <a href="<?= $poAutoprintPoUrl ?>" target="_blank" rel="noopener" class="alert-link fw-semibold">1. เฉพาะใบสั่งซื้อ</a>
+                    <a href="<?= $poAutoprintPoUrl ?>" class="alert-link fw-semibold">1. เฉพาะใบสั่งซื้อ</a>
                     <span class="text-muted">·</span>
-                    <a href="<?= $poAutoprintSlipUrl ?>" target="_blank" rel="noopener" class="alert-link fw-semibold">2. เฉพาะสลิป</a>
+                    <a href="<?= $poAutoprintSlipUrl ?>" class="alert-link fw-semibold">2. เฉพาะสลิป</a>
                     <span class="text-muted">·</span>
-                    <a href="<?= $poAutoprintBothUrl ?>" target="_blank" rel="noopener" class="alert-link fw-semibold">3. ใบสั่งซื้อ + สลิป</a>
+                    <a href="<?= $poAutoprintBothUrl ?>" class="alert-link fw-semibold">3. ใบสั่งซื้อ + สลิป</a>
                     <span class="text-muted">·</span>
-                    <a href="<?= $poAutoprintAllUrl ?>" target="_blank" rel="noopener" class="alert-link fw-semibold">4. PR + PO + สลิป/แนบ</a>
+                    <a href="<?= $poAutoprintAllUrl ?>" class="alert-link fw-semibold">4. PR + PO + สลิป/แนบ</a>
                 </div>
             <?php endif; ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -674,7 +674,7 @@ foreach ($po_rows_display as $sumRow) {
 
     function openBatchPrint(mode) {
         var m = mode === 'po' || mode === 'slip' || mode === 'both' || mode === 'all' ? mode : 'both';
-        window.open(batchBase + '?kind=po&ids=' + encodeURIComponent(pendingBatchIds) + '&print_mode=' + encodeURIComponent(m), '_blank', 'noopener');
+        window.location.href = batchBase + '?kind=po&ids=' + encodeURIComponent(pendingBatchIds) + '&print_mode=' + encodeURIComponent(m);
         pendingBatchIds = '';
         if (batchModal) {
             batchModal.hide();

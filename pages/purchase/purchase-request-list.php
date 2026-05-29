@@ -331,7 +331,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
             alert('กรุณาติ๊กเลือกใบขอซื้อ (PR) อย่างน้อย 1 ใบ');
             return;
         }
-        window.open(batchBase + '?kind=pr&ids=' + encodeURIComponent(ids.join(',')), '_blank', 'noopener');
+        window.location.href = batchBase + '?kind=pr&ids=' + encodeURIComponent(ids.join(','));
     });
     document.getElementById('prSelectAllPrint')?.addEventListener('change', function () {
         var on = this.checked;

@@ -674,7 +674,7 @@ $hasAlerts = !empty($_GET['cancelled'])
             <div class="modal-header border-0 pb-0">
                 <div>
                     <h5 class="modal-title fw-bold" id="poPrintChoiceModalLabel">เลือกรูปแบบการพิมพ์</h5>
-                    <p class="small text-muted mb-0 mt-1">เปิดแท็บใหม่พร้อมกล่องพิมพ์อัตโนมัติ</p>
+                    <p class="small text-muted mb-0 mt-1">เปิดหน้าพิมพ์พร้อมกล่องพิมพ์อัตโนมัติ</p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
             </div>
@@ -754,7 +754,7 @@ $hasAlerts = !empty($_GET['cancelled'])
                 mode = 'both';
             }
             var u = base + '?id=' + id + '&print_mode=' + encodeURIComponent(mode) + '&autoprint=1';
-            window.open(u, '_blank', 'noopener');
+            window.location.href = u;
             var el = document.getElementById('poPrintChoiceModal');
             if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
                 var m = bootstrap.Modal.getInstance(el);
