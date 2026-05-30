@@ -47,6 +47,32 @@ if (!function_exists('app_path')) {
         .navbar-hub .nav-hub-block { width: 100%; }
     }
 
+    /* ---------- Web notifications bell ---------- */
+    .tnc-notif-menu { min-width: 23rem; max-width: 94vw; }
+    .tnc-notif-list { max-height: 62vh; overflow-y: auto; }
+    .tnc-notif-item {
+        display: flex; gap: 0.6rem; align-items: flex-start;
+        padding: 0.65rem 0.9rem; border-bottom: 1px solid #f1f3f5;
+        color: #212529; text-decoration: none; transition: background-color .12s ease;
+    }
+    .tnc-notif-item:last-child { border-bottom: 0; }
+    .tnc-notif-item:hover { background-color: #f8f9fa; }
+    .tnc-notif-item.is-unread { background-color: #fff9f0; }
+    .tnc-notif-item.is-unread:hover { background-color: #fff3e0; }
+    .tnc-notif-ico {
+        width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+        display: inline-flex; align-items: center; justify-content: center; font-size: 1rem;
+    }
+    .tnc-notif-ico.ok { background: #e6f4ea; color: #1e7e34; }
+    .tnc-notif-ico.no { background: #fdecea; color: #c0392b; }
+    .tnc-notif-title { font-weight: 600; font-size: .86rem; line-height: 1.25; }
+    .tnc-notif-msg { font-size: .8rem; color: #5b6166; line-height: 1.3; }
+    .tnc-notif-time { font-size: .72rem; color: #98a1a8; margin-top: .15rem; }
+    .tnc-notif-dot { width: .5rem; height: .5rem; border-radius: 50%; background: #fd7e14; flex-shrink: 0; margin-top: .4rem; }
+    @media (max-width: 991.98px) {
+        .tnc-notif-menu { min-width: 100%; }
+    }
+
     /* ---------- Global mobile/responsive hardening (system-wide) ---------- */
     html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body { overflow-x: hidden; }
@@ -97,6 +123,24 @@ if (!function_exists('app_path')) {
         <div class="collapse navbar-collapse" id="navbarNav">
             <?php if (isset($_SESSION['user_id'])): ?>
             <ul class="navbar-nav ms-auto navbar-hub flex-wrap align-items-lg-center py-1 py-lg-0">
+                <li class="nav-item dropdown nav-hub-block" id="tncNotifBlock">
+                    <a class="nav-link text-white fw-semibold px-2 px-lg-3 py-1 py-lg-2 position-relative" href="#" id="tncNotifToggle" role="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="การแจ้งเตือน">
+                        <span class="nav-hub-toggle-inner">
+                            <i class="bi bi-bell-fill nav-hub-ico flex-shrink-0" aria-hidden="true"></i>
+                            <span class="nav-hub-label d-inline d-lg-none">แจ้งเตือน</span>
+                        </span>
+                        <span id="tncNotifBadge" class="position-absolute translate-middle badge rounded-pill bg-danger d-none" style="top:0.35rem; left:auto; right:-0.15rem; font-size:.6rem;">0</span>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-end shadow border-0 p-0 tnc-notif-menu" aria-labelledby="tncNotifToggle">
+                        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-light">
+                            <span class="fw-semibold text-dark"><i class="bi bi-bell me-1"></i>การแจ้งเตือน</span>
+                            <button type="button" class="btn btn-sm btn-link text-decoration-none p-0" id="tncNotifMarkAll">อ่านทั้งหมด</button>
+                        </div>
+                        <div id="tncNotifList" class="tnc-notif-list">
+                            <div class="text-center text-muted py-4 small">กำลังโหลด…</div>
+                        </div>
+                    </div>
+                </li>
                 <li class="nav-item dropdown nav-hub-block">
                     <a class="nav-link dropdown-toggle text-white fw-semibold px-2 px-lg-3 py-1 py-lg-2" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
                         <span class="nav-hub-toggle-inner text-start">
@@ -338,3 +382,156 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-loading-overlay.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-ajax-form.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<?php if (isset($_SESSION['user_id'])): ?>
+<script>
+(function () {
+    var endpoint = <?= json_encode(app_path('actions/notifications-handler.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var csrf = <?= json_encode(function_exists('csrf_token') ? csrf_token() : '', JSON_UNESCAPED_SLASHES) ?>;
+    var badge = document.getElementById('tncNotifBadge');
+    var listEl = document.getElementById('tncNotifList');
+    var toggle = document.getElementById('tncNotifToggle');
+    var markAllBtn = document.getElementById('tncNotifMarkAll');
+    if (!badge || !listEl) return;
+
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ---------- เสียงแจ้งเตือน (ดังซ้ำจนกว่าจะอ่านครบ) ----------
+    var audioCtx = null;
+    var soundTimer = null;
+
+    function ensureAudio() {
+        if (audioCtx) return audioCtx;
+        try {
+            var AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return null;
+            audioCtx = new AC();
+        } catch (e) { audioCtx = null; }
+        return audioCtx;
+    }
+
+    function playBeep() {
+        var ctx = ensureAudio();
+        if (!ctx) return;
+        if (ctx.state === 'suspended') { ctx.resume().catch(function () {}); }
+        try {
+            var t = ctx.currentTime;
+            [[0, 880], [0.18, 1175]].forEach(function (p) {
+                var off = p[0], freq = p[1];
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.0001, t + off);
+                gain.gain.exponentialRampToValueAtTime(0.28, t + off + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t + off + 0.16);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(t + off);
+                osc.stop(t + off + 0.17);
+            });
+        } catch (e) {}
+    }
+
+    function startSoundLoop() {
+        if (soundTimer) return;
+        playBeep();
+        soundTimer = setInterval(function () { if (!document.hidden) playBeep(); }, 5000);
+    }
+
+    function stopSoundLoop() {
+        if (soundTimer) { clearInterval(soundTimer); soundTimer = null; }
+    }
+
+    // ปลดล็อกเสียงหลังผู้ใช้มีการโต้ตอบหน้าเว็บครั้งแรก (ตามนโยบาย autoplay ของเบราว์เซอร์)
+    function unlockAudio() {
+        var ctx = ensureAudio();
+        if (ctx && ctx.state === 'suspended') { ctx.resume().catch(function () {}); }
+        document.removeEventListener('click', unlockAudio);
+        document.removeEventListener('keydown', unlockAudio);
+        document.removeEventListener('touchstart', unlockAudio);
+    }
+    document.addEventListener('click', unlockAudio);
+    document.addEventListener('keydown', unlockAudio);
+    document.addEventListener('touchstart', unlockAudio);
+
+    function setBadge(n) {
+        n = parseInt(n, 10) || 0;
+        if (n > 0) {
+            badge.textContent = n > 99 ? '99+' : String(n);
+            badge.classList.remove('d-none');
+            startSoundLoop();
+        } else {
+            badge.classList.add('d-none');
+            stopSoundLoop();
+        }
+    }
+
+    function render(items) {
+        if (!items || items.length === 0) {
+            listEl.innerHTML = '<div class="text-center text-muted py-4 small">ยังไม่มีการแจ้งเตือน</div>';
+            return;
+        }
+        var html = '';
+        items.forEach(function (it) {
+            var ok = it.type === 'pr_approved';
+            var icoCls = ok ? 'ok' : 'no';
+            var ico = ok ? 'bi-check-circle-fill' : 'bi-x-circle-fill';
+            var unread = it.is_read ? '' : ' is-unread';
+            var href = it.link ? esc(it.link) : '#';
+            html += '<a class="tnc-notif-item' + unread + '" href="' + href + '" data-id="' + it.id + '">'
+                + '<span class="tnc-notif-ico ' + icoCls + '"><i class="bi ' + ico + '"></i></span>'
+                + '<span class="flex-grow-1 min-w-0">'
+                +   '<span class="tnc-notif-title d-block">' + esc(it.title) + '</span>'
+                +   '<span class="tnc-notif-msg d-block">' + esc(it.message) + '</span>'
+                +   '<span class="tnc-notif-time d-block">' + esc(it.ago) + '</span>'
+                + '</span>'
+                + (it.is_read ? '' : '<span class="tnc-notif-dot"></span>')
+                + '</a>';
+        });
+        listEl.innerHTML = html;
+    }
+
+    function load() {
+        fetch(endpoint + '?action=list', { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { if (!d || !d.ok) return; setBadge(d.unread); render(d.items); })
+            .catch(function () {});
+    }
+
+    function post(action, extra) {
+        var fd = new FormData();
+        fd.append('_csrf', csrf);
+        for (var k in extra) { if (Object.prototype.hasOwnProperty.call(extra, k)) fd.append(k, extra[k]); }
+        return fetch(endpoint + '?action=' + action, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); });
+    }
+
+    listEl.addEventListener('click', function (e) {
+        var a = e.target.closest ? e.target.closest('.tnc-notif-item') : null;
+        if (!a) return;
+        var id = a.getAttribute('data-id');
+        var href = a.getAttribute('href');
+        var wasUnread = a.classList.contains('is-unread');
+        e.preventDefault();
+        if (wasUnread && id) {
+            post('mark_read', { id: id }).then(function (d) { if (d && d.ok) setBadge(d.unread); }).catch(function () {});
+        }
+        if (href && href !== '#') { window.location.href = href; }
+    });
+
+    if (markAllBtn) {
+        markAllBtn.addEventListener('click', function () {
+            post('mark_all_read', {}).then(function (d) { if (d && d.ok) { setBadge(0); load(); } }).catch(function () {});
+        });
+    }
+
+    if (toggle) { toggle.addEventListener('click', load); }
+    load();
+    setInterval(function () { if (!document.hidden) load(); }, 45000);
+})();
+</script>
+<?php endif; ?>

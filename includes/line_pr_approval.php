@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/line_notify_runtime.php';
 require_once __DIR__ . '/line_messaging.php';
+require_once __DIR__ . '/web_notifications.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -604,6 +605,15 @@ function line_pr_persist_decision(int $prId, string $decision, array $meta): arr
             'after' => $after,
             'meta' => $meta,
         ]);
+    }
+
+    // แจ้งเตือนกลับมายังเว็บ (ผู้บันทึก/ผู้ขอ) ว่า PR ถูกอนุมัติ/ไม่อนุมัติ
+    if (function_exists('tnc_pr_decision_notify')) {
+        try {
+            tnc_pr_decision_notify($prId, $decision, is_array($after) ? $after : []);
+        } catch (\Throwable $e) {
+            // ไม่ให้การแจ้งเตือนล้มเหลวกระทบผลการบันทึก
+        }
     }
 
     $label = $decision === 'approve' ? 'อนุมัติ' : 'ไม่อนุมัติ';
