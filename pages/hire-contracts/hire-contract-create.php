@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+use Theelincon\Rtdb\Db;
+
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/contractors.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -13,6 +16,10 @@ if (!isset($_SESSION['user_id'])) {
 $error = trim((string) ($_GET['error'] ?? ''));
 $listUrl = app_path('pages/hire-contracts/hire-contract-list.php');
 $handler = app_path('actions/action-handler.php');
+$contractorRows = Db::tableRows('contractors');
+usort($contractorRows, static function (array $a, array $b): int {
+    return strnatcasecmp(tnc_contractor_full_name_th($a), tnc_contractor_full_name_th($b));
+});
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -37,14 +44,26 @@ $handler = app_path('actions/action-handler.php');
         <a href="<?= htmlspecialchars($listUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill">กลับ</a>
     </div>
     <?php if ($error === 'required'): ?>
-        <div class="alert alert-warning py-2">กรุณากรอกผู้รับจ้าง ขอบเขตงาน และมูลค่าสัญญาให้ครบ</div>
+        <div class="alert alert-warning py-2">กรุณากรอกข้อมูลให้ครบ</div>
+    <?php elseif ($error === 'contractor_required'): ?>
+        <div class="alert alert-warning py-2">กรุณาเลือกผู้รับจ้างจากทะเบียนผู้รับจ้าง</div>
     <?php endif; ?>
     <div class="card hc-create-card bg-white p-4">
         <form action="<?= htmlspecialchars($handler, ENT_QUOTES, 'UTF-8') ?>?action=save_standalone_hire_contract" method="post">
             <?php csrf_field(); ?>
             <div class="mb-3">
-                <label class="form-label fw-bold">ผู้รับจ้าง <span class="text-danger">*</span></label>
-                <input type="text" name="contractor_name" class="form-control" required maxlength="240" placeholder="ชื่อผู้รับจ้าง / นิติบุคคล">
+                <label class="form-label fw-bold" for="contractor_search">ผู้รับจ้าง <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <input type="text" id="contractor_search" class="form-control" list="contractor_list" required placeholder="พิมพ์ชื่อหรือเลขบัตร แล้วเลือกจากรายการ" autocomplete="off">
+                    <a href="<?= htmlspecialchars(app_path('pages/contractors/contractor-form.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="btn btn-outline-secondary" title="เพิ่มผู้รับจ้าง"><i class="bi bi-person-plus"></i></a>
+                </div>
+                <datalist id="contractor_list">
+                    <?php foreach ($contractorRows as $contractorRow): ?>
+                        <option value="<?= htmlspecialchars(tnc_contractor_display_label($contractorRow), ENT_QUOTES, 'UTF-8') ?>" data-id="<?= (int) ($contractorRow['id'] ?? 0) ?>"></option>
+                    <?php endforeach; ?>
+                </datalist>
+                <input type="hidden" name="contractor_id" id="contractor_id" value="">
+                <div class="form-text">เลือกจาก<a href="<?= htmlspecialchars(app_path('pages/contractors/contractor-list.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">ทะเบียนผู้รับจ้าง</a></div>
             </div>
             <div class="mb-3">
                 <label class="form-label fw-bold">ขอบเขต / รายละเอียดงาน <span class="text-danger">*</span></label>
@@ -67,5 +86,33 @@ $handler = app_path('actions/action-handler.php');
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function () {
+    const searchInput = document.getElementById('contractor_search');
+    const contractorIdInput = document.getElementById('contractor_id');
+    const datalist = document.getElementById('contractor_list');
+    if (!searchInput || !contractorIdInput || !datalist) return;
+
+    function syncContractorId() {
+        const typed = (searchInput.value || '').trim();
+        if (typed === '') {
+            contractorIdInput.value = '';
+            return;
+        }
+        let matchedId = '';
+        datalist.querySelectorAll('option').forEach((opt) => {
+            const optValue = (opt.value || '').trim();
+            if (matchedId === '' && optValue.toLowerCase() === typed.toLowerCase()) {
+                matchedId = (opt.getAttribute('data-id') || '').trim();
+            }
+        });
+        contractorIdInput.value = matchedId;
+    }
+
+    searchInput.addEventListener('input', syncContractorId);
+    searchInput.addEventListener('change', syncContractorId);
+    searchInput.closest('form')?.addEventListener('submit', syncContractorId);
+})();
+</script>
 </body>
 </html>

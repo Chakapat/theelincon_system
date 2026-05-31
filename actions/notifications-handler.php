@@ -27,6 +27,11 @@ if ($action === 'list') {
     exit;
 }
 
+if ($action === 'poll') {
+    echo json_encode(array_merge(['ok' => true], tnc_notif_poll_state($userId)), JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if ($action === 'mark_read' && $method === 'POST') {
     if (!csrf_verify_request()) {
         http_response_code(403);

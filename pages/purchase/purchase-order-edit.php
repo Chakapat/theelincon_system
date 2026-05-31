@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 
 use Theelincon\Rtdb\Db;
+use Theelincon\Rtdb\Purchase;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/hire_form_rows.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -29,6 +31,7 @@ $orderType = trim((string) ($po['order_type'] ?? 'purchase'));
 if (!in_array($orderType, ['purchase', 'hire'], true)) {
     $orderType = 'purchase';
 }
+$isHirePo = ($orderType === 'hire');
 if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
     header('Location: ' . app_path('pages/purchase/purchase-order-view.php') . '?id=' . $poId);
     exit();
@@ -51,7 +54,7 @@ $items = Db::filter('purchase_order_items', static function (array $row) use ($p
 });
 Db::sortRows($items, 'id', false);
 
-if (count($items) === 0) {
+if (!$isHirePo && count($items) === 0) {
     $items = [[
         'description' => '',
         'quantity' => 0,
@@ -87,16 +90,43 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
         : date('Y-m-d');
 }
 
+$hireContractId = (int) ($po['hire_contract_id'] ?? 0);
+$hireContract = $hireContractId > 0 ? Db::row('hire_contracts', (string) $hireContractId) : null;
+$contractorName = trim((string) ($po['contractor_name'] ?? ''));
+$installmentNo = (int) ($po['installment_no'] ?? 0);
+$installmentTotal = max(1, (int) ($po['installment_total'] ?? 1));
+$retentionValueEdit = (float) ($po['retention_amount'] ?? 0);
+$errorCode = trim((string) ($_GET['error'] ?? ''));
+
+$oldPayable = (float) ($po['payable_amount'] ?? 0);
+if ($oldPayable <= 0) {
+    $oldPayable = (float) ($po['total_amount'] ?? 0);
+}
+$hireEditRoom = 0.0;
+if ($isHirePo && $hireContract !== null) {
+    $hireContractRemaining = Purchase::hireContractRemainingPayable($hireContract, $hireContractId);
+    $hireEditRoom = round($hireContractRemaining + $oldPayable, 2);
+}
+
+if ($isHirePo) {
+    $poVatEnabledStored = (int) ($po['vat_enabled'] ?? 0) === 1 ? 1 : 0;
+    $vatLockedFromPr = false;
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แก้ไขใบสั่งซื้อ (PO)</title>
+    <title><?= $isHirePo ? 'แก้ไขใบสั่งจ่าย (PO)' : 'แก้ไขใบสั่งซื้อ (PO)' ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <?php if ($isHirePo): ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/hire-line-table.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
     <style>
         body { background: linear-gradient(165deg, #f0f4f8 0%, #f8f9fb 45%, #eef2f7 100%); font-family: 'Sarabun', sans-serif; min-height: 100vh; }
         .po-create-wrap { max-width: 1100px; }
@@ -187,19 +217,41 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
         .summary-grand .summary-value { font-size: 1.25rem; color: #0d6efd !important; }
         .po-vat-panel { background: #f8faff; border: 1px solid #dbe7ff; border-radius: 0.75rem; }
         .po-actions-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eef2f7; }
+        <?php if ($isHirePo): ?>
+        body.po-hire-mode .po-create-wrap { max-width: none; }
+        .section-card { border: 1px solid #e9ecef; border-radius: 12px; background: #fff; }
+        .section-title { font-size: 1rem; font-weight: 700; color: #0d6efd; margin-bottom: 12px; }
+        <?php endif; ?>
     </style>
 </head>
-<body>
+<body<?= $isHirePo ? ' class="po-hire-mode"' : '' ?>>
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
-<div class="container container-lg py-4 py-md-5 mb-5 po-create-wrap">
-    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_po_direct&id=<?= (int) $poId ?>" method="POST">
+<div class="<?= $isHirePo ? 'container-fluid px-3 px-lg-4' : 'container container-lg' ?> py-4 py-md-5 mb-5 po-create-wrap">
+    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_po_direct&id=<?= (int) $poId ?>" method="POST"<?= $isHirePo && $hireEditRoom > 0 ? ' data-hire-remaining="' . htmlspecialchars(number_format($hireEditRoom, 2, '.', ''), ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
+        <input type="hidden" name="confirm_over_contract" id="confirm_over_contract" value="">
         <?php csrf_field(); ?>
+
+        <?php if ($errorCode === 'hire_po'): ?>
+            <div class="alert alert-danger py-2 mb-3"><i class="bi bi-exclamation-triangle-fill me-1"></i>ไม่สามารถบันทึกใบสั่งจ่ายจัดจ้างได้ — กรุณาลองใหม่อีกครั้ง</div>
+        <?php endif; ?>
+        <?php if ($errorCode === 'invalid_hire_rows'): ?>
+            <div class="alert alert-warning py-2 mb-3">กรุณากรอกรายการสั่งจ่ายอย่างน้อย 1 รายการให้ถูกต้อง</div>
+        <?php endif; ?>
+        <?php if ($errorCode === 'invalid_installment_amount'): ?>
+            <div class="alert alert-warning py-2 mb-3">ยอดสุทธิต้องมากกว่า 0</div>
+        <?php endif; ?>
+        <?php if ($errorCode === 'contract_exceeds_confirm'): ?>
+            <div class="alert alert-warning py-2 mb-3"><i class="bi bi-exclamation-triangle-fill me-1"></i>กรุณายืนยันการบันทึกเมื่อยอดเกินมูลค่าสัญญา</div>
+        <?php endif; ?>
+        <?php if ($errorCode === 'no_items'): ?>
+            <div class="alert alert-warning py-2 mb-3">กรุณาระบุรายการอย่างน้อย 1 รายการ</div>
+        <?php endif; ?>
 
         <header class="po-create-hero p-4 p-md-4 mb-4">
             <div class="row align-items-center g-3">
                 <div class="col-lg">
-                    <h1 class="mb-2 mt-1"><i class="bi bi-pencil-square me-2 opacity-90"></i>แก้ไขใบสั่งซื้อ</h1>
+                    <h1 class="mb-2 mt-1"><i class="bi bi-pencil-square me-2 opacity-90"></i><?= $isHirePo ? 'แก้ไขใบสั่งจ่าย' : 'แก้ไขใบสั่งซื้อ' ?></h1>
                 </div>
                 <div class="col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php')) ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับหน้ารายการใบสั่งซื้อ</a>
@@ -257,9 +309,81 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
                     </datalist>
                     <input type="hidden" name="supplier_id" id="supplier_id" value="<?= (int) $supplierId ?>">
                 </div>
+                <?php if ($isHirePo): ?>
+                <div class="col-md-4">
+                    <label class="po-field-label">ผู้รับจ้าง</label>
+                    <input type="text" class="form-control bg-light" value="<?= htmlspecialchars($contractorName !== '' ? $contractorName : '-', ENT_QUOTES, 'UTF-8') ?>" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="po-field-label">งวดที่</label>
+                    <input type="text" class="form-control bg-light" value="<?= $installmentNo > 0 ? htmlspecialchars($installmentNo . ' / ' . $installmentTotal, ENT_QUOTES, 'UTF-8') : '-' ?>" readonly>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
 
+        <?php if ($isHirePo): ?>
+        <div class="card card-soft p-4 p-md-4 mb-4">
+            <div class="po-section-head">
+                <div class="po-section-icon" aria-hidden="true"><i class="bi bi-list-check"></i></div>
+                <div class="flex-grow-1">
+                    <h2 class="section-title">ตารางรายละเอียดสั่งจ่าย</h2>
+                </div>
+            </div>
+            <div class="section-card p-3 mb-3 hire-lines-section" data-tnc-hire-root>
+                <div class="table-responsive hire-table-scroll">
+                    <table class="table align-middle mb-0 table-hire-lines" id="hireInstallmentTable">
+                        <thead>
+                            <tr>
+                                <th class="hire-col-no text-center">#</th>
+                                <th class="hire-col-desc">รายการ</th>
+                                <th class="hire-col-qty text-end">จำนวน</th>
+                                <th class="hire-col-unit text-end">หน่วย</th>
+                                <th class="hire-col-money text-end">ค่าวัสดุ</th>
+                                <th class="hire-col-money text-end">ค่าแรง</th>
+                                <th class="hire-col-money text-end">ราคา/หน่วย</th>
+                                <th class="hire-col-money text-end">ราคารวม</th>
+                                <th class="hire-col-action text-center">ลบ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php tnc_hire_form_rows_from_items('hire', $items, 'po'); ?>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="hire-lines-toolbar mt-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addHireGroupBtn" data-tnc-hire-add="group"><i class="bi bi-folder-plus me-1"></i>เพิ่มหัวข้อหลัก</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="addHireRowBtn" data-tnc-hire-add="item"><i class="bi bi-plus-circle me-1"></i>เพิ่มรายการย่อย</button>
+                </div>
+            </div>
+            <div class="section-card p-3">
+                <div class="section-title"><i class="bi bi-calculator me-1"></i>สรุปยอด</div>
+                <div class="po-hire-summary-grid">
+                    <div class="po-hire-summary-settings">
+                        <h6 class="fw-bold mb-3 small text-uppercase text-secondary" style="letter-spacing:0.05em;">ภาษีและเงินหัก</h6>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" name="vat_enabled" id="vat_enabled_hire" value="1"<?= $poVatEnabledStored === 1 ? ' checked' : '' ?>>
+                            <label class="form-check-label fw-semibold" for="vat_enabled_hire">บวก VAT 7% (+)</label>
+                        </div>
+                        <label class="form-label text-danger fw-bold mb-1" for="retention_value">หักประกันผลงาน (บาท)</label>
+                        <input type="text" name="retention_value" id="retention_value" class="form-control" value="<?= htmlspecialchars(number_format($retentionValueEdit, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="0">
+                        <input type="hidden" name="withholding_type" id="withholding_type" value="none">
+                        <input type="hidden" name="retention_type" id="retention_type" value="fixed">
+                    </div>
+                    <div class="po-hire-totals-card">
+                        <div class="po-hire-sum-row"><span>ยอดรวม (Subtotal)</span><span id="subtotal_text">0.00</span></div>
+                        <div class="po-hire-sum-row text-primary"><span>VAT (+)</span><span id="vat_text">0.00</span></div>
+                        <div class="po-hire-sum-row border-bottom pb-2 mb-1"><span class="text-muted fw-semibold">ยอดรวม VAT</span><span id="total_after_vat_text">0.00</span></div>
+                        <div id="retention_summary_row" class="po-hire-sum-row text-danger" style="display:none;"><span>หักประกันผลงาน (-)</span><span id="retention_display">0.00</span></div>
+                        <div class="po-hire-grand-row">
+                            <span class="label">ยอดสุทธิ</span>
+                            <span class="amount" id="grand_total">0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php else: ?>
         <div class="card card-soft p-4 p-md-4 mb-4">
             <div class="po-section-head">
                 <div class="po-section-icon" aria-hidden="true"><i class="bi bi-list-check"></i></div>
@@ -357,6 +481,7 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
                 </div>
             </div>
         </div>
+        <?php endif; ?>
 
         <div class="card card-soft p-4 p-md-4 mb-4">
             <div class="po-section-head border-0 pb-0 mb-3">
@@ -367,14 +492,16 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
                 </div>
             </div>
             <div class="row g-3">
-                <div class="col-md-6">
+                <div class="<?= $isHirePo ? 'col-12' : 'col-md-6' ?>">
                     <label class="po-field-label" for="po_note">หมายเหตุ PO</label>
-                    <textarea name="po_note" id="po_note" class="form-control" rows="3" maxlength="500" placeholder="หมายเหตุใบสั่งซื้อ"><?= htmlspecialchars($poNoteVal, ENT_QUOTES, 'UTF-8') ?></textarea>
+                    <textarea name="po_note" id="po_note" class="form-control" rows="3" maxlength="500" placeholder="หมายเหตุใบสั่ง<?= $isHirePo ? 'จ่าย' : 'ซื้อ' ?>"><?= htmlspecialchars($poNoteVal, ENT_QUOTES, 'UTF-8') ?></textarea>
                 </div>
+                <?php if (!$isHirePo): ?>
                 <div class="col-md-6">
                     <label class="po-field-label" for="quotation_note">หมายเหตุ / เงื่อนไข (QT)</label>
                     <textarea name="quotation_note" id="quotation_note" class="form-control" rows="3" maxlength="500" placeholder="เงื่อนไขจากใบเสนอราคา (ถ้ามี)"><?= htmlspecialchars($quotationNoteVal, ENT_QUOTES, 'UTF-8') ?></textarea>
                 </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -423,6 +550,7 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
     }
 })();
 
+<?php if (!$isHirePo): ?>
 function addRow() {
     const table = document.getElementById('poTable').getElementsByTagName('tbody')[0];
     const newRow = table.insertRow();
@@ -541,6 +669,99 @@ function calculateTotal() {
 }
 
 document.addEventListener('DOMContentLoaded', calculateTotal);
+<?php else: ?>
+</script>
+<script src="<?= htmlspecialchars(app_path('assets/js/hire-line-table.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script>
+(function () {
+    const subtotalTextEl = document.getElementById('subtotal_text');
+    const vatTextEl = document.getElementById('vat_text');
+    const totalAfterVatTextEl = document.getElementById('total_after_vat_text');
+    const retentionDisplayEl = document.getElementById('retention_display');
+    const grandTotalEl = document.getElementById('grand_total');
+    const retentionSummaryRowEl = document.getElementById('retention_summary_row');
+    const withholdingTypeEl = document.getElementById('withholding_type');
+    const retentionTypeEl = document.getElementById('retention_type');
+    const retentionValueEl = document.getElementById('retention_value');
+    const vatEnabledEl = document.getElementById('vat_enabled_hire');
+    const table = document.getElementById('hireInstallmentTable');
+    const addGroupBtn = document.getElementById('addHireGroupBtn');
+    const addRowBtn = document.getElementById('addHireRowBtn');
+    const form = document.querySelector('form[action*="update_po_direct"]');
+    const confirmOverInput = document.getElementById('confirm_over_contract');
+    if (!subtotalTextEl || !table) {
+        return;
+    }
+
+    const applySubtotal = (subtotal) => {
+        subtotal = Math.round(subtotal * 100) / 100;
+        const vat = vatEnabledEl?.checked ? Math.round(subtotal * 0.07 * 100) / 100 : 0;
+        if (withholdingTypeEl) {
+            withholdingTypeEl.value = 'none';
+        }
+        const retentionType = (retentionTypeEl?.value || 'fixed');
+        let retentionValueRaw = (retentionValueEl?.value || '').toString().trim().replace('%', '');
+        let retentionValue = parseFloat(retentionValueRaw) || 0;
+        if (retentionValue < 0) retentionValue = 0;
+        let retention = 0;
+        if (retentionType === 'percent') {
+            if (retentionValue > 100) retentionValue = 100;
+            retention = Math.round(subtotal * (retentionValue / 100) * 100) / 100;
+        } else if (retentionType === 'fixed') {
+            retention = Math.round(retentionValue * 100) / 100;
+        }
+        const totalAfterVat = Math.round((subtotal + vat) * 100) / 100;
+        const net = Math.round((totalAfterVat - retention) * 100) / 100;
+        const fmt = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+        subtotalTextEl.textContent = subtotal.toLocaleString(undefined, fmt);
+        if (vatTextEl) vatTextEl.textContent = '+ ' + vat.toLocaleString(undefined, fmt);
+        if (totalAfterVatTextEl) totalAfterVatTextEl.textContent = totalAfterVat.toLocaleString(undefined, fmt);
+        if (retentionDisplayEl) retentionDisplayEl.textContent = '- ' + retention.toLocaleString(undefined, fmt);
+        if (grandTotalEl) grandTotalEl.textContent = net.toLocaleString(undefined, fmt);
+        if (retentionSummaryRowEl) retentionSummaryRowEl.style.display = retention > 0 ? 'flex' : 'none';
+        return net;
+    };
+
+    let lastNet = 0;
+    const hireLineApi = window.TncHireLineTable ? window.TncHireLineTable.bindTable(table, {
+        fieldPrefix: 'hire',
+        addGroupButton: addGroupBtn,
+        addItemButton: addRowBtn,
+        onSubtotal: (subtotal) => {
+            lastNet = applySubtotal(subtotal);
+        },
+    }) : null;
+
+    const recalcWithNet = () => {
+        if (hireLineApi) {
+            lastNet = applySubtotal(hireLineApi.recalc());
+        }
+        return lastNet;
+    };
+
+    retentionTypeEl?.addEventListener('change', recalcWithNet);
+    retentionValueEl?.addEventListener('input', recalcWithNet);
+    vatEnabledEl?.addEventListener('change', recalcWithNet);
+    form?.addEventListener('submit', (event) => {
+        recalcWithNet();
+        if (withholdingTypeEl) withholdingTypeEl.value = 'none';
+        if (retentionTypeEl) retentionTypeEl.value = 'fixed';
+        const remaining = parseFloat(form?.getAttribute('data-hire-remaining') || '0') || 0;
+        const alreadyConfirmed = confirmOverInput && confirmOverInput.value === '1';
+        if (form?.hasAttribute('data-hire-remaining') && lastNet > remaining + 0.0005 && !alreadyConfirmed) {
+            event.preventDefault();
+            if (confirm('จำนวนเงินที่ต้องการจ่าย เกิน มูลค่าสัญญานี้แล้ว ท่านต้องการบันทึกการแก้ไขหรือไม่')) {
+                if (confirmOverInput) {
+                    confirmOverInput.value = '1';
+                }
+                form.requestSubmit();
+            }
+        }
+    });
+
+    recalcWithNet();
+})();
+<?php endif; ?>
 </script>
 </body>
 </html>

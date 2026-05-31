@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use Theelincon\Rtdb\Db;
 
+require_once __DIR__ . '/../hire_line_items.php';
+require_once __DIR__ . '/../contractors.php';
+
 if (!function_exists('tnc_po_format_date_thai')) {
     function tnc_po_format_date_thai(mixed $date): string
     {
@@ -46,6 +49,98 @@ if (!function_exists('tnc_po_public_absolute_url')) {
     }
 }
 
+if (!function_exists('tnc_po_note_lines')) {
+    /** @return list<string> */
+    function tnc_po_note_lines(string $text): array
+    {
+        $lines = [];
+        foreach (preg_split('/\r\n|\r|\n/', $text) as $raw) {
+            $line = trim(preg_replace('/[ \t]+/u', ' ', (string) $raw));
+            if ($line === '') {
+                continue;
+            }
+            $lines[] = $line;
+        }
+
+        return tnc_po_note_merge_continuations($lines);
+    }
+}
+
+if (!function_exists('tnc_po_note_merge_continuations')) {
+    /**
+     * รวมบรรทัดต่อเนื่อง เช่น เลขบัตร/บัญชีที่ผู้ใช้ขึ้นบรรทัดใหม่
+     *
+     * @param list<string> $lines
+     * @return list<string>
+     */
+    function tnc_po_note_merge_continuations(array $lines): array
+    {
+        $out = [];
+        foreach ($lines as $line) {
+            if ($out !== [] && tnc_po_note_is_continuation_line($line, $out[count($out) - 1])) {
+                $out[count($out) - 1] = trim($out[count($out) - 1] . ' ' . $line);
+
+                continue;
+            }
+            $out[] = $line;
+        }
+
+        return $out;
+    }
+}
+
+if (!function_exists('tnc_po_note_is_continuation_line')) {
+    function tnc_po_note_is_continuation_line(string $line, string $previous): bool
+    {
+        if (preg_match('/^[\d\s.\-]+$/u', $line) && preg_match('/\d/u', $previous)) {
+            return true;
+        }
+        if (mb_strlen($line) <= 28 && preg_match('/^\d/u', $line) && preg_match('/[:：]\s*[\d\s]+$/u', $previous)) {
+            return true;
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('tnc_po_render_note_panel')) {
+    function tnc_po_render_note_panel(string $heading, string $body, bool $withMarginBottom = false): void
+    {
+        $lines = tnc_po_note_lines($body);
+        if ($lines === []) {
+            return;
+        }
+        $panelClass = 'po-notes-panel' . ($withMarginBottom ? ' po-notes-panel--spaced' : '');
+        ?>
+        <div class="<?= $panelClass ?>">
+            <div class="po-note-heading"><?= htmlspecialchars($heading, ENT_QUOTES, 'UTF-8') ?></div>
+            <ul class="po-note-list">
+                <?php foreach ($lines as $line): ?>
+                    <?php if (preg_match('/^[-•*–—]\s*(.+)$/u', $line, $bulletMatch)): ?>
+                        <li class="po-note-item po-note-item--bullet">
+                            <span class="po-note-text"><?= htmlspecialchars(trim($bulletMatch[1]), ENT_QUOTES, 'UTF-8') ?></span>
+                        </li>
+                    <?php elseif (preg_match('/^([^:：]{2,48})[:：]\s*(.*)$/u', $line, $kvMatch)): ?>
+                        <?php
+                        $label = trim($kvMatch[1]);
+                        $value = trim($kvMatch[2]);
+                        ?>
+                        <li class="po-note-item po-note-item--kv">
+                            <span class="po-note-k"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></span>
+                            <span class="po-note-v<?= $value === '' ? ' po-note-v--empty' : '' ?>"><?= $value !== '' ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : '—' ?></span>
+                        </li>
+                    <?php else: ?>
+                        <li class="po-note-item">
+                            <span class="po-note-text"><?= htmlspecialchars($line, ENT_QUOTES, 'UTF-8') ?></span>
+                        </li>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        <?php
+    }
+}
+
 /**
  * @return array<string, mixed>|null
  */
@@ -83,6 +178,14 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         $orderType = 'purchase';
     }
     $contractorName = trim((string) ($data['contractor_name'] ?? ''));
+    $contractorId = (int) ($data['contractor_id'] ?? 0);
+    if ($contractorId <= 0 && is_array($pr)) {
+        $contractorId = (int) ($pr['contractor_id'] ?? 0);
+    }
+    $contractorPrint = tnc_contractor_print_profile($contractorId, $contractorName);
+    if ($contractorPrint['name_th'] !== '') {
+        $contractorName = $contractorPrint['name_th'];
+    }
     $installmentNo = (int) ($data['installment_no'] ?? 0);
     $installmentTotal = (int) ($data['installment_total'] ?? 0);
     $referencePrNumber = trim((string) ($data['reference_pr_number'] ?? ($data['pr_number'] ?? '')));
@@ -179,6 +282,20 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         $po_vat_amount,
         $po_grand_total
     );
+    $hasRetentionPrint = ($retentionType !== 'none' && $retentionAmount > 0);
+    $hasWhtPrint = ($withholdingType !== 'none' && $withholdingAmount > 0);
+    $hasDeductionsPrint = $hasRetentionPrint || $hasWhtPrint;
+    $poPayableAmount = round((float) ($data['payable_amount'] ?? 0), 2);
+    if ($hasDeductionsPrint) {
+        if ($poPayableAmount <= 0) {
+            $poPayableAmount = round($po_gross_amount - $withholdingAmount - $retentionAmount, 2);
+        }
+        if ($poPayableAmount < 0) {
+            $poPayableAmount = 0.0;
+        }
+    } else {
+        $poPayableAmount = (float) ($poVatPrint['net_amount'] ?? $po_grand_total);
+    }
     $poStatus = strtolower(trim((string) ($data['status'] ?? 'ordered')));
     $isPoCancelled = ($poStatus === 'cancelled');
 
@@ -193,6 +310,7 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         'items' => $items,
         'orderType' => $orderType,
         'contractorName' => $contractorName,
+        'contractorPrint' => $contractorPrint,
         'installmentNo' => $installmentNo,
         'installmentTotal' => $installmentTotal,
         'referencePrNumber' => $referencePrNumber,
@@ -210,6 +328,10 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         'po_grand_total' => $po_grand_total,
         'po_subtotal' => $po_subtotal,
         'po_gross_amount' => $po_gross_amount,
+        'poPayableAmount' => $poPayableAmount,
+        'hasDeductionsPrint' => $hasDeductionsPrint,
+        'hasRetentionPrint' => $hasRetentionPrint,
+        'hasWhtPrint' => $hasWhtPrint,
         'issueDate' => $issueDate,
         'isPoCancelled' => $isPoCancelled,
         'poDocTitle' => $poDocTitle,

@@ -62,6 +62,7 @@ $allowedMirror = [
     'purchase_requests',
     'purchase_orders',
     'suppliers',
+    'contractors',
     'invoices',
     'tax_invoices',
     'employee_payslip_requests',

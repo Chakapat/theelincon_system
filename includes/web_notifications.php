@@ -131,6 +131,44 @@ if (!function_exists('tnc_notif_unread_count')) {
     }
 }
 
+if (!function_exists('tnc_notif_poll_state')) {
+    /**
+     * สถานะสั้นๆ สำหรับ polling ฝั่งเบราว์เซอร์ (ไม่ดึงรายการเต็ม)
+     *
+     * @return array{unread: int, latest_ts: int, checksum: string}
+     */
+    function tnc_notif_poll_state(int $userId): array
+    {
+        if ($userId <= 0) {
+            return ['unread' => 0, 'latest_ts' => 0, 'checksum' => ''];
+        }
+
+        $unread = 0;
+        $latestTs = 0;
+        $latestId = 0;
+        foreach (Db::tableRows(tnc_notif_table()) as $r) {
+            if ((int) ($r['user_id'] ?? 0) !== $userId) {
+                continue;
+            }
+            $ts = (int) ($r['created_ts'] ?? 0);
+            $id = (int) ($r['id'] ?? 0);
+            if ($ts > $latestTs || ($ts === $latestTs && $id > $latestId)) {
+                $latestTs = $ts;
+                $latestId = $id;
+            }
+            if ((int) ($r['is_read'] ?? 0) !== 1) {
+                $unread++;
+            }
+        }
+
+        return [
+            'unread' => $unread,
+            'latest_ts' => $latestTs,
+            'checksum' => md5($userId . '|' . $unread . '|' . $latestTs . '|' . $latestId),
+        ];
+    }
+}
+
 if (!function_exists('tnc_notif_mark_read')) {
     function tnc_notif_mark_read(int $userId, int $notifId): bool
     {

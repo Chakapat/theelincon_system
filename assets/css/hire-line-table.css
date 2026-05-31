@@ -1,0 +1,305 @@
+/* ตารางจัดจ้าง — ค่าวัสดุ + ค่าแรง → ราคา/หน่วย → ราคารวม */
+
+.hire-lines-section {
+    margin-top: 0.25rem;
+}
+
+.hire-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.hire-section-head .hire-section-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #475569;
+    margin: 0;
+}
+
+.hire-section-head .hire-section-hint {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin: 0;
+}
+
+.hire-table-panel {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.85rem;
+    background: #fff;
+    overflow: hidden;
+}
+
+.hire-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.hire-table-scroll::-webkit-scrollbar {
+    height: 8px;
+}
+
+.hire-table-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+
+.table-hire-lines {
+    width: 100%;
+    margin-bottom: 0;
+    table-layout: auto;
+    border-collapse: collapse;
+}
+
+.table-hire-lines.table-sm {
+    font-size: inherit;
+}
+
+.table-hire-lines thead th {
+    background: #f1f5f9;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    border-bottom: 2px solid #e2e8f0;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #475569;
+    padding: 0.85rem 0.65rem;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.table-hire-lines tbody td {
+    padding: 0.65rem 0.55rem;
+    vertical-align: middle;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.table-hire-lines tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.table-hire-lines .hire-col-no {
+    width: 3.75rem;
+    min-width: 3.75rem;
+}
+
+.table-hire-lines .hire-col-desc {
+    min-width: 20rem;
+    width: auto;
+}
+
+.table-hire-lines .hire-col-qty,
+.table-hire-lines .hire-col-unit {
+    min-width: 6.5rem;
+}
+
+.table-hire-lines .hire-col-money {
+    min-width: 8.5rem;
+}
+
+.table-hire-lines .hire-col-action {
+    width: 3.5rem;
+    min-width: 3.5rem;
+}
+
+.table-hire-lines .form-control {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.925rem;
+    padding: 0.55rem 0.65rem;
+    min-height: 2.5rem;
+    width: 100%;
+    background: #fff;
+}
+
+.table-hire-lines .form-control:focus {
+    border-color: #ea580c;
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
+}
+
+.table-hire-lines .hire-qty,
+.table-hire-lines .hire-unit,
+.table-hire-lines .hire-material,
+.table-hire-lines .hire-labor,
+.table-hire-lines .hire-unit-price,
+.table-hire-lines .hire-line-total {
+    text-align: right;
+}
+
+.table-hire-lines .hire-unit-price-sum .form-control {
+    font-weight: 600;
+    color: #0f172a;
+    background-color: #f8fafc !important;
+}
+
+.table-hire-lines .hire-line-total.form-control {
+    font-weight: 700;
+    color: #0369a1;
+    background-color: #f0f9ff !important;
+}
+
+/* หัวข้อหลัก vs รายการย่อย */
+.table-hire-lines tr.hire-row-group {
+    background-color: #f8fafc;
+}
+
+.table-hire-lines tr.hire-row-group td {
+    border-bottom: 1px solid #e2e8f0;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+
+.table-hire-lines tr.hire-row-group .hire-desc-group {
+    background-color: #fff;
+    border-color: #cbd5e1;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.table-hire-lines tr.hire-row-item {
+    background: #fff;
+}
+
+.table-hire-lines tr.hire-row-item td.hire-col-desc-cell {
+    padding-left: 0.35rem;
+}
+
+.table-hire-lines tr.hire-row-item .hire-desc-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding-left: 0.35rem;
+}
+
+.table-hire-lines tr.hire-row-item .hire-desc-indent {
+    width: 3px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: #e2e8f0;
+    margin: 0.15rem 0;
+}
+
+.table-hire-lines tr.hire-row-item .hire-desc {
+    flex: 1;
+    min-width: 0;
+}
+
+.table-hire-lines .hire-line-no {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
+.table-hire-lines tr.hire-row-group .hire-line-no {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+/* ปุ่มลบ — outline โปร่ง แดงเมื่อ hover */
+.hire-btn-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.125rem;
+    height: 2.125rem;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: #94a3b8;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.hire-btn-remove:hover:not(:disabled) {
+    color: #dc2626;
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.hire-btn-remove:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.hire-lines-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.hire-cost-adjust-panel {
+    margin-top: 1.25rem;
+    padding: 1rem 1.15rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.85rem;
+    background: #f8fafc;
+}
+
+.hire-cost-adjust-panel .form-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+@media (min-width: 992px) {
+    .table-hire-lines {
+        table-layout: fixed;
+    }
+
+    .table-hire-lines .hire-col-no {
+        width: 4%;
+    }
+
+    .table-hire-lines .hire-col-desc {
+        width: 38%;
+        min-width: 0;
+    }
+
+    .table-hire-lines .hire-col-qty,
+    .table-hire-lines .hire-col-unit {
+        width: 7%;
+    }
+
+    .table-hire-lines .hire-col-money {
+        width: 9%;
+    }
+
+    .table-hire-lines .hire-col-action {
+        width: 4%;
+    }
+}
+
+@media (min-width: 1400px) {
+    .table-hire-lines .hire-col-desc {
+        width: 42%;
+    }
+
+    .table-hire-lines .hire-col-money {
+        width: 9.5%;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .table-hire-lines {
+        min-width: 980px;
+        table-layout: auto;
+    }
+
+    .table-hire-lines .hire-col-desc {
+        min-width: 22rem;
+    }
+}

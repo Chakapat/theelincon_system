@@ -1,0 +1,392 @@
+/**
+ * PO จัดจ้าง — ใบสั่งจ่ายจาก PR / สัญญาจ้าง
+ */
+
+body.po-hire-mode {
+    background: #f8fafc;
+    font-family: 'Noto Sans Thai', 'Inter', 'Sarabun', system-ui, sans-serif;
+    --po-hire-brand: #ea580c;
+    --po-hire-brand-soft: #fff7ed;
+    --po-hire-border: #e2e8f0;
+}
+
+/* ขยายเต็มที่ — ไม่จำกัด 720px */
+body.po-hire-mode .po-from-pr-shell,
+body.po-hire-mode .po-hire-shell {
+    max-width: none;
+    width: 100%;
+}
+
+body.po-hire-mode .po-from-pr-card,
+body.po-hire-mode .po-hire-card {
+    border-radius: 12px;
+    border: 1px solid var(--po-hire-border);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+}
+
+/* หัวการ์ด — ไม่ใช้แถบน้ำเงินหนา */
+body.po-hire-mode .po-from-pr-head {
+    background: #fff;
+    color: #0f172a;
+    border-bottom: 1px solid var(--po-hire-border);
+    padding: 1.35rem 1.5rem;
+    margin: 0;
+}
+
+body.po-hire-mode .po-from-pr-head h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+}
+
+body.po-hire-mode .po-from-pr-head h1 i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 10px;
+    background: var(--po-hire-brand-soft);
+    color: var(--po-hire-brand);
+    font-size: 1.1rem;
+    opacity: 1;
+}
+
+body.po-hire-mode .po-from-pr-head .sub {
+    color: #64748b;
+    opacity: 1;
+    font-size: 0.9rem;
+    margin-top: 0.4rem;
+}
+
+body.po-hire-mode .po-hire-page-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 1.25rem;
+    color: #0f172a;
+}
+
+body.po-hire-mode .po-hire-page-title__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 10px;
+    background: var(--po-hire-brand-soft);
+    color: var(--po-hire-brand);
+    font-size: 1.15rem;
+}
+
+/* ช่องเอกสาร PR/PO */
+body.po-hire-mode .po-field-label {
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-size: 0.78rem;
+    color: #64748b;
+}
+
+body.po-hire-mode .form-control,
+body.po-hire-mode .form-select {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+}
+
+body.po-hire-mode .form-control:focus {
+    border-color: var(--po-hire-brand);
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
+}
+
+body.po-hire-mode .form-control.bg-light,
+body.po-hire-mode .form-control-lg.bg-light {
+    background: #fff !important;
+    border: 1px solid var(--po-hire-border) !important;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+/* info bar ผู้รับจ้าง */
+.hire-meta-kv--readonly {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+}
+
+.hire-meta-kv--readonly .hire-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.9rem;
+    color: #475569;
+}
+
+.hire-meta-kv--readonly .hire-meta-chip strong {
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.hire-meta-kv--readonly .hire-meta-chip .sep {
+    color: #cbd5e1;
+}
+
+/* กล่องเนื้อหา */
+.po-hire-block {
+    border: 1px solid var(--po-hire-border);
+    border-radius: 10px;
+    background: #fff;
+    padding: 1rem 1.15rem;
+    margin-bottom: 1.25rem;
+}
+
+.po-hire-block__title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.po-hire-block__title i {
+    color: var(--po-hire-brand);
+}
+
+.po-hire-block__body {
+    font-size: 0.9rem;
+    color: #475569;
+    white-space: pre-wrap;
+    line-height: 1.55;
+}
+
+/* สถิติสัญญา */
+.po-hire-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.po-hire-stat {
+    padding: 0.65rem 0.85rem;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    border-radius: 8px;
+}
+
+.po-hire-stat__label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.2rem;
+}
+
+.po-hire-stat__value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ตารางประวัติงวด — เส้นแนวนอนอย่างเดียว */
+.po-hire-ledger-wrap {
+    border: 1px solid var(--po-hire-border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.po-hire-ledger-table {
+    margin-bottom: 0;
+    width: 100%;
+}
+
+.po-hire-ledger-table thead th {
+    background: #f1f5f9;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    border-bottom: 2px solid var(--po-hire-border);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #475569;
+    padding: 0.75rem 0.85rem;
+    white-space: nowrap;
+}
+
+.po-hire-ledger-table tbody td {
+    border-left: none;
+    border-right: none;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.875rem;
+    vertical-align: middle;
+}
+
+.po-hire-ledger-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* section ตารางรายการ + สรุปยอด */
+body.po-hire-mode .section-card {
+    border: 1px solid var(--po-hire-border);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: none;
+    padding: 1.15rem 1.25rem !important;
+    margin-bottom: 1.25rem;
+}
+
+body.po-hire-mode .section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 1rem;
+    letter-spacing: -0.01em;
+}
+
+body.po-hire-mode .section-title i {
+    color: var(--po-hire-brand) !important;
+}
+
+/* สรุปยอด PO */
+.po-hire-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr minmax(16rem, 22rem);
+    gap: 1.25rem 1.5rem;
+    align-items: start;
+}
+
+.po-hire-summary-settings {
+    padding: 1rem;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    border-radius: 10px;
+}
+
+.po-hire-summary-settings .form-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.po-hire-totals-card {
+    padding: 1.15rem 1.25rem;
+    background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+    border: 1px solid var(--po-hire-border);
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.po-hire-sum-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.25rem 0;
+    font-size: 0.9rem;
+    color: #475569;
+}
+
+.po-hire-sum-row span:last-child {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+    text-align: right;
+}
+
+.po-hire-sum-row.text-primary span:last-child {
+    color: #0369a1;
+}
+
+.po-hire-sum-row.text-danger span:last-child {
+    color: #dc2626;
+}
+
+.po-hire-grand-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 0.75rem;
+    padding-top: 0.85rem;
+    border-top: 2px solid var(--po-hire-border);
+}
+
+.po-hire-grand-row .label {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.po-hire-grand-row .amount {
+    font-size: 1.85rem;
+    font-weight: 800;
+    color: var(--po-hire-brand);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+body.po-hire-mode .hire-lines-toolbar .btn {
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 0.45rem 1rem;
+}
+
+body.po-hire-mode .hire-lines-section {
+    margin-top: 0;
+}
+
+body.po-hire-mode .hire-table-panel {
+    border-radius: 10px;
+    border-color: var(--po-hire-border);
+}
+
+body.po-hire-mode .hire-table-scroll {
+    max-width: 100%;
+}
+
+@media (min-width: 992px) {
+    body.po-hire-mode .table-hire-lines {
+        min-width: 100%;
+    }
+}
+
+body.po-hire-mode .btn-primary {
+    background: linear-gradient(180deg, #f97316 0%, #ea580c 100%);
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(234, 88, 12, 0.25);
+}
+
+body.po-hire-mode .btn-primary:hover {
+    background: linear-gradient(180deg, #ea580c 0%, #c2410c 100%);
+}
+
+@media (max-width: 991.98px) {
+    .po-hire-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .po-hire-totals-card {
+        order: -1;
+    }
+}
+
+@media (min-width: 1400px) {
+    body.po-hire-mode .po-hire-layout-inner {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}

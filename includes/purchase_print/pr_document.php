@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use Theelincon\Rtdb\Db;
 
+require_once __DIR__ . '/../hire_line_items.php';
+require_once __DIR__ . '/../contractors.php';
+
 if (!function_exists('tnc_pr_format_date_thai')) {
     function tnc_pr_format_date_thai(mixed $date): string
     {
@@ -54,6 +57,10 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         $requestType = 'purchase';
     }
     $contractorName = trim((string) ($pr['contractor_name'] ?? ($pr['hire_contractor_name'] ?? '')));
+    $contractorPrint = tnc_contractor_print_profile((int) ($pr['contractor_id'] ?? 0), $contractorName);
+    if ($contractorPrint['name_th'] !== '') {
+        $contractorName = $contractorPrint['name_th'];
+    }
     $contractValue = (float) ($pr['contract_value'] ?? ($pr['hire_total_value'] ?? 0));
     $installmentTotal = (int) ($pr['installment_total'] ?? ($pr['hire_installment_count'] ?? 1));
     if ($installmentTotal < 1) {
@@ -138,6 +145,7 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         'item_rows' => $item_rows,
         'requestType' => $requestType,
         'contractorName' => $contractorName,
+        'contractorPrint' => $contractorPrint,
         'contractValue' => $contractValue,
         'installmentTotal' => $installmentTotal,
         'hireScope' => $hireScope,

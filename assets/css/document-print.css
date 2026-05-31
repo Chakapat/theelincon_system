@@ -57,15 +57,112 @@
 }
 
 .po-purchase-order-doc .po-note-heading {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: 700;
-    color: #111;
+    color: #9a3412;
     margin-bottom: 0.35rem;
+    letter-spacing: 0.02em;
 }
 
+.po-purchase-order-doc .po-notes-panel {
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid #ea580c;
+    background: #f8fafc;
+    border-radius: 0.35rem;
+    padding: 0.45rem 0.55rem 0.5rem;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.po-purchase-order-doc .po-notes-panel--spaced {
+    margin-bottom: 0.55rem;
+}
+
+.po-purchase-order-doc .po-notes-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+}
+
+.po-purchase-order-doc .po-note-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.po-purchase-order-doc .po-note-item {
+    font-size: 0.72rem;
+    line-height: 1.45;
+    color: #334155;
+    padding: 0.28rem 0;
+    border-bottom: 1px solid #eef2f7;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.po-purchase-order-doc .po-note-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.po-purchase-order-doc .po-note-item--bullet {
+    position: relative;
+    padding-left: 0.85rem;
+}
+
+.po-purchase-order-doc .po-note-item--bullet::before {
+    content: "•";
+    position: absolute;
+    left: 0.15rem;
+    top: 0.28rem;
+    color: #ea580c;
+    font-weight: 700;
+    line-height: 1.45;
+}
+
+.po-purchase-order-doc .po-note-item--kv {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, 42%) minmax(0, 1fr);
+    gap: 0.15rem 0.45rem;
+    align-items: baseline;
+}
+
+.po-purchase-order-doc .po-note-k {
+    font-weight: 600;
+    color: #475569;
+    font-size: 0.68rem;
+    line-height: 1.35;
+}
+
+.po-purchase-order-doc .po-note-v {
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+.po-purchase-order-doc .po-note-v--empty {
+    color: #94a3b8;
+}
+
+.po-purchase-order-doc .po-note-text {
+    display: block;
+    color: #334155;
+}
+
+.po-purchase-order-doc .po-footer-notes-col {
+    min-width: 0;
+}
+
+.po-purchase-order-doc .po-footer-totals-col {
+    min-width: 0;
+}
+
+/* legacy — คงไว้ถ้ามีที่อื่นอ้าง */
 .po-purchase-order-doc .po-note-body {
-    font-size: 1rem;
-    line-height: 1.5;
+    font-size: 0.72rem;
+    line-height: 1.45;
     color: #334155;
     white-space: pre-line;
 }
@@ -194,9 +291,88 @@
     color: #28a745 !important;
 }
 
+/* Header — company left, document title/number right */
+.pr-purchase-requisition-doc .pr-doc-header {
+    padding-top: 5mm;
+    margin-bottom: 1rem;
+    align-items: flex-start !important;
+}
+
+.pr-purchase-requisition-doc .pr-doc-header-left {
+    padding-right: 1rem;
+}
+
+.pr-purchase-requisition-doc .pr-doc-header-right {
+    text-align: right;
+    padding-left: 1rem;
+}
+
+.pr-purchase-requisition-doc .pr-company-name {
+    font-size: 16px;
+    font-weight: 700;
+    margin-top: 0.5rem;
+    line-height: 1.35;
+    color: #1e293b;
+}
+
+.pr-purchase-requisition-doc .pr-company-detail {
+    font-size: 11px;
+    line-height: 1.45;
+    color: #64748b;
+    margin-top: 0.25rem;
+}
+
+.pr-purchase-requisition-doc .pr-doc-subtitle {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    margin-top: 0.15rem;
+}
+
+.pr-purchase-requisition-doc .pr-doc-number {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 0.65rem;
+    letter-spacing: 0.01em;
+}
+
+/* Contractor info panel */
+.pr-purchase-requisition-doc .pr-contractor-card {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0.85rem 1.15rem 0.85rem 1.35rem;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #334155;
+}
+
+.pr-purchase-requisition-doc .pr-contractor-meta {
+    margin-top: 0.65rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
+    color: #475569;
+}
+
+.pr-purchase-requisition-doc .pr-contractor-meta-sep {
+    margin: 0 0.5rem;
+    color: #cbd5e1;
+}
+
 .pr-purchase-requisition-doc .pr-doc-main {
     padding-bottom: 50mm;
     box-sizing: border-box;
+}
+
+.pr-purchase-requisition-doc .pr-contractor-card .contractor-print-panel {
+    padding-left: 0.1rem;
+}
+
+.pr-purchase-requisition-doc .pr-contractor-card .contractor-print-row strong {
+    color: #475569;
+    font-weight: 600;
 }
 
 .pr-purchase-requisition-doc .footer-sticky {
@@ -204,6 +380,7 @@
     bottom: 12mm;
     left: 15mm;
     right: 15mm;
+    padding-top: 2mm;
 }
 
 .pr-purchase-requisition-doc .footer-sticky,
@@ -214,33 +391,135 @@
 
 .pr-purchase-requisition-doc .table-custom thead th {
     border-bottom-color: #28a745 !important;
-    background: #fafafa;
-    font-size: 12px;
+    background: #f8fafc;
+    font-size: 12.5px;
     font-weight: 700;
     line-height: 1.45;
-    padding: 9px 11px;
+    padding: 10px 12px;
     vertical-align: middle;
+    color: #1e293b;
+    letter-spacing: 0.01em;
+}
+
+.pr-purchase-requisition-doc .table-custom thead th.pr-th-num {
+    text-align: right !important;
 }
 
 .pr-purchase-requisition-doc .table-custom tbody td {
     font-size: 12px;
     line-height: 1.45;
-    padding: 9px 11px;
+    padding: 9px 12px;
     vertical-align: middle;
-    border-bottom: 1px solid #f2f2f2;
+    border-bottom: 1px solid #f1f5f9;
 }
 
-.pr-purchase-requisition-doc .summary-item {
-    line-height: 1.45;
+.pr-purchase-requisition-doc .table-custom tbody td.pr-td-num {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+}
+
+.pr-purchase-requisition-doc .table-custom tbody td.pr-td-unit {
+    text-align: right !important;
+}
+
+.pr-purchase-requisition-doc .table-custom tbody td.pr-td-empty {
+    color: #94a3b8;
+    text-align: right !important;
+    vertical-align: middle;
+}
+
+.pr-purchase-requisition-doc .table-custom tbody td.pr-td-empty.text-center {
+    text-align: center !important;
+}
+
+.pr-purchase-requisition-doc .pr-td-empty-char {
+    display: inline-block;
+    min-width: 1ch;
+    text-align: center;
+    color: #94a3b8;
+}
+
+.pr-purchase-requisition-doc .summary-box {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+
+.pr-purchase-requisition-doc .summary-item span:last-child {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    flex-shrink: 0;
 }
 
 .pr-purchase-requisition-doc .grand-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
     background: #28a745 !important;
     color: #fff !important;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-top: 8px;
+    line-height: 1.35;
+}
+
+.pr-purchase-requisition-doc .grand-total-label {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    flex: 1 1 auto;
+}
+
+.pr-purchase-requisition-doc .grand-total-value {
+    font-size: 18px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .pr-purchase-requisition-doc .grand-total-row span {
     color: #fff !important;
+}
+
+.pr-purchase-requisition-doc .signature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    text-align: center;
+    margin-top: 1.75rem;
+    max-width: 100%;
+    padding: 0 0.5rem;
+}
+
+.pr-purchase-requisition-doc .signature-grid > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.pr-purchase-requisition-doc .sig-space {
+    height: 52px;
+    width: 100%;
+}
+
+.pr-purchase-requisition-doc .sig-box {
+    width: 72%;
+    max-width: 160px;
+    border-top: 1px solid #475569;
+    padding-top: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #334155;
+}
+
+.pr-purchase-requisition-doc .sig-box small {
+    font-weight: 500;
+    color: #64748b;
 }
 
 .pr-purchase-requisition-doc .pr-cancelled-watermark {
@@ -262,6 +541,73 @@
 .pr-bundle-inline {
     --brand-color: #28a745;
     --brand-color-deep: #1e7e34;
+}
+
+/* สถานที่ / ไซต์งาน — รองรับชื่อยาว (ขึ้นบรรทัดใหม่ได้สวย) */
+.doc-site-block {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: #64748b;
+    padding: 0.35rem 0.55rem;
+    background: #f8fafc;
+    border-left: 3px solid #cbd5e1;
+    border-radius: 0.25rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.doc-site-label {
+    font-weight: 700;
+    color: #475569;
+    white-space: nowrap;
+    margin-right: 0.35rem;
+}
+
+.doc-site-value {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: auto;
+}
+
+.contractor-print-panel .contractor-print-row + .contractor-print-row,
+.contractor-print-detail > div + div,
+.contractor-print-payment > div {
+    margin-top: 0.2rem;
+}
+
+.contractor-print-panel .contractor-print-row,
+.contractor-print-detail > div {
+    line-height: 1.45;
+}
+
+.contractor-print-meta {
+    font-size: 11px;
+}
+
+.pr-purchase-requisition-doc .doc-meta-date-col {
+    text-align: right;
+}
+
+.pr-purchase-requisition-doc .doc-meta-row .border-success {
+    border-color: #28a745 !important;
+}
+
+.pr-purchase-requisition-doc .doc-site-block {
+    border-left-color: #28a745;
+    background: #f6fdf8;
+}
+
+.po-purchase-order-doc .doc-site-block {
+    border-left-color: #ea580c;
+    background: #fff9f0;
+}
+
+.doc-meta-row > [class*="col-"] {
+    min-width: 0;
 }
 
 @media print {
@@ -340,15 +686,68 @@
     }
 
     .po-purchase-order-doc .po-note-heading {
-        font-size: 0.9rem !important;
+        font-size: 8.5pt !important;
         font-weight: 700 !important;
-        color: #111 !important;
+        color: #9a3412 !important;
+        margin-bottom: 0.25rem !important;
+    }
+
+    .po-purchase-order-doc .po-notes-panel {
+        border: 1px solid #e2e8f0 !important;
+        border-left: 2px solid #ea580c !important;
+        background: #f8fafc !important;
+        padding: 0.35rem 0.45rem 0.4rem !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .po-purchase-order-doc .po-note-item {
+        font-size: 8pt !important;
+        line-height: 1.4 !important;
+        padding: 0.18rem 0 !important;
+        color: #334155 !important;
+        border-bottom-color: #e8edf3 !important;
+    }
+
+    .po-purchase-order-doc .po-note-k {
+        font-size: 7.5pt !important;
+        color: #475569 !important;
+    }
+
+    .po-purchase-order-doc .po-note-v,
+    .po-purchase-order-doc .po-note-text {
+        font-size: 8pt !important;
+        color: #0f172a !important;
+    }
+
+    .po-purchase-order-doc .po-note-item--kv {
+        grid-template-columns: minmax(4.5rem, 40%) minmax(0, 1fr) !important;
+        gap: 0.1rem 0.35rem !important;
+    }
+
+    .po-purchase-order-doc .po-footer-row {
+        align-items: flex-start !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .po-purchase-order-doc .po-footer-notes-col {
+        flex: 1 1 58% !important;
+        max-width: 58% !important;
+        padding-right: 0.65rem !important;
+    }
+
+    .po-purchase-order-doc .po-footer-totals-col {
+        flex: 1 1 42% !important;
+        max-width: 42% !important;
     }
 
     .po-purchase-order-doc .po-note-body {
-        font-size: 1rem !important;
-        line-height: 1.5 !important;
+        font-size: 8pt !important;
+        line-height: 1.4 !important;
         color: #334155 !important;
+        white-space: pre-line !important;
     }
 
     .po-purchase-order-doc .po-items-table thead th,
@@ -495,8 +894,52 @@
         border-color: #dee2e6 !important;
     }
 
-    .po-purchase-order-doc .row.mb-2.mt-3 {
-        flex-wrap: nowrap !important;
+    .po-purchase-order-doc .row.mb-2.mt-3,
+    .po-purchase-order-doc .doc-meta-row {
+        flex-wrap: wrap !important;
+    }
+
+    .doc-site-row {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    .doc-site-block {
+        font-size: 10pt !important;
+        line-height: 1.4 !important;
+        padding: 0.3rem 0.45rem !important;
+        color: #334155 !important;
+        background: #f8fafc !important;
+        border-left-width: 2px !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .pr-purchase-requisition-doc .doc-site-block {
+        background: #f6fdf8 !important;
+        border-left-color: #28a745 !important;
+    }
+
+    .po-purchase-order-doc .doc-site-block {
+        background: #fff9f0 !important;
+        border-left-color: #ea580c !important;
+    }
+
+    .doc-site-label {
+        color: #475569 !important;
+        font-weight: 700 !important;
+    }
+
+    .doc-site-value {
+        color: #1e293b !important;
+    }
+
+    .pr-purchase-requisition-doc .doc-meta-row {
+        flex-wrap: wrap !important;
+    }
+
+    .pr-purchase-requisition-doc .doc-meta-date-col {
+        max-width: 100%;
     }
 
     .po-payment-evidence-card {
@@ -511,9 +954,13 @@
         min-height: 297mm;
         max-height: 297mm;
         margin: 0;
-        padding: 8mm 12mm;
+        padding: 12mm 12mm 8mm;
         overflow: hidden;
         page-break-after: avoid;
+    }
+
+    .pr-purchase-requisition-doc .pr-doc-header {
+        padding-top: 3mm;
     }
 
     .pr-purchase-requisition-doc .pr-doc-main {
@@ -564,6 +1011,13 @@
         break-inside: avoid;
     }
 
+    .pr-purchase-requisition-doc .summary-box {
+        background: #f8fafc !important;
+        border-color: #e5e7eb !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
     .pr-purchase-requisition-doc .grand-total-row {
         background: #28a745 !important;
         color: #fff !important;
@@ -575,8 +1029,25 @@
         color: #fff !important;
     }
 
+    .pr-purchase-requisition-doc .signature-grid {
+        gap: 3.5rem;
+        margin-top: 1.5rem;
+    }
+
     .pr-purchase-requisition-doc .sig-space {
         height: 40px !important;
+    }
+
+    .pr-purchase-requisition-doc .sig-box {
+        width: 70%;
+        max-width: 140px;
+    }
+
+    .pr-purchase-requisition-doc .pr-contractor-card {
+        border-color: #e5e7eb !important;
+        background: #f9fafb !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 
     .pr-purchase-requisition-doc .pr-cancelled-watermark,

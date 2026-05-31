@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use Theelincon\Rtdb\Db;
+use Theelincon\Rtdb\Purchase;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
@@ -30,15 +31,26 @@ if ($contract === null) {
 
 $resolvedContractId = (int) ($contract['id'] ?? 0);
 $resolvedPrId = (int) ($contract['pr_id'] ?? 0);
+$contractRemaining = $resolvedContractId > 0
+    ? Purchase::hireContractRemainingPayable($contract, $resolvedContractId)
+    : (float) ($contract['remaining_amount'] ?? 0);
+$contractRemainingOver = $contractRemaining < -0.0005;
+$contractRemainingCss = $contractRemainingOver
+    ? 'text-danger fw-bold'
+    : ($contractRemaining <= 0.0005 ? 'text-success' : 'text-primary');
 
-$payments = Db::filter('hire_contract_payments', static function (array $r) use ($resolvedContractId, $resolvedPrId): bool {
-    $hid = (int) ($r['hire_contract_id'] ?? 0);
-    if ($resolvedContractId > 0 && $hid > 0) {
-        return $hid === $resolvedContractId;
-    }
+$payments = Purchase::filterActiveHireContractPayments(
+    Db::filter('hire_contract_payments', static function (array $r) use ($resolvedContractId, $resolvedPrId): bool {
+        $hid = (int) ($r['hire_contract_id'] ?? 0);
+        if ($resolvedContractId > 0 && $hid > 0) {
+            return $hid === $resolvedContractId;
+        }
 
-    return $resolvedPrId > 0 && (int) ($r['pr_id'] ?? 0) === $resolvedPrId;
-});
+        return $resolvedPrId > 0 && (int) ($r['pr_id'] ?? 0) === $resolvedPrId;
+    }),
+    $resolvedContractId > 0 ? $resolvedContractId : null,
+    $resolvedPrId > 0 ? $resolvedPrId : null
+);
 Db::sortRows($payments, 'installment_no', false);
 
 $pr = [];
@@ -195,6 +207,10 @@ $poFromUrl = $resolvedPrId > 0
         <div class="text-white-50 small">วันที่จัดจ้าง <?= htmlspecialchars(formatThaiDateTime((string) (($pr['created_at'] ?? '') !== '' ? $pr['created_at'] : ($contract['created_at'] ?? ''))), ENT_QUOTES, 'UTF-8') ?></div>
     </div>
 
+    <?php if ($contractRemainingOver): ?>
+        <div class="alert alert-danger py-2 no-print"><i class="bi bi-exclamation-octagon-fill me-1"></i>จ่ายเกินมูลค่าสัญญาแล้ว <strong><?= number_format(abs($contractRemaining), 2) ?> บาท</strong> (คงเหลือ <?= number_format($contractRemaining, 2) ?> บาท)</div>
+    <?php endif; ?>
+
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
             <div class="hcv-kpi">
@@ -211,7 +227,7 @@ $poFromUrl = $resolvedPrId > 0
         <div class="col-6 col-lg-3">
             <div class="hcv-kpi">
                 <div class="label">คงเหลือ</div>
-                <div class="value text-danger"><?= number_format((float) ($contract['remaining_amount'] ?? 0), 2) ?></div>
+                <div class="value <?= $contractRemainingCss ?>"><?= number_format($contractRemaining, 2) ?></div>
             </div>
         </div>
         <div class="col-6 col-lg-3">

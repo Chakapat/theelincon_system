@@ -9,6 +9,9 @@ use Theelincon\Rtdb\Purchase;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/line_notify_runtime.php';
+require_once dirname(__DIR__, 2) . '/includes/hire_line_items.php';
+require_once dirname(__DIR__, 2) . '/includes/hire_form_rows.php';
+require_once dirname(__DIR__, 2) . '/includes/contractors.php';
 
 $prOfferLineOnSave = line_effective_channel_access_token() !== '' && line_effective_target_group_id() !== '';
 
@@ -44,6 +47,15 @@ $isEdit = $editPr !== null;
 $current_pr_number = $isEdit ? (string) ($editPr['pr_number'] ?? '') : Purchase::nextPRNumber();
 $prFormAction = $isEdit ? 'update_pr' : 'save_pr';
 $requestTypeVal = $isEdit ? trim((string) ($editPr['request_type'] ?? ($editPr['procurement_type'] ?? 'purchase'))) : 'purchase';
+if (!in_array($requestTypeVal, ['purchase', 'hire'], true)) {
+    $requestTypeVal = (stripos($requestTypeVal, 'hire') !== false || str_contains($requestTypeVal, 'จัดจ้าง')) ? 'hire' : 'purchase';
+}
+if (!$isEdit) {
+    $createTypeHint = trim((string) ($_GET['type'] ?? ''));
+    if ($createTypeHint === 'hire') {
+        $requestTypeVal = 'hire';
+    }
+}
 if ($requestTypeVal !== 'hire') {
     $requestTypeVal = 'purchase';
 }
@@ -69,11 +81,27 @@ if (!in_array($editVatMode, ['exclusive', 'inclusive'], true)) {
 }
 $editRequestedBy = $isEdit ? (int) ($editPr['requested_by'] ?? $uid) : $uid;
 $hireContractorEdit = $isEdit ? trim((string) ($editPr['contractor_name'] ?? ($editPr['hire_contractor_name'] ?? ''))) : '';
+$hireContractorIdEdit = $isEdit ? (int) ($editPr['contractor_id'] ?? 0) : 0;
+$hireContractorSearchEdit = '';
+if ($hireContractorIdEdit > 0) {
+    $hireContractorRowEdit = tnc_contractor_row_by_id($hireContractorIdEdit);
+    if ($hireContractorRowEdit !== null) {
+        $hireContractorSearchEdit = tnc_contractor_display_label($hireContractorRowEdit);
+    }
+} elseif ($hireContractorEdit !== '') {
+    $hireContractorSearchEdit = $hireContractorEdit;
+}
+$contractorRows = Db::tableRows('contractors');
+usort($contractorRows, static function (array $a, array $b): int {
+    return strnatcasecmp(tnc_contractor_full_name_th($a), tnc_contractor_full_name_th($b));
+});
 $hireValueEdit = $isEdit ? (float) ($editPr['contract_value'] ?? ($editPr['hire_total_value'] ?? 0)) : 0.0;
 $hireInstallEdit = $isEdit ? (int) ($editPr['installment_total'] ?? ($editPr['hire_installment_count'] ?? 1)) : 1;
 if ($hireInstallEdit < 1) {
     $hireInstallEdit = 1;
 }
+$hireOverheadEdit = $isEdit ? (float) ($editPr['overhead_percent'] ?? 0) : 0.0;
+$hirePreliminaryEdit = $isEdit ? (float) ($editPr['preliminary_percent'] ?? 0) : 0.0;
 
 $sites = Db::tableRows('sites');
 usort($sites, static function (array $a, array $b): int {
@@ -98,12 +126,14 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/hire-line-table.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/pr-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
         :root {
             --pr-brand: #fd7e14;
             --pr-brand-hover: #e86c00;
-            --pr-surface: #f4f6f9;
+            --pr-surface: #f8fafc;
             --pr-card-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
             --pr-border: #e8ecf1;
         }
@@ -113,6 +143,20 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
             color: #1e293b;
         }
         .pr-page { max-width: 1200px; }
+        .pr-page.pr-page--wide {
+            width: 100%;
+            max-width: none;
+        }
+        @media (min-width: 1200px) {
+            .pr-page.pr-page--wide .pr-table-card {
+                padding: 1.35rem 1.15rem;
+            }
+        }
+        @media (min-width: 1600px) {
+            .pr-page.pr-page--wide .pr-table-card {
+                padding: 1.5rem 1.35rem;
+            }
+        }
         .pr-page-title {
             font-size: 1.5rem;
             font-weight: 700;
@@ -473,16 +517,13 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
         .pr-card-meta-compact .form-check {
             margin-bottom: 0.25rem;
         }
-        .pr-card-meta-compact #hire_fields_wrap .row {
-            --bs-gutter-y: 0.5rem;
-        }
     </style>
 </head>
 <body>
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
-<div class="container pr-page mt-4 mb-5 py-2">
+<div class="container pr-page mt-4 mb-5 py-2" id="pr_page_root">
     <?php if (!empty($_GET['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <?php
@@ -496,7 +537,9 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
             } elseif ($err === 'no_items') {
                 echo 'กรุณาระบุอย่างน้อย 1 รายการสินค้าที่มีรายละเอียดและจำนวนมากกว่า 0 (ราคาต่อหน่วยใส่ 0 ได้หากยังไม่ทราบราคา — กรอกราคาจริงตอนสร้าง PO)';
             } elseif ($err === 'invalid_hire' || $err === 'hire_invalid') {
-                echo 'กรุณากรอกข้อมูลจัดจ้างให้ครบ: ผู้รับจ้าง, มูลค่าสัญญา และจำนวนงวด';
+                echo 'กรุณากรอกข้อมูลจัดจ้างให้ครบ: ผู้รับจ้าง, รายการงาน, Overhead/Preliminary (ถ้ามี) และจำนวนงวด';
+            } elseif ($err === 'hire_contractor_required') {
+                echo 'กรุณาเลือกผู้รับจ้างจากทะเบียนผู้รับจ้าง (หรือเพิ่มรายชื่อใหม่ก่อน)';
             } else {
                 echo 'เกิดข้อผิดพลาด กรุณาลองใหม่';
             }
@@ -512,13 +555,18 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
         <input type="hidden" name="requested_by" value="<?= (int) $editRequestedBy ?>">
         <?php if ($isEdit): ?>
             <input type="hidden" name="pr_id" value="<?= (int) $editId ?>">
-            <input type="hidden" name="request_type" value="<?= htmlspecialchars($requestTypeVal, ENT_QUOTES, 'UTF-8') ?>">
         <?php endif; ?>
         <input type="hidden" name="send_line_after_save" id="send_line_after_save" value="0">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-1">
-            <h1 class="pr-page-title mb-0"><i class="bi bi-cart-plus-fill text-warning me-2"></i><?= $isEdit ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)' ?></h1>
+        <div class="pr-page-header d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4 pb-1">
+            <div>
+                <h1 class="pr-page-title mb-0" id="pr_page_title">
+                    <?= $requestTypeVal === 'hire'
+                        ? ($isEdit ? 'แก้ไขใบขอจัดจ้าง (PR)' : 'สร้างใบขอจัดจ้าง (PR)')
+                        : ($isEdit ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)') ?>
+                </h1>
+            </div>
             <div class="d-flex flex-wrap gap-2">
-                <button type="button" class="btn btn-pr-primary" id="btnPrSaveOpenModal" <?= count($sites) === 0 ? 'disabled' : '' ?>><i class="bi bi-save me-1"></i>บันทึกใบขอซื้อ</button>
+                <button type="button" class="btn btn-pr-primary" id="btnPrSaveOpenModal" <?= count($sites) === 0 ? 'disabled' : '' ?>><i class="bi bi-save me-1"></i><?= $requestTypeVal === 'hire' ? 'บันทึกใบขอจัดจ้าง' : 'บันทึกใบขอซื้อ' ?></button>
                 <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-danger rounded-pill fw-semibold px-4"><i class="bi bi-x-circle me-1"></i>ยกเลิก</a>
             </div>
         </div>
@@ -542,12 +590,12 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                     <div class="row g-2 g-md-3">
                         <div class="col-md-6">
                             <label class="pr-field-label">ประเภทคำขอ</label>
-                            <select name="request_type" id="request_type" class="form-select form-select-sm" onchange="toggleRequestTypeFields()"<?= $isEdit ? ' disabled' : '' ?>>
+                            <select name="request_type" id="request_type" class="form-select form-select-sm">
                                 <option value="purchase"<?= $requestTypeVal === 'purchase' ? ' selected' : '' ?>>จัดซื้อ (Purchase)</option>
                                 <option value="hire"<?= $requestTypeVal === 'hire' ? ' selected' : '' ?>>จัดจ้าง (Hire)</option>
                             </select>
                             <?php if ($isEdit): ?>
-                                <div class="form-text">ไม่สามารถเปลี่ยนประเภทหลังสร้างแล้ว — หากต้องการประเภทอื่นให้สร้างใบ PR ใหม่</div>
+                                <div class="form-text">เปลี่ยนประเภทได้ก่อนออก PO — ระบบจะบันทึกตามประเภทที่เลือก</div>
                             <?php endif; ?>
                         </div>
                         <?php if (count($sites) > 0): ?>
@@ -570,25 +618,28 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                             </select>
                             <div class="form-text">เลือกไซต์ก่อน แล้วระบบจะแสดงหมวดที่ใช้ได้ — เพิ่มหมวดได้ที่หน้า «ไซต์งาน»</div>
                         </div>
-                        <div class="col-12 d-none" id="hire_fields_wrap">
-                            <div class="row g-2 g-md-3">
-                                <div class="col-md-4">
-                                    <label class="pr-field-label">ผู้รับจ้าง</label>
-                                    <input type="text" name="contractor_name" id="contractor_name" class="form-control form-control-sm" maxlength="255" value="<?= htmlspecialchars($hireContractorEdit, ENT_QUOTES, 'UTF-8') ?>">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="pr-field-label">มูลค่าสัญญา (บาท)</label>
-                                    <input type="number" name="contract_value" id="contract_value" class="form-control form-control-sm" step="any" min="0" value="<?= $hireValueEdit > 0 ? htmlspecialchars((string) $hireValueEdit, ENT_QUOTES, 'UTF-8') : '' ?>">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="pr-field-label">จำนวนงวด</label>
-                                    <input type="number" name="installment_total" id="installment_total" class="form-control form-control-sm" min="1" max="120" value="<?= (int) $hireInstallEdit ?>">
-                                </div>
+                        <div class="col-md-6 d-none" id="hire_field_contractor">
+                            <label class="pr-field-label" for="contractor_search">ผู้รับจ้าง <span class="text-danger">*</span></label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" id="contractor_search" class="form-control" list="contractor_list" value="<?= htmlspecialchars($hireContractorSearchEdit, ENT_QUOTES, 'UTF-8') ?>" placeholder="พิมพ์ชื่อหรือเลขบัตร แล้วเลือกจากรายการ" autocomplete="off">
+                                <a href="<?= htmlspecialchars(app_path('pages/contractors/contractor-form.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="btn btn-outline-secondary" title="เพิ่มผู้รับจ้าง"><i class="bi bi-person-plus"></i></a>
                             </div>
+                            <datalist id="contractor_list">
+                                <?php foreach ($contractorRows as $contractorRow): ?>
+                                    <option value="<?= htmlspecialchars(tnc_contractor_display_label($contractorRow), ENT_QUOTES, 'UTF-8') ?>" data-id="<?= (int) ($contractorRow['id'] ?? 0) ?>"></option>
+                                <?php endforeach; ?>
+                            </datalist>
+                            <input type="hidden" name="contractor_id" id="contractor_id" value="<?= (int) $hireContractorIdEdit ?>">
+                            <div class="form-text">เลือกจาก<a href="<?= htmlspecialchars(app_path('pages/contractors/contractor-list.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">ทะเบียนผู้รับจ้าง</a> — ทุกช่องต้องลงทะเบียนครบก่อนใช้งาน</div>
                         </div>
+                        <div class="col-md-6 d-none" id="hire_field_installment">
+                            <label class="pr-field-label" for="installment_total">จำนวนงวดชำระ <span class="text-danger">*</span></label>
+                            <input type="number" name="installment_total" id="installment_total" class="form-control form-control-sm text-end" min="1" max="120" value="<?= (int) $hireInstallEdit ?>">
+                        </div>
+                        <input type="hidden" name="contract_value" id="contract_value" value="<?= $hireValueEdit > 0 ? htmlspecialchars((string) $hireValueEdit, ENT_QUOTES, 'UTF-8') : '0' ?>">
                         <div class="col-12">
-                            <label class="pr-field-label" id="details_label">รายละเอียด/วัตถุประสงค์</label>
-                            <textarea name="details" id="details_textarea" class="form-control form-control-sm" rows="2"><?= htmlspecialchars($editDetails, ENT_QUOTES, 'UTF-8') ?></textarea>
+                            <label class="pr-field-label" id="details_label"><?= $requestTypeVal === 'hire' ? 'เงื่อนไขการชำระเงิน / ขอบเขตการทำงาน' : 'รายละเอียด/วัตถุประสงค์' ?><?= $requestTypeVal === 'hire' ? ' <span class="text-danger">*</span>' : '' ?></label>
+                            <textarea name="details" id="details_textarea" class="form-control form-control-sm" rows="<?= $requestTypeVal === 'hire' ? 4 : 2 ?>" placeholder="<?= $requestTypeVal === 'hire' ? 'ระบุเงื่อนไขการชำระเงิน และขอบเขตการทำงาน' : '' ?>"<?= $requestTypeVal === 'hire' ? ' required' : '' ?>><?= htmlspecialchars($editDetails, ENT_QUOTES, 'UTF-8') ?></textarea>
                         </div>
                     </div>
                 </div>
@@ -662,6 +713,62 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                 </div>
             </div>
 
+            <div id="hire_lines_wrap" class="d-none hire-lines-section" data-tnc-hire-root>
+                <h2 class="h6 fw-bold text-secondary mb-3 text-uppercase" style="letter-spacing:0.05em;">รายการงานจัดจ้าง</h2>
+                <div class="hire-table-panel">
+                    <div class="table-responsive hire-table-scroll">
+                    <table class="table align-middle table-hire-lines" id="hirePrTable">
+                        <thead>
+                            <tr>
+                                <th class="hire-col-no text-center">#</th>
+                                <th class="hire-col-desc">รายการ</th>
+                                <th class="hire-col-qty text-end">จำนวน</th>
+                                <th class="hire-col-unit text-end">หน่วย</th>
+                                <th class="hire-col-money text-end">ค่าวัสดุ</th>
+                                <th class="hire-col-money text-end">ค่าแรง</th>
+                                <th class="hire-col-money text-end">ราคา/หน่วย</th>
+                                <th class="hire-col-money text-end">ราคารวม</th>
+                                <th class="hire-col-action"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($isEdit && $requestTypeVal === 'hire'): ?>
+                                <?php tnc_hire_form_rows_from_items('hire', $editItems, 'pr'); ?>
+                            <?php else: ?>
+                                <?php tnc_hire_form_default_rows('hire', 'pr'); ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+                <div class="hire-lines-toolbar">
+                    <button type="button" class="btn btn-pr-add-row btn-sm rounded-pill px-3" id="addHirePrGroupBtn" data-tnc-hire-add="group">
+                        <i class="bi bi-folder-plus me-1"></i>เพิ่มหัวข้อหลัก
+                    </button>
+                    <button type="button" class="btn btn-pr-add-row btn-sm rounded-pill px-3" id="addHirePrRowBtn" data-tnc-hire-add="item">
+                        <i class="bi bi-plus-circle me-1"></i>เพิ่มรายการย่อย
+                    </button>
+                </div>
+                <div class="hire-cost-adjust-panel d-none" id="hire_cost_adjust_wrap">
+                    <div class="row g-2 g-md-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="overhead_percent">Overhead cost (%)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" name="overhead_percent" id="overhead_percent" class="form-control text-end" min="0" max="100" step="0.01" value="<?= htmlspecialchars((string) $hireOverheadEdit, ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="preliminary_percent">Preliminary cost (%)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" name="preliminary_percent" id="preliminary_percent" class="form-control text-end" min="0" max="100" step="0.01" value="<?= htmlspecialchars((string) $hirePreliminaryEdit, ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="mt-4 pt-3 border-top" id="pr_summary_footer">
                 <div class="pr-summary-footer-inner">
                     <div class="pr-vat-inline-box">
@@ -684,16 +791,28 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                     </div>
                     <div class="pr-summary-totals-stack">
                         <div class="pr-summary-totals-inner">
+                            <div id="hire_sum_row_direct" class="pr-sum-row d-none">
+                                <span class="pr-sum-lbl">ยอดรายการ:</span>
+                                <span class="pr-sum-val"><span id="hire_direct_display" class="fw-semibold text-dark">0.00</span> บาท</span>
+                            </div>
+                            <div id="hire_sum_row_overhead" class="pr-sum-row d-none text-secondary">
+                                <span class="pr-sum-lbl">Overhead cost (<span id="overhead_pct_label">0</span>%):</span>
+                                <span class="pr-sum-val">+ <span id="overhead_amount_display">0.00</span> บาท</span>
+                            </div>
+                            <div id="hire_sum_row_preliminary" class="pr-sum-row d-none text-secondary">
+                                <span class="pr-sum-lbl">Preliminary cost (<span id="preliminary_pct_label">0</span>%):</span>
+                                <span class="pr-sum-val">+ <span id="preliminary_amount_display">0.00</span> บาท</span>
+                            </div>
                             <div class="pr-sum-row">
                                 <span class="pr-sum-lbl"><span id="subtotal_label">ยอดรายการ:</span></span>
                                 <span class="pr-sum-val"><span id="subtotal_display" class="fw-semibold text-dark">0.00</span> บาท</span>
                             </div>
                             <div id="vat_row" class="pr-sum-row<?= $editVatOn ? '' : ' d-none' ?>">
-                                <span class="pr-sum-lbl">ภาษีมูลค่าเพิ่ม:</span>
-                                <span class="pr-sum-val"><span id="vat_display">0.00</span> บาท</span>
+                                <span class="pr-sum-lbl"><span id="vat_label">ภาษีมูลค่าเพิ่ม:</span></span>
+                                <span class="pr-sum-val"><span id="vat_prefix">+ </span><span id="vat_display">0.00</span> บาท</span>
                             </div>
                             <div class="pr-grand-total-line mb-0">
-                                <span class="pr-grand-lbl">ยอดรวมสุทธิ:</span>
+                                <span class="pr-grand-lbl"><span id="grand_total_label">ยอดรวมสุทธิ:</span></span>
                                 <span class="pr-grand-amount-wrap"><span id="grand_total">0.00</span><span class="pr-grand-suffix"> บาท</span></span>
                             </div>
                         </div>
@@ -747,7 +866,9 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/hire-line-table.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
+let hirePrTableApi = null;
 // ฟังก์ชันเพิ่มแถวใหม่
 function addRow() {
     const table = document.getElementById('prTable').getElementsByTagName('tbody')[0];
@@ -804,17 +925,123 @@ function updateRowNumbers() {
     });
 }
 
-// ฟังก์ชันคำนวณเงินรวม (รองรับ VAT แยก/รวมในราคา)
-function calculateTotal() {
-    let lineAmount = 0;
-    const rows = document.getElementById('prTable').getElementsByTagName('tbody')[0].rows;
-    const vatOn = document.getElementById('vat_enabled').checked;
-    const vatMode = document.getElementById('vat_mode')?.value || 'exclusive';
-    const requestType = (document.getElementById('request_type')?.value || 'purchase');
+// รวมยอดจากตารางจัดจ้าง (อ่านจากช่องราคารวมที่คำนวณแล้ว)
+function sumHireLineSubtotal() {
+    const table = document.getElementById('hirePrTable');
+    if (!table) {
+        return 0;
+    }
+    let subtotal = 0;
+    table.querySelectorAll('tbody tr').forEach(function (row) {
+        if (row.classList.contains('hire-row-group')) {
+            return;
+        }
+        if (row.querySelector('.hire-line-type')?.value === 'group') {
+            return;
+        }
+        const totalEl = row.querySelector('.hire-line-total');
+        subtotal += parseFloat(String(totalEl?.value || '').replace(/,/g, '')) || 0;
+    });
+    return Math.round(subtotal * 100) / 100;
+}
 
-    if (requestType === 'hire') {
-        const contractValue = parseFloat(document.getElementById('contract_value')?.value || '0') || 0;
-        lineAmount = Math.max(0, contractValue);
+// ฟังก์ชันคำนวณเงินรวม (รองรับ VAT แยก/รวมในราคา + Overhead/Preliminary สำหรับจัดจ้าง)
+function calculateTotal(hireDirectSubtotal) {
+    const fmt = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+    const fmtNum = (n) => n.toLocaleString(undefined, fmt);
+    let lineAmount = 0;
+    const prTableBody = document.getElementById('prTable')?.getElementsByTagName('tbody')[0];
+    const rows = prTableBody ? prTableBody.rows : [];
+    const vatOn = !!document.getElementById('vat_enabled')?.checked;
+    const vatMode = document.getElementById('vat_mode')?.value || 'exclusive';
+    const requestType = getPrRequestType();
+    const isHire = requestType === 'hire';
+
+    if (isHire) {
+        let lineAmount = 0;
+        if (typeof hireDirectSubtotal === 'number' && !Number.isNaN(hireDirectSubtotal)) {
+            lineAmount = hireDirectSubtotal;
+        } else {
+            lineAmount = sumHireLineSubtotal();
+        }
+        lineAmount = Math.round(lineAmount * 100) / 100;
+
+        const overheadPct = Math.max(0, Math.min(100, parseFloat(document.getElementById('overhead_percent')?.value || '0') || 0));
+        const preliminaryPct = Math.max(0, Math.min(100, parseFloat(document.getElementById('preliminary_percent')?.value || '0') || 0));
+        const overheadAmt = Math.round(lineAmount * overheadPct / 100 * 100) / 100;
+        const preliminaryAmt = Math.round(lineAmount * preliminaryPct / 100 * 100) / 100;
+        const excludedVat = Math.round((lineAmount + overheadAmt + preliminaryAmt) * 100) / 100;
+        let vat = 0;
+        let grand = excludedVat;
+        if (vatOn) {
+            vat = Math.round(excludedVat * 0.07 * 100) / 100;
+            grand = Math.round((excludedVat + vat) * 100) / 100;
+        }
+
+        const cvEl = document.getElementById('contract_value');
+        if (cvEl) {
+            cvEl.value = excludedVat.toFixed(2);
+        }
+
+        const hireDirectDisplay = document.getElementById('hire_direct_display');
+        if (hireDirectDisplay) {
+            hireDirectDisplay.textContent = fmtNum(lineAmount);
+        }
+        const ohPctLabel = document.getElementById('overhead_pct_label');
+        if (ohPctLabel) {
+            ohPctLabel.textContent = overheadPct.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        }
+        const overheadAmountDisplay = document.getElementById('overhead_amount_display');
+        if (overheadAmountDisplay) {
+            overheadAmountDisplay.textContent = fmtNum(overheadAmt);
+        }
+        const prePctLabel = document.getElementById('preliminary_pct_label');
+        if (prePctLabel) {
+            prePctLabel.textContent = preliminaryPct.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        }
+        const preliminaryAmountDisplay = document.getElementById('preliminary_amount_display');
+        if (preliminaryAmountDisplay) {
+            preliminaryAmountDisplay.textContent = fmtNum(preliminaryAmt);
+        }
+        const subtotalLabel = document.getElementById('subtotal_label');
+        if (subtotalLabel) {
+            subtotalLabel.textContent = 'ราคารวมทั้งหมด (Excluded VAT):';
+        }
+        const subtotalDisplay = document.getElementById('subtotal_display');
+        if (subtotalDisplay) {
+            subtotalDisplay.textContent = fmtNum(excludedVat);
+        }
+        const vatLabel = document.getElementById('vat_label');
+        if (vatLabel) {
+            vatLabel.textContent = 'VAT 7%:';
+        }
+        const vatPrefix = document.getElementById('vat_prefix');
+        if (vatPrefix) {
+            vatPrefix.textContent = vatOn ? '+ ' : '';
+        }
+        const vatDisplay = document.getElementById('vat_display');
+        if (vatDisplay) {
+            vatDisplay.textContent = fmtNum(vat);
+        }
+        const grandLabel = document.getElementById('grand_total_label');
+        if (grandLabel) {
+            grandLabel.textContent = 'Grand Total:';
+        }
+        const grandTotalEl = document.getElementById('grand_total');
+        if (grandTotalEl) {
+            grandTotalEl.textContent = fmtNum(grand);
+        }
+        const totalInput = document.getElementById('total_amount_input');
+        if (totalInput) {
+            totalInput.value = grand.toFixed(2);
+        }
+
+        const vatRow = document.getElementById('vat_row');
+        if (vatOn) {
+            vatRow?.classList.remove('d-none');
+        } else {
+            vatRow?.classList.add('d-none');
+        }
     } else {
         for (let row of rows) {
             const qtyEl = row.querySelector('.qty');
@@ -825,78 +1052,149 @@ function calculateTotal() {
                 priceEl ? priceEl.value : 0,
                 discEl ? discEl.value : ''
             );
-            row.querySelector('.row-total').value = total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const totalCell = row.querySelector('.row-total');
+            if (totalCell) {
+                totalCell.value = total.toLocaleString(undefined, fmt);
+            }
             lineAmount += total;
         }
-    }
 
-    lineAmount = Math.round(lineAmount * 100) / 100;
-    let subtotal = lineAmount;
-    let vat = 0;
-    let grand = lineAmount;
-    if (vatOn) {
-        if (vatMode === 'inclusive') {
-            vat = Math.round((lineAmount * 7 / 107) * 100) / 100;
-            subtotal = Math.round((lineAmount - vat) * 100) / 100;
-            grand = lineAmount;
+        lineAmount = Math.round(lineAmount * 100) / 100;
+        let subtotal = lineAmount;
+        let vat = 0;
+        let grand = lineAmount;
+        if (vatOn) {
+            if (vatMode === 'inclusive') {
+                vat = Math.round((lineAmount * 7 / 107) * 100) / 100;
+                subtotal = Math.round((lineAmount - vat) * 100) / 100;
+                grand = lineAmount;
+            } else {
+                subtotal = lineAmount;
+                vat = Math.round(subtotal * 0.07 * 100) / 100;
+                grand = Math.round((subtotal + vat) * 100) / 100;
+            }
+        }
+
+        document.getElementById('subtotal_label').textContent = 'ยอดรายการ:';
+        document.getElementById('subtotal_display').textContent = fmtNum(subtotal);
+        document.getElementById('vat_label').textContent = 'ภาษีมูลค่าเพิ่ม:';
+        document.getElementById('vat_prefix').textContent = '';
+        document.getElementById('vat_display').textContent = fmtNum(vat);
+        document.getElementById('grand_total_label').textContent = 'ยอดรวมสุทธิ:';
+        document.getElementById('grand_total').textContent = fmtNum(grand);
+        document.getElementById('total_amount_input').value = grand.toFixed(2);
+
+        const vatRow = document.getElementById('vat_row');
+        if (vatOn) {
+            vatRow?.classList.remove('d-none');
         } else {
-            subtotal = lineAmount;
-            vat = Math.round(subtotal * 0.07 * 100) / 100;
-            grand = Math.round((subtotal + vat) * 100) / 100;
+            vatRow?.classList.add('d-none');
         }
     }
-
-    document.getElementById('subtotal_display').innerText = subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    const vatRow = document.getElementById('vat_row');
-    if (vatOn) {
-        if (vatRow) {
-            vatRow.classList.remove('d-none');
-        }
-        document.getElementById('vat_display').innerText = vat.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    } else {
-        if (vatRow) {
-            vatRow.classList.add('d-none');
-        }
-    }
-    document.getElementById('grand_total').innerText = grand.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    document.getElementById('total_amount_input').value = grand.toFixed(2);
 
     const vatModeWrap = document.getElementById('vat_mode_wrap');
     if (vatModeWrap) {
-        vatModeWrap.classList.toggle('pr-vat-select-hidden', !vatOn);
+        vatModeWrap.classList.toggle('pr-vat-select-hidden', !vatOn || isHire);
     }
     const vatModeEl = document.getElementById('vat_mode');
     if (vatModeEl) {
-        vatModeEl.tabIndex = vatOn ? 0 : -1;
+        vatModeEl.tabIndex = vatOn && !isHire ? 0 : -1;
     }
-    const vatHelpText = document.getElementById('vat_help_text');
+}
+
+function getPrRequestType() {
+    const sel = document.getElementById('request_type');
+    if (!sel) {
+        return 'purchase';
+    }
+    return sel.value === 'hire' ? 'hire' : 'purchase';
 }
 
 function toggleRequestTypeFields() {
     const requestTypeEl = document.getElementById('request_type');
-    const hireWrap = document.getElementById('hire_fields_wrap');
-    const contractorName = document.getElementById('contractor_name');
-    const contractValue = document.getElementById('contract_value');
+    const hireFieldContractor = document.getElementById('hire_field_contractor');
+    const hireFieldInstallment = document.getElementById('hire_field_installment');
+    const hireLinesWrap = document.getElementById('hire_lines_wrap');
+    const hireCostAdjustWrap = document.getElementById('hire_cost_adjust_wrap');
+    const contractorSearch = document.getElementById('contractor_search');
+    const contractorIdInput = document.getElementById('contractor_id');
     const installmentTotal = document.getElementById('installment_total');
     const itemTableCard = document.getElementById('item_table_card');
     const prLinesWrap = document.getElementById('pr_lines_wrap');
     const detailsLabel = document.getElementById('details_label');
     const detailsTextarea = document.getElementById('details_textarea');
     const requestDateLabel = document.getElementById('request_date_label');
-    if (!requestTypeEl || !hireWrap || !contractorName || !contractValue || !installmentTotal || !itemTableCard || !detailsLabel || !detailsTextarea || !requestDateLabel) {
+    if (!requestTypeEl) {
         return;
     }
-    const isHire = requestTypeEl.value === 'hire';
-    hireWrap.classList.toggle('d-none', !isHire);
+    const isHire = getPrRequestType() === 'hire';
+    const isEditMode = <?= $isEdit ? 'true' : 'false' ?>;
+
+    const pageTitle = document.getElementById('pr_page_title');
+    const saveBtn = document.getElementById('btnPrSaveOpenModal');
+    if (pageTitle) {
+        pageTitle.textContent = isHire
+            ? (isEditMode ? 'แก้ไขใบขอจัดจ้าง (PR)' : 'สร้างใบขอจัดจ้าง (PR)')
+            : (isEditMode ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)');
+    }
+    if (saveBtn) {
+        saveBtn.innerHTML = isHire
+            ? '<i class="bi bi-save me-1"></i>บันทึกใบขอจัดจ้าง'
+            : '<i class="bi bi-save me-1"></i>บันทึกใบขอซื้อ';
+    }
+
+    if (hireFieldContractor) {
+        hireFieldContractor.classList.toggle('d-none', !isHire);
+    }
+    if (hireFieldInstallment) {
+        hireFieldInstallment.classList.toggle('d-none', !isHire);
+    }
+    if (hireLinesWrap) {
+        hireLinesWrap.classList.toggle('d-none', !isHire);
+    }
+    if (hireCostAdjustWrap) {
+        hireCostAdjustWrap.classList.toggle('d-none', !isHire);
+    }
+    ['hire_sum_row_direct', 'hire_sum_row_overhead', 'hire_sum_row_preliminary'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.toggle('d-none', !isHire);
+        }
+    });
     if (prLinesWrap) {
         prLinesWrap.classList.toggle('d-none', isHire);
     }
-    contractorName.required = isHire;
-    contractValue.required = isHire;
-    installmentTotal.required = isHire;
-    detailsLabel.textContent = isHire ? 'รายละเอียดการจ้าง' : 'หมายเหตุ';
-    requestDateLabel.textContent = isHire ? 'วันที่จัดจ้าง' : 'วันที่ขอซื้อ';
+    if (contractorSearch) {
+        contractorSearch.required = isHire;
+    }
+    if (installmentTotal) {
+        installmentTotal.required = isHire;
+    }
+    if (detailsLabel) {
+        if (isHire) {
+            detailsLabel.innerHTML = 'เงื่อนไขการชำระเงิน / ขอบเขตการทำงาน <span class="text-danger">*</span>';
+        } else {
+            detailsLabel.textContent = 'รายละเอียด/วัตถุประสงค์';
+        }
+    }
+    if (detailsTextarea) {
+        detailsTextarea.required = isHire;
+        detailsTextarea.rows = isHire ? 4 : 2;
+        detailsTextarea.placeholder = isHire ? 'ระบุเงื่อนไขการชำระเงิน และขอบเขตการทำงาน' : '';
+    }
+    if (requestDateLabel) {
+        requestDateLabel.textContent = isHire ? 'วันที่จัดจ้าง' : 'วันที่ขอซื้อ';
+    }
 
+    calculateTotal();
+
+    if (!itemTableCard) {
+        setHireLineInputsEnabled(isHire);
+        if (isHire) {
+            initHirePrTable();
+        }
+        return;
+    }
     const tableInputs = itemTableCard.querySelectorAll('input[name="item_description[]"], input[name="item_qty[]"], input[name="item_price[]"]');
     tableInputs.forEach((input) => {
         input.required = !isHire;
@@ -910,13 +1208,54 @@ function toggleRequestTypeFields() {
     optionalInputs.forEach((input) => {
         input.disabled = isHire;
     });
-
+    setHireLineInputsEnabled(isHire);
+    if (isHire) {
+        initHirePrTable();
+    }
 }
 
-document.getElementById('request_type')?.addEventListener('change', function () {
-    toggleRequestTypeFields();
-    calculateTotal();
-});
+function setHireLineInputsEnabled(isHire) {
+    const hireLinesWrap = document.getElementById('hire_lines_wrap');
+    if (!hireLinesWrap) {
+        return;
+    }
+    hireLinesWrap.querySelectorAll('.hire-desc, .hire-desc-group, .hire-qty').forEach((input) => {
+        input.required = isHire;
+        input.disabled = !isHire;
+    });
+    hireLinesWrap.querySelectorAll('.hire-unit, .hire-material, .hire-labor').forEach((input) => {
+        input.disabled = !isHire;
+    });
+    hireLinesWrap.querySelectorAll('.hire-remove-row').forEach((btn) => {
+        if (!isHire) {
+            btn.disabled = true;
+        }
+    });
+    hireLinesWrap.querySelectorAll('[data-tnc-hire-add]').forEach((btn) => {
+        btn.disabled = !isHire;
+    });
+}
+
+function initHirePrTable() {
+    const hireTable = document.getElementById('hirePrTable');
+    if (!hireTable || !window.TncHireLineTable) {
+        return;
+    }
+    const addGroupBtn = document.getElementById('addHirePrGroupBtn');
+    const addRowBtn = document.getElementById('addHirePrRowBtn');
+    if (!hirePrTableApi) {
+        hirePrTableApi = TncHireLineTable.bindTable(hireTable, {
+            fieldPrefix: 'hire',
+            addGroupButton: addGroupBtn,
+            addItemButton: addRowBtn,
+            onSubtotal: function (subtotal) {
+                calculateTotal(subtotal);
+            },
+        });
+        return;
+    }
+    hirePrTableApi.recalc();
+}
 
 (function () {
     const dateInput = document.getElementById('created_at');
@@ -1005,12 +1344,16 @@ document.getElementById('request_type')?.addEventListener('change', function () 
     });
 })();
 
-document.addEventListener('DOMContentLoaded', calculateTotal);
-document.addEventListener('DOMContentLoaded', toggleRequestTypeFields);
+document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('request_type')?.addEventListener('change', toggleRequestTypeFields);
+    toggleRequestTypeFields();
+    initHirePrTable();
+    calculateTotal();
+});
 
 // เติมตัวเลือก "หมวดค่าใช้จ่าย" ตามไซต์ที่เลือก (หมวดกลาง + หมวดเฉพาะไซต์)
 (function () {
-    var catMap = <?= json_encode($siteCategoryMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    var catMap = <?= json_encode($siteCategoryMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;
     var selectedCatId = <?= (int) $editCostCategoryId ?>;
     var siteEl = document.getElementById('site_id');
     var catEl = document.getElementById('cost_category_id');
@@ -1040,6 +1383,41 @@ document.addEventListener('DOMContentLoaded', toggleRequestTypeFields);
     }
     document.addEventListener('DOMContentLoaded', populateCategories);
     populateCategories();
+})();
+
+(function () {
+    const searchInput = document.getElementById('contractor_search');
+    const contractorIdInput = document.getElementById('contractor_id');
+    const datalist = document.getElementById('contractor_list');
+    if (!searchInput || !contractorIdInput || !datalist) {
+        return;
+    }
+
+    function syncContractorId() {
+        const typed = (searchInput.value || '').trim();
+        if (typed === '') {
+            contractorIdInput.value = '';
+            return;
+        }
+        let matchedId = '';
+        datalist.querySelectorAll('option').forEach((opt) => {
+            const optValue = (opt.value || '').trim();
+            if (matchedId === '' && optValue.toLowerCase() === typed.toLowerCase()) {
+                matchedId = (opt.getAttribute('data-id') || '').trim();
+            }
+        });
+        contractorIdInput.value = matchedId;
+    }
+
+    searchInput.addEventListener('input', syncContractorId);
+    searchInput.addEventListener('change', syncContractorId);
+
+    const form = searchInput.closest('form');
+    if (form) {
+        form.addEventListener('submit', function () {
+            syncContractorId();
+        });
+    }
 })();
 
 </script>

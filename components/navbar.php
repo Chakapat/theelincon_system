@@ -72,6 +72,18 @@ if (!function_exists('app_path')) {
     @media (max-width: 991.98px) {
         .tnc-notif-menu { min-width: 100%; }
     }
+    .tnc-notif-toast {
+        top: 4.5rem;
+        right: 1rem;
+        z-index: 1080;
+        min-width: min(22rem, calc(100vw - 2rem));
+        max-width: calc(100vw - 2rem);
+        animation: tncNotifToastIn .25s ease-out;
+    }
+    @keyframes tncNotifToastIn {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 
     /* ---------- Global mobile/responsive hardening (system-wide) ---------- */
     html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
@@ -393,6 +405,12 @@ document.addEventListener('DOMContentLoaded', function () {
     var markAllBtn = document.getElementById('tncNotifMarkAll');
     if (!badge || !listEl) return;
 
+    var pollMs = 3000;
+    var lastChecksum = '';
+    var lastUnread = 0;
+    var pollTimer = null;
+    var toastTimer = null;
+
     function esc(s) {
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -470,6 +488,34 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function showToast(item) {
+        if (!item || item.is_read) return;
+        var existing = document.getElementById('tncNotifToast');
+        if (existing) existing.remove();
+        if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+
+        var ok = item.type === 'pr_approved';
+        var ico = ok ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger';
+        var el = document.createElement('div');
+        el.id = 'tncNotifToast';
+        el.className = 'tnc-notif-toast alert alert-light shadow-sm border position-fixed d-flex align-items-start gap-2 py-2 px-3';
+        el.setAttribute('role', 'alert');
+        el.innerHTML = '<i class="bi ' + ico + ' fs-5 flex-shrink-0 mt-1"></i>'
+            + '<div class="min-w-0 flex-grow-1">'
+            +   '<div class="fw-semibold small">' + esc(item.title) + '</div>'
+            +   '<div class="text-muted small text-truncate">' + esc(item.message) + '</div>'
+            + '</div>'
+            + '<button type="button" class="btn-close btn-close-sm ms-1" aria-label="ปิด"></button>';
+        document.body.appendChild(el);
+
+        el.querySelector('.btn-close')?.addEventListener('click', function () { el.remove(); });
+        el.addEventListener('click', function (e) {
+            if (e.target.closest('.btn-close')) return;
+            if (item.link) { window.location.href = item.link; }
+        });
+        toastTimer = setTimeout(function () { el.remove(); toastTimer = null; }, 8000);
+    }
+
     function render(items) {
         if (!items || items.length === 0) {
             listEl.innerHTML = '<div class="text-center text-muted py-4 small">ยังไม่มีการแจ้งเตือน</div>';
@@ -495,11 +541,60 @@ document.addEventListener('DOMContentLoaded', function () {
         listEl.innerHTML = html;
     }
 
-    function load() {
+    function load(showToastForNew) {
         fetch(endpoint + '?action=list', { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
-            .then(function (d) { if (!d || !d.ok) return; setBadge(d.unread); render(d.items); })
+            .then(function (d) {
+                if (!d || !d.ok) return;
+                setBadge(d.unread);
+                render(d.items);
+                lastUnread = parseInt(d.unread, 10) || 0;
+                if (showToastForNew && d.items && d.items.length) {
+                    for (var i = 0; i < d.items.length; i++) {
+                        if (!d.items[i].is_read) {
+                            showToast(d.items[i]);
+                            break;
+                        }
+                    }
+                }
+            })
             .catch(function () {});
+    }
+
+    function poll() {
+        fetch(endpoint + '?action=poll', { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d || !d.ok) return;
+                var unread = parseInt(d.unread, 10) || 0;
+                var checksum = String(d.checksum || '');
+                if (lastChecksum === '') {
+                    lastChecksum = checksum;
+                    lastUnread = unread;
+                    setBadge(unread);
+                    return;
+                }
+                if (checksum === lastChecksum) {
+                    return;
+                }
+                var hasNew = unread > lastUnread;
+                lastChecksum = checksum;
+                lastUnread = unread;
+                load(hasNew);
+            })
+            .catch(function () {});
+    }
+
+    function startPolling() {
+        if (pollTimer) return;
+        poll();
+        pollTimer = setInterval(function () {
+            if (!document.hidden) poll();
+        }, pollMs);
+    }
+
+    function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     }
 
     function post(action, extra) {
@@ -529,9 +624,17 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    if (toggle) { toggle.addEventListener('click', load); }
-    load();
-    setInterval(function () { if (!document.hidden) load(); }, 45000);
+    if (toggle) { toggle.addEventListener('click', function () { load(false); }); }
+    load(false);
+    startPolling();
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+            stopPolling();
+            return;
+        }
+        poll();
+        startPolling();
+    });
 })();
 </script>
 <?php endif; ?>

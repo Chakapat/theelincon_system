@@ -249,16 +249,10 @@ $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
             margin-top: 0.35rem;
         }
         .po-purchase-order-doc .po-note-heading {
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             font-weight: 700;
-            color: #111;
+            color: #9a3412;
             margin-bottom: 0.35rem;
-        }
-        .po-purchase-order-doc .po-note-body {
-            font-size: 1rem;
-            line-height: 1.5;
-            color: #334155;
-            white-space: pre-line;
         }
         .invoice-box.po-purchase-order-doc .table-custom thead th,
         .invoice-box.po-purchase-order-doc .po-items-table thead th {
@@ -572,6 +566,11 @@ $hasAlerts = !empty($_GET['cancelled'])
                     <button type="button" class="btn btn-success rounded-pill px-3 shadow-sm" onclick="tncPrintPoWhenReady()">
                         <i class="bi bi-printer me-1"></i>พิมพ์ใบสั่งซื้อ
                     </button>
+                <?php endif; ?>
+                <?php if (user_is_finance_role() && !$isPoCancelled && !$isPoPaid): ?>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-primary rounded-pill px-3 shadow-sm">
+                        <i class="bi bi-pencil-square me-1"></i>แก้ไข
+                    </a>
                 <?php endif; ?>
                 <?php if (!$isPoCancelled && !$isPoPaid): ?>
                     <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=cancel_purchase_order" class="d-inline" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบสั่งซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และจะแสดงประทับบนใบพิมพ์');">

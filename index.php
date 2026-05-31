@@ -873,6 +873,7 @@ $index_hub_start_all_collapsed = true;
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-geo-alt me-2 text-secondary"></i>ไซต์งาน (Sites)</a>
                         <a class="home-hub-link d-flex align-items-center js-hub-member-manage<?= $is_admin_only ? '' : ' text-muted' ?>" href="<?= htmlspecialchars(app_path('pages/organization/member-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-person-gear me-2 text-secondary"></i>จัดการสมาชิก (Members)</a>
                         <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-truck me-2 text-secondary"></i>ผู้ขาย (Suppliers)</a>
+                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/contractors/contractor-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-person-badge me-2 text-secondary"></i>ผู้รับจ้าง (Contractors)</a>
                     </div>
                 </div>
             </div>

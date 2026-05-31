@@ -90,6 +90,10 @@ if (!function_exists('tnc_ajax_error_message')) {
             'confirm_password_required' => 'กรุณากรอกรหัสผ่านของคุณเพื่อยืนยันการลบ',
             'confirm_password_invalid' => 'รหัสผ่านไม่ถูกต้อง',
             'invalid_name' => 'ชื่อไม่ถูกต้อง',
+            'required' => 'กรุณากรอกข้อมูลให้ครบทุกช่อง',
+            'photo_required' => 'กรุณาแนบรูปบัตรประชาชน',
+            'invalid_national_id' => 'เลขบัตรประชาชนไม่ถูกต้อง',
+            'duplicate_national_id' => 'เลขบัตรประชาชนนี้มีในระบบแล้ว',
         ];
 
         return $map[$code] ?? ('ไม่สามารถดำเนินการได้ (' . $code . ')');

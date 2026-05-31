@@ -48,7 +48,7 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             height: 297mm;
             margin: 0 auto 1.5rem;
             background: #fff;
-            padding: 10mm 15mm;
+            padding: 14mm 15mm 10mm;
             position: relative;
             box-shadow: 0 5px 20px rgba(0,0,0,0.05);
             border-top: 8px solid var(--brand-color);
@@ -74,82 +74,10 @@ $prHandlerUrl = app_path('actions/action-handler.php');
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
         .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
 
-        /* ตารางรายการ — ระยะห่างและบรรทัดอ่านง่าย */
+        /* ตาราง / ยอดรวม / ลายเซ็น — styles หลักอยู่ใน document-print.css */
         .pr-purchase-requisition-doc .table-custom {
             margin-top: 10px;
             margin-bottom: 0;
-        }
-        .pr-purchase-requisition-doc .table-custom thead th {
-            background: #fafafa;
-            border-bottom: 2px solid var(--brand-color);
-            font-size: 12px;
-            font-weight: 700;
-            line-height: 1.45;
-            padding: 9px 11px;
-            vertical-align: middle;
-        }
-        .pr-purchase-requisition-doc .table-custom tbody td {
-            padding: 9px 11px;
-            font-size: 12px;
-            line-height: 1.45;
-            border-bottom: 1px solid #f2f2f2;
-            vertical-align: middle;
-        }
-        .pr-purchase-requisition-doc .table-custom tbody td.fw-bold {
-            line-height: 1.4;
-        }
-
-        /* ยอดรวม + ลายเซ็น ติดขอบล่างกระดาษ A4 */
-        .pr-purchase-requisition-doc .footer-sticky {
-            position: absolute;
-            bottom: 12mm;
-            left: 15mm;
-            right: 15mm;
-        }
-        .pr-purchase-requisition-doc .pr-footer-panel {
-            page-break-inside: avoid;
-            break-inside: avoid;
-        }
-        .pr-purchase-requisition-doc .summary-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 0.75rem;
-            padding: 3px 0;
-            font-size: 13px;
-            line-height: 1.45;
-        }
-        .pr-purchase-requisition-doc .summary-box {
-            background: #f8fbff;
-            border: 1px solid #c7dbfa;
-            border-radius: 0.5rem;
-            padding: 0.65rem 0.9rem;
-        }
-        .pr-purchase-requisition-doc .grand-total-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: var(--brand-color);
-            color: #fff;
-            padding: 10px 12px;
-            border-radius: 5px;
-            margin-top: 6px;
-            line-height: 1.35;
-        }
-        .pr-purchase-requisition-doc .signature-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            text-align: center;
-            margin-top: 16px;
-        }
-        .pr-purchase-requisition-doc .sig-space { height: 56px; }
-        .pr-purchase-requisition-doc .sig-box {
-            border-top: 1px solid #333;
-            padding-top: 8px;
-            font-size: 12px;
-            font-weight: 600;
-            line-height: 1.4;
         }
 
         .pr-view-toolbar {
@@ -215,6 +143,9 @@ $prHandlerUrl = app_path('actions/action-handler.php');
         .pr-purchase-requisition-doc .pr-doc-main {
             padding-bottom: 50mm;
             box-sizing: border-box;
+        }
+        .pr-purchase-requisition-doc .doc-meta-date-col {
+            text-align: right;
         }
 
         @media (max-width: 575.98px) {
@@ -518,8 +449,8 @@ $prHandlerUrl = app_path('actions/action-handler.php');
                         <i class="bi bi-lock me-1"></i>รออนุมัติ
                     </span>
                 <?php elseif (!empty($prIsApprovedForPo)): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
-                        <i class="bi bi-file-earmark-plus me-1"></i>ออก PO
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                        <i class="bi bi-file-earmark-plus me-1"></i>ออก PO (ตามงวด)
                     </a>
                     <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-view.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                         <i class="bi bi-file-earmark-ruled me-1"></i>สัญญาจ้าง

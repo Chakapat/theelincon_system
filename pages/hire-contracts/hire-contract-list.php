@@ -48,14 +48,6 @@ $liveUrl = app_path('actions/live-datasets.php?dataset=hire_contracts');
 $viewUrl = app_path('pages/hire-contracts/hire-contract-view.php');
 $poFromPrUrl = app_path('pages/purchase/purchase-order-from-pr.php');
 $poFromHireUrl = app_path('pages/purchase/purchase-order-from-hire-contract.php');
-
-$totalContracts = count($dtRows);
-$totalContractValue = 0.0;
-$totalRemaining = 0.0;
-foreach ($dtRows as $r) {
-    $totalContractValue += (float) ($r['contract_amount'] ?? 0);
-    $totalRemaining += (float) ($r['remaining_amount'] ?? 0);
-}
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -78,26 +70,6 @@ foreach ($dtRows as $r) {
         }
         .hc-header-title { color: #1f2937; letter-spacing: .01em; }
         .hc-header-subtitle { color: #6b7280; font-size: .9rem; }
-        .hc-summary-card {
-            border: 1px solid rgba(0, 0, 0, 0.06);
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.95);
-            box-shadow: 0 0.26rem .9rem rgba(0, 0, 0, 0.045);
-            padding: .95rem 1rem;
-        }
-        .hc-summary-value {
-            font-size: clamp(1.2rem, 2.5vw, 1.85rem);
-            font-weight: 800;
-            line-height: 1.2;
-            letter-spacing: -.02em;
-        }
-        .hc-summary-label {
-            font-size: .78rem;
-            font-weight: 700;
-            letter-spacing: .04em;
-            color: #6b7280;
-            text-transform: uppercase;
-        }
         .hc-card {
             border: 1px solid rgba(0, 0, 0, 0.06);
             border-radius: 14px;
@@ -179,7 +151,8 @@ foreach ($dtRows as $r) {
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
         }
         .hc-remaining-zero { color: #adb5bd !important; font-weight: 600 !important; }
-        .hc-remaining-alert { color: #b02a37 !important; font-weight: 700 !important; }
+        .hc-remaining-alert { color: #0d6efd !important; font-weight: 700 !important; }
+        .hc-remaining-over { color: #b02a37 !important; font-weight: 700 !important; }
         .hc-btn-action {
             width: 2.3rem;
             height: 2.3rem;
@@ -252,36 +225,6 @@ foreach ($dtRows as $r) {
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 pb-5 hc-page-wrap">
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="hc-summary-card h-100">
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <span class="d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary" style="width:2.1rem;height:2.1rem;"><i class="bi bi-file-earmark-text"></i></span>
-                    <span class="hc-summary-label">จำนวนสัญญาจ้างทั้งหมด</span>
-                </div>
-                <div class="hc-summary-value text-dark"><?= number_format($totalContracts) ?></div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="hc-summary-card h-100">
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <span class="d-inline-flex align-items-center justify-content-center rounded-3 bg-success-subtle text-success" style="width:2.1rem;height:2.1rem;"><i class="bi bi-wallet2"></i></span>
-                    <span class="hc-summary-label">มูลค่าสัญญาทั้งหมด</span>
-                </div>
-                <div class="hc-summary-value text-success hc-num"><?= number_format($totalContractValue, 2) ?></div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="hc-summary-card h-100">
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <span class="d-inline-flex align-items-center justify-content-center rounded-3 bg-warning-subtle text-warning" style="width:2.1rem;height:2.1rem;"><i class="bi bi-hourglass-split"></i></span>
-                    <span class="hc-summary-label">จำนวนเงินที่รอจ่ายทั้งหมด</span>
-                </div>
-                <div class="hc-summary-value <?= $totalRemaining > 0 ? 'text-danger' : 'text-dark' ?> hc-num"><?= number_format($totalRemaining, 2) ?></div>
-            </div>
-        </div>
-    </div>
-
     <div class="hc-card bg-white p-3 p-md-4">
         <div class="hc-toolbar d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-3">
             <div class="hc-search-wrap">
@@ -364,7 +307,7 @@ foreach ($dtRows as $r) {
                 render: function (v) {
                     var n = Number(v) || 0;
                     var isZero = Math.abs(n) < 0.000001;
-                    var cls = isZero ? 'hc-remaining-zero' : 'hc-remaining-alert';
+                    var cls = n < -0.000001 ? 'hc-remaining-over' : (isZero ? 'hc-remaining-zero' : 'hc-remaining-alert');
                     return '<span class="' + cls + '">' + fmtMoney(v) + '</span>';
                 }
             },
