@@ -590,13 +590,13 @@ $hasAlerts = !empty($_GET['cancelled'])
         <?php if ($hasAlerts): ?>
             <div class="po-view-alerts">
                 <?php if (!empty($_GET['cancelled'])): ?>
-                    <div class="alert alert-success mb-0">ยกเลิกใบสั่งซื้อเรียบร้อยแล้ว</div>
+                    <div class="alert alert-success mb-0" data-tnc-audio="delete">ยกเลิกใบสั่งซื้อเรียบร้อยแล้ว</div>
                 <?php endif; ?>
                 <?php if (!empty($_GET['error']) && $_GET['error'] === 'po_paid'): ?>
                     <div class="alert alert-warning mb-0">ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถยกเลิกได้</div>
                 <?php endif; ?>
                 <?php if (!empty($_GET['billing_saved'])): ?>
-                    <div class="alert alert-success mb-0">บันทึกเลขที่บิลซื้อเรียบร้อยแล้ว และสร้างข้อมูลในตาราง bills แล้ว</div>
+                    <div class="alert alert-success mb-0" data-tnc-audio="complete">บันทึกเลขที่บิลซื้อเรียบร้อยแล้ว และสร้างข้อมูลในตาราง bills แล้ว</div>
                 <?php endif; ?>
                 <?php if (!empty($_GET['error']) && $_GET['error'] === 'billing_required'): ?>
                     <div class="alert alert-warning mb-0">กรุณากรอกเลขที่บิลซื้อและวันที่บนบิลให้ครบถ้วน</div>

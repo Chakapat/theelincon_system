@@ -85,6 +85,23 @@ if (!function_exists('app_path')) {
         to { opacity: 1; transform: translateY(0); }
     }
 
+    .tnc-pr-po-audio-toggle {
+        position: fixed;
+        bottom: 1rem;
+        right: 1rem;
+        z-index: 1075;
+        width: 2.35rem;
+        height: 2.35rem;
+        border-radius: 50%;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    @media print {
+        .tnc-pr-po-audio-toggle { display: none !important; }
+    }
+
     /* ---------- Global mobile/responsive hardening (system-wide) ---------- */
     html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body { overflow-x: hidden; }
@@ -394,11 +411,34 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-loading-overlay.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-ajax-form.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<?php
+$tncPrPoAudioJsPath = dirname(__DIR__) . '/assets/js/tnc-pr-po-audio.js';
+$tncPrPoAudioJsVer = @filemtime($tncPrPoAudioJsPath);
+if (!is_int($tncPrPoAudioJsVer) || $tncPrPoAudioJsVer <= 0) {
+    $tncPrPoAudioJsVer = time();
+}
+$tncTrashAudioPath = dirname(__DIR__) . '/assets/audio/trash-delete.mp3';
+$tncTrashAudioVer = @filemtime($tncTrashAudioPath);
+if (!is_int($tncTrashAudioVer) || $tncTrashAudioVer <= 0) {
+    $tncTrashAudioVer = time();
+}
+$tncNotifBellPath = dirname(__DIR__) . '/assets/audio/notification-bell.mp3';
+$tncNotifBellVer = @filemtime($tncNotifBellPath);
+if (!is_int($tncNotifBellVer) || $tncNotifBellVer <= 0) {
+    $tncNotifBellVer = time();
+}
+?>
+<script>
+window.TNC_PR_PO_AUDIO = window.TNC_PR_PO_AUDIO || {};
+window.TNC_PR_PO_AUDIO.trashDeleteUrl = <?= json_encode(app_path('assets/audio/trash-delete.mp3') . '?v=' . $tncTrashAudioVer, JSON_UNESCAPED_SLASHES) ?>;
+</script>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-pr-po-audio.js') . '?v=' . $tncPrPoAudioJsVer, ENT_QUOTES, 'UTF-8') ?>" defer></script>
 <?php if (isset($_SESSION['user_id'])): ?>
 <script>
 (function () {
     var endpoint = <?= json_encode(app_path('actions/notifications-handler.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
     var csrf = <?= json_encode(function_exists('csrf_token') ? csrf_token() : '', JSON_UNESCAPED_SLASHES) ?>;
+    var notifBellUrl = <?= json_encode(app_path('assets/audio/notification-bell.mp3') . '?v=' . $tncNotifBellVer, JSON_UNESCAPED_SLASHES) ?>;
     var badge = document.getElementById('tncNotifBadge');
     var listEl = document.getElementById('tncNotifList');
     var toggle = document.getElementById('tncNotifToggle');
@@ -418,46 +458,41 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ---------- เสียงแจ้งเตือน (ดังซ้ำจนกว่าจะอ่านครบ) ----------
-    var audioCtx = null;
+    var notifBellAudio = null;
     var soundTimer = null;
+    var notifSoundPending = false;
 
-    function ensureAudio() {
-        if (audioCtx) return audioCtx;
-        try {
-            var AC = window.AudioContext || window.webkitAudioContext;
-            if (!AC) return null;
-            audioCtx = new AC();
-        } catch (e) { audioCtx = null; }
-        return audioCtx;
+    function getNotifBellAudio() {
+        if (!notifBellAudio) {
+            notifBellAudio = new Audio(notifBellUrl);
+            notifBellAudio.preload = 'auto';
+            notifBellAudio.volume = 0.85;
+        }
+        return notifBellAudio;
     }
 
-    function playBeep() {
-        var ctx = ensureAudio();
-        if (!ctx) return;
-        if (ctx.state === 'suspended') { ctx.resume().catch(function () {}); }
+    function playNotifBell() {
         try {
-            var t = ctx.currentTime;
-            [[0, 880], [0.18, 1175]].forEach(function (p) {
-                var off = p[0], freq = p[1];
-                var osc = ctx.createOscillator();
-                var gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.value = freq;
-                gain.gain.setValueAtTime(0.0001, t + off);
-                gain.gain.exponentialRampToValueAtTime(0.28, t + off + 0.02);
-                gain.gain.exponentialRampToValueAtTime(0.0001, t + off + 0.16);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(t + off);
-                osc.stop(t + off + 0.17);
-            });
-        } catch (e) {}
+            var audio = getNotifBellAudio();
+            if (!audio.src || audio.src.indexOf('notification-bell.mp3') === -1) {
+                audio.src = notifBellUrl;
+            }
+            audio.currentTime = 0;
+            var playPromise = audio.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(function () {
+                    notifSoundPending = true;
+                });
+            }
+        } catch (e) {
+            notifSoundPending = true;
+        }
     }
 
     function startSoundLoop() {
         if (soundTimer) return;
-        playBeep();
-        soundTimer = setInterval(function () { if (!document.hidden) playBeep(); }, 5000);
+        playNotifBell();
+        soundTimer = setInterval(function () { if (!document.hidden) playNotifBell(); }, 5000);
     }
 
     function stopSoundLoop() {
@@ -466,8 +501,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ปลดล็อกเสียงหลังผู้ใช้มีการโต้ตอบหน้าเว็บครั้งแรก (ตามนโยบาย autoplay ของเบราว์เซอร์)
     function unlockAudio() {
-        var ctx = ensureAudio();
-        if (ctx && ctx.state === 'suspended') { ctx.resume().catch(function () {}); }
+        if (notifSoundPending) {
+            notifSoundPending = false;
+            playNotifBell();
+        }
         document.removeEventListener('click', unlockAudio);
         document.removeEventListener('keydown', unlockAudio);
         document.removeEventListener('touchstart', unlockAudio);

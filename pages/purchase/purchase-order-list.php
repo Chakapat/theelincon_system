@@ -218,25 +218,25 @@ foreach ($po_rows_display as $sumRow) {
 <div class="container mt-4 mb-5">
     <?php if (!empty($_GET['success'])): ?>
         <?php $createdPoNo = trim((string) ($_GET['po_number'] ?? '')); ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="create">
             สร้างใบสั่งซื้อ (PO) สำเร็จแล้ว<?php if ($createdPoNo !== ''): ?> — เลขที่ <strong><?= htmlspecialchars($createdPoNo, ENT_QUOTES, 'UTF-8') ?></strong><?php endif; ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
     <?php if (!empty($_GET['updated'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="update">
             แก้ไขใบสั่งซื้อ (PO) เรียบร้อยแล้ว
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
     <?php if (!empty($_GET['deleted'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="delete">
             ลบใบสั่งซื้อเรียบร้อยแล้ว
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
     <?php if (!empty($_GET['cancelled'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="delete">
             ยกเลิกใบสั่งซื้อ (PO) เรียบร้อยแล้ว
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
@@ -275,7 +275,7 @@ foreach ($po_rows_display as $sumRow) {
         </div>
     <?php endif; ?>
     <?php if (!empty($_GET['payment_slips_updated'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="update">
             อัปเดตไฟล์หลักฐานการจ่ายเรียบร้อยแล้ว
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
@@ -297,7 +297,7 @@ foreach ($po_rows_display as $sumRow) {
         $poAutoprintBothUrl = $poAutoprintBase !== '' ? $poAutoprintBase . '&print_mode=both&autoprint=1' : '';
         $poAutoprintAllUrl = $poAutoprintBase !== '' ? $poAutoprintBase . '&print_mode=all&autoprint=1' : '';
         ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="complete">
             บันทึกสถานะการจ่ายเงินเรียบร้อยแล้ว
             <?php if ($printPoIdSaved > 0 && $poAutoprintPoUrl !== ''): ?>
                 <div class="mt-2 small">
@@ -315,7 +315,7 @@ foreach ($po_rows_display as $sumRow) {
         </div>
     <?php endif; ?>
     <?php if (!empty($_GET['billing_saved'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="complete">
             บันทึกเลขที่บิลซื้อเรียบร้อยแล้ว และสร้างข้อมูลในตาราง bills แล้ว
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>

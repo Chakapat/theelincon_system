@@ -108,7 +108,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
 <div class="container mt-4 mb-5">
     <div class="no-print">
     <?php if (!empty($_GET['success'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="create">
             บันทึกใบขอซื้อ (PR) เรียบร้อยแล้ว — ส่งขออนุมัติ LINE หรือให้ ADMIN อนุมัติได้จากหน้ารายละเอียด PR
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
@@ -137,13 +137,13 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
         </div>
     <?php endif; ?>
     <?php if (!empty($_GET['updated'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="update">
             แก้ไขใบขอซื้อ (PR) เรียบร้อยแล้ว
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
     <?php if (!empty($_GET['deleted'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="delete">
             ลบใบขอซื้อเรียบร้อยแล้ว
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>

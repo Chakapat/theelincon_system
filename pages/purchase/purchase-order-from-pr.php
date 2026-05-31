@@ -255,7 +255,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                         <div class="alert alert-warning py-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>กรุณายืนยันการออกใบสั่งจ่ายเมื่อยอดเกินมูลค่าสัญญา</div>
                     <?php endif; ?>
                     <?php if ($requestType === 'purchase' && $prUpdated): ?>
-                        <div class="alert alert-success py-2 border-0"><i class="bi bi-check-circle-fill me-1"></i>อัปเดตใบขอซื้อ (PR) แล้ว — ตรวจสอบยอดด้านล่างแล้วดำเนินการสร้าง PO ต่อได้</div>
+                        <div class="alert alert-success py-2 border-0" data-tnc-audio="update"><i class="bi bi-check-circle-fill me-1"></i>อัปเดตใบขอซื้อ (PR) แล้ว — ตรวจสอบยอดด้านล่างแล้วดำเนินการสร้าง PO ต่อได้</div>
                     <?php endif; ?>
                     <?php if ($requestType === 'hire' && $remainingInstallments === 0 && $hireContractRemaining > 0.0005): ?>
                         <div class="alert alert-info py-2">ออกใบสั่งจ่ายครบทุกงวดแล้ว แต่ยังมียอดคงเหลือในสัญญา — ตรวจสอบยอดแต่ละงวด</div>

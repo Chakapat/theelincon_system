@@ -39,8 +39,23 @@ $prHandlerUrl = app_path('actions/action-handler.php');
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
-        :root { --brand-color: #28a745; --dark: #333; }
-        body { font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', Tahoma, sans-serif; background: #f4f4f4; color: var(--dark); margin: 0; padding: 0; font-weight: 500; }
+        :root {
+            --brand-color: #28a745;
+            --pr-view-bg: #e8edf2;
+        }
+
+        body {
+            font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', Tahoma, sans-serif;
+            background: var(--pr-view-bg);
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            font-weight: 500;
+        }
+
+        .pr-view-stage {
+            padding: 1rem 0 2rem;
+        }
 
         .invoice-box {
             width: 210mm;
@@ -48,11 +63,72 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             height: 297mm;
             margin: 0 auto 1.5rem;
             background: #fff;
-            padding: 14mm 15mm 10mm;
+            padding: 10mm 15mm;
             position: relative;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-            border-top: 8px solid var(--brand-color);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
             overflow: hidden;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc {
+            border-top: 8px solid var(--brand-color);
+        }
+
+        .pr-doc-main {
+            padding-bottom: 52mm;
+            box-sizing: border-box;
+        }
+
+        .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
+
+        .invoice-box .pr-total-sheet {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+        }
+
+        .table-custom { margin-top: 12px; margin-bottom: 0; }
+
+        .footer-sticky { position: absolute; bottom: 12mm; left: 15mm; right: 15mm; }
+
+        .invoice-box .pr-total-sheet .summary-item {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: baseline;
+            justify-content: flex-start;
+            gap: 0.75rem;
+            width: 100%;
+            padding: 2px 0;
+            font-size: 14px;
+        }
+
+        .invoice-box .pr-total-sheet .summary-item > span:last-child {
+            margin-left: auto;
+            text-align: right;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .grand-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--brand-color);
+            color: #fff;
+            padding: 12px;
+            border-radius: 5px;
+            margin-top: 8px;
+        }
+
+        .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; text-align: center; margin-top: 22px; }
+        .sig-space { height: 72px; }
+        .sig-box { border-top: 1px solid #333; padding-top: 10px; font-size: 13px; font-weight: 600; }
+
+        .pr-side-accent {
+            border-left-color: var(--brand-color) !important;
         }
 
         .pr-cancelled-watermark {
@@ -71,18 +147,10 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             text-transform: uppercase;
         }
 
-        .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
-        .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
-
-        /* ตาราง / ยอดรวม / ลายเซ็น — styles หลักอยู่ใน document-print.css */
-        .pr-purchase-requisition-doc .table-custom {
-            margin-top: 10px;
-            margin-bottom: 0;
-        }
-
         .pr-view-toolbar {
-            border-bottom: 1px solid #e2e8f0;
-            background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+            border-bottom: 1px solid #dde3ea;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
         }
         .pr-view-toolbar .btn { font-weight: 600; white-space: nowrap; }
         .pr-view-toolbar-inner { max-width: 210mm; margin: 0 auto; }
@@ -121,7 +189,7 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             padding: 0.45rem 0.65rem;
             background: #fff;
             border: 1px solid #e5e7eb;
-            border-radius: 12px;
+            border-radius: 10px;
             box-shadow: 0 1px 2px rgba(0,0,0,.04);
         }
         .pr-toolbar-group-label {
@@ -140,16 +208,10 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             .pr-toolbar-actions { flex-direction: column; align-items: stretch; }
             .pr-toolbar-group { justify-content: flex-start; }
         }
-        .pr-purchase-requisition-doc .pr-doc-main {
-            padding-bottom: 50mm;
-            box-sizing: border-box;
-        }
-        .pr-purchase-requisition-doc .doc-meta-date-col {
-            text-align: right;
-        }
 
         @media (max-width: 575.98px) {
             body { background: #fff; }
+            .pr-view-stage { padding: 0; }
             .invoice-box {
                 width: 100%;
                 height: auto;
@@ -166,38 +228,19 @@ $prHandlerUrl = app_path('actions/action-handler.php');
                 right: auto;
                 margin-top: 1.25rem;
             }
-            .pr-purchase-requisition-doc .signature-grid { grid-template-columns: 1fr; gap: 18px; }
+            .signature-grid { grid-template-columns: 1fr; gap: 18px; }
         }
 
         @media print {
-            @page {
-                size: A4 portrait;
-                margin: 0;
-            }
-
-            html {
-                font-size: 15px;
-            }
-
-            body {
-                background: none !important;
-                margin: 0;
-                font-weight: 500;
-            }
-
-            body,
-            .invoice-box,
-            .invoice-box * {
+            @page { size: A4 portrait; margin: 0; }
+            html { font-size: 15px; }
+            body { background: none !important; margin: 0; }
+            body, .invoice-box, .invoice-box * {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
-
-            .no-print,
-            nav,
-            .navbar {
-                display: none !important;
-            }
-
+            .no-print, nav, .navbar, .pr-view-stage { padding: 0 !important; background: none !important; }
+            .no-print, nav, .navbar { display: none !important; }
             .invoice-box.pr-purchase-requisition-doc {
                 width: 210mm;
                 max-width: 210mm;
@@ -205,140 +248,21 @@ $prHandlerUrl = app_path('actions/action-handler.php');
                 min-height: 297mm;
                 max-height: 297mm;
                 margin: 0;
-                padding: 8mm 12mm;
+                padding: 10mm 12mm 8mm;
                 box-shadow: none;
-                border-top: 6px solid var(--brand-color);
                 overflow: hidden;
                 page-break-after: avoid;
-                break-after: avoid;
             }
-
-            .pr-purchase-requisition-doc .pr-doc-main {
-                padding-bottom: 46mm;
-            }
-
-            .pr-purchase-requisition-doc .company-logo {
-                max-height: 20mm;
-            }
-
-            .pr-purchase-requisition-doc .invoice-title {
-                font-size: 24px;
-                line-height: 1.15;
-            }
-
-            .pr-purchase-requisition-doc .table-custom {
-                margin-top: 8px;
-            }
-
-            .pr-purchase-requisition-doc .table-custom thead th {
-                font-size: 10.5px;
-                font-weight: 700;
-                line-height: 1.45;
-                padding: 7px 10px;
-                background: #fafafa !important;
-                border-bottom: 2px solid #28a745 !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-
-            .pr-purchase-requisition-doc .table-custom tbody td {
-                font-size: 10.5px;
-                line-height: 1.45;
-                padding: 7px 10px;
-                vertical-align: middle;
-            }
-
-            .pr-purchase-requisition-doc .table-custom tbody tr {
-                page-break-inside: avoid;
-                break-inside: avoid;
-            }
-
+            .pr-purchase-requisition-doc .pr-doc-main { padding-bottom: 46mm; }
             .pr-purchase-requisition-doc .footer-sticky {
                 position: absolute;
                 bottom: 8mm;
                 left: 12mm;
                 right: 12mm;
-                page-break-inside: avoid;
-                break-inside: avoid;
             }
-
-            .pr-purchase-requisition-doc .pr-footer-panel {
-                page-break-inside: avoid;
-                break-inside: avoid;
-            }
-
-            .pr-purchase-requisition-doc .summary-box {
-                padding: 0.5rem 0.75rem;
-                background: #f8fbff !important;
-                border-color: #c7dbfa !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-
-            .pr-purchase-requisition-doc .summary-item {
-                font-size: 12px;
-                line-height: 1.45;
-                padding: 2px 0;
-            }
-
-            .pr-purchase-requisition-doc .grand-total-row {
-                padding: 8px 10px;
-                margin-top: 5px;
-                background: #28a745 !important;
-                color: #fff !important;
-                page-break-inside: avoid;
-                break-inside: avoid;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-
-            .pr-purchase-requisition-doc .grand-total-row span {
-                color: #fff !important;
-            }
-
-            .pr-purchase-requisition-doc .grand-total-row .fw-bold {
-                font-size: 12px !important;
-            }
-
-            .pr-purchase-requisition-doc .grand-total-row span:last-child {
-                font-size: 16px !important;
-                font-weight: 800 !important;
-            }
-
-            .pr-purchase-requisition-doc .signature-grid {
-                margin-top: 10px;
-                gap: 28px;
-                page-break-inside: avoid;
-                break-inside: avoid;
-            }
-
-            .pr-purchase-requisition-doc .sig-space {
-                height: 40px;
-            }
-
-            .pr-purchase-requisition-doc .sig-box {
-                font-size: 11px;
-                line-height: 1.4;
-                padding-top: 6px;
-            }
-
-            /* หัวเอกสาร / บล็อกข้อมูล — กระชับลงเล็กน้อย */
-            .pr-purchase-requisition-doc .row.mb-2.mt-3,
-            .pr-purchase-requisition-doc .row.mb-2 {
-                margin-bottom: 0.4rem !important;
-            }
-
-            .pr-purchase-requisition-doc .mb-3 {
-                margin-bottom: 0.5rem !important;
-            }
-
             .pr-cancelled-watermark {
                 display: block !important;
-                visibility: visible !important;
-                opacity: 1 !important;
                 color: rgba(185, 28, 28, 0.48) !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
             }
         }
     </style>
@@ -353,10 +277,10 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ใบขอซื้อนี้มีใบสั่งซื้อแล้ว ไม่สามารถออกซ้ำได้</div>
         <?php endif; ?>
         <?php if (!empty($_GET['created'])): ?>
-            <div class="alert alert-success py-2 px-3 mb-3 border-0 shadow-sm">บันทึกใบขอซื้อ (PR) เรียบร้อยแล้ว</div>
+            <div class="alert alert-success py-2 px-3 mb-3 border-0 shadow-sm" data-tnc-audio="create">บันทึกใบขอซื้อ (PR) เรียบร้อยแล้ว</div>
         <?php endif; ?>
         <?php if (!empty($_GET['updated'])): ?>
-            <div class="alert alert-success py-2 px-3 mb-3 border-0 shadow-sm">แก้ไขใบขอซื้อเรียบร้อยแล้ว</div>
+            <div class="alert alert-success py-2 px-3 mb-3 border-0 shadow-sm" data-tnc-audio="update">แก้ไขใบขอซื้อเรียบร้อยแล้ว</div>
         <?php endif; ?>
         <?php
         $lineNotifyView = trim((string) ($_GET['line_notify'] ?? ''));
@@ -370,7 +294,7 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ส่ง LINE ไม่สำเร็จ (<?= htmlspecialchars($lineNotifyView, ENT_QUOTES, 'UTF-8') ?>)</div>
         <?php endif; ?>
         <?php if (!empty($_GET['web_approved'])): ?>
-            <div class="alert alert-success py-2 px-3 mb-3 border-0 shadow-sm">อนุมัติ PR บนเว็บแล้ว — สามารถออก PO ได้</div>
+            <div class="alert alert-success py-2 px-3 mb-3 border-0 shadow-sm" data-tnc-audio="approve">อนุมัติ PR บนเว็บแล้ว — สามารถออก PO ได้</div>
         <?php endif; ?>
         <?php if (!empty($_GET['web_rejected'])): ?>
             <div class="alert alert-danger py-2 px-3 mb-3 border-0 shadow-sm">บันทึกผลไม่อนุมัติแล้ว</div>
@@ -468,7 +392,9 @@ $prHandlerUrl = app_path('actions/action-handler.php');
     </div>
 </div>
 
+<div class="pr-view-stage">
 <?php tnc_purchase_pr_print_render($prCtx); ?>
+</div>
 
 <form method="post" action="<?= htmlspecialchars($prHandlerUrl, ENT_QUOTES, 'UTF-8') ?>" id="prSendLineForm" class="d-none">
     <?php csrf_field(); ?>

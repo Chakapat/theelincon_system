@@ -209,6 +209,56 @@ if (!function_exists('tnc_contractor_payment_lines')) {
     }
 }
 
+if (!function_exists('tnc_contractor_transfer_display_line')) {
+    /**
+     * บรรทัดช่องทางชำระ: ธนาคาร · เลขบัญชี · ชื่อบัญชี (ไม่รวมชื่อวิธีชำระ)
+     *
+     * @param array<string, mixed> $row
+     */
+    function tnc_contractor_transfer_display_line(array $row): string
+    {
+        $accNo = trim((string) ($row['bank_account_no'] ?? ''));
+        $accName = trim((string) ($row['bank_account_name'] ?? ''));
+        $bank = trim((string) ($row['bank_name'] ?? ''));
+        $parts = [];
+        if ($bank !== '') {
+            $parts[] = $bank;
+        }
+        if ($accNo !== '') {
+            $parts[] = $accNo;
+        }
+        if ($accName !== '') {
+            $parts[] = $accName;
+        }
+
+        return implode(' · ', $parts);
+    }
+}
+
+if (!function_exists('tnc_contractor_identity_display_line')) {
+    /**
+     * @param array{name_th?: string, national_id?: string, address?: string} $profile
+     */
+    function tnc_contractor_identity_display_line(array $profile): string
+    {
+        $parts = [];
+        $name = trim((string) ($profile['name_th'] ?? ''));
+        $nationalId = trim((string) ($profile['national_id'] ?? ''));
+        $address = trim((string) ($profile['address'] ?? ''));
+        if ($name !== '') {
+            $parts[] = $name;
+        }
+        if ($nationalId !== '') {
+            $parts[] = $nationalId;
+        }
+        if ($address !== '') {
+            $parts[] = $address;
+        }
+
+        return implode(' · ', $parts);
+    }
+}
+
 if (!function_exists('tnc_contractor_print_profile')) {
     /**
      * @return array{
@@ -216,6 +266,8 @@ if (!function_exists('tnc_contractor_print_profile')) {
      *     national_id: string,
      *     address: string,
      *     payment_lines: list<string>,
+     *     transfer_line: string,
+     *     identity_line: string,
      *     found: bool
      * }
      */
@@ -226,10 +278,16 @@ if (!function_exists('tnc_contractor_print_profile')) {
             'national_id' => '',
             'address' => '',
             'payment_lines' => [],
+            'transfer_line' => '',
+            'identity_line' => '',
             'found' => false,
         ];
         $row = tnc_contractor_row_by_id($contractorId);
         if ($row === null) {
+            if ($profile['name_th'] !== '') {
+                $profile['identity_line'] = tnc_contractor_identity_display_line($profile);
+            }
+
             return $profile;
         }
 
@@ -238,6 +296,8 @@ if (!function_exists('tnc_contractor_print_profile')) {
         $profile['national_id'] = tnc_contractor_format_national_id_display((string) ($row['national_id'] ?? ''));
         $profile['address'] = trim((string) ($row['address'] ?? ''));
         $profile['payment_lines'] = tnc_contractor_payment_lines($row);
+        $profile['transfer_line'] = tnc_contractor_transfer_display_line($row);
+        $profile['identity_line'] = tnc_contractor_identity_display_line($profile);
         $profile['found'] = true;
 
         return $profile;

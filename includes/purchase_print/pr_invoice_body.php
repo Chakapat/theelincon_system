@@ -3,13 +3,14 @@
 declare(strict_types=1);
 
 /**
- * เนื้อหาใบ PR สำหรับพิมพ์ — ตัวแปรมาจาก tnc_purchase_pr_print_prepare() / extract ใน tnc_purchase_pr_print_render()
+ * เนื้อหาใบ PR สำหรับพิมพ์ — โครงสร้างสอดคล้อง po_invoice_body.php
  *
  * @var array $pr
  * @var array $com
  * @var array<int, array<string, mixed>> $item_rows
  * @var string $requestType
  * @var string $contractorName
+ * @var array $contractorPrint
  * @var float $contractValue
  * @var int $installmentTotal
  * @var string $hireScope
@@ -28,208 +29,258 @@ declare(strict_types=1);
  * @var string $detailsText
  * @var bool $hireTableNote
  */
+$isHireDoc = $requestType === 'hire';
+$docDateDisplay = tnc_pr_format_date_thai($createdRaw !== '' ? $createdRaw : date('Y-m-d'));
+$requesterLine = trim($requesterDisplay !== '' ? $requesterDisplay : '-');
+if ($isHireDoc && trim((string) ($contractorPrint['name_th'] ?? '')) === '' && trim($contractorName) !== '') {
+    $contractorPrint['name_th'] = trim($contractorName);
+}
+$contractorIdentityLine = '';
+$contractorPaymentLine = '';
+if ($isHireDoc) {
+    $contractorIdentityLine = trim((string) ($contractorPrint['identity_line'] ?? ''));
+    if ($contractorIdentityLine === '' && trim($contractorName) !== '') {
+        $contractorIdentityLine = trim($contractorName);
+    }
+    $contractorPaymentLine = trim((string) ($contractorPrint['transfer_line'] ?? ''));
+}
+$showHireInfoStack = $isHireDoc && ($siteDisplay !== '' || $contractorIdentityLine !== '' || $contractorPaymentLine !== '');
 ?>
 <div class="invoice-box pr-purchase-requisition-doc">
     <?php if (!empty($isPoCancelled)): ?>
     <div class="pr-cancelled-watermark" aria-hidden="true">CANCELLED</div>
     <?php endif; ?>
     <div class="pr-doc-main">
-    <div class="row align-items-start pr-doc-header g-0">
-        <div class="col-6 pr-doc-header-left">
-            <?php if (!empty($com['logo'])): ?>
-                <img src="<?= htmlspecialchars(upload_logo_url((string) $com['logo']), ENT_QUOTES, 'UTF-8') ?>" class="company-logo" alt="Logo">
-            <?php endif; ?>
-            <div class="pr-company-name"><?= htmlspecialchars((string) ($com['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
-            <div class="pr-company-detail">
-                <?= htmlspecialchars((string) ($com['address'] ?? ''), ENT_QUOTES, 'UTF-8') ?><br>
-                โทร: <?= htmlspecialchars((string) ($com['phone'] ?? ''), ENT_QUOTES, 'UTF-8') ?> | Tax ID: <?= htmlspecialchars((string) ($com['tax_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-            </div>
-        </div>
-        <div class="col-6 pr-doc-header-right">
-            <div class="invoice-title"><?= $requestType === 'hire' ? 'REQUISITION (HIRE)' : 'PURCHASE REQUISITION' ?></div>
-            <div class="pr-doc-subtitle"><?= $requestType === 'hire' ? 'ใบขอจ้าง / จัดจ้าง' : 'ใบขอซื้อ (PR)' ?></div>
-            <div class="pr-doc-number">เลขที่: <?= htmlspecialchars((string) ($pr['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
-            <?php if ($quotationAttach !== ''): ?>
-                <?php
-                $attachLabel = $quotationName !== '' ? $quotationName : 'เปิดไฟล์แนบ';
-                ?>
-                <div class="small text-muted mt-2">แนบใบเสนอราคา:
-                    <a href="<?= htmlspecialchars(app_path($quotationAttach), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="no-print"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></a>
-                    <span class="d-none d-print-inline"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></span>
-                </div>
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <div class="row mb-2 mt-3 doc-meta-row">
-        <div class="col-7 border-start border-4 border-success ps-3">
-            <div style="font-size: 10px; color: var(--brand-color); font-weight: bold; text-transform: uppercase;">ผู้ขอซื้อ / ผู้รับผิดชอบ</div>
-            <div class="fw-bold" style="font-size: 15px;"><?= htmlspecialchars($requesterDisplay !== '' ? $requesterDisplay : '-', ENT_QUOTES, 'UTF-8') ?></div>
-            <?php if ($creatorDisplay !== '' && $creatorDisplay !== $requesterDisplay): ?>
-                <div class="small text-muted">ผู้บันทึกในระบบ: <?= htmlspecialchars($creatorDisplay, ENT_QUOTES, 'UTF-8') ?></div>
-            <?php endif; ?>
-        </div>
-        <div class="col-5 text-end doc-meta-date-col">
-            <div style="font-size: 10px; color: var(--brand-color); font-weight: bold; text-transform: uppercase;">วันที่เอกสาร</div>
-            <div class="fw-bold" style="font-size: 15px;"><?= htmlspecialchars(tnc_pr_format_date_thai($createdRaw !== '' ? $createdRaw : date('Y-m-d')), ENT_QUOTES, 'UTF-8') ?></div>
-            <?php if ($requestType === 'hire'): ?>
-                <div class="small text-muted mt-1">ประเภท: จัดจ้าง</div>
-            <?php endif; ?>
-        </div>
-    </div>
-    <?php if ($siteDisplay !== ''): ?>
-    <div class="row mb-2 doc-site-row">
-        <div class="col-12">
-            <div class="doc-site-block">
-                <span class="doc-site-label">สถานที่:</span>
-                <span class="doc-site-value"><?= htmlspecialchars($siteDisplay, ENT_QUOTES, 'UTF-8') ?></span>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($requestType === 'hire'): ?>
-    <div class="row mb-3">
-        <div class="col-12 pr-contractor-card">
-            <?php
-            $contractorPrintLayout = 'panel';
-            include __DIR__ . '/contractor_print_block.php';
-            ?>
-            <div class="pr-contractor-meta">
-                <strong>มูลค่าสัญญา:</strong> <?= number_format($contractValue, 2) ?> บาท
-                <span class="pr-contractor-meta-sep">|</span>
-                <strong>จำนวนงวด:</strong> <?= number_format($installmentTotal) ?> งวด
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($detailsText !== ''): ?>
-    <div class="mb-3 p-2 border rounded-2" style="font-size: 12px;">
-        <div class="fw-bold text-secondary text-uppercase mb-1" style="font-size: 10px;">รายละเอียด / วัตถุประสงค์</div>
-        <div style="white-space: pre-line;"><?= htmlspecialchars($detailsText, ENT_QUOTES, 'UTF-8') ?></div>
-    </div>
-    <?php endif; ?>
-
-    <table class="table table-custom">
-        <thead>
-            <?php if ($requestType === 'hire'): ?>
-            <tr class="text-center">
-                <th style="width:5%;" class="text-center pr-th-index">#</th>
-                <th style="width:24%;" class="text-start">รายการ</th>
-                <th style="width:8%;" class="text-end pr-th-num">จำนวน</th>
-                <th style="width:7%;" class="text-end pr-th-num">หน่วย</th>
-                <th style="width:10%;" class="text-end pr-th-num">ค่าวัสดุ</th>
-                <th style="width:10%;" class="text-end pr-th-num">ค่าแรง</th>
-                <th style="width:10%;" class="text-end pr-th-num">ราคา/หน่วย</th>
-                <th style="width:11%;" class="text-end pr-th-num">ราคารวม</th>
-            </tr>
-            <?php else: ?>
-            <tr class="text-center">
-                <th style="width:5%;" class="text-center">#</th>
-                <th style="width:32%;" class="text-start">รายละเอียดสินค้า / บริการ</th>
-                <th style="width:10%;">จำนวน</th>
-                <th style="width:8%;">หน่วย</th>
-                <th style="width:11%;" class="text-end">ราคา/หน่วย</th>
-                <th style="width:11%;" class="text-end">ส่วนลด</th>
-                <th style="width:11%;" class="text-end">ยอดรวม</th>
-            </tr>
-            <?php endif; ?>
-        </thead>
-        <tbody>
-            <?php if ($hireTableNote): ?>
-            <tr>
-                <td class="text-center text-muted">1</td>
-                <td class="text-start fw-semibold" style="white-space: pre-line;"><?= htmlspecialchars($hireScope, ENT_QUOTES, 'UTF-8') ?></td>
-                <td class="text-end pr-td-num">1</td>
-                <td class="pr-td-empty text-end">—</td>
-                <?php if ($requestType === 'hire'): ?>
-                <td class="pr-td-empty text-end">—</td>
-                <td class="pr-td-empty text-end">—</td>
-                <td class="text-end pr-td-num"><?= number_format($contractValue, 2) ?></td>
-                <td class="text-end pr-td-num fw-bold"><?= number_format($contractValue, 2) ?></td>
-                <?php else: ?>
-                <td class="text-end"><?= number_format($contractValue, 2) ?></td>
-                <td class="text-end text-muted">—</td>
-                <td class="text-end fw-bold"><?= number_format($contractValue, 2) ?></td>
+        <div class="row align-items-start mb-2">
+            <div class="col-6">
+                <?php if (!empty($com['logo'])): ?>
+                    <img src="<?= htmlspecialchars(upload_logo_url((string) $com['logo']), ENT_QUOTES, 'UTF-8') ?>" class="company-logo" alt="Logo">
                 <?php endif; ?>
-            </tr>
-            <?php elseif (count($item_rows) === 0): ?>
-            <tr>
-                <td colspan="<?= $requestType === 'hire' ? 8 : 7 ?>" class="text-center text-muted py-4">ไม่มีรายการบรรทัด (งานจัดจ้างอาจสรุปเป็นยอดเดียว)</td>
-            </tr>
+                <div class="fw-bold mt-2 pr-company-name"><?= htmlspecialchars((string) ($com['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                <div class="small text-muted pr-company-detail">
+                    <?= htmlspecialchars((string) ($com['address'] ?? ''), ENT_QUOTES, 'UTF-8') ?><br>
+                    <span class="pr-company-phone">โทร: <?= htmlspecialchars((string) ($com['phone'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span><br>
+                    <span class="pr-company-tax">เลขประจำตัวผู้เสียภาษีอากร: <?= htmlspecialchars((string) ($com['tax_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                </div>
+            </div>
+            <div class="col-6 text-end">
+                <div class="invoice-title"><?= $isHireDoc ? 'REQUISITION (HIRE)' : 'PURCHASE REQUISITION' ?></div>
+                <div class="fw-bold text-muted small"><?= $isHireDoc ? 'ใบขอจ้าง / จัดจ้าง' : 'ใบขอซื้อ (PR)' ?></div>
+                <div class="pr-doc-number-row d-flex flex-wrap align-items-center justify-content-end gap-2 mt-2">
+                    <span class="pr-doc-number-label text-dark fw-bold" style="font-size: 18px;">เลขที่:</span>
+                    <span class="pr-doc-number-value text-dark fw-bold" style="font-size: 18px;"><?= htmlspecialchars((string) ($pr['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                </div>
+                <?php if ($quotationAttach !== ''): ?>
+                    <?php $attachLabel = $quotationName !== '' ? $quotationName : 'เปิดไฟล์'; ?>
+                    <div class="small text-muted">ไฟล์ใบเสนอราคา:
+                        <a href="<?= htmlspecialchars(app_path($quotationAttach), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="no-print"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></a>
+                        <span class="d-none d-print-inline"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <?php if (!$isHireDoc && $siteDisplay !== ''): ?>
+        <div class="row mb-2 doc-site-row">
+            <div class="col-12">
+                <div class="doc-site-block">
+                    <span class="doc-site-label">ไซต์งาน:</span>
+                    <span class="doc-site-value"><?= htmlspecialchars($siteDisplay, ENT_QUOTES, 'UTF-8') ?></span>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <div class="row mb-2 mt-3 doc-meta-row">
+            <?php if ($isHireDoc): ?>
+            <div class="col-7"></div>
             <?php else: ?>
-                <?php
-                $hireDisplayRows = $requestType === 'hire'
-                    ? tnc_hire_lines_apply_display_numbers($item_rows)
-                    : $item_rows;
-                $i = 1;
-                foreach ($hireDisplayRows as $item):
-                $isGroup = $requestType === 'hire' && tnc_hire_line_is_group($item);
-                $displayNo = (string) ($item['display_no'] ?? (string) $i);
-                $unitCell = trim((string) ($item['unit'] ?? ''));
-                if ($requestType === 'hire' && !$isGroup) {
-                    $parts = tnc_hire_item_material_labor($item);
-                    $matPrice = $parts['material'];
-                    $laborPrice = $parts['labor'];
-                    $unitPrice = round($matPrice + $laborPrice, 2);
-                    if ($unitPrice <= 0) {
-                        $unitPrice = (float) ($item['unit_price'] ?? 0);
-                    }
-                }
-                ?>
-                <tr<?= $isGroup ? ' class="hire-print-group"' : '' ?>>
-                    <td class="text-center <?= $isGroup ? 'fw-bold' : 'text-muted' ?>"><?= htmlspecialchars($displayNo, ENT_QUOTES, 'UTF-8') ?></td>
-                    <td class="<?= $isGroup ? 'fw-bold' : 'fw-bold text-dark' ?> text-start"><?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                    <?php if ($isGroup): ?>
-                    <td class="pr-td-empty text-center">—</td>
-                    <td class="pr-td-empty text-end">—</td>
-                    <td class="pr-td-empty text-end">—</td>
-                    <td class="pr-td-empty text-end">—</td>
-                    <td class="pr-td-empty text-end">—</td>
-                    <td class="pr-td-empty text-end">—</td>
-                    <?php elseif ($requestType === 'hire'): ?>
-                    <td class="text-end pr-td-num"><?= number_format((float) ($item['quantity'] ?? 0), 2) ?></td>
-                    <td class="text-end pr-td-unit"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '<span class="pr-td-empty-char">—</span>' ?></td>
-                    <td class="text-end pr-td-num"><?= number_format($matPrice, 2) ?></td>
-                    <td class="text-end pr-td-num"><?= number_format($laborPrice, 2) ?></td>
-                    <td class="text-end pr-td-num"><?= number_format($unitPrice, 2) ?></td>
-                    <td class="text-end pr-td-num fw-bold"><?= number_format((float) ($item['total'] ?? 0), 2) ?></td>
+            <div class="col-7 border-start border-4 ps-3 pr-side-accent">
+                <div class="pr-section-kicker mb-1">ผู้ขอซื้อ / ผู้รับผิดชอบ</div>
+                <div class="pr-section-title text-dark"><?= htmlspecialchars($requesterLine, ENT_QUOTES, 'UTF-8') ?></div>
+                <?php if ($creatorDisplay !== '' && $creatorDisplay !== $requesterDisplay): ?>
+                <div class="small text-muted pr-section-detail">ผู้บันทึกในระบบ: <?= htmlspecialchars($creatorDisplay, ENT_QUOTES, 'UTF-8') ?></div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+            <div class="col-5 text-end doc-meta-date-col">
+                <div class="pr-section-kicker mb-1 text-end">วันที่เอกสาร</div>
+                <div class="pr-section-title text-dark text-end"><?= htmlspecialchars($docDateDisplay, ENT_QUOTES, 'UTF-8') ?></div>
+            </div>
+        </div>
+
+        <?php if ($showHireInfoStack): ?>
+        <div class="row mb-2 pr-hire-info-row-wrap">
+            <div class="col-12">
+                <div class="pr-hire-info-stack">
+                    <?php if ($siteDisplay !== ''): ?>
+                    <div class="pr-hire-info-box">
+                        <span class="pr-hire-info-label">สถานที่:</span>
+                        <span class="pr-hire-info-value"><?= htmlspecialchars($siteDisplay, ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
+                    <?php endif; ?>
+                    <?php if ($contractorIdentityLine !== ''): ?>
+                    <div class="pr-hire-info-box">
+                        <span class="pr-hire-info-label">ผู้รับจ้าง:</span>
+                        <span class="pr-hire-info-value"><?= htmlspecialchars($contractorIdentityLine, ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
+                    <?php endif; ?>
+                    <?php if ($contractorPaymentLine !== ''): ?>
+                    <div class="pr-hire-info-box">
+                        <span class="pr-hire-info-label">ช่องทางการชำระ:</span>
+                        <span class="pr-hire-info-value"><?= htmlspecialchars($contractorPaymentLine, ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($detailsText !== '' && !$isHireDoc): ?>
+        <div class="row mb-2">
+            <div class="col-12">
+                <div class="pr-notes-panel">
+                    <div class="pr-note-heading">รายละเอียด / วัตถุประสงค์</div>
+                    <div class="pr-note-body"><?= htmlspecialchars($detailsText, ENT_QUOTES, 'UTF-8') ?></div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <table class="table table-custom pr-items-table mt-2">
+            <thead>
+                <?php if ($isHireDoc): ?>
+                <tr class="text-center">
+                    <th style="width:5%;" class="text-center pr-th-num">#</th>
+                    <th style="width:20%;" class="text-start pr-th-desc">รายการ</th>
+                    <th style="width:8%;" class="text-center pr-th-num">จำนวน</th>
+                    <th style="width:7%;" class="text-center pr-th-num">หน่วย</th>
+                    <th style="width:10%;" class="text-end pr-th-num">ค่าวัสดุ</th>
+                    <th style="width:10%;" class="text-end pr-th-num">ค่าแรง</th>
+                    <th style="width:10%;" class="text-end pr-th-num pr-th-price">ราคา/หน่วย</th>
+                    <th style="width:11%;" class="text-end pr-th-num">ราคารวม</th>
+                </tr>
+                <?php else: ?>
+                <tr class="text-center">
+                    <th style="width:38%;" class="text-start pr-th-desc">รายละเอียดสินค้า / บริการ</th>
+                    <th style="width:10%;" class="text-center pr-th-num">จำนวน</th>
+                    <th style="width:8%;" class="text-center pr-th-num">หน่วย</th>
+                    <th style="width:11%;" class="text-end pr-th-num pr-th-price"><span class="text-nowrap">ราคา/หน่วย</span></th>
+                    <th style="width:11%;" class="text-end pr-th-num">ส่วนลด</th>
+                    <th style="width:13%;" class="text-end pr-th-num">ยอดรวม</th>
+                </tr>
+                <?php endif; ?>
+            </thead>
+            <tbody>
+                <?php if ($hireTableNote): ?>
+                <tr>
+                    <?php if ($isHireDoc): ?>
+                    <td class="text-center pr-td-num text-muted">1</td>
+                    <td class="text-start fw-semibold pr-td-desc" style="white-space: pre-line;"><?= htmlspecialchars($hireScope, ENT_QUOTES, 'UTF-8') ?></td>
+                    <td class="text-center pr-td-num">1</td>
+                    <td class="text-center pr-td-num text-muted">—</td>
+                    <td class="text-end pr-td-num text-muted">—</td>
+                    <td class="text-end pr-td-num text-muted">—</td>
+                    <td class="text-end pr-td-num"><?= number_format($contractValue, 2) ?></td>
+                    <td class="text-end fw-bold pr-td-num"><?= number_format($contractValue, 2) ?></td>
                     <?php else: ?>
-                    <td class="text-center"><?= number_format((float) ($item['quantity'] ?? 0), 2) ?></td>
-                    <td class="text-center"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—' ?></td>
-                    <td class="text-end"><?= number_format((float) ($item['unit_price'] ?? 0), 2) ?></td>
-                    <td class="text-end text-muted small"><?php
-                        $dIn = trim((string) ($item['discount_input'] ?? ''));
-                        $dAmt = (float) ($item['discount_amount'] ?? 0);
-                        if ($dIn !== '') {
-                            echo htmlspecialchars($dIn, ENT_QUOTES, 'UTF-8');
-                        } elseif ($dAmt > 0) {
-                            echo htmlspecialchars(number_format($dAmt, 2), ENT_QUOTES, 'UTF-8');
-                        } else {
-                            echo '—';
-                        }
-                    ?></td>
-                    <td class="text-end fw-bold"><?= number_format((float) ($item['total'] ?? 0), 2) ?></td>
+                    <td class="fw-bold text-dark text-start pr-td-desc" style="white-space: pre-line;"><?= htmlspecialchars($hireScope, ENT_QUOTES, 'UTF-8') ?></td>
+                    <td class="text-center pr-td-num">1</td>
+                    <td class="text-center pr-td-num text-muted">—</td>
+                    <td class="text-end pr-td-num"><?= number_format($contractValue, 2) ?></td>
+                    <td class="text-end pr-td-num text-muted">—</td>
+                    <td class="text-end fw-bold pr-td-num"><?= number_format($contractValue, 2) ?></td>
                     <?php endif; ?>
                 </tr>
-                <?php $i++; endforeach; ?>
-            <?php endif; ?>
-        </tbody>
-    </table>
+                <?php elseif (count($item_rows) === 0): ?>
+                <tr>
+                    <td colspan="<?= $isHireDoc ? 8 : 6 ?>" class="text-center text-muted py-4"><?= $isHireDoc ? 'ไม่มีรายการบรรทัด (งานจัดจ้างอาจสรุปเป็นยอดเดียว)' : 'ไม่พบรายการสินค้า / บริการ' ?></td>
+                </tr>
+                <?php else: ?>
+                    <?php
+                    $hireDisplayRows = $isHireDoc
+                        ? tnc_hire_lines_apply_display_numbers($item_rows)
+                        : $item_rows;
+                    $i = 1;
+                    foreach ($hireDisplayRows as $item):
+                    $isGroup = $isHireDoc && tnc_hire_line_is_group($item);
+                    $displayNo = (string) ($item['display_no'] ?? (string) $i);
+                    $unitCell = trim((string) ($item['unit'] ?? ''));
+                    if ($isHireDoc && !$isGroup) {
+                        $parts = tnc_hire_item_material_labor($item);
+                        $matPrice = $parts['material'];
+                        $laborPrice = $parts['labor'];
+                        $unitPrice = round($matPrice + $laborPrice, 2);
+                        if ($unitPrice <= 0) {
+                            $unitPrice = (float) ($item['unit_price'] ?? 0);
+                        }
+                    }
+                    ?>
+                    <tr<?= $isGroup ? ' class="hire-print-group"' : '' ?>>
+                        <?php if ($isHireDoc): ?>
+                        <td class="text-center pr-td-num <?= $isGroup ? 'fw-bold' : 'text-muted' ?>"><?= htmlspecialchars($displayNo, ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="<?= $isGroup ? 'fw-bold' : 'fw-bold text-dark' ?> text-start pr-td-desc"><?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <?php if ($isGroup): ?>
+                        <td class="text-center pr-td-num text-muted">—</td>
+                        <td class="text-center pr-td-num text-muted">—</td>
+                        <td class="text-end pr-td-num text-muted">—</td>
+                        <td class="text-end pr-td-num text-muted">—</td>
+                        <td class="text-end pr-td-num text-muted">—</td>
+                        <td class="text-end pr-td-num text-muted">—</td>
+                        <?php else: ?>
+                        <td class="text-center pr-td-num"><?= number_format((float) ($item['quantity'] ?? 0), 2) ?></td>
+                        <td class="text-center pr-td-num text-muted"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—' ?></td>
+                        <td class="text-end pr-td-num"><?= number_format($matPrice, 2) ?></td>
+                        <td class="text-end pr-td-num"><?= number_format($laborPrice, 2) ?></td>
+                        <td class="text-end pr-td-num"><?= number_format($unitPrice, 2) ?></td>
+                        <td class="text-end fw-bold pr-td-num"><?= number_format((float) ($item['total'] ?? 0), 2) ?></td>
+                        <?php endif; ?>
+                        <?php else: ?>
+                        <td class="fw-bold text-dark text-start pr-td-desc"><?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="text-center pr-td-num"><?= number_format((float) ($item['quantity'] ?? 0), 2) ?></td>
+                        <td class="text-center pr-td-num text-muted"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—' ?></td>
+                        <td class="text-end pr-td-num"><?= number_format((float) ($item['unit_price'] ?? 0), 2) ?></td>
+                        <td class="text-end text-muted small pr-td-num"><?php
+                            $dIn = trim((string) ($item['discount_input'] ?? ''));
+                            $dAmt = (float) ($item['discount_amount'] ?? 0);
+                            if ($dIn !== '') {
+                                echo htmlspecialchars($dIn, ENT_QUOTES, 'UTF-8');
+                            } elseif ($dAmt > 0) {
+                                echo htmlspecialchars(number_format($dAmt, 2), ENT_QUOTES, 'UTF-8');
+                            } else {
+                                echo '—';
+                            }
+                        ?></td>
+                        <td class="text-end fw-bold pr-td-num"><?= number_format((float) ($item['total'] ?? 0), 2) ?></td>
+                        <?php endif; ?>
+                    </tr>
+                    <?php $i++; endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
     </div>
 
-    <div class="footer-sticky pr-footer-panel">
-        <div class="row align-items-end mb-3">
-            <div class="col-7 small text-muted">
-                <?php if ($requestType === 'hire' && $hireScope !== '' && !$hireTableNote): ?>
-                    <div style="font-size: 11px; font-weight: 700; color: #111; margin-bottom: 4px;">เงื่อนไขการชำระเงิน / ขอบเขตการทำงาน</div>
-                    <div style="font-size: 12px; line-height: 1.45; color: #444; white-space: pre-line;"><?= htmlspecialchars($hireScope, ENT_QUOTES, 'UTF-8') ?></div>
-                <?php endif; ?>
+    <div class="footer-sticky">
+        <div class="row pr-footer-row align-items-start mb-3">
+            <div class="col-7 pr-footer-notes-col">
+                <div class="pr-notes-wrap">
+                    <?php if ($isHireDoc && $hireScope !== '' && !$hireTableNote): ?>
+                    <div class="pr-notes-panel">
+                        <div class="pr-note-heading">เงื่อนไขการชำระเงิน / ขอบเขตการทำงาน</div>
+                        <div class="pr-note-body"><?= htmlspecialchars($hireScope, ENT_QUOTES, 'UTF-8') ?></div>
+                    </div>
+                    <?php elseif ($isHireDoc && $detailsText !== ''): ?>
+                    <div class="pr-notes-panel">
+                        <div class="pr-note-heading">รายละเอียด / วัตถุประสงค์</div>
+                        <div class="pr-note-body"><?= htmlspecialchars($detailsText, ENT_QUOTES, 'UTF-8') ?></div>
+                    </div>
+                    <?php endif; ?>
+                </div>
             </div>
-            <div class="col-5">
-                <div class="summary-box">
-                    <?php if ($requestType === 'hire'): ?>
+
+            <div class="col-5 pr-footer-totals-col">
+                <div class="summary-box pr-total-sheet">
+                    <?php if ($isHireDoc): ?>
                     <?php
                     $hireDirect = (float) ($pr['hire_direct_subtotal'] ?? 0);
                     if ($hireDirect <= 0 && count($item_rows) > 0) {
@@ -280,14 +331,14 @@ declare(strict_types=1);
                     </div>
                     <?php endif; ?>
                     <?php if ($vatOn && (float) ($vatPrint['vat_amount'] ?? 0) > 0): ?>
-                    <div class="summary-item text-success vat-print-line">
-                        <span><?= $requestType === 'hire' ? 'VAT 7%' : htmlspecialchars((string) ($vatPrint['vat_label'] ?? 'ภาษีมูลค่าเพิ่ม'), ENT_QUOTES, 'UTF-8') ?></span>
-                        <span><?= $requestType === 'hire' ? '+' : '' ?><?= number_format((float) $vatPrint['vat_amount'], 2) ?></span>
+                    <div class="summary-item pr-vat-line vat-print-line<?= $isHireDoc ? ' text-success' : '' ?>">
+                        <span><?= $isHireDoc ? 'VAT 7%' : htmlspecialchars((string) ($vatPrint['vat_label'] ?? 'ภาษีมูลค่าเพิ่ม'), ENT_QUOTES, 'UTF-8') ?></span>
+                        <span><?= $isHireDoc ? '+ ' : '' ?><?= number_format((float) $vatPrint['vat_amount'], 2) ?></span>
                     </div>
                     <?php endif; ?>
-                    <div class="grand-total-row">
-                        <span class="grand-total-label"><?= $requestType === 'hire' ? 'Grand Total' : 'ยอดสุทธิ' ?></span>
-                        <span class="grand-total-value">฿ <?= number_format((float) ($vatPrint['net_amount'] ?? $pg), 2) ?></span>
+                    <div class="grand-total-row" role="group" aria-label="<?= $isHireDoc ? 'Grand Total' : 'ยอดสุทธิ' ?>">
+                        <span class="fw-bold" style="font-size: 14px;"><?= $isHireDoc ? 'Grand Total' : 'ยอดสุทธิ' ?></span>
+                        <span style="font-size: 18px; font-weight: 800;">฿ <?= number_format((float) ($vatPrint['net_amount'] ?? $pg), 2) ?></span>
                     </div>
                 </div>
             </div>
@@ -296,11 +347,11 @@ declare(strict_types=1);
         <div class="signature-grid">
             <div>
                 <div class="sig-space"></div>
-                <div class="sig-box">ผู้ขอซื้อ / ผู้รับผิดชอบ<br><small>(Requester)</small></div>
+                <div class="sig-box"><?= $isHireDoc ? 'ผู้ขอ / ผู้รับผิดชอบ' : 'ผู้ขอซื้อ / ผู้รับผิดชอบ' ?><br><small>(Requester Signature)</small></div>
             </div>
             <div>
                 <div class="sig-space"></div>
-                <div class="sig-box">ผู้มีอำนาจลงนาม<br><small>(Authorized)</small></div>
+                <div class="sig-box">ผู้มีอำนาจลงนาม<br><small>(Authorized Signature)</small></div>
             </div>
         </div>
     </div>

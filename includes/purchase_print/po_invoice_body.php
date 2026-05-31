@@ -49,7 +49,7 @@ declare(strict_types=1);
             <div class="fw-bold mt-2 po-company-name"><?= $data['name']; ?></div>
             <div class="small text-muted po-company-detail">
                 <?= $data['address']; ?><br>
-                โทร: <?= $data['phone']; ?> | Tax ID: <?= $data['tax_id']; ?>
+                โทร: <?= $data['phone']; ?> | เลขประจำตัวผู้เสียภาษีอากร: <?= $data['tax_id']; ?>
             </div>
         </div>
         <div class="col-6 text-end">
@@ -115,7 +115,7 @@ declare(strict_types=1);
             <div class="po-section-title text-dark"><?= htmlspecialchars((string) ($data['s_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
             <div class="small text-muted po-section-detail">
                 <?= htmlspecialchars((string) ($data['s_address'] ?? ''), ENT_QUOTES, 'UTF-8'); ?><br>
-                <strong>Tax ID:</strong> <?= htmlspecialchars((string) ($data['s_tax'] ?? ''), ENT_QUOTES, 'UTF-8'); ?> | <strong>โทร:</strong> <?= htmlspecialchars((string) ($data['s_phone'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                <strong>เลขประจำตัวผู้เสียภาษีอากร:</strong> <?= htmlspecialchars((string) ($data['s_tax'] ?? ''), ENT_QUOTES, 'UTF-8'); ?> | <strong>โทร:</strong> <?= htmlspecialchars((string) ($data['s_phone'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
             </div>
             <?php endif; ?>
         </div>
