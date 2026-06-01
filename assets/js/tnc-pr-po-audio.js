@@ -13,6 +13,9 @@
     var playedOnLoad = false;
 
     function isMuted() {
+        if (window.TncSoundSettings && typeof window.TncSoundSettings.isPrPoMuted === 'function') {
+            return window.TncSoundSettings.isPrPoMuted();
+        }
         try {
             return localStorage.getItem(STORAGE_KEY) === '1';
         } catch (e) {
@@ -21,6 +24,10 @@
     }
 
     function setMuted(muted) {
+        if (window.TncSoundSettings && typeof window.TncSoundSettings.setPrPoMuted === 'function') {
+            window.TncSoundSettings.setPrPoMuted(muted);
+            return;
+        }
         try {
             if (muted) {
                 localStorage.setItem(STORAGE_KEY, '1');
@@ -349,39 +356,7 @@
     document.addEventListener('keydown', unlockAudio);
     document.addEventListener('touchstart', unlockAudio);
 
-    function injectMuteToggle() {
-        if (!isPurchasePage() || document.getElementById('tncPrPoAudioToggle')) {
-            return;
-        }
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.id = 'tncPrPoAudioToggle';
-        btn.className = 'tnc-pr-po-audio-toggle btn btn-light btn-sm shadow-sm border';
-        btn.title = 'เปิด/ปิดเสียงเมื่อบันทึก PR/PO';
-        btn.setAttribute('aria-label', 'เปิด/ปิดเสียงเมื่อบันทึก PR/PO');
-
-        function syncIcon() {
-            var muted = isMuted();
-            btn.innerHTML = muted
-                ? '<i class="bi bi-volume-mute-fill text-muted"></i>'
-                : '<i class="bi bi-volume-up-fill text-primary"></i>';
-            btn.setAttribute('aria-pressed', muted ? 'true' : 'false');
-        }
-
-        btn.addEventListener('click', function () {
-            setMuted(!isMuted());
-            syncIcon();
-            if (!isMuted()) {
-                play('create');
-            }
-        });
-
-        document.body.appendChild(btn);
-        syncIcon();
-    }
-
     function onReady() {
-        injectMuteToggle();
         if (playedOnLoad) {
             return;
         }
@@ -419,9 +394,19 @@
         toggle: function () {
             var nowMuted = !isMuted();
             setMuted(nowMuted);
+            if (window.TncSoundSettings && typeof window.TncSoundSettings.syncNavbarToggles === 'function') {
+                window.TncSoundSettings.syncNavbarToggles();
+            }
             return nowMuted;
         }
     };
+
+    window.addEventListener('tnc:sound-settings-changed', function (e) {
+        var d = e.detail || {};
+        if (d.type === 'prPo' && !d.muted && pendingKind) {
+            flushPending();
+        }
+    });
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', onReady);

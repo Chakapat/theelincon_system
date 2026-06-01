@@ -704,16 +704,12 @@ if ($printType === 'sales' || $printType === 'purchase') {
                             </tr>
                             </thead>
                             <tbody>
-                            <?php if ($salesRows === []): ?>
-                                <tr><td colspan="6" class="text-center text-muted py-3">ไม่พบข้อมูลภาษีขายตามเงื่อนไข</td></tr>
-                            <?php else: ?>
-                                <?php foreach ($salesRows as $row): ?>
-                                    <tr>
-                                        <td><?= h($row['doc_date']) ?></td><td><?= tnc_vat_render_doc_no((string) ($row['invoice_no'] ?? ''), (string) ($row['link_url'] ?? '')) ?></td><td><?= h($row['customer_name']) ?></td>
-                                        <td class="text-end"><?= number_format((float) $row['base'], 2) ?></td><td class="text-end"><?= number_format((float) $row['vat'], 2) ?></td><td class="text-end"><?= number_format((float) $row['net'], 2) ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
+                            <?php foreach ($salesRows as $row): ?>
+                                <tr>
+                                    <td><?= h($row['doc_date']) ?></td><td><?= tnc_vat_render_doc_no((string) ($row['invoice_no'] ?? ''), (string) ($row['link_url'] ?? '')) ?></td><td><?= h($row['customer_name']) ?></td>
+                                    <td class="text-end"><?= number_format((float) $row['base'], 2) ?></td><td class="text-end"><?= number_format((float) $row['vat'], 2) ?></td><td class="text-end"><?= number_format((float) $row['net'], 2) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -727,16 +723,12 @@ if ($printType === 'sales' || $printType === 'purchase') {
                             </tr>
                             </thead>
                             <tbody>
-                            <?php if ($purchaseRows === []): ?>
-                                <tr><td colspan="6" class="text-center text-muted py-3">ไม่พบข้อมูลภาษีซื้อตามเงื่อนไข</td></tr>
-                            <?php else: ?>
-                                <?php foreach ($purchaseRows as $row): ?>
-                                    <tr>
-                                        <td><?= h($row['doc_date']) ?></td><td><?= tnc_vat_render_doc_no((string) ($row['bill_no'] ?? ''), (string) ($row['link_url'] ?? '')) ?></td><td><?= h($row['supplier_name']) ?></td>
-                                        <td class="text-end"><?= number_format((float) $row['base'], 2) ?></td><td class="text-end"><?= number_format((float) $row['vat'], 2) ?></td><td class="text-end"><?= number_format((float) $row['net'], 2) ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
+                            <?php foreach ($purchaseRows as $row): ?>
+                                <tr>
+                                    <td><?= h($row['doc_date']) ?></td><td><?= tnc_vat_render_doc_no((string) ($row['bill_no'] ?? ''), (string) ($row['link_url'] ?? '')) ?></td><td><?= h($row['supplier_name']) ?></td>
+                                    <td class="text-end"><?= number_format((float) $row['base'], 2) ?></td><td class="text-end"><?= number_format((float) $row['vat'], 2) ?></td><td class="text-end"><?= number_format((float) $row['net'], 2) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -751,6 +743,7 @@ if ($printType === 'sales' || $printType === 'purchase') {
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
 <script>
     $(function () {
+        $.fn.dataTable.ext.errMode = 'none';
         const dtOptions = {
             pageLength: 10,
             pagingType: 'simple_numbers',
@@ -762,8 +755,8 @@ if ($printType === 'sales' || $printType === 'purchase') {
             dom: 't<"mt-2 d-flex justify-content-center"p>',
             language: {
                 paginate: { previous: 'ก่อนหน้า', next: 'ถัดไป' },
-                zeroRecords: 'ไม่พบข้อมูล',
-                emptyTable: 'ไม่มีข้อมูล',
+                zeroRecords: 'ไม่พบข้อมูลภาษีตามเงื่อนไข',
+                emptyTable: 'ไม่พบข้อมูลภาษีตามเงื่อนไข',
                 search: 'ค้นหา:'
             }
         };

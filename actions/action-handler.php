@@ -2022,7 +2022,11 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         if (trim((string) $desc) === '') {
             continue;
         }
-        $lineSum += (float) $_POST['item_qty'][$key] * (float) $_POST['item_price'][$key];
+        $qty = (float) $_POST['item_qty'][$key];
+        $price = (float) $_POST['item_price'][$key];
+        $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $lineSum += $parts['line_total'];
     }
     $lineSum = round($lineSum, 2);
     if ($lineSum <= 0) {
@@ -2081,7 +2085,9 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         $qty = (float) $_POST['item_qty'][$key];
         $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
         $price = (float) $_POST['item_price'][$key];
-        $lineTotal = round($qty * $price, 2);
+        $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $lineTotal = $parts['line_total'];
         Db::setRow('purchase_order_items', (string) $iid, [
             'id' => $iid,
             'po_id' => $po_id,
@@ -2090,6 +2096,10 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
             'unit' => $unit,
             'unit_price' => $price,
             'total' => $lineTotal,
+            'discount_input' => $parts['discount_input'],
+            'discount_type' => $parts['discount_type'],
+            'discount_value' => $parts['discount_value'],
+            'discount_amount' => $parts['discount_amount'],
         ]);
     }
 

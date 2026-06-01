@@ -94,7 +94,7 @@ if (!function_exists('app_path')) {
         height: 2.35rem;
         border-radius: 50%;
         padding: 0;
-        display: inline-flex;
+        display: none;
         align-items: center;
         justify-content: center;
     }
@@ -199,6 +199,18 @@ if (!function_exists('app_path')) {
                         </li>
                         <li><hr class="dropdown-divider mx-2 my-1"></li>
                         <?php endif; ?>
+                        <li class="px-3 py-2">
+                            <div class="small fw-semibold text-secondary mb-2"><i class="bi bi-volume-up-fill me-1"></i>เสียงในระบบ</div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="tncSoundNotifToggle" checked>
+                                <label class="form-check-label small" for="tncSoundNotifToggle">เสียงแจ้งเตือน (กระดิ่ง)</label>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" role="switch" id="tncSoundPrPoToggle" checked>
+                                <label class="form-check-label small" for="tncSoundPrPoToggle">เสียง PR / PO</label>
+                            </div>
+                        </li>
+                        <li><hr class="dropdown-divider mx-2 my-1"></li>
                         <li>
                             <a class="dropdown-item rounded-2 mx-1 text-danger fw-semibold" href="<?= htmlspecialchars(app_path('sign-out.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <i class="bi bi-box-arrow-right me-2"></i>ออกจากระบบ
@@ -412,6 +424,11 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-loading-overlay.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-ajax-form.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php
+$tncSoundSettingsJsPath = dirname(__DIR__) . '/assets/js/tnc-sound-settings.js';
+$tncSoundSettingsJsVer = @filemtime($tncSoundSettingsJsPath);
+if (!is_int($tncSoundSettingsJsVer) || $tncSoundSettingsJsVer <= 0) {
+    $tncSoundSettingsJsVer = time();
+}
 $tncPrPoAudioJsPath = dirname(__DIR__) . '/assets/js/tnc-pr-po-audio.js';
 $tncPrPoAudioJsVer = @filemtime($tncPrPoAudioJsPath);
 if (!is_int($tncPrPoAudioJsVer) || $tncPrPoAudioJsVer <= 0) {
@@ -432,6 +449,7 @@ if (!is_int($tncNotifBellVer) || $tncNotifBellVer <= 0) {
 window.TNC_PR_PO_AUDIO = window.TNC_PR_PO_AUDIO || {};
 window.TNC_PR_PO_AUDIO.trashDeleteUrl = <?= json_encode(app_path('assets/audio/trash-delete.mp3') . '?v=' . $tncTrashAudioVer, JSON_UNESCAPED_SLASHES) ?>;
 </script>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-sound-settings.js') . '?v=' . $tncSoundSettingsJsVer, ENT_QUOTES, 'UTF-8') ?>" defer></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-pr-po-audio.js') . '?v=' . $tncPrPoAudioJsVer, ENT_QUOTES, 'UTF-8') ?>" defer></script>
 <?php if (isset($_SESSION['user_id'])): ?>
 <script>
@@ -472,6 +490,9 @@ window.TNC_PR_PO_AUDIO.trashDeleteUrl = <?= json_encode(app_path('assets/audio/t
     }
 
     function playNotifBell() {
+        if (window.TncSoundSettings && TncSoundSettings.isNotifMuted()) {
+            return;
+        }
         try {
             var audio = getNotifBellAudio();
             if (!audio.src || audio.src.indexOf('notification-bell.mp3') === -1) {
@@ -490,9 +511,20 @@ window.TNC_PR_PO_AUDIO.trashDeleteUrl = <?= json_encode(app_path('assets/audio/t
     }
 
     function startSoundLoop() {
+        if (window.TncSoundSettings && TncSoundSettings.isNotifMuted()) {
+            stopSoundLoop();
+            return;
+        }
         if (soundTimer) return;
         playNotifBell();
-        soundTimer = setInterval(function () { if (!document.hidden) playNotifBell(); }, 5000);
+        soundTimer = setInterval(function () {
+            if (document.hidden) return;
+            if (window.TncSoundSettings && TncSoundSettings.isNotifMuted()) {
+                stopSoundLoop();
+                return;
+            }
+            playNotifBell();
+        }, 5000);
     }
 
     function stopSoundLoop() {
@@ -512,6 +544,18 @@ window.TNC_PR_PO_AUDIO.trashDeleteUrl = <?= json_encode(app_path('assets/audio/t
     document.addEventListener('click', unlockAudio);
     document.addEventListener('keydown', unlockAudio);
     document.addEventListener('touchstart', unlockAudio);
+
+    window.addEventListener('tnc:sound-settings-changed', function (e) {
+        var d = e.detail || {};
+        if (d.type !== 'notif') {
+            return;
+        }
+        if (d.muted) {
+            stopSoundLoop();
+        } else if (lastUnread > 0) {
+            startSoundLoop();
+        }
+    });
 
     function setBadge(n) {
         n = parseInt(n, 10) || 0;

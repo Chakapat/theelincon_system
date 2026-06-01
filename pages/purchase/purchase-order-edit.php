@@ -401,18 +401,32 @@ if ($isHirePo) {
                             <th style="width:6.5rem;">จำนวน</th>
                             <th style="width:6.5rem;">หน่วย</th>
                             <th style="width:7.5rem;">ราคา/หน่วย</th>
+                            <th style="width:6.5rem;">ส่วนลด</th>
                             <th style="width:7.5rem;">ยอดรวม</th>
                             <th style="width:2.75rem;"></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($items as $index => $item): ?>
+                            <?php
+                            $discEdit = trim((string) ($item['discount_input'] ?? ''));
+                            if ($discEdit === '') {
+                                $dt = (string) ($item['discount_type'] ?? 'amount');
+                                $dv = (float) ($item['discount_value'] ?? 0);
+                                if ($dv > 0) {
+                                    $discEdit = $dt === 'percent'
+                                        ? (rtrim(rtrim(number_format($dv, 4, '.', ''), '0'), '.') . '%')
+                                        : (string) $dv;
+                                }
+                            }
+                            ?>
                             <tr>
                                 <td class="row-number text-secondary small fw-semibold"><?= $index + 1 ?></td>
                                 <td><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ระบุรายการ"></td>
                                 <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.01" min="0" required value="<?= htmlspecialchars((string) ($item['quantity'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
                                 <td><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ชิ้น"></td>
                                 <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" required value="<?= htmlspecialchars((string) ($item['unit_price'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>" placeholder="บาท/10%" oninput="calculateTotal()"></td>
                                 <td><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
                                 <td>
                                     <?php if ($index > 0): ?>
@@ -562,6 +576,7 @@ function addRow() {
         <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.01" min="0" required oninput="calculateTotal()"></td>
         <td><input type="text" name="item_unit[]" class="form-control form-control-sm" placeholder="ชิ้น"></td>
         <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" required oninput="calculateTotal()"></td>
+        <td><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" placeholder="บาท/10%" oninput="calculateTotal()"></td>
         <td><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
         <td><button type="button" class="btn btn-outline-danger btn-sm border-0 rounded-3" onclick="removeRow(this)" title="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>
     `;
@@ -591,6 +606,28 @@ function updatePoVatBasisUi() {
     vatBasisWrap.setAttribute('aria-disabled', on ? 'false' : 'true');
 }
 
+function poLineAmountAfterDiscount(qty, price, discRaw) {
+    const q = parseFloat(String(qty || '').replace(/,/g, '')) || 0;
+    const p = parseFloat(String(price || '').replace(/,/g, '')) || 0;
+    const base = Math.round(q * p * 100) / 100;
+    const dRaw = String(discRaw || '').trim();
+    let discount = 0;
+    if (dRaw !== '' && base > 0) {
+        const pctMatch = dRaw.match(/^([0-9]+(?:\.[0-9]+)?)\s*%$/);
+        if (pctMatch) {
+            let pct = parseFloat(pctMatch[1]) || 0;
+            if (pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
+            discount = Math.round(base * pct / 100 * 100) / 100;
+        } else {
+            discount = Math.round((parseFloat(dRaw.replace(/,/g, '')) || 0) * 100) / 100;
+            if (discount < 0) discount = 0;
+            if (discount > base) discount = base;
+        }
+    }
+    return Math.round((base - discount) * 100) / 100;
+}
+
 function calculateTotal() {
     const FIXED_VAT_RATE = 7;
     const vatModeInput = document.getElementById('vat_mode');
@@ -609,9 +646,10 @@ function calculateTotal() {
     const rows = document.getElementById('poTable').getElementsByTagName('tbody')[0].rows;
 
     for (const row of rows) {
-        const qty = parseFloat(row.querySelector('.qty').value) || 0;
-        const price = parseFloat(row.querySelector('.price').value) || 0;
-        const total = qty * price;
+        const qty = row.querySelector('.qty').value;
+        const price = row.querySelector('.price').value;
+        const discEl = row.querySelector('.po-discount');
+        const total = poLineAmountAfterDiscount(qty, price, discEl ? discEl.value : '');
         row.querySelector('.row-total').value = total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         lineAmount += total;
     }
