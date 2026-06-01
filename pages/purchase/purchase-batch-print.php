@@ -186,12 +186,6 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
             overflow: visible;
             box-sizing: border-box;
         }
-        .invoice-box.po-purchase-order-doc {
-            border-top: 8px solid var(--brand-color);
-        }
-        .invoice-box.pr-purchase-requisition-doc {
-            border-top: 8px solid #28a745;
-        }
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
         .po-purchase-order-doc .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
         .pr-purchase-requisition-doc .invoice-title { font-size: 28px; font-weight: 800; color: #28a745; line-height: 1.1; }

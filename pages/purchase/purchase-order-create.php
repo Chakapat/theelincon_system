@@ -15,6 +15,11 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+if (!user_can('po.create')) {
+    header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?error=forbidden');
+    exit();
+}
+
 $pr_id = (int) ($_GET['pr_id'] ?? 0);
 if ($pr_id <= 0) {
     header('Location: ' . app_path('pages/purchase/purchase-request-list.php'));

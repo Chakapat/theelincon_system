@@ -202,6 +202,11 @@ if (!function_exists('app_path')) {
                         </li>
                         <?php if (user_is_admin_only_role()): ?>
                         <li>
+                            <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/internal/role-permissions.php'), ENT_QUOTES, 'UTF-8') ?>">
+                                <i class="bi bi-shield-lock me-2 text-warning"></i>ตั้งค่าสิทธิ์ตามบทบาท
+                            </a>
+                        </li>
+                        <li>
                             <a class="dropdown-item rounded-2 mx-1" href="<?= htmlspecialchars(app_path('pages/internal/audit-log.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <i class="bi bi-clock-history me-2 text-primary"></i>Audit Log
                             </a>

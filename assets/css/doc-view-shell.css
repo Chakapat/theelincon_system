@@ -7,7 +7,7 @@
     --doc-view-brand-soft: var(--tnc-orange-soft, #fff7ed);
     position: sticky;
     top: 0;
-    z-index: 1020;
+    z-index: 100;
     background: #fff;
     border-bottom: 1px solid var(--doc-view-brand-border);
     box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);

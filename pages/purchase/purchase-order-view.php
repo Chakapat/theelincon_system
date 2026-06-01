@@ -112,7 +112,7 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
         .po-view-shell {
             position: sticky;
             top: 0;
-            z-index: 1020;
+            z-index: 100;
             background: #fff;
             border-bottom: 1px solid var(--tnc-orange-border, #fdba74);
             box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
@@ -126,19 +126,23 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
 
         .po-view-toolbar-row {
             display: flex;
-            flex-wrap: wrap;
             align-items: center;
-            justify-content: space-between;
-            gap: 0.65rem 1rem;
+            gap: 0.5rem;
+            min-width: 0;
         }
 
         .po-view-toolbar-main {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             align-items: center;
-            gap: 0.5rem 0.75rem;
+            gap: 0.5rem;
             min-width: 0;
             flex: 1 1 auto;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            padding-bottom: 1px;
         }
 
         .po-view-toolbar-id {
@@ -148,21 +152,33 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
             letter-spacing: -0.02em;
             line-height: 1.2;
             white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .po-view-toolbar-sep {
             color: #94a3b8;
             font-weight: 600;
             line-height: 1;
+            flex-shrink: 0;
         }
 
         .po-view-toolbar-actions {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             align-items: center;
             justify-content: flex-end;
             gap: 0.5rem;
             flex: 0 0 auto;
+            flex-shrink: 0;
+            padding-left: 0.25rem;
+            background: #fff;
+        }
+
+        .po-view-toolbar-row .btn,
+        .po-view-toolbar-row .badge,
+        .po-view-toolbar-row .po-view-chip {
+            flex-shrink: 0;
+            white-space: nowrap;
         }
 
         .po-view-toolbar-actions .btn {
@@ -258,13 +274,8 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
         }
 
         .invoice-box.po-purchase-order-doc {
-            border-top: 8px solid var(--brand-color);
             --po-doc-a4-height: 297mm;
             --po-doc-pad-block: 10mm;
-        }
-
-        .invoice-box.pr-purchase-requisition-doc {
-            border-top: 8px solid #28a745;
         }
 
         .po-doc-main {
@@ -458,7 +469,7 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
 </head>
 <body class="purchase-module tnc-app-body">
 
-<div class="no-print">
+<div class="no-print tnc-app-chrome">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 </div>
 
@@ -501,12 +512,12 @@ $hasAlerts = !empty($_GET['cancelled'])
                         <?php endforeach; ?>
                     <?php endif; ?>
                 <?php endif; ?>
-                <?php if (user_is_finance_role() && !$isPoCancelled && !$isPoPaid): ?>
+                <?php if (user_can('po.update') && !$isPoCancelled && !$isPoPaid): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm">
                         <i class="bi bi-pencil-square me-1"></i>แก้ไข
                     </a>
                 <?php endif; ?>
-                <?php if (!$isPoCancelled && !$isPoPaid): ?>
+                <?php if (user_can('po.cancel') && !$isPoCancelled && !$isPoPaid): ?>
                     <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=cancel_purchase_order" class="d-inline" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบสั่งซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และจะแสดงประทับบนใบพิมพ์');">
                         <?php csrf_field(); ?>
                         <input type="hidden" name="po_id" value="<?= (int) $id ?>">
@@ -514,7 +525,7 @@ $hasAlerts = !empty($_GET['cancelled'])
                         <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3"><i class="bi bi-x-circle me-1"></i>ยกเลิก PO</button>
                     </form>
                 <?php endif; ?>
-                <?php if (!$isPoCancelled && $billingStatusPo === 'pending'): ?>
+                <?php if (user_can('po.update') && !$isPoCancelled && $billingStatusPo === 'pending'): ?>
                     <button type="button" class="btn btn-outline-orange btn-sm rounded-pill px-3" id="btnOpenReceiveBill">
                         <i class="bi bi-receipt me-1"></i>บันทึกเลขที่บิลซื้อ
                     </button>

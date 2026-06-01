@@ -346,7 +346,6 @@
 .pr-purchase-requisition-doc.invoice-box {
     --pr-doc-a4-height: 297mm;
     --pr-doc-pad-block: 10mm;
-    border-top-color: #28a745 !important;
     min-height: var(--pr-doc-a4-height);
     display: flex;
     flex-direction: column;

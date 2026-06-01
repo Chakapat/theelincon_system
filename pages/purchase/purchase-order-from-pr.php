@@ -16,6 +16,11 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+if (!user_can('po.create')) {
+    header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?error=forbidden');
+    exit();
+}
+
 $pr_id = isset($_GET['pr_id']) ? (int) $_GET['pr_id'] : 0;
 
 $pr = Db::findFirst('purchase_requests', static function (array $r) use ($pr_id): bool {

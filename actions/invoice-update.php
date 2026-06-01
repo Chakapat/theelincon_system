@@ -14,7 +14,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-if (!user_can_edit_invoice()) {
+if (!user_can('invoice.edit')) {
     http_response_code(403);
     exit;
 }

@@ -120,6 +120,25 @@ body.tnc-app-body .btn-primary:hover {
     background: linear-gradient(118deg, var(--tnc-orange-dark) 0%, var(--tnc-orange) 48%, #ff922b 100%) !important;
     box-shadow: 0 4px 18px rgba(200, 65, 12, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    z-index: 1030;
+    --bs-dropdown-zindex: 1110;
+}
+.tnc-navbar .dropdown-menu,
+.tnc-navbar .dropdown-menu.show,
+.tnc-notif-menu {
+    z-index: 1110 !important;
+}
+/* Popper อาจย้าย dropdown ไปที่ body */
+body > .dropdown-menu,
+body > .dropdown-menu.show {
+    z-index: 1110 !important;
+}
+
+/* Navbar + dropdown ต้องอยู่เหนือ sticky toolbar เอกสาร PR/PO */
+.tnc-app-chrome {
+    position: relative;
+    z-index: 1100;
 }
 .tnc-navbar .navbar-brand {
     letter-spacing: 0.03em;

@@ -270,7 +270,6 @@ body.pr-doc-view-page {
     box-shadow:
         0 12px 42px rgba(0, 0, 0, 0.24),
         0 2px 10px rgba(0, 0, 0, 0.1);
-    border-top: 8px solid #28a745;
     overflow-x: hidden;
     overflow-y: visible;
     box-sizing: border-box;

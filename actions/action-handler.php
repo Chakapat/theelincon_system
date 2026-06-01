@@ -60,9 +60,22 @@ if (in_array($action, $tncDeletePwdActions, true)) {
     tnc_require_post_confirm_password();
 }
 
-$admin_only_actions = ['delete', 'delete_pr', 'add_member', 'edit_member', 'delete_supplier', 'delete_contractor', 'delete_leave_request', 'add_company', 'edit_company', 'add_customer', 'edit_customer'];
+$admin_only_actions = ['add_member', 'edit_member', 'delete_supplier', 'delete_contractor', 'delete_leave_request', 'add_company', 'edit_company', 'add_customer', 'edit_customer'];
 if (in_array($action, $admin_only_actions, true) && !user_is_admin_role()) {
     exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
+}
+
+if ($action === 'delete' && $id > 0) {
+    $deletePermByType = [
+        'invoice' => 'invoice.delete',
+        'tax_invoice' => 'invoice.tax_delete',
+        'purchase_order' => 'po.delete',
+    ];
+    if (isset($deletePermByType[$type])) {
+        tnc_require_can($deletePermByType[$type], 'ไม่มีสิทธิ์ลบรายการนี้');
+    } elseif (!user_is_admin_role()) {
+        exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
+    }
 }
 
 if ($action === 'purge_audit_logs') {
@@ -704,6 +717,7 @@ if ($action === 'delete_supplier') {
 
 // --- PR ---
 if ($action === 'save_pr') {
+    tnc_require_can('pr.create', 'ไม่มีสิทธิ์สร้าง PR');
     $sitesForPr = Db::tableRows('sites');
     $site_id = (int) ($_POST['site_id'] ?? 0);
     if (count($sitesForPr) > 0 && $site_id <= 0) {
@@ -987,6 +1001,7 @@ if ($action === 'save_pr') {
 }
 
 if ($action === 'send_pr_line_approval') {
+    tnc_require_can('pr.send_line', 'ไม่มีสิทธิ์ส่ง LINE ขออนุมัติ PR');
     $pr_id = (int) ($_POST['pr_id'] ?? 0);
     $viewUrl = $pr_id > 0
         ? app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id
@@ -1002,10 +1017,7 @@ if ($action === 'send_pr_line_approval') {
 }
 
 if ($action === 'pr_web_decision') {
-    if (!user_is_admin_only_role()) {
-        http_response_code(403);
-        exit('ไม่มีสิทธิ์ — เฉพาะ ADMIN');
-    }
+    tnc_require_can('pr.approve', 'ไม่มีสิทธิ์อนุมัติ PR');
     $pr_id = (int) ($_POST['pr_id'] ?? 0);
     $decision = strtolower(trim((string) ($_POST['decision'] ?? '')));
     $viewUrl = $pr_id > 0
@@ -1023,6 +1035,7 @@ if ($action === 'pr_web_decision') {
 }
 
 if ($action === 'update_pr') {
+    tnc_require_can('pr.update', 'ไม่มีสิทธิ์แก้ไข PR');
     $pr_id = (int) ($_POST['pr_id'] ?? 0);
     if ($pr_id <= 0) {
         tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?error=invalid_pr');
@@ -1341,6 +1354,7 @@ if ($action === 'update_pr') {
 }
 
 if ($action === 'delete_pr') {
+    tnc_require_can('pr.delete', 'ไม่มีสิทธิ์ลบ PR');
     if ($id <= 0) {
         tnc_action_redirect( app_path('pages/purchase/purchase-request-list.php') . '?error=invalid_pr');
     }
@@ -1402,7 +1416,7 @@ if ($action === 'save_standalone_hire_contract' && ($_SERVER['REQUEST_METHOD'] ?
 
 // --- PO from PR ---
 if ($action === 'create_po_from_pr') {
-    tnc_require_finance_role();
+    tnc_require_can('po.create', 'ไม่มีสิทธิ์สร้าง PO');
     $pr_id = (int) ($_POST['pr_id'] ?? 0);
     $supplier_id = (int) ($_POST['supplier_id'] ?? 0);
     $hire_contract_id = (int) ($_POST['hire_contract_id'] ?? 0);
@@ -1654,7 +1668,7 @@ if ($action === 'create_po_from_pr') {
 
 // --- PO โดยตรง (ไม่อิง PR) ---
 if ($action === 'create_po_direct') {
-    tnc_require_finance_role();
+    tnc_require_can('po.create', 'ไม่มีสิทธิ์สร้าง PO');
     $supplier_id = (int) ($_POST['supplier_id'] ?? 0);
     $hire_contract_id = (int) ($_POST['hire_contract_id'] ?? 0);
     $pr_id_link = (int) ($_POST['pr_id'] ?? 0);
@@ -1915,7 +1929,7 @@ if ($action === 'create_po_direct') {
 
 // --- แก้ไข PO โดยตรง (purchase-order-edit.php) ---
 if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    tnc_require_finance_role();
+    tnc_require_can('po.update', 'ไม่มีสิทธิ์แก้ไข PO');
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $editUrl = app_path('pages/purchase/purchase-order-edit.php');
     $po_id = (int) ($_GET['id'] ?? $_POST['po_id'] ?? $_POST['id'] ?? 0);
@@ -2139,7 +2153,7 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
 
 // --- ยกเลิกใบสั่งซื้อ (สถานะ cancelled) ---
 if ($action === 'cancel_purchase_order' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    tnc_require_finance_role();
+    tnc_require_can('po.cancel', 'ไม่มีสิทธิ์ยกเลิก PO');
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $viewUrl = app_path('pages/purchase/purchase-order-view.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
@@ -2185,7 +2199,7 @@ if ($action === 'cancel_purchase_order' && ($_SERVER['REQUEST_METHOD'] ?? '') ==
 
 /** ปัดทิ้ง/คืนค่า PO ที่ไม่สมบูรณ์ — ไม่ให้นับในกล่องแจ้งเตือน (สำหรับใบเก่าที่กรอกย้อนหลังไม่ได้แล้ว) */
 if (($action === 'ignore_incomplete_po' || $action === 'unignore_incomplete_po') && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    tnc_require_finance_role();
+    tnc_require_can('po.update', 'ไม่มีสิทธิ์จัดการ PO');
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
     if ($po_id <= 0) {
@@ -2221,7 +2235,7 @@ if (($action === 'ignore_incomplete_po' || $action === 'unignore_incomplete_po')
 
 /** รายการ PO: แนบสลิป + ตั้งสถานะจ่ายแล้ว (purchase_orders.payment_slip_path) */
 if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    tnc_require_finance_role();
+    tnc_require_can('po.update', 'ไม่มีสิทธิ์จัดการ PO');
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
     $payment_status = strtolower(trim((string) ($_POST['payment_status'] ?? '')));
@@ -2326,7 +2340,7 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
 
 /** บันทึกเลขที่บิลซื้อย้อนหลังจาก PO + สร้างรายการใน /bills */
 if ($action === 'receive_po_bill' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    tnc_require_finance_role();
+    tnc_require_can('po.update', 'ไม่มีสิทธิ์จัดการ PO');
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
     $return_to = trim((string) ($_POST['return_to'] ?? 'list'));
@@ -2469,7 +2483,7 @@ if ($action === 'receive_po_bill' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POS
 
 /** เพิ่มไฟล์หลักฐานการจ่าย (หลายไฟล์) สำหรับ PO ที่จ่ายแล้ว */
 if ($action === 'add_po_payment_slips' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    tnc_require_finance_role();
+    tnc_require_can('po.update', 'ไม่มีสิทธิ์จัดการ PO');
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
     if ($po_id <= 0) {
@@ -2522,7 +2536,7 @@ if ($action === 'add_po_payment_slips' && ($_SERVER['REQUEST_METHOD'] ?? '') ===
 
 /** ลบไฟล์หลักฐานการจ่ายรายการเดียว */
 if ($action === 'remove_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    tnc_require_finance_role();
+    tnc_require_can('po.update', 'ไม่มีสิทธิ์จัดการ PO');
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
     $removePath = trim((string) ($_POST['slip_path'] ?? ''));
@@ -2567,7 +2581,7 @@ if ($action === 'remove_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') =
 
 /** เปลี่ยนไฟล์หลักฐานการจ่าย (แทนที่ไฟล์เดิม) */
 if ($action === 'replace_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    tnc_require_finance_role();
+    tnc_require_can('po.update', 'ไม่มีสิทธิ์จัดการ PO');
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
     $oldPath = trim((string) ($_POST['slip_path'] ?? ''));
@@ -2635,7 +2649,7 @@ if ($action === 'replace_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') 
 }
 
 if ($action === 'upload_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    tnc_require_finance_role();
+    tnc_require_can('po.update', 'ไม่มีสิทธิ์จัดการ PO');
     $po_id = (int) ($_POST['po_id'] ?? 0);
     $payment_id = (int) ($_POST['payment_id'] ?? 0);
     $backTo = trim((string) ($_POST['back_to'] ?? ''));

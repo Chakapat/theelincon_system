@@ -20,9 +20,19 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$editId = (int) ($_GET['id'] ?? 0);
+if ($editId > 0) {
+    if (!user_can('pr.update')) {
+        header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?error=forbidden');
+        exit();
+    }
+} elseif (!user_can('pr.create')) {
+    header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?error=forbidden');
+    exit();
+}
+
 $uid = (int) $_SESSION['user_id'];
 
-$editId = (int) ($_GET['id'] ?? 0);
 $editPr = null;
 $editItems = [];
 if ($editId > 0) {

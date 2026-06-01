@@ -169,11 +169,19 @@ if (!function_exists('user_is_finance_role')) {
     }
 }
 
+if (!function_exists('user_can_pr_web_decide')) {
+    /** ADMIN / ACCOUNTING (หรือตาม matrix pr.approve) — อนุมัติ/ไม่อนุมัติ PR บนเว็บ */
+    function user_can_pr_web_decide(): bool
+    {
+        return function_exists('user_can') ? user_can('pr.approve') : (user_is_admin_only_role() || user_is_accounting_role());
+    }
+}
+
 if (!function_exists('user_can_edit_invoice')) {
-    /** แอดมินหรือ Accounting แก้ไขใบแจ้งหนี้ได้ */
+    /** แก้ไขใบแจ้งหนี้ (ตาม matrix invoice.edit) */
     function user_can_edit_invoice(): bool
     {
-        return user_is_finance_role();
+        return function_exists('user_can') ? user_can('invoice.edit') : user_is_finance_role();
     }
 }
 

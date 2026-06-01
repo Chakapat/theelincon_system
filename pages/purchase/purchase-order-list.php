@@ -14,7 +14,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$isAdmin = user_is_admin_role();
+$poCanDelete = user_can('po.delete');
 $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 
 $suppliers = Db::tableKeyed('suppliers');
@@ -459,7 +459,7 @@ $ignoredCountAll = count($ignoredPoList);
                             <?php
                             $rowPaid = (($row['payment_status'] ?? 'unpaid') === 'paid');
                             $poCanEditCancel = ($row['status'] ?? '') !== 'cancelled' && !$rowPaid;
-                            $poCanAdminDelete = $isAdmin && !$rowPaid;
+                            $poCanAdminDelete = $poCanDelete && !$rowPaid;
                             ?>
                             <?php if (($row['status'] ?? '') !== 'cancelled'): ?>
                             <div class="dropdown">

@@ -20,9 +20,8 @@ if ($prCtx === null) {
 }
 extract($prCtx, EXTR_OVERWRITE);
 
-$isPrAdmin = user_is_admin_only_role();
-$prCanSendLine = in_array($prApprovalStatus, ['pending', 'rejected'], true);
-$prCanWebDecide = $isPrAdmin && $prApprovalStatus === 'pending';
+$prCanSendLineAdmin = user_can('pr.send_line') && in_array($prApprovalStatus, ['pending', 'rejected'], true);
+$prCanWebDecide = user_can('pr.approve') && $prApprovalStatus === 'pending';
 $prHandlerUrl = app_path('actions/action-handler.php');
 
 $prToolbarPoNumber = '';
@@ -70,7 +69,7 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
         .pr-view-shell {
             position: sticky;
             top: 0;
-            z-index: 1020;
+            z-index: 100;
             background: #fff;
             border-bottom: 1px solid #bbf7d0;
             box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
@@ -94,18 +93,10 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
         .pr-view-toolbar-row {
             display: flex;
             flex-wrap: wrap;
+            justify-content: center;
             align-items: center;
-            justify-content: space-between;
-            gap: 0.65rem 1rem;
-        }
-
-        .pr-view-toolbar-main {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.5rem 0.75rem;
+            gap: 0.5rem;
             min-width: 0;
-            flex: 1 1 auto;
         }
 
         .pr-view-toolbar-id {
@@ -115,21 +106,20 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
             letter-spacing: -0.02em;
             line-height: 1.2;
             white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .pr-view-toolbar-sep {
             color: #94a3b8;
             font-weight: 600;
             line-height: 1;
+            flex-shrink: 0;
         }
 
-        .pr-view-toolbar-actions {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 0.5rem;
-            flex: 0 0 auto;
+        .pr-view-toolbar-row .btn,
+        .pr-view-toolbar-row .badge {
+            flex-shrink: 0;
+            white-space: nowrap;
         }
 
         .pr-view-title {
@@ -166,7 +156,6 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
         }
 
         .invoice-box.pr-purchase-requisition-doc {
-            border-top: 8px solid var(--brand-color);
             --pr-doc-a4-height: 297mm;
             --pr-doc-pad-block: 10mm;
         }
@@ -341,30 +330,27 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
 </head>
 <body class="purchase-module tnc-app-body">
 
-<div class="no-print">
+<div class="no-print tnc-app-chrome">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 </div>
 
 <header class="pr-view-shell no-print">
     <div class="pr-view-shell-inner">
         <div class="pr-view-toolbar-row mb-2">
-            <div class="pr-view-toolbar-main">
-                <span class="pr-view-toolbar-id"><?= htmlspecialchars($prToolbarDisplayId, ENT_QUOTES, 'UTF-8') ?></span>
-                <span class="pr-view-toolbar-sep" aria-hidden="true">—</span>
                 <span class="badge rounded-pill px-3 py-2 <?= htmlspecialchars($prApprovalBadgeClass, ENT_QUOTES, 'UTF-8') ?>">
                     <?= htmlspecialchars($prApprovalLabel, ENT_QUOTES, 'UTF-8') ?>
                 </span>
-                <?php if (($isPrAdmin && $prCanSendLine) || $prCanWebDecide): ?>
-                    <?php if ($isPrAdmin && $prCanSendLine): ?>
+                <?php if ($prCanSendLineAdmin || $prCanWebDecide): ?>
+                    <?php if ($prCanSendLineAdmin): ?>
                         <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3" id="btnPrSendLine" title="ส่งขออนุมัติไปกลุ่ม LINE">
                             <i class="bi bi-line me-1"></i>ส่ง LINE
                         </button>
                     <?php endif; ?>
                     <?php if ($prCanWebDecide): ?>
-                        <button type="button" class="btn btn-success btn-sm rounded-pill px-3" id="btnPrWebApprove" title="อนุมัติบนเว็บ (ADMIN)">
+                        <button type="button" class="btn btn-success btn-sm rounded-pill px-3" id="btnPrWebApprove" title="อนุมัติบนเว็บ">
                             <i class="bi bi-check-circle me-1"></i>อนุมัติ
                         </button>
-                        <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" id="btnPrWebReject" title="ไม่อนุมัติบนเว็บ (ADMIN)">
+                        <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" id="btnPrWebReject" title="ไม่อนุมัติบนเว็บ">
                             <i class="bi bi-x-circle me-1"></i>ไม่อนุมัติ
                         </button>
                     <?php endif; ?>
@@ -373,15 +359,19 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $existing_po['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-eye me-1"></i>ดู PO
                     </a>
-                <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo)): ?>
+                <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo) && user_can('po.create')): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-file-earmark-plus me-1"></i>สร้าง PO
                     </a>
+                <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo)): ?>
+                    <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="ไม่มีสิทธิ์สร้าง PO">
+                        <i class="bi bi-lock me-1"></i>ไม่มีสิทธิ์สร้าง PO
+                    </span>
                 <?php elseif ($requestType !== 'hire'): ?>
                     <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="รออนุมัติก่อนออก PO">
                         <i class="bi bi-lock me-1"></i>รออนุมัติ
                     </span>
-                <?php elseif (!empty($prIsApprovedForPo)): ?>
+                <?php elseif (!empty($prIsApprovedForPo) && user_can('po.create')): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-file-earmark-plus me-1"></i>ออก PO (ตามงวด)
                     </a>
@@ -396,15 +386,12 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                         <i class="bi bi-file-earmark-ruled me-1"></i>สัญญาจ้าง
                     </a>
                 <?php endif; ?>
-            </div>
-            <div class="pr-view-toolbar-actions">
                 <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                     <i class="bi bi-arrow-left me-1"></i>รายการ PR
                 </a>
                 <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                     <i class="bi bi-printer me-1"></i>พิมพ์
                 </button>
-            </div>
         </div>
         <?php if (!empty($_GET['error']) && $_GET['error'] === 'po_exists'): ?>
             <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ใบขอซื้อนี้มีใบสั่งซื้อแล้ว ไม่สามารถออกซ้ำได้</div>

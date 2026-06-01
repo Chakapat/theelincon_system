@@ -6,6 +6,13 @@ require_once __DIR__ . '/foundation.php';
 require_once __DIR__ . '/firebase_settings.php';
 require_once __DIR__ . '/firebase_service_account.php';
 
+$tncRolePermissionsFile = dirname(__DIR__) . '/includes/role_permissions.php';
+if (is_file($tncRolePermissionsFile)) {
+    require_once $tncRolePermissionsFile;
+} else {
+    require_once dirname(__DIR__) . '/includes/role_permissions_fallback.php';
+}
+
 /**
  * ฐานข้อมูลหลัก: Firebase Realtime Database (mirror theelincon_mirror/)
  * อ่าน/เขียนผ่าน Theelincon\Rtdb\Db

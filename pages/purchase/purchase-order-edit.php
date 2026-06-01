@@ -15,7 +15,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-if (!user_is_finance_role()) {
+if (!user_can('po.update')) {
     header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?error=forbidden');
     exit();
 }

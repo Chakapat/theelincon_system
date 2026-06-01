@@ -14,7 +14,8 @@ if (!isset($_SESSION['user_id'])) {
 
 $is_admin = user_is_admin_role();
 $is_admin_only = user_is_admin_only_role();
-$can_edit_invoice = user_can_edit_invoice();
+$can_edit_invoice = user_can('invoice.edit');
+$can_delete_invoice = user_can('invoice.delete');
 $is_finance_hub = user_is_finance_role();
 
 if (isset($_GET['ajax_search'])) {
@@ -64,7 +65,7 @@ if (isset($_GET['ajax_search'])) {
                         <?php if ($can_edit_invoice): ?>
                             <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php'), ENT_QUOTES, 'UTF-8') ?>?action=edit&amp;id=<?= (int) $row['id']; ?>" class="btn btn-invoice-action btn-invoice-action-edit" title="แก้ไข"><i class="bi bi-pencil-square"></i></a>
                         <?php endif; ?>
-                        <?php if ($is_admin): ?>
+                        <?php if ($can_delete_invoice): ?>
                             <button type="button" onclick="deleteItem(<?= $row['id']; ?>, 'invoice')" class="btn btn-invoice-action btn-invoice-action-delete" title="ลบ"><i class="bi bi-trash3-fill"></i></button>
                         <?php endif; ?>
                     </div>
