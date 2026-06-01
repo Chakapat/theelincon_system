@@ -36,7 +36,7 @@ $prNumberDisplay = trim((string) ($pr['pr_number'] ?? ''));
 if ($prNumberDisplay === '') {
     $prNumberDisplay = 'PR-' . (int) ($pr['id'] ?? 0);
 }
-$prDocDateSubtitle = $prNumberDisplay . ' / ' . $docDateDisplay;
+$prDocDateSubtitle = $prNumberDisplay . ' · ' . $docDateDisplay;
 $requesterLine = trim($requesterDisplay !== '' ? $requesterDisplay : '-');
 if ($isHireDoc && trim((string) ($contractorPrint['name_th'] ?? '')) === '' && trim($contractorName) !== '') {
     $contractorPrint['name_th'] = trim($contractorName);

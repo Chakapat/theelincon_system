@@ -361,7 +361,7 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                     </a>
                 <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo) && user_can('po.create')): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
-                        <i class="bi bi-file-earmark-plus me-1"></i>สร้าง PO
+                        <i class="bi bi-file-earmark-plus me-1"></i>สร้างใบสั่งซื้อ
                     </a>
                 <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo)): ?>
                     <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="ไม่มีสิทธิ์สร้าง PO">
