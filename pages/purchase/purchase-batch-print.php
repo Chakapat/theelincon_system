@@ -67,6 +67,7 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
         <?php if ($kind === 'po'): ?>
         :root {
@@ -175,13 +176,15 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
         .invoice-box {
             width: 210mm;
             max-width: 100%;
-            min-height: 297mm;
+            min-height: 0;
+            height: auto;
             margin: 0 auto;
             background: #fff;
             padding: 10mm 15mm;
             position: relative;
             box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-            overflow: hidden;
+            overflow: visible;
+            box-sizing: border-box;
         }
         .invoice-box.po-purchase-order-doc {
             border-top: 8px solid var(--brand-color);
@@ -196,7 +199,6 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
         .invoice-box.po-purchase-order-doc .table-custom thead th { background: #fafafa; border-bottom: 2px solid var(--brand-color); font-size: 13px; padding: 10px; }
         .pr-purchase-requisition-doc .table-custom thead th { background: #fafafa; border-bottom: 2px solid #28a745; font-size: 13px; padding: 10px; }
         .table-custom td { padding: 10px; font-size: 13px; border-bottom: 1px solid #f2f2f2; }
-        .footer-sticky { position: absolute; bottom: 12mm; left: 15mm; right: 15mm; }
         .invoice-box .po-total-sheet .summary-item {
             display: flex;
             flex-wrap: nowrap;
@@ -228,7 +230,6 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
         .sig-box { border-top: 1px solid #333; padding-top: 10px; font-size: 13px; font-weight: 600; }
         .pr-doc-main,
         .po-doc-main {
-            padding-bottom: 52mm;
             box-sizing: border-box;
         }
         .po-cancelled-watermark,
@@ -249,16 +250,13 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
         }
         @media (max-width: 575.98px) {
             .invoice-box { width: 100%; min-height: 0; height: auto; padding: 1rem; box-shadow: none; overflow: visible; }
-            .footer-sticky { position: static; margin-top: 1.25rem; }
             .signature-grid { grid-template-columns: 1fr; gap: 18px; }
-            .pr-doc-main,
-            .po-doc-main { padding-bottom: 0; }
         }
     </style>
 </head>
 <body class="tnc-batch-print-body purchase-module">
 
-<div class="tnc-batch-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2">
+<div class="tnc-batch-toolbar no-print d-flex flex-wrap align-items-center justify-content-between gap-2">
     <div class="d-flex flex-wrap align-items-center gap-2">
         <a href="<?= htmlspecialchars($backUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill">
             <i class="bi bi-arrow-left me-1"></i>กลับรายการ
@@ -320,10 +318,10 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
                     <?php tnc_purchase_po_print_render($block['ctx']); ?>
                 <?php endif; ?>
                 <?php if (in_array($poPrintModeBatch, ['slip', 'both', 'all'], true)): ?>
-                    <?php tnc_purchase_po_payment_slip_print_render($block['ctx']['po']); ?>
+                    <?php tnc_purchase_po_payment_slip_print_render($block['ctx']['po'], in_array($poPrintModeBatch, ['po', 'both', 'all'], true)); ?>
                 <?php endif; ?>
                 <?php if (in_array($poPrintModeBatch, ['both', 'all'], true)): ?>
-                    <?php tnc_purchase_po_quotation_attachment_print_render($block['ctx']['po']); ?>
+                    <?php tnc_purchase_po_quotation_attachment_print_render($block['ctx']['po'], true); ?>
                 <?php endif; ?>
             <?php endif; ?>
         </div>
@@ -332,5 +330,9 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
 
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-po-print.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php
+$tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
+?>
+<link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
 </body>
 </html>

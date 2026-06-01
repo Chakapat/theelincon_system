@@ -88,6 +88,7 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     
     <style>
@@ -118,29 +119,54 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
         }
 
         .po-view-shell-inner {
-            padding-top: 0.85rem;
-            padding-bottom: 0.85rem;
+            max-width: calc(210mm + 1.5rem);
+            margin: 0 auto;
+            padding: 0.85rem 0.75rem;
         }
 
-        .po-view-kicker {
-            font-size: 0.68rem;
-            font-weight: 700;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-            color: var(--brand-color);
-            margin-bottom: 0.2rem;
+        .po-view-toolbar-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.65rem 1rem;
         }
 
-        .po-view-title {
-            font-size: 1.35rem;
+        .po-view-toolbar-main {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem 0.75rem;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        .po-view-toolbar-id {
+            font-size: 1.15rem;
             font-weight: 800;
             color: #0f172a;
             letter-spacing: -0.02em;
             line-height: 1.2;
+            white-space: nowrap;
         }
 
-        .po-view-meta-row {
-            gap: 0.5rem 0.75rem;
+        .po-view-toolbar-sep {
+            color: #94a3b8;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .po-view-toolbar-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            flex: 0 0 auto;
+        }
+
+        .po-view-toolbar-actions .btn {
+            font-weight: 600;
         }
 
         .po-view-chip {
@@ -156,14 +182,8 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
             border: 1px solid #e2e8f0;
         }
 
-        .po-view-actions .btn {
-            font-weight: 600;
-        }
-
         .po-view-alerts {
             margin-top: 0.75rem;
-            padding-top: 0.75rem;
-            border-top: 1px dashed #e2e8f0;
         }
 
         .po-view-alerts .alert {
@@ -181,9 +201,7 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
             max-width: 210mm;
             margin-left: auto;
             margin-right: auto;
-            padding-left: 0.75rem;
-            padding-right: 0.75rem;
-            padding-bottom: 2.5rem;
+            padding: 0.75rem 0.75rem 2.5rem;
         }
 
         /* PR ฝังในหน้า PO — คงโทนเขียวของ PR (ไม่ใช้ส้มของ PO) */
@@ -234,10 +252,15 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
             position: relative;
             box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
             overflow: visible;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
         }
 
         .invoice-box.po-purchase-order-doc {
             border-top: 8px solid var(--brand-color);
+            --po-doc-a4-height: 297mm;
+            --po-doc-pad-block: 10mm;
         }
 
         .invoice-box.pr-purchase-requisition-doc {
@@ -245,8 +268,31 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
         }
 
         .po-doc-main {
-            padding-bottom: 52mm;
             box-sizing: border-box;
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: calc(var(--po-doc-a4-height) - (var(--po-doc-pad-block) * 2));
+            width: 100%;
+        }
+
+        .po-doc-content {
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        .invoice-box.po-purchase-order-doc .footer-sticky {
+            flex: 0 0 auto;
+            margin-top: auto;
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .invoice-box.po-purchase-order-doc .signature-grid {
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         .invoice-box .po-total-sheet {
@@ -294,7 +340,7 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
             border-bottom: 1px solid #f2f2f2;
         }
 
-        .footer-sticky { position: absolute; bottom: 12mm; left: 15mm; right: 15mm; }
+
         .invoice-box .po-total-sheet .summary-item {
             display: flex;
             flex-wrap: nowrap;
@@ -349,65 +395,47 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
             max-width: 210mm;
             margin: 1rem auto 2rem;
         }
-        .po-payment-slip-sheet {
-            background: #fff;
-            padding: 12px 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-            border: 1px solid #e2e8f0;
+
+        @media (max-width: 575.98px) {
+            .po-slip-a4-page {
+                width: 100%;
+            }
+            .po-slip-a4-page .po-payment-slip-sheet--full {
+                height: auto;
+                min-height: 0;
+                max-height: none;
+                padding: 0.5rem 0;
+            }
+            .po-slip-a4-page .po-slip-img-wrap {
+                width: 100%;
+                height: auto;
+                max-height: min(277mm, 85vh);
+            }
+            .po-slip-a4-page .po-payment-slip-img {
+                max-height: min(277mm, 85vh);
+            }
         }
-        .po-slip-print-caption {
-            font-weight: 600;
-            color: var(--brand-color);
-            letter-spacing: 0.03em;
-        }
-        .po-slip-paper-header {
-            font-size: 0.88rem;
-            line-height: 1.4;
-            color: #334155;
-            border-bottom: 2px solid var(--brand-color);
-            padding-bottom: 0.45rem;
-            margin-bottom: 0.65rem;
-        }
-        .po-slip-paper-header-kicker {
-            font-size: 0.68rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: #94a3b8;
-            margin-bottom: 0.15rem;
-        }
-        .po-slip-po-line {
-            font-size: 0.82rem;
-            color: #475569;
-        }
-        .po-slip-po-number {
-            font-size: 1.08rem;
-            font-weight: 800;
-            color: var(--brand-color-deep);
-            margin-left: 0.25rem;
-        }
-        .po-slip-img-wrap {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            max-height: 72vh;
-            overflow: auto;
-        }
-        .po-payment-slip-img {
-            max-width: 100%;
-            max-height: 72vh;
-            height: auto;
-            width: auto;
-            object-fit: contain;
-        }
-        .po-quotation-pdf-iframe {
-            width: 100%;
-            min-height: 40vh;
-            max-height: 72vh;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            background: #f8fafc;
+
+        @media print {
+            .invoice-box.po-purchase-order-doc,
+            .invoice-box.pr-purchase-requisition-doc {
+                border-top: none !important;
+            }
+            .invoice-box.po-purchase-order-doc {
+                min-height: calc(297mm - 20mm);
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            .invoice-box.po-purchase-order-doc .po-doc-main {
+                min-height: calc(297mm - 20mm) !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            .invoice-box.po-purchase-order-doc .footer-sticky {
+                margin-top: auto !important;
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
         }
 
         @media (max-width: 575.98px) {
@@ -419,9 +447,11 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
                 padding: 1rem;
                 box-shadow: none;
                 overflow: visible;
+                display: block;
             }
-            .po-doc-main { padding-bottom: 0; }
-            .footer-sticky { position: static; bottom: auto; left: auto; right: auto; margin-top: 1.25rem; }
+            .po-doc-main { min-height: 0; display: block; }
+            .po-doc-content { flex: none; }
+            .invoice-box.po-purchase-order-doc .footer-sticky { margin-top: 1.25rem; }
             .signature-grid { grid-template-columns: 1fr; gap: 18px; }
         }
     </style>
@@ -448,52 +478,31 @@ $hasAlerts = !empty($_GET['cancelled'])
     || ($poPrintMode === 'all');
 ?>
 <header class="po-view-shell no-print">
-    <div class="container-xl po-view-shell-inner">
-        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
-            <div class="flex-grow-1" style="min-width: min(100%, 240px);">
-                <div class="po-view-kicker">Purchase order</div>
-                <h1 class="po-view-title mb-2"><?= htmlspecialchars($poDocTitle, ENT_QUOTES, 'UTF-8') ?></h1>
-                <nav class="small text-muted mb-2" aria-label="breadcrumb">
-                    <a href="<?= $poListHref ?>" class="text-decoration-none text-muted">รายการใบสั่งซื้อ</a>
-                    <span class="mx-1">/</span>
-                    <span class="text-secondary">เอกสาร</span>
-                </nav>
-                <div class="d-flex flex-wrap align-items-center po-view-meta-row">
-                    <?php if ($isPoCancelled): ?>
-                        <span class="po-view-chip text-bg-danger border-0">ยกเลิกแล้ว</span>
-                    <?php elseif ($isPoPaid): ?>
-                        <span class="po-view-chip"><?= $pmToolbar === 'cash' ? 'เงินสด' : 'โอน / ช่องทางอื่น' ?></span>
-                        <?php if ($pmToolbar === 'cash' && $cashByToolbar !== ''): ?>
-                            <span class="po-view-chip">จ่ายโดย <?= htmlspecialchars($cashByToolbar, ENT_QUOTES, 'UTF-8') ?></span>
-                        <?php endif; ?>
-                        <?php if ($slipItemsToolbar !== []): ?>
-                            <span class="po-view-chip">
-                                <i class="bi bi-receipt"></i>หลักฐาน <?= count($slipItemsToolbar) ?> ไฟล์
-                            </span>
-                            <?php foreach ($slipItemsToolbar as $slipTb): ?>
-                            <a href="<?= htmlspecialchars((string) ($slipTb['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="po-view-chip po-view-chip--link text-decoration-none" title="<?= htmlspecialchars((string) ($slipTb['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                                เปิด<?= ($slipTb['is_pdf'] ?? false) ? ' PDF' : '' ?>
-                            </a>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
+    <div class="po-view-shell-inner">
+        <div class="po-view-toolbar-row mb-2">
+            <div class="po-view-toolbar-main">
+                <span class="po-view-toolbar-id"><?= htmlspecialchars($poDocTitle, ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="po-view-toolbar-sep" aria-hidden="true">—</span>
+                <?php if ($isPoCancelled): ?>
+                    <span class="badge rounded-pill px-3 py-2 text-bg-danger">ยกเลิกแล้ว</span>
+                <?php elseif ($isPoPaid): ?>
+                    <span class="po-view-chip"><?= $pmToolbar === 'cash' ? 'เงินสด' : 'โอน / ช่องทางอื่น' ?></span>
+                    <?php if ($pmToolbar === 'cash' && $cashByToolbar !== ''): ?>
+                        <span class="po-view-chip">จ่ายโดย <?= htmlspecialchars($cashByToolbar, ENT_QUOTES, 'UTF-8') ?></span>
                     <?php endif; ?>
-                </div>
-            </div>
-            <div class="po-view-actions d-flex flex-wrap align-items-center justify-content-end gap-2">
-                <a href="<?= $poListHref ?>" class="btn btn-outline-secondary rounded-pill px-3">
-                    <i class="bi bi-arrow-left-short me-1"></i>รายการ PO
-                </a>
-                <?php if ($hasPrintChoiceModal): ?>
-                    <button type="button" class="btn btn-success rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#poPrintChoiceModal">
-                        <i class="bi bi-printer me-1"></i>พิมพ์เอกสาร
-                    </button>
-                <?php else: ?>
-                    <button type="button" class="btn btn-success rounded-pill px-3 shadow-sm" onclick="tncPrintPoWhenReady()">
-                        <i class="bi bi-printer me-1"></i>พิมพ์ใบสั่งซื้อ
-                    </button>
+                    <?php if ($slipItemsToolbar !== []): ?>
+                        <span class="po-view-chip">
+                            <i class="bi bi-receipt"></i>หลักฐาน <?= count($slipItemsToolbar) ?> ไฟล์
+                        </span>
+                        <?php foreach ($slipItemsToolbar as $slipTb): ?>
+                        <a href="<?= htmlspecialchars((string) ($slipTb['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="po-view-chip po-view-chip--link text-decoration-none" title="<?= htmlspecialchars((string) ($slipTb['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                            เปิด<?= ($slipTb['is_pdf'] ?? false) ? ' PDF' : '' ?>
+                        </a>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 <?php endif; ?>
                 <?php if (user_is_finance_role() && !$isPoCancelled && !$isPoPaid): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-3 shadow-sm">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm">
                         <i class="bi bi-pencil-square me-1"></i>แก้ไข
                     </a>
                 <?php endif; ?>
@@ -502,12 +511,26 @@ $hasAlerts = !empty($_GET['cancelled'])
                         <?php csrf_field(); ?>
                         <input type="hidden" name="po_id" value="<?= (int) $id ?>">
                         <input type="hidden" name="return_to" value="view">
-                        <button type="submit" class="btn btn-outline-danger rounded-pill px-3"><i class="bi bi-x-circle me-1"></i>ยกเลิก PO</button>
+                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3"><i class="bi bi-x-circle me-1"></i>ยกเลิก PO</button>
                     </form>
                 <?php endif; ?>
                 <?php if (!$isPoCancelled && $billingStatusPo === 'pending'): ?>
-                    <button type="button" class="btn btn-outline-orange rounded-pill px-3" id="btnOpenReceiveBill">
+                    <button type="button" class="btn btn-outline-orange btn-sm rounded-pill px-3" id="btnOpenReceiveBill">
                         <i class="bi bi-receipt me-1"></i>บันทึกเลขที่บิลซื้อ
+                    </button>
+                <?php endif; ?>
+            </div>
+            <div class="po-view-toolbar-actions">
+                <a href="<?= $poListHref ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="bi bi-arrow-left me-1"></i>รายการ PO
+                </a>
+                <?php if ($hasPrintChoiceModal): ?>
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#poPrintChoiceModal">
+                        <i class="bi bi-printer me-1"></i>พิมพ์
+                    </button>
+                <?php else: ?>
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="tncPrintPoWhenReady()">
+                        <i class="bi bi-printer me-1"></i>พิมพ์
                     </button>
                 <?php endif; ?>
             </div>
@@ -649,10 +672,10 @@ $hasAlerts = !empty($_GET['cancelled'])
 <?php tnc_purchase_po_print_render($poCtx); ?>
 <?php endif; ?>
 <?php if ($printIncludeSlip): ?>
-<?php tnc_purchase_po_payment_slip_print_render($poCtx['po']); ?>
+<?php tnc_purchase_po_payment_slip_print_render($poCtx['po'], $printIncludePo || ($printIncludePr && $prCtxForPo !== null)); ?>
 <?php endif; ?>
 <?php if ($printIncludeQuotation): ?>
-<?php tnc_purchase_po_quotation_attachment_print_render($poCtx['po']); ?>
+<?php tnc_purchase_po_quotation_attachment_print_render($poCtx['po'], true); ?>
 <?php endif; ?>
 <?php if ($poPrintMode === 'slip' && !$hasPaymentSlipPrint): ?>
 <div class="container-xl py-5 no-print">
@@ -747,5 +770,9 @@ $hasAlerts = !empty($_GET['cancelled'])
     });
 })();
 </script>
+<?php
+$tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
+?>
+<link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
 </body>
 </html>

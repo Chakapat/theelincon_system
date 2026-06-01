@@ -35,12 +35,19 @@ declare(strict_types=1);
  * @var bool $isPoCancelled
  */
 
+$poNumberDisplay = trim((string) ($data['po_number'] ?? ''));
+if ($poNumberDisplay === '') {
+    $poNumberDisplay = 'PO-' . (int) ($po['id'] ?? 0);
+}
+$poDocDateSubtitle = $poNumberDisplay . ' · ' . tnc_po_format_date_thai($issueDate);
+
 ?>
 <div class="invoice-box po-purchase-order-doc">
     <?php if ($isPoCancelled): ?>
     <div class="po-cancelled-watermark" aria-hidden="true">ยกเบิกใบสั่งซื้อ</div>
     <?php endif; ?>
     <div class="po-doc-main">
+    <div class="po-doc-content">
     <div class="row align-items-start mb-2">
         <div class="col-6">
             <?php if (!empty($data['logo'])): ?>
@@ -54,14 +61,7 @@ declare(strict_types=1);
         </div>
         <div class="col-6 text-end">
             <div class="invoice-title"><?= $orderType === 'hire' ? 'PAYMENT ORDER' : 'PURCHASE ORDER' ?></div>
-            <div class="fw-bold text-muted small"><?= $orderType === 'hire' ? 'ใบสั่งจ่าย / ใบสั่งจ้าง' : 'ใบสั่งซื้อสินค้า' ?></div>
-            <div class="po-po-number-row d-flex flex-wrap align-items-center justify-content-end gap-2 mt-2">
-                <span class="po-po-number-label text-dark fw-bold" style="font-size: 18px;"><?= $orderType === 'hire' ? 'เลขที่ใบสั่งจ่าย' : 'เลขที่ใบสั่งซื้อ' ?>:</span>
-                <span class="po-po-number-value text-dark fw-bold" style="font-size: 18px;"><?= htmlspecialchars((string) ($data['po_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
-                <?php if ($isPoCancelled): ?>
-                    <span class="badge rounded-pill text-bg-danger po-po-status-badge">ยกเลิก</span>
-                <?php endif; ?>
-            </div>
+            <div class="fw-bold text-muted small"><?= htmlspecialchars($poDocDateSubtitle, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php $quotationNo = trim((string) ($data['quotation_number'] ?? '')); ?>
             <?php $quotationAttach = trim((string) ($data['quotation_attachment_path'] ?? '')); ?>
             <?php if ($quotationNo !== ''): ?>
@@ -75,11 +75,12 @@ declare(strict_types=1);
                 }
                 ?>
                 <div class="small text-muted">ไฟล์ใบเสนอราคา:
-                    <a href="<?= htmlspecialchars(app_path($quotationAttach), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></a>
+                    <a href="<?= htmlspecialchars(app_path($quotationAttach), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="no-print"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></a>
+                    <span class="d-none d-print-inline"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></span>
                 </div>
             <?php endif; ?>
             <?php if ($referencePrNumber !== ''): ?>
-                <div class="small text-muted"><?= $orderType === 'hire' ? 'อ้างอิงสัญญา' : 'อ้างอิง PR' ?>: <?= htmlspecialchars($referencePrNumber, ENT_QUOTES, 'UTF-8'); ?></div>
+                <div class="small text-muted"><?= $orderType === 'hire' ? 'อ้างอิงสัญญา' : 'อ้างถึงใบขอซื้อ' ?> : <?= htmlspecialchars($referencePrNumber, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php endif; ?>
             <?php if ($orderType === 'hire' && $installmentNo > 0 && $installmentTotal > 0): ?>
                 <div class="small text-muted">งวดที่ <?= number_format($installmentNo) ?> / <?= number_format($installmentTotal) ?></div>
@@ -98,9 +99,8 @@ declare(strict_types=1);
     </div>
     <?php endif; ?>
 
-    <div class="row mb-2 mt-3 doc-meta-row">
-        <div class="col-7 border-start border-4 ps-3 po-side-accent">
-            <div class="po-section-kicker mb-1"><?= $orderType === 'hire' ? 'ผู้รับจ้าง' : 'Vendor / ผู้ขาย' ?></div>
+    <div class="row mb-2 doc-site-row">
+        <div class="col-12">
             <?php if ($orderType === 'hire' && (trim((string) ($contractorPrint['name_th'] ?? '')) !== '' || trim((string) ($contractorName ?? '')) !== '')): ?>
                 <?php
                 if (trim((string) ($contractorPrint['name_th'] ?? '')) === '' && trim((string) ($contractorName ?? '')) !== '') {
@@ -110,18 +110,30 @@ declare(strict_types=1);
                 include __DIR__ . '/contractor_print_block.php';
                 ?>
             <?php elseif ($orderType === 'hire'): ?>
-            <div class="po-section-title text-dark">-</div>
+                <div class="doc-site-block">
+                    <span class="doc-site-label">ผู้รับจ้าง:</span>
+                    <span class="doc-site-value">-</span>
+                </div>
             <?php else: ?>
-            <div class="po-section-title text-dark"><?= htmlspecialchars((string) ($data['s_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
-            <div class="small text-muted po-section-detail">
-                <?= htmlspecialchars((string) ($data['s_address'] ?? ''), ENT_QUOTES, 'UTF-8'); ?><br>
-                <strong>เลขประจำตัวผู้เสียภาษีอากร:</strong> <?= htmlspecialchars((string) ($data['s_tax'] ?? ''), ENT_QUOTES, 'UTF-8'); ?> | <strong>โทร:</strong> <?= htmlspecialchars((string) ($data['s_phone'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-            </div>
+                <div class="doc-site-block">
+                    <span class="doc-site-label">Vendor / ผู้ขาย:</span>
+                    <span class="doc-site-value"><?= htmlspecialchars((string) ($data['s_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <?php if (trim((string) ($data['s_address'] ?? '')) !== '' || trim((string) ($data['s_tax'] ?? '')) !== '' || trim((string) ($data['s_phone'] ?? '')) !== ''): ?>
+                <div class="doc-site-block mt-2">
+                    <span class="doc-site-label">ที่อยู่ / ติดต่อ:</span>
+                    <span class="doc-site-value">
+                        <?= htmlspecialchars((string) ($data['s_address'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                        <?php if (trim((string) ($data['s_tax'] ?? '')) !== ''): ?>
+                        | เลขประจำตัวผู้เสียภาษีอากร: <?= htmlspecialchars((string) ($data['s_tax'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                        <?php endif; ?>
+                        <?php if (trim((string) ($data['s_phone'] ?? '')) !== ''): ?>
+                        | โทร: <?= htmlspecialchars((string) ($data['s_phone'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                        <?php endif; ?>
+                    </span>
+                </div>
+                <?php endif; ?>
             <?php endif; ?>
-        </div>
-        <div class="col-5 text-end">
-            <div class="po-section-kicker mb-1 text-end">วันที่ออกบิล</div>
-            <div class="po-section-title text-dark text-end"><?= htmlspecialchars(tnc_po_format_date_thai($issueDate), ENT_QUOTES, 'UTF-8'); ?></div>
         </div>
     </div>
 
@@ -219,7 +231,7 @@ declare(strict_types=1);
     </table>
     </div>
 
-    <div class="footer-sticky">
+    <div class="footer-sticky doc-footer">
         <div class="row po-footer-row align-items-start mb-3">
             <div class="col-7 po-footer-notes-col">
                 <div class="po-notes-wrap">
@@ -280,5 +292,6 @@ declare(strict_types=1);
                 <div class="sig-box">ผู้อนุมัติสั่งซื้อ / สั่งจ่าย<br><small>(Approver Signature)</small></div>
             </div>
         </div>
+    </div>
     </div>
 </div>

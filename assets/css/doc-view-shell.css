@@ -1,0 +1,146 @@
+/**
+ * Document preview shell — PR / PO / Invoice / Tax (screen only)
+ */
+.doc-view-shell {
+    --doc-view-brand: var(--tnc-orange, #ea580c);
+    --doc-view-brand-border: var(--tnc-orange-border, #fdba74);
+    --doc-view-brand-soft: var(--tnc-orange-soft, #fff7ed);
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    background: #fff;
+    border-bottom: 1px solid var(--doc-view-brand-border);
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+}
+
+.doc-view-shell--green {
+    --doc-view-brand: #28a745;
+    --doc-view-brand-border: #bbf7d0;
+    --doc-view-brand-soft: #f0fdf4;
+}
+
+.doc-view-shell-inner {
+    max-width: calc(210mm + 1.5rem);
+    margin: 0 auto;
+    padding: 0.85rem 0.75rem;
+}
+
+.doc-view-toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem 1rem;
+}
+
+.doc-view-toolbar-main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.doc-view-toolbar-id {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.doc-view-toolbar-sep {
+    color: #94a3b8;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.doc-view-toolbar-meta {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.doc-view-toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    flex: 0 0 auto;
+}
+
+.doc-view-toolbar-actions .btn {
+    font-weight: 600;
+}
+
+.doc-view-alerts {
+    max-width: calc(210mm + 1.5rem);
+    margin: 0 auto;
+    padding: 0 0.75rem 0.65rem;
+}
+
+.doc-view-alerts .alert {
+    margin-bottom: 0.5rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.875rem;
+    border-radius: 0.5rem;
+    border: none;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.doc-view-alerts .alert:last-child {
+    margin-bottom: 0;
+}
+
+.doc-view-canvas {
+    max-width: 210mm;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0.75rem 0.75rem 2.5rem;
+}
+
+body.invoice-print-page:not(.invoice-embed),
+body.tax-print-page {
+    background: var(--tnc-surface, #f6f7f9);
+    min-height: 100vh;
+}
+
+body.invoice-embed {
+    background: var(--tnc-surface, #f6f7f9);
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
+body.invoice-embed .doc-view-canvas {
+    padding-top: 0.5rem;
+}
+
+.inv-sales-doc .doc-site-block {
+    border-left-color: var(--orange, #ff6600);
+    background: #fff9f5;
+}
+
+.inv-sales-doc .doc-type-text {
+    border-color: var(--orange, #ff6600);
+    color: var(--orange, #ff6600);
+    background-color: #fff9f5;
+}
+
+@media (max-width: 575.98px) {
+    .doc-view-canvas {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}
+
+@media print {
+    .doc-view-shell,
+    .doc-view-shell *,
+    .doc-view-alerts,
+    .doc-view-alerts * {
+        display: none !important;
+    }
+}

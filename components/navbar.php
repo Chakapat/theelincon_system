@@ -101,6 +101,19 @@ if (!function_exists('app_path')) {
     }
     @media print {
         .tnc-pr-po-audio-toggle { display: none !important; }
+        .tnc-navbar,
+        nav.tnc-navbar,
+        .navbar.tnc-navbar-compact,
+        .navbar.mb-3,
+        .navbar.mb-md-3 {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
     }
 
     /* ---------- Global mobile/responsive hardening (system-wide) ---------- */

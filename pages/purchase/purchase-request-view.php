@@ -24,6 +24,15 @@ $isPrAdmin = user_is_admin_only_role();
 $prCanSendLine = in_array($prApprovalStatus, ['pending', 'rejected'], true);
 $prCanWebDecide = $isPrAdmin && $prApprovalStatus === 'pending';
 $prHandlerUrl = app_path('actions/action-handler.php');
+
+$prToolbarPoNumber = '';
+if (!empty($existing_po) && is_array($existing_po)) {
+    $prToolbarPoNumber = trim((string) ($existing_po['po_number'] ?? ''));
+    if ($prToolbarPoNumber === '' && (int) ($existing_po['id'] ?? 0) > 0) {
+        $prToolbarPoNumber = 'PO-' . (int) $existing_po['id'];
+    }
+}
+$prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTitle;
 ?>
 
 <!DOCTYPE html>
@@ -37,26 +46,108 @@ $prHandlerUrl = app_path('actions/action-handler.php');
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
         :root {
             --brand-color: #28a745;
-            --pr-view-bg: var(--tnc-surface, #f6f7f9);
+            --brand-color-deep: #1a5632;
+            --brand-color-soft: #f0fdf4;
+            --brand-border-soft: #bbf7d0;
+            --dark: #333;
         }
-
         body {
             font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', Tahoma, sans-serif;
-            background: var(--pr-view-bg);
-            color: #1e293b;
+            background: var(--tnc-surface, #f6f7f9);
+            color: var(--dark);
             margin: 0;
             padding: 0;
             font-weight: 500;
+            min-height: 100vh;
         }
 
-        .pr-view-stage {
-            padding: 1rem 0 2rem;
+        .pr-view-shell {
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+            background: #fff;
+            border-bottom: 1px solid #bbf7d0;
+            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
         }
+
+        .pr-view-shell-inner {
+            max-width: calc(210mm + 1.5rem);
+            margin: 0 auto;
+            padding: 0.85rem 0.75rem;
+        }
+
+        .pr-view-kicker {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--brand-color);
+            margin-bottom: 0.2rem;
+        }
+
+        .pr-view-toolbar-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.65rem 1rem;
+        }
+
+        .pr-view-toolbar-main {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem 0.75rem;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        .pr-view-toolbar-id {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .pr-view-toolbar-sep {
+            color: #94a3b8;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .pr-view-toolbar-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            flex: 0 0 auto;
+        }
+
+        .pr-view-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+
+        .pr-view-canvas {
+            max-width: 210mm;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 0.75rem 0.75rem 2.5rem;
+        }
+
+        .pr-side-accent { border-left-color: var(--brand-color) !important; }
 
         .invoice-box {
             width: 210mm;
@@ -69,15 +160,29 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             position: relative;
             box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
             overflow: visible;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
         }
 
         .invoice-box.pr-purchase-requisition-doc {
             border-top: 8px solid var(--brand-color);
+            --pr-doc-a4-height: 297mm;
+            --pr-doc-pad-block: 10mm;
         }
 
         .pr-doc-main {
-            padding-bottom: 52mm;
             box-sizing: border-box;
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: calc(var(--pr-doc-a4-height) - (var(--pr-doc-pad-block) * 2));
+            width: 100%;
+        }
+
+        .pr-doc-content {
+            flex: 1 1 auto;
+            min-height: 0;
         }
 
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
@@ -94,7 +199,41 @@ $prHandlerUrl = app_path('actions/action-handler.php');
 
         .table-custom { margin-top: 12px; margin-bottom: 0; }
 
-        .footer-sticky { position: absolute; bottom: 12mm; left: 15mm; right: 15mm; }
+        .invoice-box.pr-purchase-requisition-doc .invoice-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--brand-color);
+            line-height: 1.1;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .pr-company-name {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1.25;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .pr-company-detail {
+            font-size: 0.92rem;
+            line-height: 1.5;
+            color: #475569 !important;
+            margin-top: 0.35rem;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .table-custom thead th,
+        .invoice-box.pr-purchase-requisition-doc .pr-items-table thead th {
+            background: #fafafa;
+            border-bottom: 2px solid var(--brand-color);
+            font-size: 11px;
+            padding: 7px 8px;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .table-custom td,
+        .invoice-box.pr-purchase-requisition-doc .pr-items-table tbody td {
+            padding: 7px 8px;
+            font-size: 11px;
+            border-bottom: 1px solid #f2f2f2;
+        }
 
         .invoice-box .pr-total-sheet .summary-item {
             display: flex;
@@ -103,6 +242,8 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             justify-content: flex-start;
             gap: 0.75rem;
             width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
             padding: 2px 0;
             font-size: 14px;
         }
@@ -125,95 +266,63 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             margin-top: 8px;
         }
 
+        .invoice-box.pr-purchase-requisition-doc .footer-sticky {
+            flex: 0 0 auto;
+            margin-top: auto;
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .signature-grid {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
         .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; text-align: center; margin-top: 22px; }
         .sig-space { height: 72px; }
         .sig-box { border-top: 1px solid #333; padding-top: 10px; font-size: 13px; font-weight: 600; }
 
-        .pr-side-accent {
-            border-left-color: var(--brand-color) !important;
-        }
-
         .pr-cancelled-watermark {
             position: absolute;
             left: 50%;
-            top: 50%;
+            top: 48%;
             transform: translate(-50%, -50%) rotate(-32deg);
-            font-size: clamp(2.5rem, 12vw, 4.5rem);
+            font-size: clamp(1.75rem, 6.5vw, 2.85rem);
             font-weight: 800;
-            color: rgba(220, 38, 38, 0.38);
-            letter-spacing: 0.18em;
+            color: rgba(220, 38, 38, 0.42);
             white-space: nowrap;
             pointer-events: none;
-            z-index: 60;
+            z-index: 50;
+            letter-spacing: 0.12em;
             user-select: none;
-            text-transform: uppercase;
         }
 
-        .pr-view-toolbar {
-            border-bottom: 1px solid #dde3ea;
-            background: #fff;
-            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-        }
-        .pr-view-toolbar .btn { font-weight: 600; white-space: nowrap; }
-        .pr-view-toolbar-inner { max-width: 210mm; margin: 0 auto; }
-        .pr-toolbar-top {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.75rem 1rem;
-            margin-bottom: 0.85rem;
-        }
-        .pr-toolbar-top-left {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.5rem 0.75rem;
-            min-width: 0;
-        }
-        .pr-toolbar-doc-no {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #1f2937;
-            letter-spacing: 0.01em;
-        }
-        .pr-toolbar-actions {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: stretch;
-            gap: 0.65rem;
-        }
-        .pr-toolbar-group {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.45rem 0.65rem;
-            background: #fff;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            box-shadow: 0 1px 2px rgba(0,0,0,.04);
-        }
-        .pr-toolbar-group-label {
-            font-size: 0.68rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: #9ca3af;
-            padding-right: 0.15rem;
-            white-space: nowrap;
-        }
-        .pr-toolbar-group--approval { border-color: #bbf7d0; background: #f0fdf4; }
-        .pr-toolbar-group--po { border-color: var(--tnc-orange-border); background: var(--tnc-orange-soft); }
-        .pr-toolbar-group--util { border-color: #e5e7eb; background: #f9fafb; }
-        @media (max-width: 767.98px) {
-            .pr-toolbar-actions { flex-direction: column; align-items: stretch; }
-            .pr-toolbar-group { justify-content: flex-start; }
+        @media print {
+            .invoice-box.pr-purchase-requisition-doc,
+            .invoice-box.po-purchase-order-doc {
+                border-top: none !important;
+            }
+            .invoice-box.pr-purchase-requisition-doc {
+                min-height: calc(297mm - 20mm);
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            .invoice-box.pr-purchase-requisition-doc .pr-doc-main {
+                min-height: calc(297mm - 20mm) !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            .invoice-box.pr-purchase-requisition-doc .footer-sticky {
+                margin-top: auto !important;
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
         }
 
         @media (max-width: 575.98px) {
             body { background: #fff; }
-            .pr-view-stage { padding: 0; }
             .invoice-box {
                 width: 100%;
                 height: auto;
@@ -221,15 +330,11 @@ $prHandlerUrl = app_path('actions/action-handler.php');
                 padding: 1rem;
                 box-shadow: none;
                 overflow: visible;
+                display: block;
             }
-            .pr-purchase-requisition-doc .pr-doc-main { padding-bottom: 0; }
-            .pr-purchase-requisition-doc .footer-sticky {
-                position: static;
-                bottom: auto;
-                left: auto;
-                right: auto;
-                margin-top: 1.25rem;
-            }
+            .pr-doc-main { min-height: 0; display: block; }
+            .pr-doc-content { flex: none; }
+            .invoice-box.pr-purchase-requisition-doc .footer-sticky { margin-top: 1.25rem; }
             .signature-grid { grid-template-columns: 1fr; gap: 18px; }
         }
     </style>
@@ -240,8 +345,67 @@ $prHandlerUrl = app_path('actions/action-handler.php');
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 </div>
 
-<div class="no-print pr-view-toolbar py-3 mb-3 shadow-sm">
-    <div class="px-3 pr-view-toolbar-inner">
+<header class="pr-view-shell no-print">
+    <div class="pr-view-shell-inner">
+        <div class="pr-view-toolbar-row mb-2">
+            <div class="pr-view-toolbar-main">
+                <span class="pr-view-toolbar-id"><?= htmlspecialchars($prToolbarDisplayId, ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="pr-view-toolbar-sep" aria-hidden="true">—</span>
+                <span class="badge rounded-pill px-3 py-2 <?= htmlspecialchars($prApprovalBadgeClass, ENT_QUOTES, 'UTF-8') ?>">
+                    <?= htmlspecialchars($prApprovalLabel, ENT_QUOTES, 'UTF-8') ?>
+                </span>
+                <?php if (($isPrAdmin && $prCanSendLine) || $prCanWebDecide): ?>
+                    <?php if ($isPrAdmin && $prCanSendLine): ?>
+                        <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3" id="btnPrSendLine" title="ส่งขออนุมัติไปกลุ่ม LINE">
+                            <i class="bi bi-line me-1"></i>ส่ง LINE
+                        </button>
+                    <?php endif; ?>
+                    <?php if ($prCanWebDecide): ?>
+                        <button type="button" class="btn btn-success btn-sm rounded-pill px-3" id="btnPrWebApprove" title="อนุมัติบนเว็บ (ADMIN)">
+                            <i class="bi bi-check-circle me-1"></i>อนุมัติ
+                        </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" id="btnPrWebReject" title="ไม่อนุมัติบนเว็บ (ADMIN)">
+                            <i class="bi bi-x-circle me-1"></i>ไม่อนุมัติ
+                        </button>
+                    <?php endif; ?>
+                <?php endif; ?>
+                <?php if ($requestType !== 'hire' && $existing_po): ?>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $existing_po['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                        <i class="bi bi-eye me-1"></i>ดู PO
+                    </a>
+                <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo)): ?>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                        <i class="bi bi-file-earmark-plus me-1"></i>สร้าง PO
+                    </a>
+                <?php elseif ($requestType !== 'hire'): ?>
+                    <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="รออนุมัติก่อนออก PO">
+                        <i class="bi bi-lock me-1"></i>รออนุมัติ
+                    </span>
+                <?php elseif (!empty($prIsApprovedForPo)): ?>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                        <i class="bi bi-file-earmark-plus me-1"></i>ออก PO (ตามงวด)
+                    </a>
+                    <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-view.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                        <i class="bi bi-file-earmark-ruled me-1"></i>สัญญาจ้าง
+                    </a>
+                <?php else: ?>
+                    <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="รออนุมัติก่อนออก PO">
+                        <i class="bi bi-lock me-1"></i>รออนุมัติ
+                    </span>
+                    <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-view.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                        <i class="bi bi-file-earmark-ruled me-1"></i>สัญญาจ้าง
+                    </a>
+                <?php endif; ?>
+            </div>
+            <div class="pr-view-toolbar-actions">
+                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="bi bi-arrow-left me-1"></i>รายการ PR
+                </a>
+                <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="bi bi-printer me-1"></i>พิมพ์
+                </button>
+            </div>
+        </div>
         <?php if (!empty($_GET['error']) && $_GET['error'] === 'po_exists'): ?>
             <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ใบขอซื้อนี้มีใบสั่งซื้อแล้ว ไม่สามารถออกซ้ำได้</div>
         <?php endif; ?>
@@ -286,82 +450,10 @@ $prHandlerUrl = app_path('actions/action-handler.php');
                 <i class="bi bi-x-octagon me-1"></i>ใบสั่งซื้อ (PO) ที่เชื่อมกับ PR นี้ถูกยกเลิกแล้ว (CANCELLED)
             </div>
         <?php endif; ?>
-        <?php
-        $prShowApprovalGroup = ($isPrAdmin && $prCanSendLine) || $prCanWebDecide;
-        ?>
-        <div class="pr-toolbar-top">
-            <div class="pr-toolbar-top-left">
-                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                    <i class="bi bi-arrow-left me-1"></i>รายการ PR
-                </a>
-                <span class="pr-toolbar-doc-no"><?= htmlspecialchars($prDocTitle, ENT_QUOTES, 'UTF-8') ?></span>
-                <span class="badge rounded-pill px-3 py-2 <?= htmlspecialchars($prApprovalBadgeClass, ENT_QUOTES, 'UTF-8') ?>">
-                    <?= htmlspecialchars($prApprovalLabel, ENT_QUOTES, 'UTF-8') ?>
-                </span>
-            </div>
-            <div class="pr-toolbar-group pr-toolbar-group--util">
-                <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                    <i class="bi bi-printer me-1"></i>พิมพ์
-                </button>
-            </div>
-        </div>
-
-        <div class="pr-toolbar-actions">
-            <?php if ($prShowApprovalGroup): ?>
-            <div class="pr-toolbar-group pr-toolbar-group--approval">
-                <span class="pr-toolbar-group-label">อนุมัติ</span>
-                <?php if ($isPrAdmin && $prCanSendLine): ?>
-                    <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3" id="btnPrSendLine" title="ส่งขออนุมัติไปกลุ่ม LINE">
-                        <i class="bi bi-line me-1"></i>ส่ง LINE
-                    </button>
-                <?php endif; ?>
-                <?php if ($prCanWebDecide): ?>
-                    <button type="button" class="btn btn-success btn-sm rounded-pill px-3" id="btnPrWebApprove" title="อนุมัติบนเว็บ (ADMIN)">
-                        <i class="bi bi-check-circle me-1"></i>อนุมัติ
-                    </button>
-                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" id="btnPrWebReject" title="ไม่อนุมัติบนเว็บ (ADMIN)">
-                        <i class="bi bi-x-circle me-1"></i>ไม่อนุมัติ
-                    </button>
-                <?php endif; ?>
-            </div>
-            <?php endif; ?>
-
-            <div class="pr-toolbar-group pr-toolbar-group--po">
-                <span class="pr-toolbar-group-label">ใบสั่งซื้อ</span>
-                <?php if ($requestType !== 'hire' && $existing_po): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $existing_po['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
-                        <i class="bi bi-eye me-1"></i>ดู PO
-                    </a>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">รายการ PO</a>
-                <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo)): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
-                        <i class="bi bi-file-earmark-plus me-1"></i>สร้าง PO
-                    </a>
-                <?php elseif ($requestType !== 'hire'): ?>
-                    <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="รออนุมัติก่อนออก PO">
-                        <i class="bi bi-lock me-1"></i>รออนุมัติ
-                    </span>
-                <?php elseif (!empty($prIsApprovedForPo)): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
-                        <i class="bi bi-file-earmark-plus me-1"></i>ออก PO (ตามงวด)
-                    </a>
-                    <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-view.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                        <i class="bi bi-file-earmark-ruled me-1"></i>สัญญาจ้าง
-                    </a>
-                <?php else: ?>
-                    <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="รออนุมัติก่อนออก PO">
-                        <i class="bi bi-lock me-1"></i>รออนุมัติ
-                    </span>
-                    <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-view.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                        <i class="bi bi-file-earmark-ruled me-1"></i>สัญญาจ้าง
-                    </a>
-                <?php endif; ?>
-            </div>
-        </div>
     </div>
-</div>
+</header>
 
-<div class="pr-view-stage">
+<div class="pr-view-canvas">
 <?php tnc_purchase_pr_print_render($prCtx); ?>
 </div>
 
@@ -424,5 +516,9 @@ $prHandlerUrl = app_path('actions/action-handler.php');
     });
 })();
 </script>
+<?php
+$tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
+?>
+<link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
 </body>
 </html>

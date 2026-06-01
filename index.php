@@ -565,20 +565,28 @@ if ($index_display_name === '') {
         #tncInvoiceModal .modal-content {
             border: none;
             border-radius: 0.65rem;
-            box-shadow: 0 0.35rem 2rem rgba(0, 0, 0, 0.22);
+            box-shadow: 0 0.35rem 2rem rgba(15, 23, 42, 0.12);
             overflow: hidden;
-            background: #e9ecef;
+            background: var(--tnc-surface, #f6f7f9);
         }
         #tncInvoiceModal .modal-header {
             flex-shrink: 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            border-bottom: 1px solid var(--tnc-border, #e2e8f0);
+            background: #fff;
+            padding: 0.65rem 0.85rem;
+        }
+        #tncInvoiceModal .modal-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #0f172a;
+            letter-spacing: -0.02em;
         }
         #tncInvoiceModal .modal-body {
             padding: 0;
-            height: min(297mm, calc(100vh - 4.5rem));
-            max-height: min(297mm, calc(100vh - 4.5rem));
-            overflow: hidden;
-            background: #dee2e6;
+            height: min(calc(297mm + 1.5rem), calc(100vh - 4.25rem));
+            max-height: calc(100vh - 4.25rem);
+            overflow: auto;
+            background: var(--tnc-surface, #f6f7f9);
             scrollbar-gutter: stable;
         }
         #tncInvoiceModal #tncInvoiceModalFrame {
@@ -856,7 +864,7 @@ if ($index_display_name === '') {
         }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-index-page">
 
 <?php include __DIR__ . '/components/navbar.php'; ?>
 
@@ -985,11 +993,13 @@ if ($index_display_name === '') {
     <div class="modal fade" id="tncInvoiceModal" tabindex="-1" aria-labelledby="tncInvoiceModalTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered tnc-invoice-modal-dialog">
             <div class="modal-content">
-                <div class="modal-header py-2 px-3 bg-dark text-white align-items-center flex-wrap gap-2">
+                <div class="modal-header py-2 px-3 align-items-center flex-wrap gap-2 no-print">
                     <h6 class="modal-title fw-semibold mb-0 me-auto" id="tncInvoiceModalTitle">ใบแจ้งหนี้</h6>
                     <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                        <button type="button" class="btn btn-warning btn-sm fw-bold text-nowrap" id="tncInvoiceModalPrint" title="พิมพ์ตามหน้าจอ (ต้นฉบับและสำเนา)">พิมพ์เอกสาร</button>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-semibold text-nowrap" id="tncInvoiceModalPrint" title="พิมพ์ต้นฉบับและสำเนา">
+                            <i class="bi bi-printer me-1"></i>พิมพ์
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
                     </div>
                 </div>
                 <div class="modal-body p-0">
@@ -1130,8 +1140,17 @@ function tncOpenInvoiceViewModal(id) {
     if (!tncInvoiceModalInstance) {
         tncInvoiceModalInstance = new bootstrap.Modal(modalEl);
     }
+    document.body.classList.add('tnc-invoice-modal-open');
     tncInvoiceModalInstance.show();
 }
+
+document.getElementById('tncInvoiceModal')?.addEventListener('hidden.bs.modal', function () {
+    document.body.classList.remove('tnc-invoice-modal-open');
+    const frame = document.getElementById('tncInvoiceModalFrame');
+    if (frame) {
+        frame.src = 'about:blank';
+    }
+});
 
 document.getElementById('tncInvoiceModalPrint')?.addEventListener('click', function () {
     const frame = document.getElementById('tncInvoiceModalFrame');
@@ -1143,11 +1162,23 @@ document.getElementById('tncInvoiceModalPrint')?.addEventListener('click', funct
     } catch (e) {}
 });
 
-document.getElementById('tncInvoiceModal')?.addEventListener('hidden.bs.modal', function () {
-    const frame = document.getElementById('tncInvoiceModalFrame');
-    if (frame) {
-        frame.src = 'about:blank';
+document.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'p') {
+        return;
     }
+    const modalEl = document.getElementById('tncInvoiceModal');
+    if (!modalEl || !modalEl.classList.contains('show')) {
+        return;
+    }
+    const frame = document.getElementById('tncInvoiceModalFrame');
+    if (!frame || !frame.contentWindow) {
+        return;
+    }
+    e.preventDefault();
+    try {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+    } catch (err) {}
 });
 
 document.getElementById('invoice_table_body')?.addEventListener('click', function (ev) {
@@ -1337,5 +1368,6 @@ window.addEventListener('resize', function () {
     indexMoveMenuToNavbarOnMobile();
 });
 </script>
+<link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/print-document-only.css'), ENT_QUOTES, 'UTF-8') ?>" media="print">
 </body>
 </html>

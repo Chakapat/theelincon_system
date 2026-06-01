@@ -24,6 +24,7 @@ declare(strict_types=1);
  * @var array{vat_mode: string, line_amount: float, vat_label: string, vat_amount: float, net_amount: float} $vatPrint
  * @var string $siteDisplay
  * @var string $createdRaw
+ * @var array|null $existing_po
  * @var string $quotationAttach
  * @var string $quotationName
  * @var string $detailsText
@@ -31,6 +32,11 @@ declare(strict_types=1);
  */
 $isHireDoc = $requestType === 'hire';
 $docDateDisplay = tnc_pr_format_date_thai($createdRaw !== '' ? $createdRaw : date('Y-m-d'));
+$prNumberDisplay = trim((string) ($pr['pr_number'] ?? ''));
+if ($prNumberDisplay === '') {
+    $prNumberDisplay = 'PR-' . (int) ($pr['id'] ?? 0);
+}
+$prDocDateSubtitle = $prNumberDisplay . ' / ' . $docDateDisplay;
 $requesterLine = trim($requesterDisplay !== '' ? $requesterDisplay : '-');
 if ($isHireDoc && trim((string) ($contractorPrint['name_th'] ?? '')) === '' && trim($contractorName) !== '') {
     $contractorPrint['name_th'] = trim($contractorName);
@@ -51,6 +57,7 @@ $showHireInfoStack = $isHireDoc && ($siteDisplay !== '' || $contractorIdentityLi
     <div class="pr-cancelled-watermark" aria-hidden="true">CANCELLED</div>
     <?php endif; ?>
     <div class="pr-doc-main">
+        <div class="pr-doc-content">
         <div class="row align-items-start mb-2">
             <div class="col-6">
                 <?php if (!empty($com['logo'])): ?>
@@ -65,11 +72,7 @@ $showHireInfoStack = $isHireDoc && ($siteDisplay !== '' || $contractorIdentityLi
             </div>
             <div class="col-6 text-end">
                 <div class="invoice-title"><?= $isHireDoc ? 'REQUISITION (HIRE)' : 'PURCHASE REQUISITION' ?></div>
-                <div class="fw-bold text-muted small"><?= $isHireDoc ? 'ใบขอจ้าง / จัดจ้าง' : 'ใบขอซื้อ (PR)' ?></div>
-                <div class="pr-doc-number-row d-flex flex-wrap align-items-center justify-content-end gap-2 mt-2">
-                    <span class="pr-doc-number-label text-dark fw-bold" style="font-size: 18px;">เลขที่:</span>
-                    <span class="pr-doc-number-value text-dark fw-bold" style="font-size: 18px;"><?= htmlspecialchars((string) ($pr['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
-                </div>
+                <div class="fw-bold text-muted small"><?= htmlspecialchars($prDocDateSubtitle, ENT_QUOTES, 'UTF-8') ?></div>
                 <?php if ($quotationAttach !== ''): ?>
                     <?php $attachLabel = $quotationName !== '' ? $quotationName : 'เปิดไฟล์'; ?>
                     <div class="small text-muted">ไฟล์ใบเสนอราคา:
@@ -91,23 +94,22 @@ $showHireInfoStack = $isHireDoc && ($siteDisplay !== '' || $contractorIdentityLi
         </div>
         <?php endif; ?>
 
-        <div class="row mb-2 mt-3 doc-meta-row">
-            <?php if ($isHireDoc): ?>
-            <div class="col-7"></div>
-            <?php else: ?>
-            <div class="col-7 border-start border-4 ps-3 pr-side-accent">
-                <div class="pr-section-kicker mb-1">ผู้ขอซื้อ / ผู้รับผิดชอบ</div>
-                <div class="pr-section-title text-dark"><?= htmlspecialchars($requesterLine, ENT_QUOTES, 'UTF-8') ?></div>
+        <?php if (!$isHireDoc): ?>
+        <div class="row mb-2 doc-site-row">
+            <div class="col-12">
+                <div class="doc-site-block">
+                    <span class="doc-site-label">ผู้ขอซื้อ / ผู้รับผิดชอบ:</span>
+                    <span class="doc-site-value"><?= htmlspecialchars($requesterLine, ENT_QUOTES, 'UTF-8') ?></span>
+                </div>
                 <?php if ($creatorDisplay !== '' && $creatorDisplay !== $requesterDisplay): ?>
-                <div class="small text-muted pr-section-detail">ผู้บันทึกในระบบ: <?= htmlspecialchars($creatorDisplay, ENT_QUOTES, 'UTF-8') ?></div>
+                <div class="doc-site-block mt-2">
+                    <span class="doc-site-label">ผู้บันทึกในระบบ:</span>
+                    <span class="doc-site-value"><?= htmlspecialchars($creatorDisplay, ENT_QUOTES, 'UTF-8') ?></span>
+                </div>
                 <?php endif; ?>
             </div>
-            <?php endif; ?>
-            <div class="col-5 text-end doc-meta-date-col">
-                <div class="pr-section-kicker mb-1 text-end">วันที่เอกสาร</div>
-                <div class="pr-section-title text-dark text-end"><?= htmlspecialchars($docDateDisplay, ENT_QUOTES, 'UTF-8') ?></div>
-            </div>
         </div>
+        <?php endif; ?>
 
         <?php if ($showHireInfoStack): ?>
         <div class="row mb-2 pr-hire-info-row-wrap">
@@ -258,9 +260,9 @@ $showHireInfoStack = $isHireDoc && ($siteDisplay !== '' || $contractorIdentityLi
                 <?php endif; ?>
             </tbody>
         </table>
-    </div>
+        </div><!-- /.pr-doc-content -->
 
-    <div class="footer-sticky">
+    <div class="footer-sticky doc-footer">
         <div class="row pr-footer-row align-items-start mb-3">
             <div class="col-7 pr-footer-notes-col">
                 <div class="pr-notes-wrap">
@@ -354,5 +356,6 @@ $showHireInfoStack = $isHireDoc && ($siteDisplay !== '' || $contractorIdentityLi
                 <div class="sig-box">ผู้มีอำนาจลงนาม<br><small>(Authorized Signature)</small></div>
             </div>
         </div>
+    </div>
     </div>
 </div>

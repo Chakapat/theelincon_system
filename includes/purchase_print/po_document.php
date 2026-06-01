@@ -362,7 +362,7 @@ function tnc_purchase_po_print_render(array $ctx): void
 }
 
 /** พิมพ์ควบคู่ใบ PO: แสดงสลิปหน้าใหม่เมื่อจ่ายแล้วและมีไฟล์แนบ (รองรับหลายไฟล์) */
-function tnc_purchase_po_payment_slip_print_render(array $po): void
+function tnc_purchase_po_payment_slip_print_render(array $po, bool $pageBreakBefore = true): void
 {
     if (strtolower(trim((string) ($po['payment_status'] ?? ''))) !== 'paid') {
         return;
@@ -374,21 +374,20 @@ function tnc_purchase_po_payment_slip_print_render(array $po): void
     if ($slipItems === []) {
         return;
     }
-    $po_doc_header_po_number = trim((string) ($po['po_number'] ?? ''));
-    if ($po_doc_header_po_number === '') {
-        $po_doc_header_po_number = 'PO-' . (int) ($po['id'] ?? 0);
-    }
+    $isFirstSlip = true;
     foreach ($slipItems as $slipItem) {
         if (!($slipItem['is_image'] ?? false)) {
             continue;
         }
+        $po_slip_page_break_before = $pageBreakBefore || !$isFirstSlip;
+        $isFirstSlip = false;
         $po_slip_image_url = tnc_po_public_absolute_url((string) ($slipItem['url'] ?? ''));
         include __DIR__ . '/po_payment_slip_print.php';
     }
 }
 
 /** พิมพ์ควบคู่ใบ PO: ไฟล์แนบใบเสนอราคา (รูปหรือ PDF) */
-function tnc_purchase_po_quotation_attachment_print_render(array $po): void
+function tnc_purchase_po_quotation_attachment_print_render(array $po, bool $pageBreakBefore = true): void
 {
     $rel = trim((string) ($po['quotation_attachment_path'] ?? ''));
     if ($rel === '') {
@@ -407,9 +406,6 @@ function tnc_purchase_po_quotation_attachment_print_render(array $po): void
         $po_quotation_attach_caption .= ' — ' . $name;
     }
     $po_quotation_attach_is_pdf = $isPdf;
-    $po_doc_header_po_number = trim((string) ($po['po_number'] ?? ''));
-    if ($po_doc_header_po_number === '') {
-        $po_doc_header_po_number = 'PO-' . (int) ($po['id'] ?? 0);
-    }
+    $po_slip_page_break_before = $pageBreakBefore;
     include __DIR__ . '/po_quotation_attachment_print.php';
 }
