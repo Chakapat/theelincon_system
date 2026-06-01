@@ -27,11 +27,10 @@ Db::sortRows($suppliers, 'name', false);
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
-        .main-card { border: none; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
+        /* canvas + cards: tnc-app.css */
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-5">
@@ -42,12 +41,15 @@ Db::sortRows($suppliers, 'name', false);
         <div class="alert alert-danger">ไม่สามารถลบได้: ผู้ขายรายนี้ถูกใช้ในใบสั่งซื้อ (PO) แล้ว</div>
     <?php endif; ?>
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold text-success"><i class="bi bi-truck"></i> ระบบจัดการผู้ขาย</h2>
-        <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-form.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-success px-4 shadow-sm"><i class="bi bi-plus-lg me-2"></i> เพิ่มผู้ขายใหม่</a>
+    <div class="tnc-page-head">
+        <div>
+            <p class="tnc-page-kicker">Organization</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-truck"></i></span>ระบบจัดการผู้ขาย</h1>
+        </div>
+        <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-form.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange px-4 shadow-sm"><i class="bi bi-plus-lg me-2"></i> เพิ่มผู้ขายใหม่</a>
     </div>
 
-    <div class="card main-card p-4">
+    <div class="card main-card tnc-list-card p-4">
         <div class="table-responsive">
             <table class="table table-hover align-middle" id="supplierTable" style="width:100%">
                 <thead class="table-light">

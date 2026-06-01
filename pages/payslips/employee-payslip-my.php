@@ -25,11 +25,17 @@ Db::sortRows($rows, 'id', true);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>สลิปเงินเดือนของฉัน</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container py-4">
-    <h4 class="fw-bold mb-3">สลิปเงินเดือนของฉัน</h4>
+    <div class="tnc-page-head mb-3">
+        <div>
+            <p class="tnc-page-kicker">Payslips</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-wallet2"></i></span>สลิปเงินเดือนของฉัน</h1>
+        </div>
+    </div>
     <div class="table-responsive">
         <table class="table table-bordered align-middle" id="tncPayslipMyTable">
             <thead class="table-light"><tr><th>#</th><th>งวด</th><th>วันที่จ่าย</th><th class="text-end">ยอดสุทธิ</th><th>สถานะ</th><th class="text-end">เอกสาร</th></tr></thead>

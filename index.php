@@ -77,8 +77,12 @@ if (isset($_GET['ajax_search'])) {
     exit;
 }
 
-/** เมนูหมวดซ้ายหน้าแรก: true = ปิดทุกหมวดตอนโหลดเสมอ, false = เปิดหมวด «ข้อมูลหลัก» ไว้ */
+/** เมนูหมวดซ้ายหน้าแรก: true = ปิดทุกหมวดตอนโหลด (ค่าเริ่มต้น), false = เปิดหมวด «ข้อมูลหลัก» ไว้ */
 $index_hub_start_all_collapsed = true;
+$index_display_name = trim((string) ($_SESSION['name'] ?? ''));
+if ($index_display_name === '') {
+    $index_display_name = 'ผู้ใช้งาน';
+}
 ?>
 
 <!DOCTYPE html>
@@ -90,11 +94,12 @@ $index_hub_start_all_collapsed = true;
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         :root {
-            --tnc-orange: #fd7e14;
-            --tnc-orange-dark: #e8590c;
+            --tnc-orange: #ea580c;
+            --tnc-orange-dark: #c2410c;
             --tnc-surface: #f6f7f9;
             --tnc-sidebar-bg: #eceef2;
             --tnc-radius: 0.875rem;
@@ -103,7 +108,7 @@ $index_hub_start_all_collapsed = true;
             --tnc-sidebar-active-bar: var(--tnc-orange);
         }
         body { font-family: 'Sarabun', sans-serif; background-color: var(--tnc-surface); }
-        .bg-orange-gradient { background: linear-gradient(135deg, #fd7e14 0%, #ff922b 100%); }
+        .bg-orange-gradient { background: linear-gradient(135deg, #ea580c 0%, #f97316 100%); }
         .btn-orange { background-color: var(--tnc-orange); color: white; border: none; }
         .btn-orange:hover { background-color: var(--tnc-orange-dark); color: white; }
         .nav-link { font-weight: 500; transition: 0.3s; }
@@ -472,7 +477,7 @@ $index_hub_start_all_collapsed = true;
         }
         .index-cta-primary {
             color: #fff;
-            background: linear-gradient(135deg, #fd7e14 0%, #f76707 100%);
+            background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
             box-shadow: 0 0.4rem 0.95rem rgba(253, 126, 20, 0.34);
         }
         .index-cta-primary .index-cta-icon {
@@ -517,11 +522,15 @@ $index_hub_start_all_collapsed = true;
         }
         .btn-invoice-action:hover { transform: translateY(-1px); }
         .btn-invoice-action-view {
-            background: rgba(13, 110, 253, 0.14);
-            color: #0a58ca;
-            border-color: rgba(13, 110, 253, 0.2);
+            background: rgba(253, 126, 20, 0.14);
+            color: #c2410c;
+            border-color: rgba(253, 126, 20, 0.24);
         }
-        .btn-invoice-action-view:hover { background: rgba(13, 110, 253, 0.22); color: #084298; }
+        .btn-invoice-action-view:hover { background: rgba(253, 126, 20, 0.24); color: #9a3412; }
+        .btn-invoice-action-view:focus-visible {
+            outline: 2px solid rgba(253, 126, 20, 0.55);
+            outline-offset: 2px;
+        }
         .btn-invoice-action-tax {
             background: rgba(25, 135, 84, 0.14);
             color: #146c43;
@@ -541,7 +550,6 @@ $index_hub_start_all_collapsed = true;
         }
         .btn-invoice-action-delete:hover { background: rgba(220, 53, 69, 0.2); color: #842029; }
         .index-dashboard-block { padding-top: 0.25rem; }
-        .dataTables_wrapper .dataTables_length,
         .dataTables_wrapper .dataTables_info,
         .dataTables_wrapper .dataTables_paginate {
             padding-left: 1rem;
@@ -848,7 +856,7 @@ $index_hub_start_all_collapsed = true;
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include __DIR__ . '/components/navbar.php'; ?>
 
@@ -862,7 +870,7 @@ $index_hub_start_all_collapsed = true;
                     <div class="card home-menu-hub-single home-hub-card border-0 shadow-none rounded-0 overflow-hidden">
             <div class="home-hub-section">
                 <button type="button" class="home-hub-toggle<?= $index_hub_start_all_collapsed ? ' collapsed' : '' ?>" data-bs-toggle="collapse" data-bs-target="#hub-collapse-master" aria-expanded="<?= $index_hub_start_all_collapsed ? 'false' : 'true' ?>" aria-controls="hub-collapse-master" id="hub-toggle-master">
-                    <span class="home-hub-ico bg-warning-subtle text-warning shadow-sm flex-shrink-0"><i class="bi bi-folder2" aria-hidden="true"></i></span>
+                    <span class="home-hub-ico home-hub-ico--master flex-shrink-0"><i class="bi bi-folder2" aria-hidden="true"></i></span>
                     <span class="fw-semibold text-dark">ข้อมูลหลัก (Information Data)</span>
                     <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
                 </button>
@@ -879,7 +887,7 @@ $index_hub_start_all_collapsed = true;
             </div>
             <div class="home-hub-section">
                 <button type="button" class="home-hub-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#hub-collapse-purchase" aria-expanded="false" aria-controls="hub-collapse-purchase" id="hub-toggle-purchase">
-                    <span class="home-hub-ico bg-primary-subtle text-primary shadow-sm flex-shrink-0"><i class="bi bi-cart3" aria-hidden="true"></i></span>
+                    <span class="home-hub-ico home-hub-ico--purchase flex-shrink-0"><i class="bi bi-cart3" aria-hidden="true"></i></span>
                     <span class="fw-semibold text-dark">จัดซื้อ / จัดจ้าง (Purchase / Hire)</span>
                     <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
                 </button>
@@ -892,7 +900,7 @@ $index_hub_start_all_collapsed = true;
             </div>
             <div class="home-hub-section">
                 <button type="button" class="home-hub-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#hub-collapse-docs" aria-expanded="false" aria-controls="hub-collapse-docs" id="hub-toggle-docs">
-                    <span class="home-hub-ico bg-info-subtle text-info shadow-sm flex-shrink-0"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
+                    <span class="home-hub-ico home-hub-ico--docs flex-shrink-0"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
                     <span class="fw-semibold text-dark">ระบบเอกสาร (Documents)</span>
                     <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
                 </button>
@@ -906,7 +914,7 @@ $index_hub_start_all_collapsed = true;
             </div>
             <div class="home-hub-section">
                 <button type="button" class="home-hub-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#hub-collapse-cash" aria-expanded="false" aria-controls="hub-collapse-cash" id="hub-toggle-cash">
-                    <span class="home-hub-ico bg-success-subtle text-success shadow-sm flex-shrink-0"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
+                    <span class="home-hub-ico home-hub-ico--cash flex-shrink-0"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
                     <span class="fw-semibold text-dark">ระบบการเงิน (Cash)</span>
                     <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
                 </button>
@@ -927,8 +935,8 @@ $index_hub_start_all_collapsed = true;
         <div class="card-header bg-white border-bottom py-3 px-3 px-md-4">
             <div class="row align-items-center g-3">
                 <div class="col-12 col-lg-4">
-                    <h1 class="h5 fw-bold mb-1 text-dark">รายการใบแจ้งหนี้</h1>
-                    <p class="small text-muted mb-0">ค้นหาและจัดการใบแจ้งหนี้ในระบบ</p>
+                    <h1 class="index-invoice-head-title">รายการใบแจ้งหนี้</h1>
+                    <p class="small text-muted mb-0 mt-1">ค้นหาและจัดการใบแจ้งหนี้ในระบบ</p>
                 </div>
                 <div class="col-12 col-lg-8">
                     <div class="d-flex flex-column flex-sm-row flex-wrap gap-2 align-items-stretch justify-content-lg-end">
@@ -1012,7 +1020,7 @@ document.querySelector('.js-hub-member-manage')?.addEventListener('click', funct
         title: 'ไม่มีสิทธิ์เข้าใช้งาน',
         text: 'เมนูจัดการสมาชิกใช้ได้เฉพาะผู้ใช้ที่มีบทบาท ADMIN เท่านั้น',
         confirmButtonText: 'ตกลง',
-        confirmButtonColor: '#fd7e14'
+        confirmButtonColor: '#ea580c'
     });
 });
 
@@ -1043,7 +1051,7 @@ function refreshInvoiceDataTable() {
     TncLiveDT.init('#invoice_table', {
         pageLength: 5,
         order: [],
-        dom: 'lrtip',
+        dom: 'rtip',
         columnDefs: [{ orderable: false, targets: [0, 4] }]
     });
 }
@@ -1227,7 +1235,7 @@ function deleteItem(id, type) {
         input: 'password',
         inputPlaceholder: 'รหัสผ่าน',
         showCancelButton: true,
-        confirmButtonColor: '#fd7e14',
+        confirmButtonColor: '#ea580c',
         cancelButtonColor: '#adb5bd',
         confirmButtonText: 'ยืนยัน ลบข้อมูล',
         cancelButtonText: 'ยกเลิก',
@@ -1316,7 +1324,7 @@ window.onload = () => {
             title: 'อัปเดตสำเร็จ',
             text: 'บันทึกการแก้ไขใบแจ้งหนี้เรียบร้อยแล้ว',
             confirmButtonText: 'ตกลง',
-            confirmButtonColor: '#fd7e14'
+            confirmButtonColor: '#ea580c'
         }).then(() => {
             const u = new URL(window.location.href);
             u.searchParams.delete('invoice_updated');

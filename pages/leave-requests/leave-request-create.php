@@ -30,18 +30,20 @@ if ($meName === '') {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
+        /* body canvas: tnc-app.css */
         .form-card { border: none; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
-        .btn-orange { background-color: #fd7e14; color: #fff; border: none; }
-        .btn-orange:hover { background-color: #e86c00; color: #fff; }
+        /* .btn-orange: tnc-app.css */
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-4 mb-5">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="fw-bold"><i class="bi bi-pencil-square text-warning me-2"></i>สร้างคำขออนุญาติลา</h3>
+    <div class="tnc-page-head mb-3 flex-wrap gap-2">
+        <div>
+            <p class="tnc-page-kicker">Leave</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-pencil-square"></i></span>สร้างคำขออนุญาติลา</h1>
+        </div>
         <a href="<?= htmlspecialchars(app_path('pages/leave-requests/leave-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-4">กลับ</a>
     </div>
 

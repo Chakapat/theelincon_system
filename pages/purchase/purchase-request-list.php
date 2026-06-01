@@ -66,15 +66,14 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
     <title>รายการใบขอซื้อ (PR)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
-        .table-card { border: none; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
-        .btn-orange { background-color: #fd7e14; color: white; border: none; }
-        .btn-orange:hover { background-color: #e86c00; color: white; }
+        .table-card { border: none; border-radius: var(--tnc-radius-lg); box-shadow: var(--tnc-shadow-sm); }
         .badge { font-weight: 500; }
-        .pr-print-head { border-bottom: 2px solid #fd7e14; padding-bottom: 0.75rem; margin-bottom: 1rem; }
+        .pr-print-head { border-bottom: 2px solid var(--tnc-orange); padding-bottom: 0.75rem; margin-bottom: 1rem; }
         .pr-po-status-dot {
             width: 0.55rem;
             height: 0.55rem;
@@ -93,15 +92,17 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
         }
         .pr-po-status-label--cancelled { color: #dc3545; }
         @media print {
+            @page { size: A4 portrait; margin: 12mm; }
             nav, .navbar, .no-print { display: none !important; }
             body { background: #fff !important; font-size: 11pt; }
             .table-card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
-            .table { font-size: 10pt; }
+            .pr-list-print-table { font-size: 10pt; }
+            .pr-list-print-table thead { display: table-header-group; }
             a[href]:after { content: none !important; }
         }
     </style>
 </head>
-<body>
+<body class="purchase-module tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -169,10 +170,14 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
     <?php endif; ?>
     </div>
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-        <h3 class="fw-bold mb-0">
-            <i class="bi bi-cart-check-fill text-warning me-2"></i> รายการใบขอซื้อ (Purchase requests List)
-        </h3>
+    <div class="purchase-page-head mb-4">
+        <div>
+            <p class="purchase-page-kicker">Purchase Module</p>
+            <h1 class="purchase-list-title mb-0">
+                <span class="po-list-title__icon me-2 text-tnc-orange" aria-hidden="true"><i class="bi bi-cart-check-fill"></i></span>
+                รายการใบขอซื้อ (PR)
+            </h1>
+        </div>
         <div class="d-flex flex-wrap gap-2 no-print">
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4 shadow-sm">
                 <i class="bi bi-plus-lg"></i> สร้างใบขอซื้อใหม่
@@ -180,20 +185,20 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
             <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm" id="prBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก">
                 <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
             </button>
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-primary rounded-pill px-3 shadow-sm">
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-orange rounded-pill px-3 shadow-sm">
                 <i class="bi bi-arrow-right-circle me-1"></i>ไปหน้ารายการใบสั่งซื้อ
             </a>
         </div>
     </div>
 
-    <div class="pr-print-head d-none d-print-block">
+    <div class="pr-print-head pr-list-print-head d-none d-print-block">
         <div class="fw-bold fs-5"><?= htmlspecialchars($companyName !== '' ? $companyName : 'THEELIN CON', ENT_QUOTES, 'UTF-8') ?></div>
-        <div class="text-muted small">รายการใบขอซื้อ (PR) — พิมพ์เมื่อ <?= date('d/m/Y H:i') ?></div>
+        <div class="small" style="color:#475569;">รายการใบขอซื้อ (PR) · พิมพ์เมื่อ <?= date('d/m/Y H:i') ?></div>
     </div>
 
     <div class="card table-card p-4">
         <div class="table-responsive">
-            <table class="table table-hover align-middle" id="prTable">
+            <table class="table table-hover align-middle pr-list-print-table" id="prTable">
                 <thead class="table-light">
                     <tr>
                         <th class="text-center no-print" style="width:2.5rem;" title="เลือกเพื่อพิมพ์หลายใบ">
@@ -205,7 +210,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                         <th class="text-center">ประเภท</th>
                         <th class="text-center">อนุมัติ</th>
                         <th class="text-end">ยอดรวมสุทธิ</th>
-                        <th class="text-center">การจัดการ</th>
+                        <th class="text-center no-print">การจัดการ</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -221,12 +226,12 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                                 <input type="checkbox" class="form-check-input m-0 js-pr-print-cb" value="<?= $rowPrId ?>" aria-label="เลือกพิมพ์ <?= htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                             </td>
                             <td>
-                                <div class="fw-bold <?= $prPoCancelled ? 'text-danger' : 'text-primary' ?>">
+                                <div class="fw-bold <?= $prPoCancelled ? 'text-danger' : 'text-tnc-orange' ?>">
                                     <span class="d-inline-flex align-items-center gap-2 flex-wrap">
                                         <?php
                                         $prNoDisp = htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8');
                                         $prViewHref = htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . (int) $row['id'];
-                                        $prLinkClass = $prPoCancelled ? 'text-danger' : 'text-primary';
+                                        $prLinkClass = $prPoCancelled ? 'text-danger' : 'text-tnc-orange';
                                         echo '<a href="' . $prViewHref . '" class="' . $prLinkClass . ' text-decoration-none" title="ดูรายละเอียด">' . $prNoDisp . '</a>';
                                         if ($prPoCancelled) {
                                             echo '<span class="pr-po-status-dot pr-po-status-dot--po-cancelled" role="img" aria-label="PO ยกเลิกแล้ว" title="PO ยกเลิกแล้ว"></span>';
@@ -278,7 +283,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                                     }
                                 ?></div>
                             </td>
-                            <td class="text-center">
+                            <td class="text-center no-print">
                                 <div class="btn-group shadow-sm rounded">
                                     <?php
                                     $prCanEdit = !$prHasPo && line_pr_normalize_status($row) !== 'approved';

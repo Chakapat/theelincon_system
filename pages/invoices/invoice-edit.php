@@ -53,7 +53,7 @@ Db::sortRows($customers, 'name', false);
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
+        /* body canvas: tnc-app.css */
         .card { border: none; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
         .border-orange { border-left: 5px solid #FF6600 !important; }
         .btn-orange { background: linear-gradient(135deg, #FF9966 0%, #FF6600 100%); color: white; border: none; border-radius: 10px; font-weight: 600; padding: 10px 25px; transition: 0.3s; }
@@ -95,7 +95,7 @@ Db::sortRows($customers, 'name', false);
         .btn-add-invoice-row .bi { font-size: 1.25rem; }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 

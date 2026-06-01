@@ -34,13 +34,12 @@ Db::sortRows($allRows, 'created_at', true);
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
+        /* body canvas: tnc-app.css */
         .table-card { border: none; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
-        .btn-orange { background-color: #fd7e14; color: #fff; border: none; }
-        .btn-orange:hover { background-color: #e86c00; color: #fff; }
+        /* .btn-orange: tnc-app.css */
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-4 mb-5">
@@ -69,8 +68,11 @@ Db::sortRows($allRows, 'created_at', true);
         </div>
     <?php endif; ?>
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold"><i class="bi bi-calendar-check text-warning me-2"></i><?= $showAll ? 'ใบลาทั้งหมดในระบบ' : 'ใบลาของฉัน' ?></h3>
+    <div class="tnc-page-head mb-4 flex-wrap gap-2">
+        <div>
+            <p class="tnc-page-kicker">Leave</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-calendar-check"></i></span><?= $showAll ? 'ใบลาทั้งหมดในระบบ' : 'ใบลาของฉัน' ?></h1>
+        </div>
         <div class="d-flex align-items-center gap-2">
             <?php if ($isAdmin): ?>
                 <?php if ($showAll): ?>
@@ -120,7 +122,7 @@ Db::sortRows($allRows, 'created_at', true);
                         }
                         ?>
                         <tr>
-                            <td class="fw-bold text-primary"><?= htmlspecialchars((string) ($row['leave_number'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="fw-bold text-tnc-orange"><?= htmlspecialchars((string) ($row['leave_number'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <?php if ($showAll): ?>
                                 <td>
                                     <?php

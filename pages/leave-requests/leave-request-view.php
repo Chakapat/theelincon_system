@@ -44,11 +44,11 @@ $attachmentUrl = trim((string) ($row['attachment_url'] ?? ''));
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
+        /* body canvas: tnc-app.css */
         .detail-card { border: none; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-4 mb-5">
@@ -59,8 +59,11 @@ $attachmentUrl = trim((string) ($row['attachment_url'] ?? ''));
         </div>
     <?php endif; ?>
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="fw-bold"><i class="bi bi-file-earmark-text text-warning me-2"></i>รายละเอียดใบลา</h3>
+    <div class="tnc-page-head mb-3 flex-wrap gap-2">
+        <div>
+            <p class="tnc-page-kicker">Leave</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-file-earmark-text"></i></span>รายละเอียดใบลา</h1>
+        </div>
         <a href="<?= htmlspecialchars(app_path('pages/leave-requests/leave-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-4">กลับรายการ</a>
     </div>
 
@@ -68,7 +71,7 @@ $attachmentUrl = trim((string) ($row['attachment_url'] ?? ''));
         <div class="d-flex justify-content-between align-items-start mb-3">
             <div>
                 <div class="text-muted small">เลขที่คำขอ</div>
-                <div class="fw-bold fs-5 text-primary"><?= htmlspecialchars((string) ($row['leave_number'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
+                <div class="fw-bold fs-5 text-tnc-orange"><?= htmlspecialchars((string) ($row['leave_number'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
             </div>
             <span class="badge <?= $badgeClass ?> rounded-pill px-3 py-2"><?= strtoupper($status) ?></span>
         </div>

@@ -4,6 +4,7 @@ if (!function_exists('app_path')) {
 }
 
 ?>
+<link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
 <style>
     .navbar-hub {
         gap: 0.35rem;
@@ -68,7 +69,7 @@ if (!function_exists('app_path')) {
     .tnc-notif-title { font-weight: 600; font-size: .86rem; line-height: 1.25; }
     .tnc-notif-msg { font-size: .8rem; color: #5b6166; line-height: 1.3; }
     .tnc-notif-time { font-size: .72rem; color: #98a1a8; margin-top: .15rem; }
-    .tnc-notif-dot { width: .5rem; height: .5rem; border-radius: 50%; background: #fd7e14; flex-shrink: 0; margin-top: .4rem; }
+    .tnc-notif-dot { width: .5rem; height: .5rem; border-radius: 50%; background: #ea580c; flex-shrink: 0; margin-top: .4rem; }
     @media (max-width: 991.98px) {
         .tnc-notif-menu { min-width: 100%; }
     }
@@ -137,7 +138,7 @@ if (!function_exists('app_path')) {
     }
 
 </style>
-<nav class="navbar navbar-expand-lg navbar-dark shadow-sm py-2 mb-3 mb-md-3 tnc-navbar-compact" style="background-color: #fd7e14; min-height: 3.25rem;">
+<nav class="navbar navbar-expand-lg navbar-dark shadow-sm py-2 mb-3 mb-md-3 tnc-navbar-compact tnc-navbar" style="min-height: 3.25rem;">
     <div class="container py-0">
         <a class="navbar-brand fw-bold d-flex align-items-center gap-2 flex-shrink-0 py-1 fs-6" href="<?= htmlspecialchars(app_path('index.php')) ?>">
             <i class="bi bi-receipt-cutoff fs-5"></i>

@@ -62,7 +62,7 @@ if ($id > 0) {
         .btn-save:hover { background-color: #146c43; transform: translateY(-2px); }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 

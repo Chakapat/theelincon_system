@@ -34,20 +34,19 @@ Db::sortRows($customers, 'id', true);
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        body { background-color: #fffaf5; font-family: 'Sarabun', sans-serif; }
-        .btn-orange { background-color: #fd7e14; color: white; border-radius: 10px; }
-        .btn-orange:hover { background-color: #e8590c; color: white; }
-        .logo-preview { height: 50px; width: 50px; object-fit: contain; border-radius: 8px; background: #f8f9fa; }
+        body { background-color: #fffaf5; }
+        .logo-preview { height: 50px; width: 50px; object-fit: contain; border-radius: 8px; background: var(--tnc-surface, #f6f7f9); }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="tnc-page-head">
         <div>
-            <h2 class="fw-bold mb-0 text-dark"><i class="bi bi-people-fill me-2 text-warning"></i>ข้อมูลลูกค้า</h2>
+            <p class="tnc-page-kicker">Organization</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-people-fill"></i></span>ข้อมูลลูกค้า</h1>
         </div>
     </div>
 
@@ -195,7 +194,7 @@ function confirmDelete(id, type) {
         input: 'password',
         inputPlaceholder: 'รหัสผ่าน',
         showCancelButton: true,
-        confirmButtonColor: '#fd7e14',
+        confirmButtonColor: '#ea580c',
         confirmButtonText: 'ยืนยัน',
         cancelButtonText: 'ยกเลิก',
         focusCancel: true,
@@ -234,10 +233,10 @@ function confirmDelete(id, type) {
     });
 }
 const params = new URLSearchParams(window.location.search);
-if(params.has('success')) Swal.fire({ icon: 'success', title: 'สำเร็จ!', confirmButtonColor: '#fd7e14' });
-if(params.has('deleted')) Swal.fire({ icon: 'success', title: 'ลบแล้ว!', confirmButtonColor: '#fd7e14' });
-if (params.get('error') === 'confirm_password_required') Swal.fire({ icon: 'warning', title: 'กรุณากรอกรหัสผ่านเพื่อยืนยันการลบ', confirmButtonColor: '#fd7e14' });
-if (params.get('error') === 'confirm_password_invalid') Swal.fire({ icon: 'error', title: 'รหัสผ่านไม่ถูกต้อง', confirmButtonColor: '#fd7e14' });
+if(params.has('success')) Swal.fire({ icon: 'success', title: 'สำเร็จ!', confirmButtonColor: '#ea580c' });
+if(params.has('deleted')) Swal.fire({ icon: 'success', title: 'ลบแล้ว!', confirmButtonColor: '#ea580c' });
+if (params.get('error') === 'confirm_password_required') Swal.fire({ icon: 'warning', title: 'กรุณากรอกรหัสผ่านเพื่อยืนยันการลบ', confirmButtonColor: '#ea580c' });
+if (params.get('error') === 'confirm_password_invalid') Swal.fire({ icon: 'error', title: 'รหัสผ่านไม่ถูกต้อง', confirmButtonColor: '#ea580c' });
 (function () {
     if (typeof $ === 'undefined' || !$.fn.DataTable) return;
     $('#customerTable').DataTable({ order: [[0, 'asc']] });

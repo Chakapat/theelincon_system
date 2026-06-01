@@ -65,7 +65,96 @@ Db::sortRows($supplier_rows, 'name', false);
 
 $errorCode = trim((string) ($_GET['error'] ?? ''));
 
-$issueDateDefault = date('Y-m-d');
+/**
+ * @param array<string, mixed> $item
+ */
+function tnc_po_create_pr_discount_label(array $item): string
+{
+    $discDisplay = trim((string) ($item['discount_input'] ?? ''));
+    if ($discDisplay !== '') {
+        return $discDisplay;
+    }
+    $discType = (string) ($item['discount_type'] ?? 'amount');
+    $discValue = (float) ($item['discount_value'] ?? 0);
+    if ($discValue > 0) {
+        return $discType === 'percent'
+            ? (rtrim(rtrim(number_format($discValue, 4, '.', ''), '0'), '.') . '%')
+            : number_format($discValue, 2, '.', '');
+    }
+    $discAmount = (float) ($item['discount_amount'] ?? 0);
+    if ($discAmount > 0) {
+        return number_format($discAmount, 2, '.', '');
+    }
+
+    return '';
+}
+
+/**
+ * @param array<string, mixed> $item
+ */
+function tnc_po_create_pr_line_total(array $item): float
+{
+    $qty = (float) ($item['quantity'] ?? 0);
+    $price = (float) ($item['unit_price'] ?? 0);
+    $base = round($qty * $price, 2);
+    $discRaw = tnc_po_create_pr_discount_label($item);
+    $discount = 0.0;
+    if ($discRaw !== '' && $base > 0) {
+        if (preg_match('/^([0-9]+(?:\.[0-9]+)?)\s*%$/', $discRaw, $pctMatch) === 1) {
+            $pct = (float) $pctMatch[1];
+            if ($pct < 0) {
+                $pct = 0.0;
+            } elseif ($pct > 100) {
+                $pct = 100.0;
+            }
+            $discount = round($base * $pct / 100, 2);
+        } else {
+            $discount = min($base, round((float) str_replace([',', ' '], '', $discRaw), 2));
+        }
+    } elseif ((float) ($item['discount_amount'] ?? 0) > 0) {
+        $discount = min($base, round((float) $item['discount_amount'], 2));
+    }
+    $computed = round($base - $discount, 2);
+    $storedTotal = (float) ($item['total'] ?? 0);
+    if ($storedTotal > 0 && abs($storedTotal - $computed) <= 0.015) {
+        return $storedTotal;
+    }
+
+    return $computed;
+}
+
+/**
+ * @param array<string, mixed> $pr
+ */
+function tnc_po_create_issue_date_from_pr(array $pr): string
+{
+    $raw = trim((string) ($pr['created_at'] ?? ''));
+    if ($raw === '') {
+        return date('Y-m-d');
+    }
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $raw, $ymd) === 1) {
+        return $ymd[1] . '-' . $ymd[2] . '-' . $ymd[3];
+    }
+    if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})/', $raw, $dmy) === 1) {
+        return sprintf('%04d-%02d-%02d', (int) $dmy[3], (int) $dmy[2], (int) $dmy[1]);
+    }
+    $ts = strtotime($raw);
+
+    return $ts !== false ? date('Y-m-d', $ts) : date('Y-m-d');
+}
+
+function tnc_po_create_format_ymd_as_dmy(string $ymd): string
+{
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', trim($ymd), $m) === 1) {
+        return $m[3] . '/' . $m[2] . '/' . $m[1];
+    }
+
+    return trim($ymd);
+}
+
+$issueDateDefault = tnc_po_create_issue_date_from_pr($pr);
+$issueDateDisplay = tnc_po_create_format_ymd_as_dmy($issueDateDefault);
+$prIssueDateHint = $issueDateDisplay;
 $pr_view_url = app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id;
 $pr_edit_url = app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id;
 
@@ -91,26 +180,15 @@ $po_submit_disabled = $pr_prefill_items_display === [];
     <title>สร้างใบสั่งซื้อ (PO)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
-        body { background: linear-gradient(165deg, #f0f4f8 0%, #f8f9fb 45%, #eef2f7 100%); font-family: 'Sarabun', sans-serif; min-height: 100vh; }
         .po-create-wrap { max-width: 1100px; }
-        .po-create-hero {
-            background: linear-gradient(125deg, #0d6efd 0%, #3d8bfd 42%, #6ea8fe 100%);
-            border-radius: 1rem;
-            box-shadow: 0 12px 40px rgba(13, 110, 253, 0.22);
-            color: #fff;
-        }
-        .po-create-hero .hero-kicker { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.92; font-weight: 700; }
-        .po-create-hero h1 { font-size: clamp(1.35rem, 3.5vw, 1.75rem); font-weight: 800; letter-spacing: -0.02em; }
-        .po-create-hero .hero-lead { opacity: 0.9; font-size: 0.9rem; max-width: 26rem; }
-        .po-create-hero .btn-light { border: 0; font-weight: 600; }
-        .po-create-hero .btn-primary { background: #fff; color: #0d6efd; border: 0; font-weight: 700; }
-        .po-create-hero .btn-primary:hover { background: #f0f6ff; color: #0a58ca; }
         .card-soft {
             border: 1px solid rgba(226, 232, 240, 0.95);
-            border-radius: 1rem;
-            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+            border-radius: var(--tnc-radius-lg);
+            box-shadow: var(--tnc-shadow-sm);
             background: #fff;
         }
         .po-section-head {
@@ -121,23 +199,11 @@ $po_submit_disabled = $pr_prefill_items_display === [];
             padding-bottom: 0.75rem;
             border-bottom: 1px solid #eef2f7;
         }
-        .po-section-head .po-section-icon {
-            width: 2.5rem;
-            height: 2.5rem;
-            border-radius: 0.65rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(145deg, #e8f1ff, #f0f6ff);
-            color: #0d6efd;
-            font-size: 1.15rem;
-            flex-shrink: 0;
-        }
-        .section-title { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.02em; }
-        .section-sub { font-size: 0.8rem; color: #64748b; margin: 0.2rem 0 0; line-height: 1.4; }
+        .section-title { font-size: 1.05rem; font-weight: 800; color: var(--tnc-ink); margin: 0; letter-spacing: -0.02em; }
+        .section-sub { font-size: 0.8rem; color: var(--tnc-muted); margin: 0.2rem 0 0; line-height: 1.4; }
         .po-field-label { font-size: 0.78rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
         .form-control, .form-select, .input-group-text { border-radius: 0.5rem; }
-        .po-meta-card .form-control:focus { box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.12); }
+        .po-meta-card .form-control:focus { box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.12); }
         .po-po-number { font-size: 1.05rem; letter-spacing: 0.02em; }
         .po-qt-toggle {
             border: 1px solid #e2e8f0;
@@ -173,8 +239,8 @@ $po_submit_disabled = $pr_prefill_items_display === [];
         }
         .po-wht-box .form-check-input { cursor: pointer; }
         .summary-box {
-            background: linear-gradient(180deg, #f8fbff 0%, #f0f7ff 100%);
-            border: 1px solid #c7dbfa;
+            background: linear-gradient(180deg, #fffbf5 0%, var(--tnc-orange-soft) 100%);
+            border: 1px solid var(--tnc-orange-border);
             border-radius: 0.85rem;
             padding: 1.1rem 1.15rem;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
@@ -206,10 +272,10 @@ $po_submit_disabled = $pr_prefill_items_display === [];
             justify-self: end;
             font-variant-numeric: tabular-nums;
         }
-        .summary-grand { padding-top: 0.35rem; margin-top: 0.25rem; border-top: 2px dashed rgba(13, 110, 253, 0.25); }
-        .summary-grand .summary-label { font-size: 1rem; color: #0f172a; }
-        .summary-grand .summary-value { font-size: 1.25rem; color: #0d6efd !important; }
-        .po-vat-panel { background: #f8faff; border: 1px solid #dbe7ff; border-radius: 0.75rem; }
+        .summary-grand { padding-top: 0.35rem; margin-top: 0.25rem; border-top: 2px dashed rgba(253, 126, 20, 0.25); }
+        .summary-grand .summary-label { font-size: 1rem; color: var(--tnc-ink); }
+        .summary-grand .summary-value { font-size: 1.25rem; color: var(--tnc-orange) !important; }
+        .po-vat-panel { background: #fffbf5; border: 1px solid var(--tnc-orange-border); border-radius: 0.75rem; }
         .po-doc-flow {
             display: flex;
             flex-wrap: wrap;
@@ -227,7 +293,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
             line-height: 1.2;
         }
         .po-doc-badge-pr { background: rgba(255, 255, 255, 0.22); color: #fff; }
-        .po-doc-badge-po { background: #fff; color: #0d6efd; }
+        .po-doc-badge-po { background: #fff; color: var(--tnc-orange); }
         .po-doc-num {
             font-size: clamp(1.1rem, 2.8vw, 1.45rem);
             font-weight: 800;
@@ -236,9 +302,9 @@ $po_submit_disabled = $pr_prefill_items_display === [];
         }
         .po-doc-arrow { font-size: 1.35rem; opacity: 0.85; }
         .po-readonly-hint {
-            border: 1px solid #dbeafe;
+            border: 1px solid var(--tnc-orange-border);
             border-radius: 0.85rem;
-            background: linear-gradient(180deg, #f8fbff 0%, #f0f9ff 100%);
+            background: linear-gradient(180deg, #fffbf5 0%, var(--tnc-orange-soft) 100%);
             padding: 1rem 1.15rem;
         }
         .po-readonly-hint .hint-title { font-weight: 800; color: #0f172a; font-size: 0.95rem; margin-bottom: 0.35rem; }
@@ -266,7 +332,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
         .po-lock-banner i { color: #64748b; }
     </style>
 </head>
-<body>
+<body class="purchase-module tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -287,7 +353,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                     </div>
                 </div>
                 <div class="col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
-                    <button type="submit" class="btn btn-primary rounded-pill px-4 shadow"<?= $po_submit_disabled ? ' disabled' : '' ?>><i class="bi bi-check2-circle me-1"></i>ยืนยันสร้างใบสั่งซื้อ</button>
+                    <button type="submit" class="btn btn-orange rounded-pill px-4 shadow"<?= $po_submit_disabled ? ' disabled' : '' ?>><i class="bi bi-check2-circle me-1"></i>ยืนยันสร้างใบสั่งซื้อ</button>
                     <a href="<?= htmlspecialchars($pr_view_url, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับใบขอซื้อ</a>
                 </div>
             </div>
@@ -314,16 +380,16 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                 <div class="col-md-4">
                     <label class="po-field-label" for="issue_date">วันที่ออกใบสั่งซื้อ</label>
                     <div class="input-group">
-                        <span class="input-group-text bg-white text-primary" title="ปฏิทิน"><i class="bi bi-calendar3"></i></span>
+                        <span class="input-group-text bg-white text-tnc-orange" title="ปฏิทิน"><i class="bi bi-calendar3"></i></span>
                         <input
-                            type="date"
+                            type="text"
                             class="form-control"
                             name="issue_date"
                             id="issue_date"
-                            value="<?= htmlspecialchars($issueDateDefault, ENT_QUOTES, 'UTF-8') ?>"
+                            value="<?= htmlspecialchars($issueDateDisplay, ENT_QUOTES, 'UTF-8') ?>"
                             required
-                            lang="th"
                             autocomplete="off"
+                            placeholder="วัน/เดือน/ปี"
                         >
                     </div>
                 </div>
@@ -341,23 +407,22 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                                 <th style="width:6.5rem;" class="text-end">จำนวน</th>
                                 <th style="width:6.5rem;" class="text-center">หน่วย</th>
                                 <th style="width:7.5rem;" class="text-end">ราคา/หน่วย</th>
+                                <th style="width:6.5rem;" class="text-end">ส่วนลด</th>
                                 <th style="width:7.5rem;" class="text-end">ยอดรวม</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if ($pr_prefill_items_display === []): ?>
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-4">ไม่มีรายการในใบขอซื้อ — <a href="<?= htmlspecialchars($pr_edit_url, ENT_QUOTES, 'UTF-8') ?>">เพิ่มรายการที่ PR</a></td>
+                                <td colspan="7" class="text-center text-muted py-4">ไม่มีรายการในใบขอซื้อ — <a href="<?= htmlspecialchars($pr_edit_url, ENT_QUOTES, 'UTF-8') ?>">เพิ่มรายการที่ PR</a></td>
                             </tr>
                             <?php else: ?>
                             <?php foreach ($pr_prefill_items_display as $idx => $prItem): ?>
                             <?php
                             $prefillQty = (float) ($prItem['quantity'] ?? 0);
                             $prefillPrice = (float) ($prItem['unit_price'] ?? 0);
-                            $prefillLineTotal = (float) ($prItem['total'] ?? 0);
-                            if (abs($prefillLineTotal) < 0.0005 && $prefillQty > 0) {
-                                $prefillLineTotal = round($prefillQty * $prefillPrice, 2);
-                            }
+                            $discDisplay = tnc_po_create_pr_discount_label($prItem);
+                            $prefillLineTotal = tnc_po_create_pr_line_total($prItem);
                             $unitCell = trim((string) ($prItem['unit'] ?? ''));
                             ?>
                             <tr data-pr-total="<?= htmlspecialchars(number_format($prefillLineTotal, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
@@ -366,6 +431,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                                 <td class="cell-num"><?= number_format($prefillQty, 2) ?></td>
                                 <td class="text-center text-muted"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—' ?></td>
                                 <td class="cell-num"><?= number_format($prefillPrice, 2) ?></td>
+                                <td class="cell-num<?= $discDisplay !== '' ? ' fw-semibold' : ' text-muted' ?>"><?= $discDisplay !== '' ? htmlspecialchars($discDisplay, ENT_QUOTES, 'UTF-8') : '—' ?></td>
                                 <td class="cell-num fw-bold"><?= number_format($prefillLineTotal, 2) ?></td>
                             </tr>
                             <?php endforeach; ?>
@@ -387,14 +453,14 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                         <?php else: ?>
                         <div class="small text-muted mb-2">ไม่มีภาษีมูลค่าเพิ่มในใบขอซื้อนี้</div>
                         <?php endif; ?>
-                        <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id, ENT_QUOTES, 'UTF-8') ?>" class="small text-primary text-decoration-none"><i class="bi bi-pencil-square me-1"></i>ต้องการแก้ไขภาษีมูลค่าเพิ่ม?</a>
+                        <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id, ENT_QUOTES, 'UTF-8') ?>" class="small text-tnc-orange text-decoration-none"><i class="bi bi-pencil-square me-1"></i>ต้องการแก้ไขภาษีมูลค่าเพิ่ม?</a>
                     </div>
                 </div>
                 <div class="col-lg-5 order-1 order-lg-2">
                     <div class="summary-box po-summary-sticky">
                         <div class="summary-line small text-muted"><span class="summary-label" id="subtotal_label">ยอดรายการ</span><strong class="summary-value text-end"><span id="subtotal_display"><?= number_format((float) $prVatPrintCreate['line_amount'], 2) ?></span> บาท</strong></div>
                         <div class="summary-line small" id="vat_row" style="<?= $pr_vat_enabled ? 'display:grid' : 'display:none' ?>;"><span class="summary-label" id="vat_label"><?= $pr_vat_enabled ? htmlspecialchars((string) $prVatPrintCreate['vat_label'], ENT_QUOTES, 'UTF-8') : 'ภาษีมูลค่าเพิ่ม' ?></span><strong class="summary-value"><span id="vat_display"><?= number_format((float) $prVatPrintCreate['vat_amount'], 2) ?></span> บาท</strong></div>
-                        <div class="summary-line summary-grand fw-bold"><span class="summary-label">ยอดสุทธิ</span><span class="summary-value text-primary"><span id="grand_total"><?= number_format((float) $prVatPrintCreate['net_amount'], 2) ?></span> บาท</span></div>
+                        <div class="summary-line summary-grand fw-bold"><span class="summary-label">ยอดสุทธิ</span><span class="summary-value text-tnc-orange"><span id="grand_total"><?= number_format((float) $prVatPrintCreate['net_amount'], 2) ?></span> บาท</span></div>
                     </div>
                 </div>
             </div>
@@ -406,14 +472,57 @@ $po_submit_disabled = $pr_prefill_items_display === [];
 
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-2 d-md-none">
             <a href="<?= htmlspecialchars($pr_view_url, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill">ย้อนกลับ</a>
-            <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold"<?= $po_submit_disabled ? ' disabled' : '' ?>><i class="bi bi-check2-circle me-1"></i>ยืนยันสร้าง PO</button>
+            <button type="submit" class="btn btn-orange rounded-pill px-4 fw-bold"<?= $po_submit_disabled ? ' disabled' : '' ?>><i class="bi bi-check2-circle me-1"></i>ยืนยันสร้าง PO</button>
         </div>
     </form>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+(function () {
+    const issueDateEl = document.getElementById('issue_date');
+    if (!issueDateEl || typeof flatpickr !== 'function') {
+        return;
+    }
+    flatpickr(issueDateEl, {
+        dateFormat: 'd/m/Y',
+        defaultDate: issueDateEl.value || 'today',
+        allowInput: true,
+    });
+
+    function normalizeIssueDateForSubmit() {
+        const raw = (issueDateEl.value || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+            return true;
+        }
+        const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (!m) {
+            return false;
+        }
+        const dd = Number(m[1]);
+        const mm = Number(m[2]);
+        const yyyy = Number(m[3]);
+        const d = new Date(yyyy, mm - 1, dd);
+        if (d.getFullYear() !== yyyy || d.getMonth() !== (mm - 1) || d.getDate() !== dd) {
+            return false;
+        }
+        issueDateEl.value = yyyy + '-' + String(mm).padStart(2, '0') + '-' + String(dd).padStart(2, '0');
+        return true;
+    }
+
+    const poCreateForm = issueDateEl.closest('form');
+    if (poCreateForm) {
+        poCreateForm.addEventListener('submit', function (e) {
+            if (!normalizeIssueDateForSubmit()) {
+                e.preventDefault();
+                alert('กรุณากรอกวันที่ออกใบสั่งซื้อเป็น วัน/เดือน/ปี เช่น 31/05/2026');
+                issueDateEl.focus();
+            }
+        });
+    }
+})();
 const poCreateErrorCode = <?= json_encode($errorCode, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 (function () {
     if (!poCreateErrorCode) return;

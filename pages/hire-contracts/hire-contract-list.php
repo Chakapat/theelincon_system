@@ -82,7 +82,7 @@ $poFromHireUrl = app_path('pages/purchase/purchase-order-from-hire-contract.php'
             font-weight: 700;
             padding: .56rem 1.1rem;
             border: none;
-            background: linear-gradient(135deg, #fd7e14 0%, #f76707 100%);
+            background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
             color: #fff;
             box-shadow: 0 0.38rem .95rem rgba(253,126,20,.3);
         }
@@ -151,7 +151,7 @@ $poFromHireUrl = app_path('pages/purchase/purchase-order-from-hire-contract.php'
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
         }
         .hc-remaining-zero { color: #adb5bd !important; font-weight: 600 !important; }
-        .hc-remaining-alert { color: #0d6efd !important; font-weight: 700 !important; }
+        .hc-remaining-alert { color: #ea580c !important; font-weight: 700 !important; }
         .hc-remaining-over { color: #b02a37 !important; font-weight: 700 !important; }
         .hc-btn-action {
             width: 2.3rem;
@@ -221,7 +221,7 @@ $poFromHireUrl = app_path('pages/purchase/purchase-order-from-hire-contract.php'
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 pb-5 hc-page-wrap">

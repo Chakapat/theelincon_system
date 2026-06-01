@@ -180,7 +180,7 @@ $poFromUrl = $resolvedPrId > 0
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 pb-5 hcv-shell">
@@ -195,7 +195,7 @@ $poFromUrl = $resolvedPrId > 0
             <?php if ($isInstallmentCompleted): ?>
                 <span class="btn btn-secondary btn-sm disabled rounded-pill">ครบงวดแล้ว</span>
             <?php else: ?>
-                <a href="<?= htmlspecialchars($poFromUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-primary btn-sm rounded-pill fw-semibold">ออกใบสั่งจ่าย</a>
+                <a href="<?= htmlspecialchars($poFromUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill fw-semibold">ออกใบสั่งจ่าย</a>
             <?php endif; ?>
             <button type="button" class="btn btn-dark btn-sm rounded-pill no-print" onclick="window.print()"><i class="bi bi-printer me-1"></i>พิมพ์</button>
         </div>

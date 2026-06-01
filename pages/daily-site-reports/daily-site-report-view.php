@@ -84,7 +84,7 @@ $editUrl = htmlspecialchars(daily_site_report_hub_url(), ENT_QUOTES, 'UTF-8') . 
             margin: 0 auto 2rem;
             padding: 14mm 16mm 18mm;
             background: #fff;
-            border-top: 6px solid #fd7e14;
+            border-top: 6px solid #ea580c;
             box-shadow: 0 8px 28px rgba(0,0,0,.08);
             color: #222;
             font-size: 11pt;
@@ -173,7 +173,7 @@ $editUrl = htmlspecialchars(daily_site_report_hub_url(), ENT_QUOTES, 'UTF-8') . 
         }
     </style>
 </head>
-<body class="screen">
+<body class="screen tnc-app-body">
 
 <div class="no-print">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>

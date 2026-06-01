@@ -53,10 +53,10 @@ $handler = app_path('actions/stock-handler.php');
     <style>
         body { font-family: 'Sarabun', sans-serif; background: #f8fafc; }
         .stock-form-card { border: 1px solid #e8edf5; border-radius: 1rem; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05); }
-        .mode-pill .btn-check:checked + .btn { background: #fd7e14; border-color: #fd7e14; color: #fff; }
+        .mode-pill .btn-check:checked + .btn { background: #ea580c; border-color: #ea580c; color: #fff; }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -202,7 +202,7 @@ $handler = app_path('actions/stock-handler.php');
             <textarea name="note" class="form-control rounded-3" maxlength="500" rows="2"></textarea>
         </div>
         <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary fw-bold rounded-pill px-4">บันทึกการโอน</button>
+            <button type="submit" class="btn btn-orange fw-bold rounded-pill px-4">บันทึกการโอน</button>
             <a href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php') . ($preSiteId > 0 ? '?site_id=' . $preSiteId : ''), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill">กลับ</a>
         </div>
     </form>

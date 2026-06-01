@@ -142,7 +142,7 @@ $tnc_po_submit_label = $requestType === 'hire'
 $hireRemainingOver = $requestType === 'hire' && $hireContractRemaining < -0.0005;
 $hireRemainingCss = $hireRemainingOver
     ? 'text-danger fw-bold'
-    : ($hireContractRemaining <= 0.0005 ? 'text-success fw-bold' : 'text-primary fw-bold');
+    : ($hireContractRemaining <= 0.0005 ? 'text-success fw-bold' : 'text-tnc-orange fw-bold');
 
 $pr_details_hidden = trim((string) ($pr['details'] ?? ''));
 $pr_site_id_hidden = (int) ($pr['site_id'] ?? 0);
@@ -173,46 +173,35 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
     <title><?= $requestType === 'hire' ? 'ใบสั่งจ่าย PO' : 'สร้างใบสั่งซื้อจาก PR' ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/hire-line-table.css'), ENT_QUOTES, 'UTF-8') ?>">
     <?php if ($requestType === 'hire'): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/pr-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <?php endif; ?>
     <style>
-        body { background: linear-gradient(165deg, #f1f5f9 0%, #e8f4fc 45%, #f8fafc 100%); font-family: 'Sarabun', system-ui, sans-serif; min-height: 100vh; }
         .po-from-pr-shell { max-width: 720px; }
-        .po-from-pr-card {
-            border: none; border-radius: 1.25rem;
-            box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
-            overflow: hidden; background: #fff;
-        }
-        .po-from-pr-head {
-            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
-            color: #fff; padding: 1.35rem 1.5rem; margin: -1px -1px 0 -1px;
-        }
-        .po-from-pr-head h1 { font-size: 1.35rem; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
-        .po-from-pr-head .sub { opacity: 0.92; font-size: 0.875rem; font-weight: 500; margin-top: 0.35rem; }
-        .po-field-label { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
+        .po-field-label { font-size: 0.8rem; font-weight: 600; color: var(--tnc-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
         .po-panel {
-            border: 1px solid #e2e8f0; border-radius: 0.875rem; background: #f8fafc;
+            border: 1px solid var(--tnc-border); border-radius: 0.875rem; background: #f8fafc;
             padding: 1rem 1.15rem;
         }
         .po-panel-muted { background: #fff; border-color: #e9ecef; }
         .section-card { border: 1px solid #e9ecef; border-radius: 12px; background: #fff; }
-        .section-title { font-size: 1rem; font-weight: 700; color: #0d6efd; margin-bottom: 12px; }
-        .form-control:focus, .form-select:focus { border-color: #86b7fe; box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.12); }
+        .section-title { font-size: 1rem; font-weight: 700; color: var(--tnc-orange); margin-bottom: 12px; }
+        .form-control:focus, .form-select:focus { border-color: var(--tnc-orange-border); box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.12); }
     </style>
 </head>
-<body<?= $requestType === 'hire' ? ' class="po-hire-mode"' : '' ?>>
+<body<?= $requestType === 'hire' ? ' class="po-hire-mode purchase-module"' : ' class="purchase-module"' ?>>
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
     <div class="<?= $requestType === 'hire' ? 'container-fluid px-3 px-lg-4' : 'container' ?> py-4 py-md-5">
         <div class="row justify-content-center">
             <div class="<?= $requestType === 'hire' ? 'col-12 po-hire-layout-inner' : 'col-xl-8' ?>">
                 <div class="po-from-pr-shell mx-auto">
-                <div class="card po-from-pr-card border-0">
+                <div class="card po-from-pr-card">
                     <div class="po-from-pr-head">
                         <div class="<?= ($requestType === 'purchase' && $pr_needs_price_fix && count($pr_items_for_edit) > 0) ? 'd-flex flex-wrap justify-content-between align-items-start gap-2 gap-md-3' : '' ?>">
                             <div class="min-w-0 flex-grow-1">
@@ -433,7 +422,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                     </div>
                                     <div class="hire-lines-toolbar">
                                         <button type="button" class="btn btn-sm btn-outline-secondary" id="addHireGroupBtn" data-tnc-hire-add="group"><i class="bi bi-folder-plus me-1"></i>เพิ่มหัวข้อหลัก</button>
-                                        <button type="button" class="btn btn-sm btn-outline-primary" id="addHireRowBtn" data-tnc-hire-add="item"><i class="bi bi-plus-circle me-1"></i>เพิ่มรายการย่อย</button>
+                                        <button type="button" class="btn btn-sm btn-outline-orange" id="addHireRowBtn" data-tnc-hire-add="item"><i class="bi bi-plus-circle me-1"></i>เพิ่มรายการย่อย</button>
                                     </div>
                                 </div>
                             </div>
@@ -455,7 +444,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                 </div>
                                 <div class="po-hire-totals-card">
                                     <div class="po-hire-sum-row"><span>ยอดรวม (Subtotal)</span><span id="subtotal_text">0.00</span></div>
-                                    <div class="po-hire-sum-row text-primary"><span>VAT (+)</span><span id="vat_text">0.00</span></div>
+                                    <div class="po-hire-sum-row text-tnc-orange"><span>VAT (+)</span><span id="vat_text">0.00</span></div>
                                     <div class="po-hire-sum-row border-bottom pb-2 mb-1"><span class="text-muted fw-semibold">ยอดรวม VAT</span><span id="total_after_vat_text">0.00</span></div>
                                     <div id="retention_summary_row" class="po-hire-sum-row text-danger" style="display:none;"><span>หักประกันผลงาน (-)</span><span id="retention_display">0.00</span></div>
                                     <div class="po-hire-grand-row">
@@ -502,7 +491,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                             <div class="text-muted small py-1">ไม่รวม VAT</div>
                             <?php endif; ?>
                             <hr class="my-2 border-secondary-subtle">
-                            <div class="d-flex justify-content-between align-items-center"><span class="fw-bold">ยอดสุทธิ</span><strong class="fs-5 text-primary"><?= number_format((float) $prVatPrintFromPo['net_amount'], 2) ?> บาท</strong></div>
+                            <div class="d-flex justify-content-between align-items-center"><span class="fw-bold">ยอดสุทธิ</span><strong class="fs-5 text-tnc-orange"><?= number_format((float) $prVatPrintFromPo['net_amount'], 2) ?> บาท</strong></div>
                         </div>
                         <?php if ($pr_needs_price_fix && count($pr_items_for_edit) > 0): ?>
                         <div class="alert alert-warning border-0 py-2 px-3 small mb-4 mb-md-0">
@@ -516,7 +505,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                         <?php endif; ?>
 
                         <div class="d-grid gap-2 mt-1">
-                            <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm fw-semibold py-3"<?= $tnc_po_submit_disabled ? ' disabled' : '' ?>><?= htmlspecialchars($tnc_po_submit_label, ENT_QUOTES, 'UTF-8') ?></button>
+                            <button type="submit" class="btn btn-orange btn-lg rounded-pill shadow-sm fw-semibold py-3"<?= $tnc_po_submit_disabled ? ' disabled' : '' ?>><?= htmlspecialchars($tnc_po_submit_label, ENT_QUOTES, 'UTF-8') ?></button>
                             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $pr_id ?>" class="btn btn-outline-danger btn-lg rounded-pill fw-semibold py-2">ยกเลิก</a>
                         </div>
                     </form>
@@ -554,7 +543,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                             <div class="col-md-6 text-md-end small text-muted align-self-end">
                                                 <div><span id="pr_fix_subtotal_label">ยอดรายการ:</span> <span id="pr_fix_subtotal_display" class="fw-semibold text-dark">0.00</span> บาท</div>
                                                 <div id="pr_fix_vat_row" class="mb-1<?= $pr_fix_vat_on ? '' : ' d-none' ?>"><span id="pr_fix_vat_label">ภาษีมูลค่าเพิ่ม:</span> <span id="pr_fix_vat_display" class="fw-semibold text-success">0.00</span> บาท</div>
-                                                <div class="fs-6 fw-bold text-primary mt-1">ยอดรวมสุทธิ: <span id="pr_fix_grand_total">0.00</span> บาท</div>
+                                                <div class="fs-6 fw-bold text-tnc-orange mt-1">ยอดรวมสุทธิ: <span id="pr_fix_grand_total">0.00</span> บาท</div>
                                                 <input type="hidden" name="total_amount" id="pr_fix_total_amount_input" value="0">
                                             </div>
                                         </div>
@@ -602,7 +591,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                                 </tbody>
                                             </table>
                                         </div>
-                                        <button type="button" class="btn btn-sm btn-outline-primary mt-2 rounded-pill" id="pr_fix_add_row"><i class="bi bi-plus-circle me-1"></i>เพิ่มรายการสินค้า</button>
+                                        <button type="button" class="btn btn-sm btn-outline-orange mt-2 rounded-pill" id="pr_fix_add_row"><i class="bi bi-plus-circle me-1"></i>เพิ่มรายการสินค้า</button>
                                     </div>
                                     <div class="modal-footer border-top bg-light">
                                         <button type="button" class="btn btn-outline-secondary rounded-pill px-3" data-bs-dismiss="modal">ปิด</button>
@@ -768,13 +757,13 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
         const projected = Math.round((remaining - net) * 100) / 100;
         const fmt = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
         hireRemainingDisplay.textContent = projected.toLocaleString(undefined, fmt) + ' บาท';
-        hireRemainingDisplay.classList.remove('text-danger', 'text-success', 'text-primary', 'fw-bold');
+        hireRemainingDisplay.classList.remove('text-danger', 'text-success', 'text-tnc-orange', 'fw-bold');
         if (projected < -0.0005) {
             hireRemainingDisplay.classList.add('text-danger', 'fw-bold');
         } else if (projected <= 0.0005) {
             hireRemainingDisplay.classList.add('text-success', 'fw-bold');
         } else {
-            hireRemainingDisplay.classList.add('text-primary', 'fw-bold');
+            hireRemainingDisplay.classList.add('text-tnc-orange', 'fw-bold');
         }
     };
 

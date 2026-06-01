@@ -30,11 +30,11 @@ usort($contractors, static function (array $a, array $b): int {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
+        /* body canvas: tnc-app.css */
         .main-card { border: none; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-5 mb-5">
@@ -46,8 +46,8 @@ usort($contractors, static function (array $a, array $b): int {
     <?php endif; ?>
 
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h2 class="fw-bold text-primary mb-0"><i class="bi bi-person-badge"></i> ลงทะเบียนผู้รับจ้าง</h2>
-        <a href="<?= htmlspecialchars(app_path('pages/contractors/contractor-form.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-primary px-4 shadow-sm">
+        <h2 class="fw-bold text-tnc-orange mb-0"><i class="bi bi-person-badge"></i> ลงทะเบียนผู้รับจ้าง</h2>
+        <a href="<?= htmlspecialchars(app_path('pages/contractors/contractor-form.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange px-4 shadow-sm">
             <i class="bi bi-plus-lg me-2"></i>เพิ่มผู้รับจ้าง
         </a>
     </div>

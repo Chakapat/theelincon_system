@@ -387,161 +387,419 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
     <title>รายงานการใช้จ่ายตามไซต์ (Site Spending)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Sarabun', sans-serif; background: #f7f8fa; }
-        .card-soft { border: 0; border-radius: 14px; box-shadow: 0 5px 18px rgba(15, 23, 42, 0.08); }
-        .table thead th { white-space: nowrap; font-size: .82rem; }
-        .btn-export-modern {
-            border: 0;
-            border-radius: 999px;
-            padding: .55rem 1rem;
-            font-weight: 700;
-            color: #fff;
-            background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
-            box-shadow: 0 8px 20px rgba(34, 197, 94, .28);
+        .card-soft {
+            border: 1px solid var(--tnc-orange-border, #fdba74);
+            border-radius: 0.875rem;
+            background: #fff;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
         }
-        .btn-export-modern:hover { color: #fff; filter: brightness(1.03); }
-        .stat-pill {
-            border-radius: 12px;
-            padding: .85rem 1.1rem;
-            color: #fff;
+        .report-summary-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .report-badge {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            padding: 0.35rem 0.75rem;
+            border-radius: 50rem;
+            border: 1px solid var(--tnc-border-soft, #e2e8f0);
+            background: #fff;
+            color: var(--tnc-body-ink, #1f2937);
         }
-        .stat-pill .label { font-size: .8rem; opacity: .9; }
-        .stat-pill .value { font-size: 1.25rem; font-weight: 700; }
-        .stat-paid { background: linear-gradient(135deg, #16a34a, #22c55e); }
-        .stat-order { background: linear-gradient(135deg, #2563eb, #3b82f6); }
-        .stat-out { background: linear-gradient(135deg, #d97706, #f59e0b); }
-        .stat-pr { background: linear-gradient(135deg, #7c3aed, #a855f7); }
-        @media (min-width: 1200px) { .container { max-width: 1140px; } }
+        .report-stat {
+            background: #fff;
+            border: 1px solid var(--tnc-orange-border, #fdba74);
+            border-radius: 0.875rem;
+            padding: 0.95rem 1.1rem;
+            height: 100%;
+        }
+        .report-stat__label {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--tnc-muted, #64748b);
+            margin-bottom: 0.25rem;
+        }
+        .report-stat__value {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: var(--tnc-ink, #0f172a);
+            font-variant-numeric: tabular-nums;
+            line-height: 1.2;
+        }
+        .report-stat--success .report-stat__value { color: #1e7e34; }
+        .report-stat--accent .report-stat__value { color: var(--tnc-orange, #ea580c); }
+        .report-stat--warn .report-stat__value { color: #b45309; }
+        .report-note { font-size: 0.8125rem; color: var(--tnc-muted, #64748b); }
         /* ---- ตารางสรุป ---- */
         #spendTable { border-collapse: separate; border-spacing: 0; }
         #spendTable thead th {
-            background: #f1f5f9;
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
             color: #334155;
             font-weight: 700;
-            font-size: .8rem;
-            text-transform: none;
-            border-bottom: 2px solid #e2e8f0;
-            padding: .7rem .9rem;
+            font-size: 0.8125rem;
+            border-bottom: 2px solid var(--tnc-orange-border, #fdba74);
+            padding: 0.7rem 0.9rem;
             white-space: nowrap;
         }
-        #spendTable td { padding: .65rem .9rem; vertical-align: middle; }
+        #spendTable td { padding: 0.65rem 0.9rem; vertical-align: middle; }
         #spendTable .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
         .site-row { border-top: 1px solid #eef2f7; }
-        .site-row:hover { background: #fff7ed; }
-        .site-row .site-sub { font-size: .72rem; line-height: 1.1; margin-top: 1px; }
+        .site-row:hover { background: var(--tnc-orange-soft, #ffedd5); }
+        .site-row .site-sub { font-size: 0.75rem; line-height: 1.1; margin-top: 1px; }
         .btn-cat-toggle {
-            width: 24px; height: 24px; flex: 0 0 24px;
+            min-width: 44px; min-height: 44px; width: 44px; height: 44px; flex: 0 0 44px;
             display: inline-flex; align-items: center; justify-content: center;
-            border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #64748b;
+            border-radius: 0.5rem; border: 1px solid var(--tnc-border-soft, #e2e8f0);
+            background: #fff; color: var(--tnc-muted, #64748b);
         }
-        .btn-cat-toggle:hover { background: #f1f5f9; color: #0f172a; }
-        .cat-toggle-spacer { display: inline-block; width: 24px; flex: 0 0 24px; }
-        .btn-cat-toggle .bi-caret-right-fill { transition: transform .15s ease; font-size: .7rem; }
+        .btn-cat-toggle:hover { background: var(--tnc-orange-soft, #ffedd5); color: var(--tnc-orange-dark, #9a3412); }
+        .cat-toggle-spacer { display: inline-block; width: 44px; flex: 0 0 44px; }
+        .btn-cat-toggle .bi-caret-right-fill { transition: transform 0.15s ease; font-size: 0.7rem; }
         [aria-expanded="true"] .bi-caret-right-fill { transform: rotate(90deg); }
         .cat-breakdown { background: #fcfdfe; margin: 0; }
-        .cat-breakdown td { border: 0; border-bottom: 1px dashed #eef2f7; font-size: .83rem; padding: .5rem .9rem; }
+        .cat-breakdown td { border: 0; border-bottom: 1px dashed #eef2f7; font-size: 0.8125rem; padding: 0.5rem 0.9rem; }
         .cat-breakdown tr:last-child td { border-bottom: 0; }
-        .cat-breakdown .cat-name { color: #475569; padding-left: 3.2rem; }
-        .cat-breakdown .cat-name .bi { color: #fd7e14; font-size: .75rem; }
-        .cat-detail-row > td { border-left: 3px solid #fed7aa; }
-        .grand-row td { background: #f8fafc; border-top: 2px solid #e2e8f0; }
+        .cat-breakdown .cat-name { color: #475569; padding-left: 3.75rem; }
+        .cat-breakdown .cat-name .bi { color: var(--tnc-orange, #ea580c); font-size: 0.75rem; }
+        .cat-detail-row > td { background: rgba(255, 237, 213, 0.35); }
+        .grand-row td { background: #f8fafc; border-top: 2px solid var(--tnc-orange-border, #fdba74); }
         /* ---- ตารางไขว้ (Matrix) ---- */
         .matrix-wrap { overflow-x: auto; }
         #matrixTable { border-collapse: separate; border-spacing: 0; min-width: 640px; }
         #matrixTable thead th {
-            background: #1e7a46;
-            color: #fff;
+            background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+            color: var(--tnc-orange-dark, #9a3412);
             font-weight: 700;
-            font-size: .82rem;
-            padding: .6rem .8rem;
+            font-size: 0.8125rem;
+            padding: 0.6rem 0.8rem;
             white-space: nowrap;
             position: sticky; top: 0;
+            border-bottom: 2px solid var(--tnc-orange-border, #fdba74);
         }
-        #matrixTable th, #matrixTable td { border-bottom: 1px solid #eef2f7; padding: .55rem .8rem; }
+        #matrixTable th, #matrixTable td { border-bottom: 1px solid #eef2f7; padding: 0.55rem 0.8rem; }
         #matrixTable tbody tr:nth-child(even) td { background: #f8fafc; }
-        #matrixTable tbody tr:hover td { background: #fff7ed; }
+        #matrixTable tbody tr:hover td { background: var(--tnc-orange-soft, #ffedd5); }
         #matrixTable .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
         #matrixTable .mx-site-col {
             position: sticky; left: 0; z-index: 2;
             background: #fff; min-width: 200px; box-shadow: 1px 0 0 #e5e7eb;
         }
-        #matrixTable thead .mx-site-col { background: #1e7a46; z-index: 3; }
-        #matrixTable tbody tr:nth-child(even) .mx-site-col { background: #f8fafc; }
-        #matrixTable tbody tr:hover .mx-site-col { background: #fff7ed; }
-        #matrixTable .mx-total-col { background: #f1f8f4; font-weight: 700; }
-        #matrixTable .grand-row td { background: #eef2f7 !important; border-top: 2px solid #cbd5e1; }
-        #matrixTable .grand-row .mx-site-col { background: #eef2f7 !important; }
-        .btn-print-modern {
-            border: 0;
-            border-radius: 999px;
-            padding: .55rem 1rem;
-            font-weight: 700;
-            color: #fff;
-            background: linear-gradient(135deg, #334155 0%, #475569 100%);
-            box-shadow: 0 8px 20px rgba(51, 65, 85, .25);
+        #matrixTable thead .mx-site-col {
+            background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+            z-index: 3;
         }
-        .btn-print-modern:hover { color: #fff; filter: brightness(1.05); }
+        #matrixTable tbody tr:nth-child(even) .mx-site-col { background: #f8fafc; }
+        #matrixTable tbody tr:hover .mx-site-col { background: var(--tnc-orange-soft, #ffedd5); }
+        #matrixTable .mx-total-col { background: #fff7ed; font-weight: 700; }
+        #matrixTable .grand-row td { background: #eef2f7 !important; border-top: 2px solid var(--tnc-orange-border, #fdba74); }
+        #matrixTable .grand-row .mx-site-col { background: #eef2f7 !important; }
+        @media (min-width: 1200px) { .container { max-width: 1140px; } }
+        @media (max-width: 575.98px) {
+            .card-soft .card-body { padding: 1rem; }
+            .report-actions .btn { width: 100%; justify-content: center; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .btn-cat-toggle .bi-caret-right-fill { transition: none; }
+        }
         .print-header { text-align: center; margin-bottom: 14px; }
         .print-header .print-company { font-size: 1.15rem; font-weight: 700; }
         .print-header .print-title { font-size: 1rem; font-weight: 600; margin-top: 2px; }
         .print-header .print-meta { font-size: .82rem; color: #444; margin-top: 4px; display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
 
-        @media print {
-            @page { size: A4 portrait; margin: 12mm 10mm; }
-            body { background: #fff !important; font-size: 12px; }
-            /* ซ่อนส่วนที่ไม่ใช่เอกสาร */
-            .navbar, nav, .card-soft > .card-body > form, .row.g-2.mb-3,
-            #btnPrintReport, .btn-export-modern, .cat-detail-row .btn,
-            tbody tr td .badge, .text-muted.small { display: none !important; }
-            .container { max-width: 100% !important; width: 100% !important; padding: 0 !important; margin: 0 !important; }
-            .card, .card-soft { box-shadow: none !important; border: 0 !important; }
-            .card-body { padding: 0 !important; }
-            .print-header { display: block !important; }
-            /* กางรายละเอียดหมวดย่อยทั้งหมดตอนพิมพ์ */
-            .collapse { display: block !important; height: auto !important; visibility: visible !important; }
-            .cat-detail-row > td { padding: 0 !important; }
-            .cat-breakdown { background: #fff !important; }
-            table { width: 100% !important; border-collapse: collapse !important; }
-            #spendTable, #spendTable th, #spendTable td, .cat-breakdown td,
-            #matrixTable, #matrixTable th, #matrixTable td {
-                border: 1px solid #999 !important;
-                color: #000 !important;
-                font-size: 11px !important;
-                padding: 4px 6px !important;
+        /* ---- รายงานพิมพ์: จัดกลุ่มตามไซต์ ---- */
+        .print-only {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 210mm;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        body.tnc-print-mode .print-only {
+            position: static;
+            left: auto;
+            width: auto;
+            visibility: visible;
+            pointer-events: auto;
+        }
+        .print-site-block {
+            margin-bottom: 14px;
+            break-inside: avoid-page;
+            page-break-inside: avoid;
+        }
+        .print-site-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 2px solid #334155;
+            break-after: avoid;
+            page-break-after: avoid;
+        }
+        .print-site-items {
+            margin: 0 0 8px 0;
+            padding-left: 0;
+            list-style: none;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        .print-site-items li::before { content: none; }
+        .print-amt-head {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(5rem, 7rem);
+            gap: 8px;
+            font-size: .78rem;
+            color: #64748b;
+            margin-bottom: 4px;
+            padding-left: 18px;
+        }
+        .print-amt-head span:nth-child(n+2) { text-align: right; }
+        .print-site-items li {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(5rem, 7rem);
+            gap: 8px;
+            padding: 3px 0 3px 18px;
+            border-bottom: 1px dotted #ddd;
+            font-size: .92rem;
+        }
+        .print-site-items li .item-label::before {
+            content: '– ';
+            color: #64748b;
+        }
+        .print-site-items .item-amt { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+        .print-site-total {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(5rem, 7rem);
+            gap: 8px;
+            font-weight: 700;
+            background: #f1f5f9;
+            padding: 6px 10px 6px 18px;
+            border-radius: 4px;
+            font-size: .95rem;
+            break-inside: avoid;
+            page-break-inside: avoid;
+            break-before: avoid;
+            page-break-before: avoid;
+        }
+        .print-site-total .item-amt { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+        .print-grand-total {
+            margin-top: 16px;
+            padding-top: 10px;
+            border-top: 3px double #334155;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(5rem, 7rem);
+            gap: 8px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            padding-left: 18px;
+        }
+        .print-grand-total .item-amt { text-align: right; font-variant-numeric: tabular-nums; }
+
+        /* ---- Breakpoints: หน้าจอ ---- */
+        @media (max-width: 575.98px) {
+            .container.pb-5 { padding-bottom: 2rem !important; }
+            .card-soft .card-body { padding: 1rem; }
+            .stat-pill { padding: .7rem .85rem; }
+            .stat-pill .value { font-size: 1.05rem; }
+            #spendTable thead th,
+            #spendTable td { font-size: .76rem; padding: .45rem .55rem; }
+            .cat-breakdown .cat-name { padding-left: 1.75rem; }
+            .cat-breakdown td { font-size: .78rem; }
+            .btn-export-modern,
+            .btn-print-modern { width: 100%; }
+            #matrixCard .matrix-tools { width: 100%; }
+            #matrixCard .matrix-tools .btn-group { width: 100%; }
+            #matrixCard .matrix-tools .btn-group .btn { flex: 1 1 auto; }
+        }
+
+        @media (min-width: 576px) and (max-width: 767.98px) {
+            #spendTable thead th,
+            #spendTable td { font-size: .8rem; }
+        }
+
+        @media (max-width: 767.98px) {
+            .print-amt-head,
+            .print-site-items li,
+            .print-site-total,
+            .print-grand-total {
+                grid-template-columns: 1fr;
+                gap: 2px;
+                padding-left: 12px;
             }
-            #spendTable thead th, #matrixTable thead th { background: #e9edf2 !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            #spendTable .grand-row td, #matrixTable .grand-row td, tfoot tr { background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-weight: 700; }
-            .cat-breakdown .cat-name { padding-left: 22px !important; }
-            .cat-detail-row > td { border-left: 1px solid #999 !important; }
-            .text-success, .text-warning-emphasis { color: #000 !important; }
-            .site-row .site-sub { color: #333 !important; }
-            /* ปุ่ม/เครื่องมือของ matrix ไม่พิมพ์ */
-            .matrix-tools, #matrixCard h5 { display: none !important; }
-            #matrixTable .mx-site-col, #matrixTable .mx-total-col { position: static !important; box-shadow: none !important; background: transparent !important; }
-            /* แยกพิมพ์เฉพาะตารางที่เลือก */
-            body.print-summary #matrixCard { display: none !important; }
-            body.print-matrix #summaryCard, body.print-matrix #summaryPrintHeader { display: none !important; }
-            #matrixCard { page-break-before: auto; }
+            .print-amt-head { display: none; }
+            .print-site-items li {
+                padding: 6px 0 8px;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .print-site-items li .item-label {
+                font-weight: 600;
+                margin-bottom: 4px;
+            }
+            .print-site-items li .item-amt,
+            .print-site-total .item-amt,
+            .print-grand-total .item-amt {
+                text-align: left;
+                padding-left: 14px;
+                font-size: .86rem;
+            }
+            .print-site-items li .item-amt::before,
+            .print-site-total .item-amt::before,
+            .print-grand-total .item-amt::before {
+                content: attr(data-label) ': ';
+                color: #64748b;
+                font-weight: 600;
+            }
+            .print-site-total,
+            .print-grand-total {
+                padding: 8px 10px 8px 12px;
+            }
+            .print-site-total > span:first-child,
+            .print-grand-total > span:first-child {
+                margin-bottom: 4px;
+            }
+        }
+
+        @media (min-width: 768px) and (max-width: 991.98px) {
+            .print-amt-head,
+            .print-site-items li,
+            .print-site-total,
+            .print-grand-total {
+                grid-template-columns: minmax(0, 1fr) minmax(4.5rem, 6.5rem);
+                gap: 6px;
+            }
+        }
+
+        @media print {
+            @page { size: A4 landscape; margin: 10mm 12mm; }
+            body { background: #fff !important; font-size: 12px; }
+            .no-print, nav, .navbar { display: none !important; }
+            .print-only {
+                position: static !important;
+                left: auto !important;
+                width: auto !important;
+                visibility: visible !important;
+                pointer-events: auto !important;
+            }
+            .container { max-width: 100% !important; width: 100% !important; padding: 0 !important; margin: 0 !important; }
+            .print-header { margin-bottom: 10px; }
+            .print-amt-head {
+                display: grid !important;
+                color: #000 !important;
+                grid-template-columns: minmax(0, 1fr) minmax(5rem, 7rem) !important;
+            }
+            .print-site-items li,
+            .print-site-total,
+            .print-grand-total {
+                grid-template-columns: minmax(0, 1fr) minmax(5rem, 7rem) !important;
+            }
+            .print-site-items li .item-amt::before,
+            .print-site-total .item-amt::before,
+            .print-grand-total .item-amt::before {
+                content: none !important;
+            }
+            .print-site-items li .item-amt,
+            .print-site-total .item-amt,
+            .print-grand-total .item-amt {
+                text-align: right !important;
+                padding-left: 0 !important;
+            }
+            .print-site-block {
+                break-inside: avoid-page;
+                page-break-inside: avoid;
+            }
+            .print-site-title {
+                break-after: avoid;
+                page-break-after: avoid;
+            }
+            .print-site-items,
+            .print-site-total {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+            .print-site-total {
+                break-before: avoid;
+                page-break-before: avoid;
+            }
+            .print-grand-total {
+                break-inside: avoid;
+                page-break-inside: avoid;
+                border-top-color: #000 !important;
+            }
+            .print-site-total { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
-<div class="container pb-5">
-    <div class="print-header d-none" id="summaryPrintHeader">
+<div class="container pb-5 pt-4">
+    <div class="tnc-page-head mb-3 no-print">
+        <div>
+            <p class="tnc-page-kicker">Reports · Site spending</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-geo-alt"></i></span>รายงานการใช้จ่ายแยกตามไซต์</h1>
+        </div>
+    </div>
+
+    <div class="print-only" id="printSiteReportWrap">
+    <div class="print-header" id="printReportHeader">
         <div class="print-company"><?= h($companyName) ?></div>
-        <div class="print-title">รายงานสรุปการใช้จ่ายแยกตามไซต์ (Site Spending)</div>
+        <div class="print-title">รายงานการใช้จ่ายแยกตามไซต์ (Site Spending)</div>
         <div class="print-meta">
             <span>ช่วงข้อมูล: <?= h($periodText) ?></span>
             <span>จำนวนไซต์: <?= count($sites) ?></span>
             <span>พิมพ์เมื่อ: <?= h($printedAt) ?></span>
         </div>
     </div>
-    <div class="card card-soft mb-3">
+
+    <div class="print-site-report" id="printSiteReport">
+        <div class="print-amt-head">
+            <span></span>
+            <span>ยอดรายการ</span>
+        </div>
+        <?php if ($sites === []): ?>
+            <p class="text-muted">ไม่พบข้อมูล PR/PO ตามเงื่อนไข</p>
+        <?php else: ?>
+            <?php foreach ($sites as $s): ?>
+                <?php
+                $printCats = [];
+                foreach ($s['categories'] as $ck => $cv) {
+                    if ($ck === 'none') {
+                        continue;
+                    }
+                    if ((float) ($cv['po_total'] ?? 0) != 0.0 || (float) ($cv['paid_total'] ?? 0) != 0.0) {
+                        $printCats[] = $cv;
+                    }
+                }
+                if ((float) ($s['po_total'] ?? 0) == 0.0 && (float) ($s['paid_total'] ?? 0) == 0.0 && $printCats === []) {
+                    continue;
+                }
+                ?>
+                <div class="print-site-block">
+                    <div class="print-site-title"><?= h($s['label']) ?></div>
+                    <?php if ($printCats !== []): ?>
+                        <ul class="print-site-items">
+                            <?php foreach ($printCats as $c): ?>
+                                <li>
+                                    <span class="item-label"><?= h($c['label']) ?></span>
+                                    <span class="item-amt" data-label="ยอดรายการ"><?= number_format($c['paid_total'], 2) ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                    <div class="print-site-total">
+                        <span>สรุปยอดรวม</span>
+                        <span class="item-amt" data-label="ยอดรายการ"><?= number_format($s['paid_total'], 2) ?></span>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+            <div class="print-grand-total">
+                <span>รวมทั้งหมด</span>
+                <span class="item-amt" data-label="ยอดรายการ"><?= number_format($grandPaid, 2) ?></span>
+            </div>
+        <?php endif; ?>
+    </div>
+    </div>
+
+    <div class="card card-soft mb-3 no-print">
         <div class="card-body">
-            <h4 class="fw-bold mb-3"><i class="bi bi-geo-alt me-2 text-primary"></i>รายงานการใช้จ่ายแยกตามไซต์ (Site Spending)</h4>
             <form method="get" class="row g-2 align-items-end">
                 <div class="col-6 col-md-2">
                     <label class="form-label small fw-semibold">เดือน</label>
@@ -564,17 +822,17 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
                     <input type="date" name="end_date" class="form-control" value="<?= h($endDate) ?>">
                 </div>
                 <div class="col-12 col-md-2 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search me-1"></i>ค้นหารายงาน</button>
+                    <button type="submit" class="btn btn-orange w-100"><i class="bi bi-search me-1"></i>ค้นหารายงาน</button>
                 </div>
-                <div class="col-12 d-flex flex-wrap justify-content-end gap-2">
+                <div class="col-12 d-flex flex-wrap justify-content-end gap-2 report-actions">
                     <?php
                     $exportQuery = $_GET;
                     $exportQuery['export'] = 'csv';
                     ?>
-                    <a href="<?= h(app_path('pages/reports/site-spending-report.php') . '?' . http_build_query($exportQuery)) ?>" class="btn btn-export-modern">
-                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export (Excel / Google Sheets)
+                    <a href="<?= h(app_path('pages/reports/site-spending-report.php') . '?' . http_build_query($exportQuery)) ?>" class="btn btn-outline-success rounded-pill px-3 fw-semibold">
+                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
                     </a>
-                    <button type="button" id="btnPrintReport" class="btn btn-print-modern">
+                    <button type="button" id="btnPrintReport" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold" onclick="tncSiteSpendingPrint(event)">
                         <i class="bi bi-printer me-1"></i>พิมพ์เอกสาร
                     </button>
                 </div>
@@ -582,34 +840,34 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
         </div>
     </div>
 
-    <div class="row g-2 mb-3">
+    <div class="row g-2 mb-3 no-print">
         <div class="col-12 col-md-4">
-            <div class="stat-pill stat-paid h-100">
-                <div class="label"><i class="bi bi-cash-coin me-1"></i>จ่ายแล้วทุกไซต์</div>
-                <div class="value"><?= number_format($grandPaid, 2) ?></div>
+            <div class="report-stat report-stat--success h-100">
+                <div class="report-stat__label"><i class="bi bi-cash-coin me-1"></i>จ่ายแล้วทุกไซต์</div>
+                <div class="report-stat__value"><?= number_format($grandPaid, 2) ?></div>
             </div>
         </div>
         <div class="col-6 col-md-4">
-            <div class="stat-pill stat-order h-100">
-                <div class="label"><i class="bi bi-bag-check me-1"></i>ยอดสั่งซื้อ (PO)</div>
-                <div class="value"><?= number_format($grandPoTotal, 2) ?></div>
+            <div class="report-stat report-stat--accent h-100">
+                <div class="report-stat__label"><i class="bi bi-bag-check me-1"></i>ยอดสั่งซื้อ (PO)</div>
+                <div class="report-stat__value"><?= number_format($grandPoTotal, 2) ?></div>
             </div>
         </div>
         <div class="col-6 col-md-4">
-            <div class="stat-pill stat-out h-100">
-                <div class="label"><i class="bi bi-hourglass-split me-1"></i>ค้างจ่าย</div>
-                <div class="value"><?= number_format($grandOutstanding, 2) ?></div>
+            <div class="report-stat report-stat--warn h-100">
+                <div class="report-stat__label"><i class="bi bi-hourglass-split me-1"></i>ค้างจ่าย</div>
+                <div class="report-stat__value"><?= number_format($grandOutstanding, 2) ?></div>
             </div>
         </div>
     </div>
 
-    <div class="card card-soft mb-3" id="summaryCard">
+    <div class="card card-soft mb-3 no-print" id="summaryCard">
         <div class="card-body">
-            <div class="d-flex flex-wrap gap-3 align-items-center mb-3">
-                <span class="badge bg-light text-dark border">ช่วงข้อมูล: <?= h($periodText) ?></span>
-                <span class="badge bg-secondary-subtle text-secondary-emphasis">จำนวนไซต์: <?= count($sites) ?></span>
-                <span class="text-muted small">* "จ่ายแล้ว" คือ PO ที่ทำเครื่องหมายจ่ายเงินแล้ว (ไม่รวมใบยกเลิก) · "ค้างจ่าย" = ยอดสั่งซื้อ − จ่ายแล้ว</span>
+            <div class="report-summary-row mb-3">
+                <span class="report-badge">ช่วงข้อมูล: <?= h($periodText) ?></span>
+                <span class="report-badge">จำนวนไซต์: <?= count($sites) ?></span>
             </div>
+            <p class="report-note mb-3">จ่ายแล้ว = PO ที่ทำเครื่องหมายจ่ายเงินแล้ว (ไม่รวมใบยกเลิก) · ค้างจ่าย = ยอดสั่งซื้อ − จ่ายแล้ว</p>
             <div class="table-responsive">
                 <table id="spendTable" class="table align-middle mb-0">
                     <thead>
@@ -641,7 +899,7 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
                                         <?php if ($hasCats): ?>
-                                            <button type="button" class="btn btn-sm btn-cat-toggle p-0" data-bs-toggle="collapse" data-bs-target="#cat-<?= $siteIdx ?>" aria-expanded="false" title="ดูหมวดย่อย">
+                                            <button type="button" class="btn btn-cat-toggle" data-bs-toggle="collapse" data-bs-target="#cat-<?= $siteIdx ?>" aria-expanded="false" aria-label="ดูหมวดย่อยของ <?= h($s['label']) ?>">
                                                 <i class="bi bi-caret-right-fill"></i>
                                             </button>
                                         <?php else: ?>
@@ -702,7 +960,7 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
         return $selfUrl . '?' . http_build_query(array_merge($_GET, $override));
     };
     ?>
-    <div class="card card-soft mb-3" id="matrixCard">
+    <div class="card card-soft mb-3 no-print" id="matrixCard">
         <div class="card-body">
             <div class="print-header d-none">
                 <div class="print-company"><?= h($companyName) ?></div>
@@ -713,15 +971,15 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
                 </div>
             </div>
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                <h5 class="fw-bold mb-0"><i class="bi bi-grid-3x3-gap me-2 text-primary"></i>ตารางค่าใช้จ่าย: ไซต์ × หมวด</h5>
+                <h5 class="fw-bold mb-0"><i class="bi bi-grid-3x3-gap me-2 text-tnc-orange"></i>ตารางค่าใช้จ่าย: ไซต์ × หมวด</h5>
                 <div class="d-flex flex-wrap gap-2 align-items-center matrix-tools">
                     <div class="btn-group btn-group-sm" role="group" aria-label="เลือกค่าที่แสดง">
                         <?php foreach (['po' => 'ยอดสั่งซื้อ', 'paid' => 'จ่ายแล้ว'] as $mk => $mlabel): ?>
-                            <a href="<?= h($mkUrl(['mx' => $mk])) ?>#matrixCard" class="btn <?= $matrixMetric === $mk ? 'btn-primary' : 'btn-outline-primary' ?>"><?= h($mlabel) ?></a>
+                            <a href="<?= h($mkUrl(['mx' => $mk])) ?>#matrixCard" class="btn <?= $matrixMetric === $mk ? 'btn-orange' : 'btn-outline-orange' ?>"><?= h($mlabel) ?></a>
                         <?php endforeach; ?>
                     </div>
                     <a href="<?= h($mkUrl(['export' => 'matrix'])) ?>" class="btn btn-sm btn-export-modern"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Export</a>
-                    <button type="button" id="btnPrintMatrix" class="btn btn-sm btn-print-modern"><i class="bi bi-printer me-1"></i>พิมพ์</button>
+                    <button type="button" id="btnPrintMatrix" class="btn btn-sm btn-print-modern" onclick="tncSiteSpendingPrint(event)"><i class="bi bi-printer me-1"></i>พิมพ์</button>
                 </div>
             </div>
             <p class="text-muted small mb-2">แสดงค่า: <strong><?= h($metricLabel) ?></strong> ต่อไซต์ แยกตามหมวดค่าใช้จ่าย (ไม่รวมรายการที่ไม่ระบุหมวด)</p>
@@ -768,27 +1026,28 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-(function () {
-    function expandAllForPrint() {
-        // กางหมวดย่อยทุกไซต์ให้แสดงครบก่อนพิมพ์
-        document.querySelectorAll('.cat-detail-row .collapse').forEach(function (el) { el.classList.add('show'); });
-        document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function (b) { b.setAttribute('aria-expanded', 'true'); });
+function tncSiteSpendingPrint(e) {
+    if (e && typeof e.preventDefault === 'function') {
+        e.preventDefault();
+        e.stopPropagation();
     }
-    function printWith(mode) {
-        expandAllForPrint();
-        if (mode) { document.body.classList.add(mode); }
+    document.body.classList.add('tnc-print-mode');
+    var done = false;
+    function cleanup() {
+        if (done) return;
+        done = true;
+        document.body.classList.remove('tnc-print-mode');
+    }
+    window.addEventListener('afterprint', cleanup, { once: true });
+    setTimeout(function () {
         window.print();
-    }
-    window.addEventListener('afterprint', function () {
-        document.body.classList.remove('print-summary', 'print-matrix');
-    });
-    var btn = document.getElementById('btnPrintReport');
-    if (btn) { btn.addEventListener('click', function () { printWith('print-summary'); }); }
-    var btnMx = document.getElementById('btnPrintMatrix');
-    if (btnMx) { btnMx.addEventListener('click', function () { printWith('print-matrix'); }); }
-    // เผื่อเรียกผ่านลิงก์ ?print=1 (พิมพ์ในแท็บเดิม ไม่เปิดแท็บใหม่)
+        setTimeout(cleanup, 1500);
+    }, 50);
+}
+
+(function () {
     <?php if ($autoPrint): ?>
-    window.addEventListener('load', function () { setTimeout(function () { printWith('print-summary'); }, 350); });
+    window.addEventListener('load', function () { setTimeout(function () { tncSiteSpendingPrint(); }, 350); });
     <?php endif; ?>
 })();
 </script>

@@ -253,7 +253,7 @@ foreach ($userRows as $u) {
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 line-shell">

@@ -48,6 +48,31 @@ $printIncludePr = ($poPrintMode === 'all' && $hasPrForPrint);
 $printIncludePo = in_array($poPrintMode, ['po', 'both', 'all'], true);
 $printIncludeSlip = in_array($poPrintMode, ['slip', 'both', 'all'], true);
 $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
+
+/** วันที่ PO สำหรับค่าเริ่มต้นในฟอร์มบันทึกบิลซื้อ (issue_date → created_at) */
+$poIssueDateForBill = '';
+$issueRawForBill = trim((string) ($po['issue_date'] ?? ''));
+if ($issueRawForBill !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueRawForBill)) {
+    $poIssueDateForBill = $issueRawForBill;
+} elseif ($issueRawForBill !== '') {
+    $issueTsForBill = strtotime($issueRawForBill);
+    if ($issueTsForBill !== false) {
+        $poIssueDateForBill = date('Y-m-d', $issueTsForBill);
+    }
+}
+if ($poIssueDateForBill === '') {
+    $createdRawForBill = trim((string) ($po['created_at'] ?? ''));
+    if ($createdRawForBill !== '') {
+        $createdTsForBill = strtotime($createdRawForBill);
+        if ($createdTsForBill !== false) {
+            $poIssueDateForBill = date('Y-m-d', $createdTsForBill);
+        }
+    }
+}
+$poIssueDateForBillDisplay = '';
+if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIssueDateForBill, $billDateM) === 1) {
+    $poIssueDateForBillDisplay = $billDateM[3] . '/' . $billDateM[2] . '/' . $billDateM[1];
+}
 ?>
 
 <!DOCTYPE html>
@@ -61,19 +86,21 @@ $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     
     <style>
         :root {
             --brand-color: #ea580c;
             --brand-color-deep: #c2410c;
-            --brand-color-soft: #fff7ed;
-            --brand-border-soft: #fdba74;
+            --brand-color-soft: #fff3e6;
+            --brand-border-soft: #fed7aa;
             --dark: #333;
         }
         body {
             font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', Tahoma, sans-serif;
-            background: linear-gradient(165deg, #f1f5f9 0%, #e8edf3 45%, #f8fafc 100%);
+            background: var(--tnc-surface, #f6f7f9);
             color: var(--dark);
             margin: 0;
             padding: 0;
@@ -85,10 +112,8 @@ $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
             position: sticky;
             top: 0;
             z-index: 1020;
-            background: rgba(255, 255, 255, 0.92);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+            background: #fff;
+            border-bottom: 1px solid var(--tnc-orange-border, #fdba74);
             box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
         }
 
@@ -201,13 +226,14 @@ $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
         .invoice-box {
             width: 210mm;
             max-width: 100%;
-            height: 297mm;
+            min-height: 297mm;
+            height: auto;
             margin: 0 auto 1.5rem;
             background: #fff;
             padding: 10mm 15mm;
             position: relative;
             box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
-            overflow: hidden;
+            overflow: visible;
         }
 
         .invoice-box.po-purchase-order-doc {
@@ -398,110 +424,9 @@ $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
             .footer-sticky { position: static; bottom: auto; left: auto; right: auto; margin-top: 1.25rem; }
             .signature-grid { grid-template-columns: 1fr; gap: 18px; }
         }
-
-        @media print {
-            @page { size: A4; margin: 0; }
-            html { font-size: 16px; }
-            body { background: none; }
-            .no-print, nav.navbar { display: none !important; }
-            body,
-            .invoice-box,
-            .invoice-box * {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-            .po-view-canvas {
-                max-width: none;
-                margin: 0;
-                padding: 0;
-            }
-            .invoice-box.po-purchase-order-doc,
-            .invoice-box.pr-purchase-requisition-doc {
-                margin: 0;
-                box-shadow: none;
-                height: 297mm;
-            }
-            .invoice-box.po-purchase-order-doc {
-                border-top: 8px solid var(--brand-color);
-            }
-            .invoice-box.pr-purchase-requisition-doc {
-                border-top: 8px solid #28a745;
-            }
-            .footer-sticky { position: absolute; bottom: 12mm; left: 15mm; right: 15mm; }
-            .invoice-box .po-vat-line {
-                color: var(--brand-color-deep) !important;
-            }
-            .invoice-box .po-total-sheet {
-                background: #fff9f0 !important;
-                border-color: #fdba74 !important;
-            }
-            .po-cancelled-watermark {
-                color: rgba(185, 28, 28, 0.5);
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .po-payment-slip-print-wrap {
-                page-break-before: always;
-                page-break-inside: avoid;
-                break-inside: avoid;
-                margin: 0;
-                max-width: none;
-                max-height: 297mm;
-                overflow: hidden;
-            }
-            .po-payment-slip-print-wrap .no-print {
-                display: none !important;
-            }
-            .po-payment-slip-sheet {
-                box-shadow: none !important;
-                border: none !important;
-                background: #fff !important;
-                padding: 6mm 8mm 8mm;
-                border-radius: 0;
-                max-height: 297mm;
-                box-sizing: border-box;
-                overflow: hidden;
-            }
-            .po-slip-paper-header {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .po-slip-img-wrap {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 100%;
-                max-height: 215mm;
-                overflow: hidden;
-            }
-            .po-payment-slip-img {
-                max-width: 175mm !important;
-                max-height: 215mm !important;
-                width: auto !important;
-                height: auto !important;
-                object-fit: contain !important;
-                margin-left: auto;
-                margin-right: auto;
-                display: block !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .po-quotation-pdf-iframe {
-                min-height: 0;
-                height: 215mm;
-                max-height: 215mm;
-                max-width: 175mm;
-                margin: 0 auto;
-                display: block;
-                border: none !important;
-                background: #fff !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-        }
     </style>
 </head>
-<body>
+<body class="purchase-module tnc-app-body">
 
 <div class="no-print">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -568,7 +493,7 @@ $hasAlerts = !empty($_GET['cancelled'])
                     </button>
                 <?php endif; ?>
                 <?php if (user_is_finance_role() && !$isPoCancelled && !$isPoPaid): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-primary rounded-pill px-3 shadow-sm">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-3 shadow-sm">
                         <i class="bi bi-pencil-square me-1"></i>แก้ไข
                     </a>
                 <?php endif; ?>
@@ -581,7 +506,7 @@ $hasAlerts = !empty($_GET['cancelled'])
                     </form>
                 <?php endif; ?>
                 <?php if (!$isPoCancelled && $billingStatusPo === 'pending'): ?>
-                    <button type="button" class="btn btn-outline-primary rounded-pill px-3" id="btnOpenReceiveBill">
+                    <button type="button" class="btn btn-outline-orange rounded-pill px-3" id="btnOpenReceiveBill">
                         <i class="bi bi-receipt me-1"></i>บันทึกเลขที่บิลซื้อ
                     </button>
                 <?php endif; ?>
@@ -646,7 +571,7 @@ $hasAlerts = !empty($_GET['cancelled'])
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">วันที่บนใบกำกับภาษี/บิลซื้อ <span class="text-danger">*</span></label>
-                        <input type="date" name="supplier_invoice_date" class="form-control" required>
+                        <input type="text" name="supplier_invoice_date" id="receiveBillInvoiceDate" class="form-control" value="<?= htmlspecialchars($poIssueDateForBillDisplay, ENT_QUOTES, 'UTF-8') ?>" placeholder="วัน/เดือน/ปี เช่น 29/05/2026" autocomplete="off" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">ยอดเงินรวม (บาท)</label>
@@ -659,7 +584,7 @@ $hasAlerts = !empty($_GET['cancelled'])
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-                    <button type="submit" class="btn btn-primary">บันทึกบิลซื้อ</button>
+                    <button type="submit" class="btn btn-orange">บันทึกบิลซื้อ</button>
                 </div>
             </form>
         </div>
@@ -701,7 +626,7 @@ $hasAlerts = !empty($_GET['cancelled'])
                         </button>
                     </div>
                     <div class="col-12 col-md-6 col-xl-3">
-                        <button type="button" class="btn btn-outline-primary w-100 h-100 py-3 text-start js-po-print-choice border-2 rounded-3" data-print-mode="all"<?= $hasPrForPrint ? '' : ' disabled title="ไม่มีใบขอซื้อ (PR) อ้างอิงจาก PO นี้"' ?>>
+                        <button type="button" class="btn btn-outline-orange w-100 h-100 py-3 text-start js-po-print-choice border-2 rounded-3" data-print-mode="all"<?= $hasPrForPrint ? '' : ' disabled title="ไม่มีใบขอซื้อ (PR) อ้างอิงจาก PO นี้"' ?>>
                             <i class="bi bi-collection d-block mb-2 fs-4"></i>
                             <span class="fw-bold d-block">4. พิมพ์ทุกอย่าง</span>
                             <span class="small text-muted">PR + ใบสั่งซื้อ + สลิป + แนบ QT (ตามที่มี)</span>
@@ -738,6 +663,7 @@ $hasAlerts = !empty($_GET['cancelled'])
 
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-po-print.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <?php if ($hasPrintChoiceModal): ?>
 <script>
 (function () {
@@ -776,6 +702,48 @@ $hasAlerts = !empty($_GET['cancelled'])
     const modal = new bootstrap.Modal(modalEl);
     btn.addEventListener('click', function () {
         modal.show();
+    });
+})();
+
+(function () {
+    const invDateEl = document.getElementById('receiveBillInvoiceDate');
+    const formEl = document.getElementById('receiveBillForm');
+    if (!invDateEl || typeof flatpickr !== 'function') {
+        return;
+    }
+
+    flatpickr(invDateEl, {
+        dateFormat: 'd/m/Y',
+        defaultDate: invDateEl.value || undefined,
+        allowInput: true,
+    });
+
+    function normalizeInvoiceDateForSubmit() {
+        const raw = (invDateEl.value || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+            return true;
+        }
+        const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (!m) {
+            return false;
+        }
+        const dd = Number(m[1]);
+        const mm = Number(m[2]);
+        const yyyy = Number(m[3]);
+        const d = new Date(yyyy, mm - 1, dd);
+        if (d.getFullYear() !== yyyy || d.getMonth() !== (mm - 1) || d.getDate() !== dd) {
+            return false;
+        }
+        invDateEl.value = yyyy + '-' + String(mm).padStart(2, '0') + '-' + String(dd).padStart(2, '0');
+        return true;
+    }
+
+    formEl?.addEventListener('submit', function (e) {
+        if (!normalizeInvoiceDateForSubmit()) {
+            e.preventDefault();
+            alert('กรุณากรอกวันที่บนใบกำกับภาษี/บิลซื้อเป็น วัน/เดือน/ปี เช่น 29/05/2026');
+            invDateEl.focus();
+        }
     });
 })();
 </script>

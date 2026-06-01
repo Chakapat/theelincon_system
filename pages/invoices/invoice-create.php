@@ -144,7 +144,7 @@ Db::sortRows($customer_data, 'name', false);
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
+        /* body canvas: tnc-app.css */
         .invoice-shell { max-width: 1320px; }
         .invoice-card {
             border: 1px solid #e0e0e0 !important;
@@ -180,8 +180,8 @@ Db::sortRows($customer_data, 'name', false);
         }
         .form-control:focus,
         .form-select:focus {
-            border-color: rgba(253,126,20,.5);
-            box-shadow: 0 0 0 .2rem rgba(253,126,20,.14);
+            border-color: rgba(234, 88, 12, .5);
+            box-shadow: 0 0 0 .2rem rgba(234, 88, 12, .14);
         }
         .form-control[readonly],
         textarea.form-control[readonly] {
@@ -193,20 +193,20 @@ Db::sortRows($customer_data, 'name', false);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #fd7e14 0%, #f76707 100%);
+            background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
             color: #fff;
             border: none;
             border-radius: .78rem;
             font-weight: 700;
             letter-spacing: .01em;
             transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
-            box-shadow: 0 .38rem .92rem rgba(253,126,20,.3);
+            box-shadow: 0 .38rem .92rem rgba(234, 88, 12, .3);
         }
         .btn-primary-save:hover {
             color: #fff;
             transform: translateY(-1px);
             filter: brightness(1.03);
-            box-shadow: 0 .52rem 1.05rem rgba(253,126,20,.35);
+            box-shadow: 0 .52rem 1.05rem rgba(234, 88, 12, .35);
         }
         .invoice-table-wrap {
             overflow-x: auto;
@@ -268,8 +268,8 @@ Db::sortRows($customer_data, 'name', false);
             box-shadow: 0 .2rem .7rem rgba(0,0,0,.045);
         }
         .grand-total-wrap {
-            background: linear-gradient(135deg, rgba(253,126,20,.1) 0%, rgba(253,126,20,.05) 100%);
-            border: 1px solid rgba(253,126,20,.2);
+            background: linear-gradient(135deg, rgba(234, 88, 12, .1) 0%, rgba(234, 88, 12, .05) 100%);
+            border: 1px solid rgba(234, 88, 12, .2);
             border-radius: .82rem;
             padding: .7rem .85rem;
         }
@@ -282,10 +282,9 @@ Db::sortRows($customer_data, 'name', false);
             right: 0;
             bottom: 0;
             z-index: 1050;
-            background: rgba(255,255,255,.95);
-            backdrop-filter: blur(8px);
-            border-top: 1px solid #e5e7eb;
-            box-shadow: 0 -.25rem 1rem rgba(0,0,0,.08);
+            background: #fff;
+            border-top: 1px solid var(--tnc-orange-border, #fdba74);
+            box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
             padding: .6rem .75rem calc(.6rem + env(safe-area-inset-bottom, 0px));
         }
         .sticky-save-inner {
@@ -312,13 +311,16 @@ Db::sortRows($customer_data, 'name', false);
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-4 mb-5 invoice-shell">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold invoice-title">สร้างใบแจ้งหนี้</h3>
+    <div class="tnc-page-head mb-4">
+        <div>
+            <p class="tnc-page-kicker">Invoices</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-receipt"></i></span>สร้างใบแจ้งหนี้</h1>
+        </div>
         <a href="<?= htmlspecialchars(app_path('index.php')) ?>" class="btn btn-outline-secondary rounded-pill px-4">กลับหน้าหลัก</a>
     </div>
 
@@ -436,7 +438,7 @@ Db::sortRows($customer_data, 'name', false);
                         <span class="grand-total-text" id="grand_total">0.00</span>
                     </div>
                 </div>
-                <button type="submit" name="save_invoice" class="btn btn-primary-save w-100 mt-4 shadow py-3 d-none d-md-flex">
+                <button type="submit" name="save_invoice" class="btn btn-orange-save w-100 mt-4 shadow py-3 d-none d-md-flex">
                     <i class="bi bi-save-fill me-2"></i>บันทึกและออกใบแจ้งหนี้
                 </button>
             </div>
@@ -448,7 +450,7 @@ Db::sortRows($customer_data, 'name', false);
                     <div class="sticky-save-label">ยอดสุทธิ</div>
                     <div class="sticky-save-total" id="grand_total_sticky">0.00</div>
                 </div>
-                <button type="submit" name="save_invoice" class="btn btn-primary-save px-4">
+                <button type="submit" name="save_invoice" class="btn btn-orange-save px-4">
                     <i class="bi bi-save-fill me-1"></i>บันทึก
                 </button>
             </div>

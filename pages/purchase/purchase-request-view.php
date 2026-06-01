@@ -38,10 +38,11 @@ $prHandlerUrl = app_path('actions/action-handler.php');
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
         :root {
             --brand-color: #28a745;
-            --pr-view-bg: #e8edf2;
+            --pr-view-bg: var(--tnc-surface, #f6f7f9);
         }
 
         body {
@@ -60,13 +61,14 @@ $prHandlerUrl = app_path('actions/action-handler.php');
         .invoice-box {
             width: 210mm;
             max-width: 100%;
-            height: 297mm;
+            min-height: 297mm;
+            height: auto;
             margin: 0 auto 1.5rem;
             background: #fff;
             padding: 10mm 15mm;
             position: relative;
             box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
-            overflow: hidden;
+            overflow: visible;
         }
 
         .invoice-box.pr-purchase-requisition-doc {
@@ -202,7 +204,7 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             white-space: nowrap;
         }
         .pr-toolbar-group--approval { border-color: #bbf7d0; background: #f0fdf4; }
-        .pr-toolbar-group--po { border-color: #bfdbfe; background: #eff6ff; }
+        .pr-toolbar-group--po { border-color: var(--tnc-orange-border); background: var(--tnc-orange-soft); }
         .pr-toolbar-group--util { border-color: #e5e7eb; background: #f9fafb; }
         @media (max-width: 767.98px) {
             .pr-toolbar-actions { flex-direction: column; align-items: stretch; }
@@ -230,46 +232,13 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             }
             .signature-grid { grid-template-columns: 1fr; gap: 18px; }
         }
-
-        @media print {
-            @page { size: A4 portrait; margin: 0; }
-            html { font-size: 15px; }
-            body { background: none !important; margin: 0; }
-            body, .invoice-box, .invoice-box * {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-            .no-print, nav, .navbar, .pr-view-stage { padding: 0 !important; background: none !important; }
-            .no-print, nav, .navbar { display: none !important; }
-            .invoice-box.pr-purchase-requisition-doc {
-                width: 210mm;
-                max-width: 210mm;
-                height: 297mm;
-                min-height: 297mm;
-                max-height: 297mm;
-                margin: 0;
-                padding: 10mm 12mm 8mm;
-                box-shadow: none;
-                overflow: hidden;
-                page-break-after: avoid;
-            }
-            .pr-purchase-requisition-doc .pr-doc-main { padding-bottom: 46mm; }
-            .pr-purchase-requisition-doc .footer-sticky {
-                position: absolute;
-                bottom: 8mm;
-                left: 12mm;
-                right: 12mm;
-            }
-            .pr-cancelled-watermark {
-                display: block !important;
-                color: rgba(185, 28, 28, 0.48) !important;
-            }
-        }
     </style>
 </head>
-<body>
+<body class="purchase-module tnc-app-body">
 
+<div class="no-print">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
+</div>
 
 <div class="no-print pr-view-toolbar py-3 mb-3 shadow-sm">
     <div class="px-3 pr-view-toolbar-inner">
@@ -360,12 +329,12 @@ $prHandlerUrl = app_path('actions/action-handler.php');
             <div class="pr-toolbar-group pr-toolbar-group--po">
                 <span class="pr-toolbar-group-label">ใบสั่งซื้อ</span>
                 <?php if ($requestType !== 'hire' && $existing_po): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $existing_po['id'] ?>" class="btn btn-primary btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $existing_po['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-eye me-1"></i>ดู PO
                     </a>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">รายการ PO</a>
                 <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo)): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-file-earmark-plus me-1"></i>สร้าง PO
                     </a>
                 <?php elseif ($requestType !== 'hire'): ?>
@@ -373,7 +342,7 @@ $prHandlerUrl = app_path('actions/action-handler.php');
                         <i class="bi bi-lock me-1"></i>รออนุมัติ
                     </span>
                 <?php elseif (!empty($prIsApprovedForPo)): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-primary btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-file-earmark-plus me-1"></i>ออก PO (ตามงวด)
                     </a>
                     <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-view.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">

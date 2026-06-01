@@ -77,7 +77,7 @@ if (!in_array($paymentMethod, ['cash', 'transfer', 'cheque'], true)) {
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <div class="no-print">
     <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 </div>

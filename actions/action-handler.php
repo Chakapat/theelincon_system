@@ -718,10 +718,15 @@ if ($action === 'save_pr') {
         $site_name_saved = trim((string) ($siteRow['name'] ?? ''));
     }
 
-    // หมวดค่าใช้จ่าย (หัวข้อย่อยของไซต์) — รับเฉพาะหมวดที่ใช้ได้กับไซต์นี้
+    // หมวดค่าใช้จ่าย (หัวข้อย่อยของไซต์) — บังคับเลือกเมื่อมีไซต์ในระบบ
     $cost_category_id = (int) ($_POST['cost_category_id'] ?? 0);
     $cost_category_name = '';
-    if ($cost_category_id > 0 && tnc_site_category_is_valid_for_site($cost_category_id, $site_id)) {
+    if (count($sitesForPr) > 0) {
+        if ($cost_category_id <= 0 || !tnc_site_category_is_valid_for_site($cost_category_id, $site_id)) {
+            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?error=need_cost_category');
+        }
+        $cost_category_name = tnc_site_category_name($cost_category_id);
+    } elseif ($cost_category_id > 0 && tnc_site_category_is_valid_for_site($cost_category_id, $site_id)) {
         $cost_category_name = tnc_site_category_name($cost_category_id);
     } else {
         $cost_category_id = 0;
@@ -1050,10 +1055,15 @@ if ($action === 'update_pr') {
         $site_name_saved = trim((string) ($siteRow['name'] ?? ''));
     }
 
-    // หมวดค่าใช้จ่าย (หัวข้อย่อยของไซต์)
+    // หมวดค่าใช้จ่าย (หัวข้อย่อยของไซต์) — บังคับเลือกเมื่อมีไซต์ในระบบ
     $cost_category_id = (int) ($_POST['cost_category_id'] ?? 0);
     $cost_category_name = '';
-    if ($cost_category_id > 0 && tnc_site_category_is_valid_for_site($cost_category_id, $site_id)) {
+    if (count($sitesForPr) > 0) {
+        if ($cost_category_id <= 0 || !tnc_site_category_is_valid_for_site($cost_category_id, $site_id)) {
+            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=need_cost_category');
+        }
+        $cost_category_name = tnc_site_category_name($cost_category_id);
+    } elseif ($cost_category_id > 0 && tnc_site_category_is_valid_for_site($cost_category_id, $site_id)) {
         $cost_category_name = tnc_site_category_name($cost_category_id);
     } else {
         $cost_category_id = 0;

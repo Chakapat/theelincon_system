@@ -190,7 +190,7 @@ foreach ($rows as $r) {
         }
     </style>
 </head>
-<body class="dsr-calendar-page">
+<body class="dsr-calendar-page tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -202,7 +202,12 @@ foreach ($rows as $r) {
         </ol>
     </nav>
 
-    <h4 class="fw-bold mb-3"><i class="bi bi-calendar3 text-warning me-2"></i>ปฏิทินสมุดรายวันหน้างาน</h4>
+    <div class="tnc-page-head mb-3">
+        <div>
+            <p class="tnc-page-kicker">Daily Site Reports</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-calendar3"></i></span>ปฏิทินสมุดรายวันหน้างาน</h1>
+        </div>
+    </div>
 
     <?php if (!empty($_GET['err'])): ?>
         <?php

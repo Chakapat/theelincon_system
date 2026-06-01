@@ -995,23 +995,179 @@
     .invoice-box.pr-purchase-requisition-doc {
         width: 210mm;
         max-width: 210mm;
-        height: 297mm;
-        min-height: 297mm;
-        max-height: 297mm;
+        min-height: 0;
+        height: auto;
+        max-height: none;
         margin: 0;
-        padding: 12mm 12mm 8mm;
-        overflow: hidden;
-        page-break-after: avoid;
+        padding: 12mm 12mm 12mm;
+        overflow: visible;
+        page-break-after: always;
+        break-after: page;
+        box-shadow: none !important;
+        position: relative;
+        box-sizing: border-box;
     }
 
-    .pr-purchase-requisition-doc .pr-doc-main {
-        padding-bottom: 46mm;
+    .invoice-box.po-purchase-order-doc {
+        width: 210mm;
+        max-width: 210mm;
+        min-height: 0;
+        height: auto;
+        max-height: none;
+        margin: 0;
+        padding: 10mm 12mm 12mm;
+        overflow: visible;
+        page-break-after: always;
+        break-after: page;
+        box-shadow: none !important;
+        border-top: 8px solid #ea580c !important;
+        position: relative;
+        box-sizing: border-box;
     }
 
+    .tnc-batch-print-wrap:last-child .invoice-box.po-purchase-order-doc,
+    .tnc-batch-print-wrap:last-child .invoice-box.pr-purchase-requisition-doc,
+    .invoice-box.po-purchase-order-doc:last-of-type,
+    .invoice-box.pr-purchase-requisition-doc:last-of-type {
+        page-break-after: auto;
+        break-after: auto;
+    }
+
+    .pr-purchase-requisition-doc .pr-doc-main,
+    .po-purchase-order-doc .po-doc-main {
+        padding-bottom: 0 !important;
+    }
+
+    .po-purchase-order-doc .footer-sticky,
     .pr-purchase-requisition-doc .footer-sticky {
-        bottom: 8mm;
-        left: 12mm;
-        right: 12mm;
+        position: static !important;
+        bottom: auto !important;
+        left: auto !important;
+        right: auto !important;
+        margin-top: 8mm;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    .po-purchase-order-doc .po-items-table thead,
+    .po-purchase-order-doc .table-custom thead,
+    .pr-purchase-requisition-doc .table-custom thead,
+    .pr-purchase-requisition-doc .pr-items-table thead {
+        display: table-header-group;
+    }
+
+    .no-print,
+    nav.navbar,
+    nav,
+    .navbar,
+    .tnc-batch-toolbar,
+    .pr-view-toolbar {
+        display: none !important;
+    }
+
+    .pr-view-stage {
+        padding: 0 !important;
+        background: none !important;
+    }
+
+    .po-view-canvas {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    body.purchase-module,
+    body.tnc-batch-print-body {
+        background: none !important;
+        margin: 0;
+    }
+
+    .tnc-batch-print-wrap {
+        margin: 0 !important;
+        page-break-after: always;
+        break-after: page;
+        max-width: none;
+    }
+
+    .tnc-batch-print-wrap:last-child {
+        page-break-after: auto;
+        break-after: auto;
+    }
+
+    .po-payment-slip-print-wrap {
+        page-break-before: always;
+        break-before: page;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        margin: 0;
+        max-width: none;
+        overflow: visible;
+    }
+
+    .po-payment-slip-print-wrap .no-print {
+        display: none !important;
+    }
+
+    .po-payment-slip-sheet {
+        box-shadow: none !important;
+        border: none !important;
+        background: #fff !important;
+        padding: 6mm 8mm 8mm;
+        border-radius: 0;
+        box-sizing: border-box;
+        overflow: visible;
+    }
+
+    .po-slip-paper-header {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .po-slip-img-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        overflow: visible;
+    }
+
+    .po-quotation-pdf-iframe {
+        min-height: 0;
+        height: 250mm;
+        max-height: 250mm;
+        max-width: 190mm;
+        margin: 0 auto;
+        display: block;
+        border: none !important;
+        background: #fff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    img.po-payment-slip-img,
+    img.tnc-po-deferred-print-img {
+        max-height: 277mm !important;
+    }
+
+    .po-purchase-order-doc .po-vat-line {
+        color: #c2410c !important;
+    }
+
+    .po-cancelled-watermark {
+        color: rgba(185, 28, 28, 0.5) !important;
+    }
+
+    /* รายการ PR บนหน้า list */
+    .pr-list-print-head {
+        display: block !important;
+    }
+
+    .pr-list-print-table thead {
+        display: table-header-group;
+    }
+
+    .pr-list-print-table .no-print {
+        display: none !important;
     }
 
     .pr-purchase-requisition-doc .table-custom thead th,

@@ -150,14 +150,13 @@ $calendarBackUrl = $hubUrl . '?year=' . $year . '&month=' . $month;
             position: sticky;
             top: 0;
             z-index: 1020;
-            background: rgba(255, 250, 245, .95);
-            backdrop-filter: blur(6px);
-            border-bottom: 1px solid rgba(253, 126, 20, .15);
+            background: #fffaf5;
+            border-bottom: 1px solid rgba(234, 88, 12, .15);
             padding: .75rem 0;
             margin-bottom: 1rem;
         }
         .editor-card {
-            border: 1px solid rgba(253, 126, 20, .2);
+            border: 1px solid rgba(234, 88, 12, .2);
             border-radius: 1rem;
             background: #fff;
             box-shadow: 0 8px 24px rgba(0, 0, 0, .04);
@@ -239,7 +238,7 @@ $calendarBackUrl = $hubUrl . '?year=' . $year . '&month=' . $month;
         }
     </style>
 </head>
-<body class="dsr-monthly-page">
+<body class="dsr-monthly-page tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -252,9 +251,12 @@ $calendarBackUrl = $hubUrl . '?year=' . $year . '&month=' . $month;
         </ol>
     </nav>
 
-    <div class="page-heading mb-2">
-        <h4 class="fw-bold mb-1"><i class="bi bi-file-earmark-text text-warning me-2"></i>สรุปรายงานประจำเดือน</h4>
-        <p class="text-muted small mb-0"><?= rep_esc($monthLabelTh) ?> · วันที่มีอุปสรรค <?= (int) $blockedDaysCount ?> วัน</p>
+    <div class="tnc-page-head page-heading mb-2">
+        <div>
+            <p class="tnc-page-kicker">Daily Site Reports</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-file-earmark-text"></i></span>สรุปรายงานประจำเดือน</h1>
+            <p class="text-muted small mb-0 mt-1"><?= rep_esc($monthLabelTh) ?> · วันที่มีอุปสรรค <?= (int) $blockedDaysCount ?> วัน</p>
+        </div>
     </div>
 
     <div class="dsr-monthly-actions d-print-none">

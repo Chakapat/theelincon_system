@@ -122,32 +122,18 @@ if ($isHirePo) {
     <title><?= $isHirePo ? 'แก้ไขใบสั่งจ่าย (PO)' : 'แก้ไขใบสั่งซื้อ (PO)' ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <?php if ($isHirePo): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/hire-line-table.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <?php endif; ?>
     <style>
-        body { background: linear-gradient(165deg, #f0f4f8 0%, #f8f9fb 45%, #eef2f7 100%); font-family: 'Sarabun', sans-serif; min-height: 100vh; }
         .po-create-wrap { max-width: 1100px; }
-        .po-create-hero {
-            background: linear-gradient(125deg, #0c4a6e 0%, #0d6efd 38%, #3d8bfd 100%);
-            border-radius: 1rem;
-            box-shadow: 0 12px 40px rgba(13, 110, 253, 0.22);
-            color: #fff;
-        }
-        .po-create-hero .hero-kicker { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.92; font-weight: 700; }
-        .po-create-hero h1 { font-size: clamp(1.35rem, 3.5vw, 1.75rem); font-weight: 800; letter-spacing: -0.02em; }
-        .po-create-hero .hero-lead { opacity: 0.9; font-size: 0.9rem; max-width: 28rem; }
-        .po-create-hero .btn-light { border: 0; font-weight: 600; }
-        .po-create-hero .btn-primary { background: #fff; color: #0d6efd; border: 0; font-weight: 700; }
-        .po-create-hero .btn-primary:hover { background: #f0f6ff; color: #0a58ca; }
-        .po-create-hero .btn-outline-light { border: 1px solid rgba(255, 255, 255, 0.45); color: #fff; font-weight: 600; }
-        .po-create-hero .btn-outline-light:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
         .card-soft {
             border: 1px solid rgba(226, 232, 240, 0.95);
-            border-radius: 1rem;
-            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+            border-radius: var(--tnc-radius-lg);
+            box-shadow: var(--tnc-shadow-sm);
             background: #fff;
         }
         .po-section-head {
@@ -158,23 +144,11 @@ if ($isHirePo) {
             padding-bottom: 0.75rem;
             border-bottom: 1px solid #eef2f7;
         }
-        .po-section-head .po-section-icon {
-            width: 2.5rem;
-            height: 2.5rem;
-            border-radius: 0.65rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(145deg, #e8f1ff, #f0f6ff);
-            color: #0d6efd;
-            font-size: 1.15rem;
-            flex-shrink: 0;
-        }
-        .section-title { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.02em; }
-        .section-sub { font-size: 0.8rem; color: #64748b; margin: 0.2rem 0 0; line-height: 1.4; }
+        .section-title { font-size: 1.05rem; font-weight: 800; color: var(--tnc-ink); margin: 0; letter-spacing: -0.02em; }
+        .section-sub { font-size: 0.8rem; color: var(--tnc-muted); margin: 0.2rem 0 0; line-height: 1.4; }
         .po-field-label { font-size: 0.78rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
         .form-control, .form-select, .input-group-text { border-radius: 0.5rem; }
-        .po-meta-card .form-control:focus { box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.12); }
+        .po-meta-card .form-control:focus { box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.12); }
         .po-po-number { font-size: 1.05rem; letter-spacing: 0.02em; }
         .po-table-wrap { border: 1px solid #e8ecf1; border-radius: 0.75rem; overflow: hidden; background: #fff; }
         .po-table-wrap .table { margin-bottom: 0; }
@@ -192,8 +166,8 @@ if ($isHirePo) {
         .po-table-wrap tbody td { padding: 0.5rem 0.45rem; vertical-align: middle; }
         .po-table-wrap .form-control-sm { min-height: calc(1.5em + 0.6rem + 2px); }
         .summary-box {
-            background: linear-gradient(180deg, #f8fbff 0%, #f0f7ff 100%);
-            border: 1px solid #c7dbfa;
+            background: linear-gradient(180deg, #fffbf5 0%, var(--tnc-orange-soft) 100%);
+            border: 1px solid var(--tnc-orange-border);
             border-radius: 0.85rem;
             padding: 1.1rem 1.15rem;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
@@ -212,19 +186,19 @@ if ($isHirePo) {
         .summary-line:last-child { margin-bottom: 0; }
         .summary-label { justify-self: start; text-align: left; color: #475569; font-weight: 600; font-size: 0.9rem; }
         .summary-value { justify-self: end; font-weight: 700; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
-        .summary-grand { padding-top: 0.35rem; margin-top: 0.25rem; border-top: 2px dashed rgba(13, 110, 253, 0.25); }
-        .summary-grand .summary-label { font-size: 1rem; color: #0f172a; }
-        .summary-grand .summary-value { font-size: 1.25rem; color: #0d6efd !important; }
-        .po-vat-panel { background: #f8faff; border: 1px solid #dbe7ff; border-radius: 0.75rem; }
+        .summary-grand { padding-top: 0.35rem; margin-top: 0.25rem; border-top: 2px dashed rgba(253, 126, 20, 0.25); }
+        .summary-grand .summary-label { font-size: 1rem; color: var(--tnc-ink); }
+        .summary-grand .summary-value { font-size: 1.25rem; color: var(--tnc-orange) !important; }
+        .po-vat-panel { background: #fffbf5; border: 1px solid var(--tnc-orange-border); border-radius: 0.75rem; }
         .po-actions-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eef2f7; }
         <?php if ($isHirePo): ?>
         body.po-hire-mode .po-create-wrap { max-width: none; }
         .section-card { border: 1px solid #e9ecef; border-radius: 12px; background: #fff; }
-        .section-title { font-size: 1rem; font-weight: 700; color: #0d6efd; margin-bottom: 12px; }
+        .section-title { font-size: 1rem; font-weight: 700; color: var(--tnc-orange); margin-bottom: 12px; }
         <?php endif; ?>
     </style>
 </head>
-<body<?= $isHirePo ? ' class="po-hire-mode"' : '' ?>>
+<body<?= $isHirePo ? ' class="po-hire-mode purchase-module"' : ' class="purchase-module"' ?>>
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="<?= $isHirePo ? 'container-fluid px-3 px-lg-4' : 'container container-lg' ?> py-4 py-md-5 mb-5 po-create-wrap">
@@ -255,7 +229,7 @@ if ($isHirePo) {
                 </div>
                 <div class="col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php')) ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับหน้ารายการใบสั่งซื้อ</a>
-                    <button type="submit" class="btn btn-primary rounded-pill px-4 shadow"><i class="bi bi-check2-circle me-1"></i>บันทึกการแก้ไข</button>
+                    <button type="submit" class="btn btn-orange rounded-pill px-4 shadow"><i class="bi bi-check2-circle me-1"></i>บันทึกการแก้ไข</button>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php')) ?>?id=<?= (int) $poId ?>" class="btn btn-outline-light rounded-pill px-3"><i class="bi bi-eye me-1"></i>ดูใบสั่งซื้อ</a>
                 </div>
             </div>
@@ -273,14 +247,14 @@ if ($isHirePo) {
                 <div class="col-md-4">
                     <label class="po-field-label" for="po_number_display">เลขที่ใบสั่งซื้อ</label>
                     <div class="input-group">
-                        <span class="input-group-text bg-light text-primary border-end-0"><i class="bi bi-hash"></i></span>
-                        <input type="text" id="po_number_display" class="form-control po-po-number bg-light text-primary fw-bold border-start-0" value="<?= htmlspecialchars((string) ($po['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" readonly>
+                        <span class="input-group-text bg-light text-tnc-orange border-end-0"><i class="bi bi-hash"></i></span>
+                        <input type="text" id="po_number_display" class="form-control po-po-number bg-light text-tnc-orange fw-bold border-start-0" value="<?= htmlspecialchars((string) ($po['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" readonly>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <label class="po-field-label" for="issue_date">วันที่ออกใบสั่งซื้อ <span class="text-danger">*</span></label>
                     <div class="input-group">
-                        <span class="input-group-text bg-white text-primary" title="ปฏิทิน"><i class="bi bi-calendar3"></i></span>
+                        <span class="input-group-text bg-white text-tnc-orange" title="ปฏิทิน"><i class="bi bi-calendar3"></i></span>
                         <input
                             type="date"
                             class="form-control"
@@ -353,7 +327,7 @@ if ($isHirePo) {
                 </div>
                 <div class="hire-lines-toolbar mt-2">
                     <button type="button" class="btn btn-sm btn-outline-secondary" id="addHireGroupBtn" data-tnc-hire-add="group"><i class="bi bi-folder-plus me-1"></i>เพิ่มหัวข้อหลัก</button>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="addHireRowBtn" data-tnc-hire-add="item"><i class="bi bi-plus-circle me-1"></i>เพิ่มรายการย่อย</button>
+                    <button type="button" class="btn btn-sm btn-outline-orange" id="addHireRowBtn" data-tnc-hire-add="item"><i class="bi bi-plus-circle me-1"></i>เพิ่มรายการย่อย</button>
                 </div>
             </div>
             <div class="section-card p-3">
@@ -372,7 +346,7 @@ if ($isHirePo) {
                     </div>
                     <div class="po-hire-totals-card">
                         <div class="po-hire-sum-row"><span>ยอดรวม (Subtotal)</span><span id="subtotal_text">0.00</span></div>
-                        <div class="po-hire-sum-row text-primary"><span>VAT (+)</span><span id="vat_text">0.00</span></div>
+                        <div class="po-hire-sum-row text-tnc-orange"><span>VAT (+)</span><span id="vat_text">0.00</span></div>
                         <div class="po-hire-sum-row border-bottom pb-2 mb-1"><span class="text-muted fw-semibold">ยอดรวม VAT</span><span id="total_after_vat_text">0.00</span></div>
                         <div id="retention_summary_row" class="po-hire-sum-row text-danger" style="display:none;"><span>หักประกันผลงาน (-)</span><span id="retention_display">0.00</span></div>
                         <div class="po-hire-grand-row">
@@ -440,7 +414,7 @@ if ($isHirePo) {
             </div>
 
             <div class="po-actions-bar">
-                <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm" onclick="addRow()">
+                <button type="button" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm" onclick="addRow()">
                     <i class="bi bi-plus-lg me-1"></i>เพิ่มรายการ
                 </button>
             </div>
@@ -459,7 +433,7 @@ if ($isHirePo) {
                         <?php else: ?>
                         <div class="small text-muted mb-2">ไม่มี VAT ในใบขอซื้อ <?= htmlspecialchars($linkedPrNumber, ENT_QUOTES, 'UTF-8') ?></div>
                         <?php endif; ?>
-                        <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $poPrId, ENT_QUOTES, 'UTF-8') ?>" class="small text-primary text-decoration-none"><i class="bi bi-pencil-square me-1"></i>แก้ไข VAT ที่ใบขอซื้อ (PR)</a>
+                        <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $poPrId, ENT_QUOTES, 'UTF-8') ?>" class="small text-tnc-orange text-decoration-none"><i class="bi bi-pencil-square me-1"></i>แก้ไข VAT ที่ใบขอซื้อ (PR)</a>
                         <input type="hidden" name="vat_enabled" id="vat_enabled" value="<?= $poVatEnabledStored ?>">
                         <input type="hidden" name="vat_mode" id="vat_mode" value="<?= htmlspecialchars($poVatModeStored, ENT_QUOTES, 'UTF-8') ?>">
                         <?php else: ?>
@@ -486,7 +460,7 @@ if ($isHirePo) {
                         <label class="small fw-bold text-secondary text-uppercase mb-2" style="letter-spacing:0.05em;"></label>
                         <div class="summary-line small text-muted"><span class="summary-label" id="subtotal_label">ยอดรายการ</span><strong class="summary-value text-end"><span id="subtotal_display">0.00</span> บาท</strong></div>
                         <div class="summary-line small text-success" id="vat_row" style="display:none;"><span class="summary-label" id="vat_label">ภาษีมูลค่าเพิ่ม</span><strong class="summary-value text-end"><span id="vat_display">0.00</span> บาท</strong></div>
-                        <div class="summary-line summary-grand fw-bold"><span class="summary-label">ยอดสุทธิ</span><strong class="summary-value text-end text-primary"><span id="grand_total">0.00</span> บาท</strong></div>
+                        <div class="summary-line summary-grand fw-bold"><span class="summary-label">ยอดสุทธิ</span><strong class="summary-value text-end text-tnc-orange"><span id="grand_total">0.00</span> บาท</strong></div>
                     </div>
                     <input type="hidden" name="total_amount" id="total_amount_input" value="0">
                     <input type="hidden" name="withholding_type" id="withholding_type" value="none">
@@ -521,7 +495,7 @@ if ($isHirePo) {
 
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-2 d-md-none">
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php')) ?>" class="btn btn-outline-secondary rounded-pill">ยกเลิก</a>
-            <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold"><i class="bi bi-check2-circle me-1"></i>บันทึก</button>
+            <button type="submit" class="btn btn-orange rounded-pill px-4 fw-bold"><i class="bi bi-check2-circle me-1"></i>บันทึก</button>
         </div>
     </form>
 </div>

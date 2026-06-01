@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-01T00:00:00.000Z",
+  "title": "Design System: Theelincon Office System",
+  "extensions": {
+    "colorMeta": {
+      "construction-orange": {
+        "role": "primary",
+        "displayName": "Construction Orange (Copper)",
+        "canonical": "oklch(62% 0.19 45)",
+        "tonalRamp": [
+          "oklch(25% 0.08 55)",
+          "oklch(35% 0.12 55)",
+          "oklch(45% 0.15 55)",
+          "oklch(55% 0.17 55)",
+          "oklch(65% 0.19 55)",
+          "oklch(70.5% 0.195 55)",
+          "oklch(78% 0.17 55)",
+          "oklch(92% 0.06 55)"
+        ]
+      },
+      "office-canvas": {
+        "role": "neutral",
+        "displayName": "Office Canvas",
+        "canonical": "oklch(97% 0.005 260)",
+        "tonalRamp": [
+          "oklch(20% 0.02 260)",
+          "oklch(30% 0.015 260)",
+          "oklch(40% 0.012 260)",
+          "oklch(55% 0.01 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(85% 0.006 260)",
+          "oklch(93% 0.005 260)",
+          "oklch(97% 0.005 260)"
+        ]
+      },
+      "slate-ink": {
+        "role": "neutral",
+        "displayName": "Slate Ink",
+        "canonical": "oklch(20% 0.03 260)",
+        "tonalRamp": [
+          "oklch(15% 0.03 260)",
+          "oklch(20% 0.03 260)",
+          "oklch(28% 0.025 260)",
+          "oklch(38% 0.02 260)",
+          "oklch(50% 0.015 260)",
+          "oklch(65% 0.01 260)",
+          "oklch(80% 0.008 260)",
+          "oklch(95% 0.004 260)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Dashboard stat values and hero numbers only." },
+      "headline": { "displayName": "Headline", "purpose": "Page and document titles." },
+      "title": { "displayName": "Title", "purpose": "Section headers and active nav labels." },
+      "body": { "displayName": "Body", "purpose": "Table cells, form values, prose." },
+      "label": { "displayName": "Label", "purpose": "Field labels and stat eyebrows." }
+    },
+    "shadows": [
+      {
+        "name": "card-hover",
+        "value": "0 0.5rem 1.25rem rgba(0, 0, 0, 0.08)",
+        "purpose": "Stat cards and hub tiles on hover only."
+      },
+      {
+        "name": "document-card",
+        "value": "0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.04)",
+        "purpose": "PO/PR document shells."
+      },
+      {
+        "name": "signin-card",
+        "value": "0 1rem 2.2rem rgba(233, 89, 12, 0.16)",
+        "purpose": "Login page card only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default hover and state transitions (150–220ms)."
+      },
+      {
+        "name": "ease-nav",
+        "value": "ease",
+        "purpose": "Sidebar active bar and hub link background (160–180ms)."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "576px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "992px" },
+      { "name": "xl", "value": "1200px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main save/submit actions across ERP modules.",
+      "html": "<button type=\"button\" class=\"ds-btn-primary\"><i class=\"ds-btn-icon\" aria-hidden=\"true\">✓</i> บันทึก</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 0.35rem; background: #fd7e14; color: #fff; font-family: 'Sarabun', sans-serif; font-weight: 600; font-size: 1rem; padding: 0.55rem 1.5rem; border: none; border-radius: 50rem; cursor: pointer; transition: background 0.18s ease; } .ds-btn-primary:hover { background: #e8590c; } .ds-btn-primary:focus-visible { outline: 2px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 3px rgba(253, 126, 20, 0.45); } .ds-btn-icon { font-style: normal; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary actions that stay on-brand without filling orange.",
+      "html": "<button type=\"button\" class=\"ds-btn-outline\">ยกเลิก</button>",
+      "css": ".ds-btn-outline { background: transparent; color: #fd7e14; font-family: 'Sarabun', sans-serif; font-weight: 600; font-size: 1rem; padding: 0.55rem 1.25rem; border: 1px solid #e2e8f0; border-radius: 50rem; cursor: pointer; transition: background 0.18s ease, border-color 0.18s ease; } .ds-btn-outline:hover { background: #fff7ed; border-color: #fd7e14; } .ds-btn-outline:focus-visible { outline: 2px solid #fd7e14; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Standard form field for documents and filters.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">เลขที่ PO</span><input type=\"text\" class=\"ds-input\" placeholder=\"ค้นหา…\" /></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 0.35rem; font-family: 'Sarabun', sans-serif; } .ds-field-label { font-size: 0.8rem; font-weight: 600; color: #64748b; letter-spacing: 0.01em; } .ds-input { background: #fff; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 1rem; transition: border-color 0.15s ease, box-shadow 0.15s ease; } .ds-input:focus { border-color: #fd7e14; outline: none; box-shadow: 0 0 0 3px rgba(253, 126, 20, 0.15); } .ds-input::placeholder { color: #64748b; }"
+    },
+    {
+      "name": "Top Navbar",
+      "kind": "nav",
+      "refersTo": "nav-topbar",
+      "description": "Authenticated app header — orange bar with white nav links.",
+      "html": "<nav class=\"ds-navbar\"><span class=\"ds-navbar-brand\">THEELIN CON</span><a href=\"#\" class=\"ds-navbar-link\">แจ้งเตือน</a></nav>",
+      "css": ".ds-navbar { display: flex; align-items: center; gap: 1rem; background: #fd7e14; color: #fff; padding: 0.5rem 1rem; min-height: 3.25rem; font-family: 'Sarabun', sans-serif; box-shadow: 0 1px 3px rgba(0,0,0,0.08); } .ds-navbar-brand { font-weight: 700; font-size: 0.95rem; } .ds-navbar-link { color: #fff; text-decoration: none; font-weight: 600; padding: 0.35rem 0.75rem; border-radius: 0.5rem; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.38); transition: background 0.15s ease; } .ds-navbar-link:hover { background: rgba(255,255,255,0.22); } .ds-navbar-link:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Hub Sidebar Link",
+      "kind": "nav",
+      "refersTo": "nav-sidebar-link",
+      "description": "Index hub menu item with orange active bar.",
+      "html": "<a href=\"#\" class=\"ds-hub-link active\">ใบแจ้งหนี้</a>",
+      "css": ".ds-hub-link { position: relative; display: block; padding: 0.78rem 1rem 0.78rem 1.05rem; border-radius: 0.5rem; color: #334155; font-family: 'Sarabun', sans-serif; font-weight: 500; text-decoration: none; transition: background 0.16s ease, color 0.16s ease; } .ds-hub-link::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 0; border-radius: 0 3px 3px 0; background: #fd7e14; opacity: 0; transition: height 0.18s ease, opacity 0.18s ease; } .ds-hub-link:hover { background: rgba(15, 23, 42, 0.055); color: #0f172a; } .ds-hub-link.active { background: rgba(253, 126, 20, 0.09); color: #9a3412; font-weight: 600; } .ds-hub-link.active::before { height: 62%; min-height: 1.35rem; opacity: 1; }"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "card",
+      "refersTo": "card-surface",
+      "description": "Dashboard metric tile with left accent bar.",
+      "html": "<div class=\"ds-stat-card\"><div class=\"ds-stat-label\">ใบแจ้งหนี้เดือนนี้</div><div class=\"ds-stat-value\">128</div></div>",
+      "css": ".ds-stat-card { background: #fff; border: 1px solid rgba(0,0,0,0.06); border-left: 4px solid #dee2e6; border-radius: 0.875rem; padding: 1rem 1.25rem; font-family: 'Sarabun', sans-serif; transition: transform 0.2s ease, box-shadow 0.2s ease; } .ds-stat-card:hover { transform: translateY(-3px); box-shadow: 0 0.5rem 1.25rem rgba(0,0,0,0.08); } .ds-stat-label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; } .ds-stat-value { font-size: clamp(1.75rem, 4vw, 2.35rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; color: #0f172a; margin-top: 0.25rem; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-status",
+      "description": "Pill badge for invoice/PO status in tables.",
+      "html": "<span class=\"ds-badge ds-badge-pending\">รอดำเนินการ</span>",
+      "css": ".ds-badge { display: inline-block; font-family: 'Sarabun', sans-serif; font-size: 0.75rem; font-weight: 600; padding: 0.35rem 0.85rem; border-radius: 50rem; } .ds-badge-pending { background: #fff3e0; color: #9a3412; } .ds-badge-ok { background: #e6f4ea; color: #1e7e34; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Warm Operations Desk",
+    "overview": "Theelincon Office System is a data-heavy internal ERP for Thai construction/operations staff. Bold warm copper identity meets scan-speed tables and forms. Sarabun hierarchy, solid surfaces, orange as signal (~15% max on content screens).",
+    "keyCharacteristics": [
+      "Copper orange as signal, not wallpaper",
+      "Bold hierarchy — kickers, display scale, money emphasis",
+      "Sarabun-first Thai readability",
+      "Solid cards — no glass slop in app shell",
+      "Bootstrap 5 + --tnc-* tokens"
+    ],
+    "rules": [
+      { "name": "The No AI Slop Rule", "body": "No purple-blue gradients, glassmorphism in app chrome, or neon-on-dark. Bold means copper hierarchy and solid surfaces.", "section": "colors" },
+      { "name": "The Orange Signal Rule", "body": "Copper orange (#ea580c) for navbar, primary CTAs, and active navigation. Under ~15% visible area on data screens.", "section": "colors" },
+      { "name": "The No Blue Drift Rule", "body": "Legacy Bootstrap btn-primary (#0d6efd) appears on some PO pages — new work uses Construction Orange. Do not introduce new blue primary buttons.", "section": "colors" },
+      { "name": "The Muted Text Contrast Rule", "body": "Slate Muted on tinted near-white fails WCAG AA easily. When in doubt, darken toward Body Ink.", "section": "colors" },
+      { "name": "The Sarabun-Only Rule", "body": "Maximum one sans family in production UI. Do not add Inter, Roboto, or Arial as primary.", "section": "typography" },
+      { "name": "The Thai Body Size Rule", "body": "On mobile (≤576px), form controls stay at 16px minimum to prevent iOS zoom-on-focus.", "section": "typography" },
+      { "name": "The Flat Data Surfaces Rule", "body": "Data tables and dense forms stay flat. If it looks like a 2014 admin template with heavy drop shadows, remove the shadow.", "section": "elevation" },
+      { "name": "The No Nested Cards Rule", "body": "Never stack a card inside a card. Use sections, dividers, or spacing instead.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Construction Orange (#fd7e14) for navbar, primary CTAs, and active navigation.",
+      "Do set font-family Sarabun on all new pages.",
+      "Do keep tables and forms scannable: right-align money, bold totals, status badges at a glance.",
+      "Do use --tnc-* tokens when adding global styles.",
+      "Do honor WCAG 2.1 AA contrast and 16px minimum input size on mobile.",
+      "Do respect prefers-reduced-motion for sign-in animations."
+    ],
+    "donts": [
+      "Don't use generic SaaS template patterns: Inter as primary font, card nested inside card, bland gray-on-gray.",
+      "Don't apply marketing landing aesthetics inside authenticated app screens.",
+      "Don't add animation or decoration that slows data-heavy workflows.",
+      "Don't introduce Bootstrap default blue (#0d6efd) as primary on new screens.",
+      "Don't use pure #000000 text.",
+      "Don't use uppercase for body copy or long labels."
+    ]
+  }
+}

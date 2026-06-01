@@ -70,14 +70,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | Invoice System</title>
+    <title>เข้าสู่ระบบ | Theelincon Office</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         :root {
-            --tnc-orange: #fd7e14;
-            --tnc-orange-strong: #e8590c;
+            --tnc-orange: #ea580c;
+            --tnc-orange-strong: #c2410c;
             --tnc-text: #1f2937;
             --tnc-muted: #6b7280;
         }
@@ -282,11 +283,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             overflow: hidden;
         }
         .signin-success-progress-fill {
-            width: 0%;
+            width: 100%;
             height: 100%;
             border-radius: inherit;
-            background: linear-gradient(90deg, #fd7e14 0%, #f59e0b 100%);
-            transition: width 3s linear;
+            background: linear-gradient(90deg, #ea580c 0%, #f59e0b 100%);
+            transform: scaleX(0);
+            transform-origin: left center;
+            transition: transform 3s linear;
+        }
+        .signin-success-progress-fill.is-running {
+            transform: scaleX(1);
         }
         .signin-confetti-layer {
             position: absolute;
@@ -386,8 +392,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             body.signin-page::after,
             .signin-hero-icon,
             .signin-hero-icon::after,
-            .signin-floating-icon {
+            .signin-floating-icon,
+            .signin-success-progress-fill {
                 animation: none !important;
+                transition: none !important;
+            }
+            .signin-success-progress-fill.is-running {
+                transform: scaleX(1);
             }
         }
         @media (max-width: 575.98px) {
@@ -457,30 +468,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <div class="card-body p-5 pt-4">
                     <div class="text-center mb-4">
-                        <h3 class="fw-bold mb-1 text-dark">Hello, Welcome!</h3>
-                        <p class="signin-subtitle small mb-0">Construction Management System</p>
+                        <h3 class="fw-bold mb-1 text-dark">สวัสดี</h3>
+                        <p class="signin-subtitle small mb-0">ระบบสำนักงาน Theelincon</p>
                     </div>
 
-                    <form method="POST" action="<?= htmlspecialchars(app_path('sign-in.php')) ?>">
+                    <form method="POST" action="<?= htmlspecialchars(app_path('sign-in.php')) ?>" id="signinForm">
                         <?php csrf_field(); ?>
                         <div class="mb-3">
-                            <label class="signin-field-label form-label small fw-bold">Username</label>
+                            <label class="signin-field-label form-label small fw-bold" for="user_code">รหัสผู้ใช้</label>
                             <div class="signin-input-group input-group">
                                 <span class="input-group-text border-end-0">
                                     <i class="bi bi-person-fill"></i>
                                 </span>
-                                <input type="text" name="user_code" id="user_code" class="form-control border-start-0 ps-0" placeholder="Username" required autocomplete="username">
+                                <input type="text" name="user_code" id="user_code" class="form-control border-start-0 ps-0" placeholder="รหัสผู้ใช้" required autocomplete="username" value="<?= htmlspecialchars($user_code, ENT_QUOTES, 'UTF-8') ?>">
                             </div>
                         </div>
                         
                         <div class="mb-4">
-                            <label class="signin-field-label form-label small fw-bold">Password</label>
+                            <label class="signin-field-label form-label small fw-bold" for="password">รหัสผ่าน</label>
                             <div class="signin-input-group input-group">
                                 <span class="input-group-text border-end-0">
                                     <i class="bi bi-key-fill"></i>
                                 </span>
-                                <input type="password" name="password" id="password" class="form-control border-start-0 ps-0" placeholder="Password" required autocomplete="current-password">
-                                <button type="button" class="btn signin-password-toggle" id="togglePasswordBtn" aria-label="Show or hide password" aria-pressed="false">
+                                <input type="password" name="password" id="password" class="form-control border-start-0 ps-0" placeholder="รหัสผ่าน" required autocomplete="current-password">
+                                <button type="button" class="btn signin-password-toggle" id="togglePasswordBtn" aria-label="แสดงหรือซ่อนรหัสผ่าน" aria-pressed="false">
                                     <i class="bi bi-eye" id="togglePasswordIcon"></i>
                                 </button>
                             </div>
@@ -488,11 +499,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         <div class="mb-4 form-check">
                             <input type="checkbox" name="remember" value="1" id="rememberCreds" class="form-check-input border-warning">
-                            <label class="form-check-label small text-muted" for="rememberCreds">Remember me</label>
+                            <label class="form-check-label small text-muted" for="rememberCreds">จดจำรหัสผู้ใช้ (ไม่เก็บรหัสผ่าน)</label>
                         </div>
 
                         <button type="submit" class="btn btn-signin btn-lg w-100 fw-bold shadow-sm rounded-3 mb-3">
-                            Sign-in<i class="bi bi-chevron-right ms-1"></i>
+                            เข้าสู่ระบบ<i class="bi bi-chevron-right ms-1"></i>
                         </button>
                     </form>
 
@@ -524,20 +535,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script>
 (function () {
-    <?php if ($login_status !== 'success'): ?>
     var K_USER = 'theelincon_signin_user_code';
-    var K_PASS = 'theelincon_signin_password';
+    var K_PASS_LEGACY = 'theelincon_signin_password';
     try {
+        localStorage.removeItem(K_PASS_LEGACY);
         var u = localStorage.getItem(K_USER);
-        var p = localStorage.getItem(K_PASS);
         var userEl = document.getElementById('user_code');
-        var passEl = document.getElementById('password');
         var chk = document.getElementById('rememberCreds');
-        if (u && userEl) userEl.value = u;
-        if (p && passEl) passEl.value = p;
-        if ((u || p) && chk) chk.checked = true;
+        if (u && userEl) {
+            userEl.value = u;
+            if (chk) chk.checked = true;
+        }
     } catch (e) {}
-    <?php endif; ?>
 })();
 
 (function () {
@@ -570,11 +579,12 @@ function runLoginSuccessExperience(redirectUrl) {
         window.location.href = redirectUrl;
         return;
     }
+    progress.classList.remove('is-running');
     overlay.classList.add('show');
     overlay.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
 
-    var colors = ['#fd7e14', '#f59e0b', '#10b981', '#3b82f6', '#ef4444'];
+    var colors = ['#ea580c', '#f59e0b', '#10b981', '#3b82f6', '#ef4444'];
     for (var i = 0; i < 26; i++) {
         var piece = document.createElement('span');
         piece.className = 'signin-confetti';
@@ -586,7 +596,7 @@ function runLoginSuccessExperience(redirectUrl) {
     }
 
     requestAnimationFrame(function () {
-        progress.style.width = '100%';
+        progress.classList.add('is-running');
     });
 
     setTimeout(function () {
@@ -599,26 +609,24 @@ function runLoginSuccessExperience(redirectUrl) {
 
 <?php if ($login_status === 'success'): ?>
     <?php
-    $remember_creds = isset($_POST['remember']) && (string) $_POST['remember'] === '1';
+    $remember_user = isset($_POST['remember']) && (string) $_POST['remember'] === '1';
     $user_code_js = json_encode($user_code, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
-    $password_js = json_encode($password, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
     ?>
     (function () {
         var K_USER = 'theelincon_signin_user_code';
-        var K_PASS = 'theelincon_signin_password';
+        var K_PASS_LEGACY = 'theelincon_signin_password';
         try {
-            <?php if ($remember_creds): ?>
+            localStorage.removeItem(K_PASS_LEGACY);
+            <?php if ($remember_user): ?>
             localStorage.setItem(K_USER, <?= $user_code_js ?>);
-            localStorage.setItem(K_PASS, <?= $password_js ?>);
             <?php else: ?>
             localStorage.removeItem(K_USER);
-            localStorage.removeItem(K_PASS);
             <?php endif; ?>
         } catch (e) {}
     })();
     runLoginSuccessExperience("<?= htmlspecialchars(app_path('index.php')) ?>");
 <?php elseif ($login_status === 'csrf_fail'): ?>
-    Swal.fire({ icon: 'error', title: 'เซสชันไม่ปลอดภัย', text: 'กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง', confirmButtonColor: '#fd7e14' });
+    Swal.fire({ icon: 'error', title: 'เซสชันไม่ปลอดภัย', text: 'กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง', confirmButtonColor: '#ea580c' });
 <?php elseif ($login_status === 'fail_password'): ?>
     triggerLoginShake();
     document.getElementById('password')?.focus();

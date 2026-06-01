@@ -160,7 +160,7 @@ $netTotal = round($incomeTotal - $deductTotal, 2);
             background: #fff;
             padding: 10mm 12mm;
             box-shadow: 0 6px 24px rgba(0,0,0,0.12);
-            border-top: 6px solid #fd7e14;
+            border-top: 6px solid #ea580c;
             color: #1f2937;
             display: flex;
             flex-direction: column;
@@ -219,7 +219,7 @@ $netTotal = round($incomeTotal - $deductTotal, 2);
         .net-box {
             margin-top: 10px;
             border-radius: 12px;
-            background: linear-gradient(135deg, #fd7e14 0%, #f97316 100%);
+            background: linear-gradient(135deg, #ea580c 0%, #f97316 100%);
             color: #fff;
             padding: 12px 14px;
             display: flex;
@@ -247,7 +247,7 @@ $netTotal = round($incomeTotal - $deductTotal, 2);
                 padding: 10mm 12mm;
                 box-sizing: border-box;
                 box-shadow: none;
-                border-top: 6px solid #fd7e14;
+                border-top: 6px solid #ea580c;
             }
             .sheet-head,
             .meta-card,
@@ -257,7 +257,7 @@ $netTotal = round($incomeTotal - $deductTotal, 2);
             }
             .net-box {
                 margin-top: auto;
-                border: 2px solid #fd7e14;
+                border: 2px solid #ea580c;
                 background: #fff !important;
                 color: #1f2937 !important;
             }
@@ -267,14 +267,17 @@ $netTotal = round($incomeTotal - $deductTotal, 2);
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 no-print">
     <div class="card border-0 shadow-sm rounded-4">
         <div class="card-body p-4">
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                <h4 class="fw-bold mb-0"><i class="bi bi-receipt-cutoff text-warning me-2"></i>ใบแจ้งเงินได้ (Payslip)</h4>
+            <div class="tnc-page-head mb-3 flex-wrap gap-2">
+                <div>
+                    <p class="tnc-page-kicker">Payslips</p>
+                    <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-receipt-cutoff"></i></span>ใบแจ้งเงินได้ (Payslip)</h1>
+                </div>
                 <a href="<?= htmlspecialchars(app_path('pages/payslips/employee-payslip-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-dark">รายการคำขอสลิป</a>
             </div>
             <?php if (isset($_GET['err'])): ?><div class="alert alert-danger py-2">สร้างคำขอไม่สำเร็จ กรุณาตรวจสอบข้อมูล</div><?php endif; ?>

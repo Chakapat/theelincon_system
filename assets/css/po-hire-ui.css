@@ -3,10 +3,10 @@
  */
 
 body.po-hire-mode {
-    background: #f8fafc;
-    font-family: 'Noto Sans Thai', 'Inter', 'Sarabun', system-ui, sans-serif;
+    background: var(--tnc-surface, #f6f7f9);
+    font-family: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', system-ui, sans-serif;
     --po-hire-brand: #ea580c;
-    --po-hire-brand-soft: #fff7ed;
+    --po-hire-brand-soft: #fff3e6;
     --po-hire-border: #e2e8f0;
 }
 
@@ -306,8 +306,9 @@ body.po-hire-mode .section-title i {
     text-align: right;
 }
 
-.po-hire-sum-row.text-primary span:last-child {
-    color: #0369a1;
+.po-hire-sum-row.text-primary span:last-child,
+.po-hire-sum-row.text-tnc-orange span:last-child {
+    color: var(--po-hire-brand);
 }
 
 .po-hire-sum-row.text-danger span:last-child {
@@ -362,16 +363,20 @@ body.po-hire-mode .hire-table-scroll {
     }
 }
 
-body.po-hire-mode .btn-primary {
-    background: linear-gradient(180deg, #f97316 0%, #ea580c 100%);
+body.po-hire-mode .btn-primary,
+body.po-hire-mode .btn-orange {
+    background: linear-gradient(180deg, #ff922b 0%, var(--po-hire-brand) 100%);
     border: none;
     border-radius: 10px;
     font-weight: 600;
-    box-shadow: 0 2px 8px rgba(234, 88, 12, 0.25);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(253, 126, 20, 0.25);
 }
 
-body.po-hire-mode .btn-primary:hover {
-    background: linear-gradient(180deg, #ea580c 0%, #c2410c 100%);
+body.po-hire-mode .btn-primary:hover,
+body.po-hire-mode .btn-orange:hover {
+    background: linear-gradient(180deg, var(--po-hire-brand) 0%, #e8590c 100%);
+    color: #fff;
 }
 
 @media (max-width: 991.98px) {

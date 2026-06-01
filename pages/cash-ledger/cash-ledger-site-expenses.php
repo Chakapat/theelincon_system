@@ -137,21 +137,22 @@ foreach ($siteRows as $siteRow) {
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container pb-5">
-    <div class="no-print d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div class="tnc-page-head no-print mb-4 flex-wrap gap-3">
         <div>
-            <h4 class="fw-bold mb-1"><i class="bi bi-geo-alt text-warning me-2"></i>ค่าใช้จ่ายแต่ละไซต์</h4>
-            <div class="text-muted small">สรุปจากรายการรายจ่ายของเดือนที่เลือก</div>
+            <p class="tnc-page-kicker">Cash Ledger · Reports</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-geo-alt"></i></span>ค่าใช้จ่ายแต่ละไซต์</h1>
+            <div class="text-muted small mt-1">สรุปจากรายการรายจ่ายของเดือนที่เลือก</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <button type="button" class="btn btn-dark rounded-pill" onclick="window.print()">
                 <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
             </button>
-            <a href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php') . '?month=' . urlencode($month), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-primary rounded-pill">
+            <a href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php') . '?month=' . urlencode($month), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-orange rounded-pill">
                 <i class="bi bi-arrow-left me-1"></i>กลับหน้า Dashboard
             </a>
         </div>

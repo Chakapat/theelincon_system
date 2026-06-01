@@ -126,103 +126,131 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/hire-line-table.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/pr-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
         :root {
-            --pr-brand: #fd7e14;
-            --pr-brand-hover: #e86c00;
-            --pr-surface: #f8fafc;
-            --pr-card-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
-            --pr-border: #e8ecf1;
+            --pr-brand: var(--tnc-orange, #ea580c);
+            --pr-brand-hover: var(--tnc-orange-dark, #c2410c);
+            --pr-surface: var(--tnc-surface, #f6f7f9);
+            --pr-card-shadow: 0 0.28rem 0.9rem rgba(0, 0, 0, 0.045);
+            --pr-border: #e2e8f0;
+            --space-xs: 0.25rem;
+            --space-sm: 0.5rem;
+            --space-md: 1rem;
+            --space-lg: 1.5rem;
+            --space-xl: 2rem;
+            --space-2xl: 2.5rem;
         }
         body {
             background: var(--pr-surface);
             font-family: 'Sarabun', sans-serif;
-            color: #1e293b;
+            color: #0f172a;
         }
-        .pr-page { max-width: 1200px; }
+        .pr-page { max-width: min(1200px, 100%); }
         .pr-page.pr-page--wide {
             width: 100%;
             max-width: none;
         }
+        .pr-form-stack {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
+        }
+        .pr-page-header {
+            margin-bottom: var(--space-lg);
+            padding-bottom: var(--space-md);
+            border-bottom: 1px solid var(--pr-border);
+        }
         @media (min-width: 1200px) {
             .pr-page.pr-page--wide .pr-table-card {
-                padding: 1.35rem 1.15rem;
+                padding: var(--space-lg) var(--space-md);
             }
         }
         @media (min-width: 1600px) {
             .pr-page.pr-page--wide .pr-table-card {
-                padding: 1.5rem 1.35rem;
+                padding: var(--space-xl) var(--space-lg);
             }
         }
         .pr-page-title {
-            font-size: 1.5rem;
+            font-size: clamp(1.35rem, 2.5vw, 1.5rem);
             font-weight: 700;
             letter-spacing: -0.02em;
             color: #0f172a;
+            line-height: 1.25;
+        }
+        .pr-page-title__icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.35rem;
+            height: 2.35rem;
+            border-radius: 0.625rem;
+            background: rgba(253, 126, 20, 0.12);
+            color: var(--pr-brand);
+            font-size: 1.05rem;
+            vertical-align: -0.12em;
         }
         .pr-card {
             background: #fff;
-            border: 1px solid var(--pr-border);
-            border-radius: 1rem;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 0.875rem;
             box-shadow: var(--pr-card-shadow);
-            padding: 1.5rem 1.75rem;
+            padding: var(--space-lg);
         }
-        .pr-card + .pr-card { margin-top: 1.25rem; }
+        .pr-section-head {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            margin: 0 0 var(--space-md);
+        }
         .pr-field-label {
             font-size: 0.8rem;
             font-weight: 600;
             color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            margin-bottom: 0.4rem;
+            letter-spacing: 0.01em;
+            margin-bottom: 0.35rem;
         }
-        .pr-doc-row .form-control {
+        .pr-meta-grid .form-control,
+        .pr-meta-grid .form-select {
             border-radius: 0.5rem;
             border-color: var(--pr-border);
-            padding: 0.65rem 0.85rem;
         }
-        .pr-doc-row .form-control:focus {
+        .pr-meta-grid .form-control:focus,
+        .pr-meta-grid .form-select:focus {
             border-color: var(--pr-brand);
             box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.15);
         }
-        .pr-doc-row .form-control[readonly] {
+        .pr-meta-grid .form-control[readonly] {
             background: #f8fafc;
             font-weight: 600;
             color: var(--pr-brand);
         }
-        .pr-sidebar-card {
-            background: #fff;
-            border: none;
-            border-left: 4px solid var(--pr-brand);
-            border-radius: 1rem;
-            box-shadow: var(--pr-card-shadow);
-            padding: 1.5rem 1.75rem;
-            height: 100%;
+        .pr-meta-grid {
+            --bs-gutter-y: 0.75rem;
+            --bs-gutter-x: 0.75rem;
         }
-        .pr-sidebar-card .form-label,
-        .pr-sidebar-card label {
-            color: #64748b;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
+        .pr-meta-grid .form-text {
+            font-size: 0.72rem;
+            margin-top: 0.25rem;
+            line-height: 1.35;
         }
-        .pr-sidebar-card hr {
-            border-color: var(--pr-border);
-            margin: 1rem 0;
+        .pr-meta-grid textarea.form-control {
+            min-height: 3.25rem;
         }
-        .pr-sidebar-card .form-check-label {
-            color: #334155;
-            text-transform: none;
-            letter-spacing: normal;
-            font-size: 0.95rem;
-        }
-        .pr-sidebar-card .form-select {
-            border-radius: 0.5rem;
-            border-color: var(--pr-border);
+        @media (max-width: 575.98px) {
+            .pr-page-header .d-flex.gap-2 {
+                width: 100%;
+            }
+            .pr-page-header .btn-pr-primary,
+            .pr-page-header .btn-pr-cancel {
+                flex: 1 1 calc(50% - 0.25rem);
+                justify-content: center;
+            }
         }
         .pr-table-card .table {
             margin-bottom: 0;
@@ -488,42 +516,17 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
             margin-left: 0.2rem;
             vertical-align: baseline;
         }
-        /* การ์ดข้อมูลหัวฟอร์ม PR — กะทัดรัด */
+        /* การ์ดข้อมูลหัวฟอร์ม PR */
         .pr-card-meta-compact {
-            padding: 1rem 1.2rem;
-            border-radius: 0.85rem;
-        }
-        .pr-card-meta-compact .row {
-            --bs-gutter-y: 0.65rem;
-            --bs-gutter-x: 0.75rem;
-        }
-        .pr-card-meta-compact .pr-field-label {
-            font-size: 0.72rem;
-            margin-bottom: 0.28rem;
-        }
-        .pr-card-meta-compact .form-select,
-        .pr-card-meta-compact .form-control {
-            font-size: 0.875rem;
-            padding: 0.4rem 0.65rem;
-        }
-        .pr-card-meta-compact .form-text {
-            font-size: 0.72rem;
-            margin-top: 0.25rem;
-            line-height: 1.35;
-        }
-        .pr-card-meta-compact textarea.form-control {
-            min-height: 3.25rem;
-        }
-        .pr-card-meta-compact .form-check {
-            margin-bottom: 0.25rem;
+            padding: var(--space-md) var(--space-lg);
         }
     </style>
 </head>
-<body>
+<body class="purchase-module tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
-<div class="container pr-page mt-4 mb-5 py-2" id="pr_page_root">
+<div class="container pr-page pr-page--wide mt-4 mb-5" id="pr_page_root">
     <?php if (!empty($_GET['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <?php
@@ -534,6 +537,8 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                 echo 'อัปโหลดไฟล์แนบไม่สำเร็จ กรุณาลองใหม่';
             } elseif ($err === 'need_site') {
                 echo 'กรุณาเลือกไซต์งาน';
+            } elseif ($err === 'need_cost_category') {
+                echo 'กรุณาเลือกหมวดค่าใช้จ่าย (หัวข้อย่อยของไซต์) — ไม่สามารถบันทึกแบบ «ไม่ระบุหมวด» ได้';
             } elseif ($err === 'no_items') {
                 echo 'กรุณาระบุอย่างน้อย 1 รายการสินค้าที่มีรายละเอียดและจำนวนมากกว่า 0 (ราคาต่อหน่วยใส่ 0 ได้หากยังไม่ทราบราคา — กรอกราคาจริงตอนสร้าง PO)';
             } elseif ($err === 'invalid_hire' || $err === 'hire_invalid') {
@@ -557,98 +562,93 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
             <input type="hidden" name="pr_id" value="<?= (int) $editId ?>">
         <?php endif; ?>
         <input type="hidden" name="send_line_after_save" id="send_line_after_save" value="0">
-        <div class="pr-page-header d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4 pb-1">
+        <div class="pr-page-header d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
-                <h1 class="pr-page-title mb-0" id="pr_page_title">
-                    <?= $requestTypeVal === 'hire'
+                <h1 class="pr-page-title mb-1" id="pr_page_title">
+                    <span class="pr-page-title__icon me-2" aria-hidden="true"><i class="bi bi-cart-plus"></i></span>
+                    <span id="pr_page_title_text"><?= $requestTypeVal === 'hire'
                         ? ($isEdit ? 'แก้ไขใบขอจัดจ้าง (PR)' : 'สร้างใบขอจัดจ้าง (PR)')
-                        : ($isEdit ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)') ?>
+                        : ($isEdit ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)') ?></span>
                 </h1>
+                <p class="small text-muted mb-0">กรอกข้อมูลเอกสารและรายการ แล้วกดบันทึก</p>
             </div>
-            <div class="d-flex flex-wrap gap-2">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
                 <button type="button" class="btn btn-pr-primary" id="btnPrSaveOpenModal" <?= count($sites) === 0 ? 'disabled' : '' ?>><i class="bi bi-save me-1"></i><?= $requestTypeVal === 'hire' ? 'บันทึกใบขอจัดจ้าง' : 'บันทึกใบขอซื้อ' ?></button>
-                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-danger rounded-pill fw-semibold px-4"><i class="bi bi-x-circle me-1"></i>ยกเลิก</a>
+                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-pr-cancel"><i class="bi bi-x-circle me-1"></i>ยกเลิก</a>
             </div>
         </div>
 
-        <div class="pr-card pr-doc-row mb-4">
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <label class="pr-field-label">เลขที่ใบขอซื้อ</label>
-                    <input type="text" name="pr_number" class="form-control" value="<?= $current_pr_number ?>" readonly>
+        <div class="pr-form-stack">
+        <div class="pr-card pr-card-meta-compact">
+            <h2 class="pr-section-head">ข้อมูลเอกสาร</h2>
+            <div class="row pr-meta-grid">
+                <div class="col-md-6 col-lg-4">
+                    <label class="pr-field-label" for="pr_number_field">เลขที่ใบขอซื้อ</label>
+                    <input type="text" name="pr_number" id="pr_number_field" class="form-control form-control-sm" value="<?= $current_pr_number ?>" readonly>
                 </div>
-                <div class="col-md-6">
-                    <label class="pr-field-label" id="request_date_label">วันที่ขอซื้อ</label>
-                    <input type="text" name="created_at" id="created_at" class="form-control" value="<?= htmlspecialchars($createdAtDisplay, ENT_QUOTES, 'UTF-8') ?>" required>
+                <div class="col-md-6 col-lg-4">
+                    <label class="pr-field-label" for="created_at" id="request_date_label">วันที่ขอซื้อ</label>
+                    <input type="text" name="created_at" id="created_at" class="form-control form-control-sm" value="<?= htmlspecialchars($createdAtDisplay, ENT_QUOTES, 'UTF-8') ?>" required>
                 </div>
-            </div>
-        </div>
-
-        <div class="row g-3 mb-3">
-            <div class="col-12">
-                <div class="pr-card pr-card-meta-compact h-100">
-                    <div class="row g-2 g-md-3">
-                        <div class="col-md-6">
-                            <label class="pr-field-label">ประเภทคำขอ</label>
-                            <select name="request_type" id="request_type" class="form-select form-select-sm">
-                                <option value="purchase"<?= $requestTypeVal === 'purchase' ? ' selected' : '' ?>>จัดซื้อ (Purchase)</option>
-                                <option value="hire"<?= $requestTypeVal === 'hire' ? ' selected' : '' ?>>จัดจ้าง (Hire)</option>
-                            </select>
-                            <?php if ($isEdit): ?>
-                                <div class="form-text">เปลี่ยนประเภทได้ก่อนออก PO — ระบบจะบันทึกตามประเภทที่เลือก</div>
-                            <?php endif; ?>
-                        </div>
-                        <?php if (count($sites) > 0): ?>
-                        <div class="col-md-6">
-                            <label class="pr-field-label">ไซต์งาน <span class="text-danger">*</span></label>
-                            <select name="site_id" id="site_id" class="form-select form-select-sm" required>
-                                <option value="" disabled<?= $editSiteId <= 0 ? ' selected' : '' ?>>— เลือกไซต์งาน —</option>
-                                <?php foreach ($sites as $site): ?>
-                                    <?php $sid = (int) ($site['id'] ?? 0); ?>
-                                    <?php if ($sid <= 0) { continue; } ?>
-                                    <option value="<?= $sid ?>"<?= $sid === $editSiteId ? ' selected' : '' ?>><?= htmlspecialchars((string) ($site['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <?php endif; ?>
-                        <div class="col-md-6">
-                            <label class="pr-field-label">หมวดค่าใช้จ่าย <span class="text-muted small fw-normal">(หัวข้อย่อยของไซต์)</span></label>
-                            <select name="cost_category_id" id="cost_category_id" class="form-select form-select-sm">
-                                <option value="0">— ไม่ระบุหมวด —</option>
-                            </select>
-                            <div class="form-text">เลือกไซต์ก่อน แล้วระบบจะแสดงหมวดที่ใช้ได้ — เพิ่มหมวดได้ที่หน้า «ไซต์งาน»</div>
-                        </div>
-                        <div class="col-md-6 d-none" id="hire_field_contractor">
-                            <label class="pr-field-label" for="contractor_search">ผู้รับจ้าง <span class="text-danger">*</span></label>
-                            <div class="input-group input-group-sm">
-                                <input type="text" id="contractor_search" class="form-control" list="contractor_list" value="<?= htmlspecialchars($hireContractorSearchEdit, ENT_QUOTES, 'UTF-8') ?>" placeholder="พิมพ์ชื่อหรือเลขบัตร แล้วเลือกจากรายการ" autocomplete="off">
-                                <a href="<?= htmlspecialchars(app_path('pages/contractors/contractor-form.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="btn btn-outline-secondary" title="เพิ่มผู้รับจ้าง"><i class="bi bi-person-plus"></i></a>
-                            </div>
-                            <datalist id="contractor_list">
-                                <?php foreach ($contractorRows as $contractorRow): ?>
-                                    <option value="<?= htmlspecialchars(tnc_contractor_display_label($contractorRow), ENT_QUOTES, 'UTF-8') ?>" data-id="<?= (int) ($contractorRow['id'] ?? 0) ?>"></option>
-                                <?php endforeach; ?>
-                            </datalist>
-                            <input type="hidden" name="contractor_id" id="contractor_id" value="<?= (int) $hireContractorIdEdit ?>">
-                            <div class="form-text">เลือกจาก<a href="<?= htmlspecialchars(app_path('pages/contractors/contractor-list.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">ทะเบียนผู้รับจ้าง</a> — ทุกช่องต้องลงทะเบียนครบก่อนใช้งาน</div>
-                        </div>
-                        <div class="col-md-6 d-none" id="hire_field_installment">
-                            <label class="pr-field-label" for="installment_total">จำนวนงวดชำระ <span class="text-danger">*</span></label>
-                            <input type="number" name="installment_total" id="installment_total" class="form-control form-control-sm text-end" min="1" max="120" value="<?= (int) $hireInstallEdit ?>">
-                        </div>
-                        <input type="hidden" name="contract_value" id="contract_value" value="<?= $hireValueEdit > 0 ? htmlspecialchars((string) $hireValueEdit, ENT_QUOTES, 'UTF-8') : '0' ?>">
-                        <div class="col-12">
-                            <label class="pr-field-label" id="details_label"><?= $requestTypeVal === 'hire' ? 'เงื่อนไขการชำระเงิน / ขอบเขตการทำงาน' : 'รายละเอียด/วัตถุประสงค์' ?><?= $requestTypeVal === 'hire' ? ' <span class="text-danger">*</span>' : '' ?></label>
-                            <textarea name="details" id="details_textarea" class="form-control form-control-sm" rows="<?= $requestTypeVal === 'hire' ? 4 : 2 ?>" placeholder="<?= $requestTypeVal === 'hire' ? 'ระบุเงื่อนไขการชำระเงิน และขอบเขตการทำงาน' : '' ?>"<?= $requestTypeVal === 'hire' ? ' required' : '' ?>><?= htmlspecialchars($editDetails, ENT_QUOTES, 'UTF-8') ?></textarea>
-                        </div>
+                <div class="col-md-6 col-lg-4">
+                    <label class="pr-field-label" for="request_type">ประเภทคำขอ</label>
+                    <select name="request_type" id="request_type" class="form-select form-select-sm">
+                        <option value="purchase"<?= $requestTypeVal === 'purchase' ? ' selected' : '' ?>>จัดซื้อ (Purchase)</option>
+                        <option value="hire"<?= $requestTypeVal === 'hire' ? ' selected' : '' ?>>จัดจ้าง (Hire)</option>
+                    </select>
+                    <?php if ($isEdit): ?>
+                        <div class="form-text">เปลี่ยนประเภทได้ก่อนออก PO</div>
+                    <?php endif; ?>
+                </div>
+                <?php if (count($sites) > 0): ?>
+                <div class="col-md-6 col-lg-6">
+                    <label class="pr-field-label" for="site_id">ไซต์งาน <span class="text-danger">*</span></label>
+                    <select name="site_id" id="site_id" class="form-select form-select-sm" required>
+                        <option value="" disabled<?= $editSiteId <= 0 ? ' selected' : '' ?>>— เลือกไซต์งาน —</option>
+                        <?php foreach ($sites as $site): ?>
+                            <?php $sid = (int) ($site['id'] ?? 0); ?>
+                            <?php if ($sid <= 0) { continue; } ?>
+                            <option value="<?= $sid ?>"<?= $sid === $editSiteId ? ' selected' : '' ?>><?= htmlspecialchars((string) ($site['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <?php endif; ?>
+                <div class="col-md-6 col-lg-6">
+                    <label class="pr-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span> <span class="text-muted small fw-normal">(หัวข้อย่อยของไซต์)</span></label>
+                    <select name="cost_category_id" id="cost_category_id" class="form-select form-select-sm"<?= count($sites) > 0 ? ' required' : '' ?>>
+                        <option value="" disabled<?= $editCostCategoryId <= 0 ? ' selected' : '' ?>>— เลือกหมวด —</option>
+                    </select>
+                    <div class="form-text">เลือกไซต์ก่อน — เพิ่มหมวดได้ที่หน้า <a href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">«ไซต์งาน»</a></div>
+                </div>
+                <div class="col-md-6 d-none" id="hire_field_contractor">
+                    <label class="pr-field-label" for="contractor_search">ผู้รับจ้าง <span class="text-danger">*</span></label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="contractor_search" class="form-control" list="contractor_list" value="<?= htmlspecialchars($hireContractorSearchEdit, ENT_QUOTES, 'UTF-8') ?>" placeholder="พิมพ์ชื่อหรือเลขบัตร แล้วเลือกจากรายการ" autocomplete="off">
+                        <a href="<?= htmlspecialchars(app_path('pages/contractors/contractor-form.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="btn btn-outline-secondary" title="เพิ่มผู้รับจ้าง"><i class="bi bi-person-plus"></i></a>
                     </div>
+                    <datalist id="contractor_list">
+                        <?php foreach ($contractorRows as $contractorRow): ?>
+                            <option value="<?= htmlspecialchars(tnc_contractor_display_label($contractorRow), ENT_QUOTES, 'UTF-8') ?>" data-id="<?= (int) ($contractorRow['id'] ?? 0) ?>"></option>
+                        <?php endforeach; ?>
+                    </datalist>
+                    <input type="hidden" name="contractor_id" id="contractor_id" value="<?= (int) $hireContractorIdEdit ?>">
+                    <div class="form-text">เลือกจาก<a href="<?= htmlspecialchars(app_path('pages/contractors/contractor-list.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">ทะเบียนผู้รับจ้าง</a></div>
+                </div>
+                <div class="col-md-6 d-none" id="hire_field_installment">
+                    <label class="pr-field-label" for="installment_total">จำนวนงวดชำระ <span class="text-danger">*</span></label>
+                    <input type="number" name="installment_total" id="installment_total" class="form-control form-control-sm text-end" min="1" max="120" value="<?= (int) $hireInstallEdit ?>">
+                </div>
+                <input type="hidden" name="contract_value" id="contract_value" value="<?= $hireValueEdit > 0 ? htmlspecialchars((string) $hireValueEdit, ENT_QUOTES, 'UTF-8') : '0' ?>">
+                <div class="col-12">
+                    <label class="pr-field-label" id="details_label" for="details_textarea"><?= $requestTypeVal === 'hire' ? 'เงื่อนไขการชำระเงิน / ขอบเขตการทำงาน' : 'รายละเอียด/วัตถุประสงค์' ?><?= $requestTypeVal === 'hire' ? ' <span class="text-danger">*</span>' : '' ?></label>
+                    <textarea name="details" id="details_textarea" class="form-control form-control-sm" rows="<?= $requestTypeVal === 'hire' ? 4 : 2 ?>" placeholder="<?= $requestTypeVal === 'hire' ? 'ระบุเงื่อนไขการชำระเงิน และขอบเขตการทำงาน' : '' ?>"<?= $requestTypeVal === 'hire' ? ' required' : '' ?>><?= htmlspecialchars($editDetails, ENT_QUOTES, 'UTF-8') ?></textarea>
                 </div>
             </div>
         </div>
 
         <div class="pr-card pr-table-card" id="item_table_card">
             <div id="pr_lines_wrap">
-                <h2 class="h6 fw-bold text-secondary mb-3 text-uppercase" style="letter-spacing:0.05em;">รายการสินค้า</h2>
+                <h2 class="pr-section-head">รายการสินค้า</h2>
                 <div class="table-responsive">
             <table class="table align-middle" id="prTable">
                 <thead>
@@ -714,7 +714,7 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
             </div>
 
             <div id="hire_lines_wrap" class="d-none hire-lines-section" data-tnc-hire-root>
-                <h2 class="h6 fw-bold text-secondary mb-3 text-uppercase" style="letter-spacing:0.05em;">รายการงานจัดจ้าง</h2>
+                <h2 class="pr-section-head">รายการงานจัดจ้าง</h2>
                 <div class="hire-table-panel">
                     <div class="table-responsive hire-table-scroll">
                     <table class="table align-middle table-hire-lines" id="hirePrTable">
@@ -821,6 +821,7 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                 <input type="hidden" name="total_amount" id="total_amount_input" value="0">
             </div>
         </div>
+        </div><!-- /.pr-form-stack -->
 
     </form>
 
@@ -1130,10 +1131,10 @@ function toggleRequestTypeFields() {
     const isHire = getPrRequestType() === 'hire';
     const isEditMode = <?= $isEdit ? 'true' : 'false' ?>;
 
-    const pageTitle = document.getElementById('pr_page_title');
+    const pageTitleText = document.getElementById('pr_page_title_text');
     const saveBtn = document.getElementById('btnPrSaveOpenModal');
-    if (pageTitle) {
-        pageTitle.textContent = isHire
+    if (pageTitleText) {
+        pageTitleText.textContent = isHire
             ? (isEditMode ? 'แก้ไขใบขอจัดจ้าง (PR)' : 'สร้างใบขอจัดจ้าง (PR)')
             : (isEditMode ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)');
     }
@@ -1361,21 +1362,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function populateCategories() {
         var siteId = siteEl ? parseInt(siteEl.value || '0', 10) || 0 : 0;
-        var list = catMap[siteId] || catMap[0] || [];
         var prev = parseInt(catEl.value || '0', 10) || selectedCatId || 0;
-        catEl.innerHTML = '<option value="0">— ไม่ระบุหมวด —</option>';
+        catEl.innerHTML = '';
+        if (siteId <= 0) {
+            catEl.disabled = true;
+            catEl.innerHTML = '<option value="" disabled selected>— เลือกไซต์ก่อน —</option>';
+            return;
+        }
+        catEl.disabled = false;
+        var list = catMap[siteId] || catMap[0] || [];
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.disabled = true;
+        placeholder.textContent = '— เลือกหมวด —';
+        catEl.appendChild(placeholder);
+        var hasPrev = false;
         list.forEach(function (c) {
             var opt = document.createElement('option');
             opt.value = c.id;
             opt.textContent = c.name;
-            if (c.id === prev) opt.selected = true;
+            if (c.id === prev) {
+                opt.selected = true;
+                hasPrev = true;
+            }
             catEl.appendChild(opt);
         });
-        // ถ้าค่าที่เคยเลือกไม่อยู่ในไซต์ใหม่ ให้กลับเป็นไม่ระบุ
-        if (![].some.call(catEl.options, function (o) { return o.selected; })) {
-            catEl.value = '0';
+        if (!hasPrev) {
+            placeholder.selected = true;
         }
-        selectedCatId = 0; // ใช้ค่าเริ่มต้นครั้งเดียว
+        selectedCatId = 0;
     }
 
     if (siteEl) {

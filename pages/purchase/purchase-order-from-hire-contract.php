@@ -67,7 +67,7 @@ $submitLabel = $remainingInstallments === 0 ? 'ออกครบทุกงว
 $hireRemainingOver = $hireContractRemaining < -0.0005;
 $hireRemainingCss = $hireRemainingOver
     ? 'text-danger fw-bold'
-    : ($hireContractRemaining <= 0.0005 ? 'text-success fw-bold' : 'text-primary fw-bold');
+    : ($hireContractRemaining <= 0.0005 ? 'text-success fw-bold' : 'text-tnc-orange fw-bold');
 
 $supplier_rows = Db::tableRows('suppliers');
 Db::sortRows($supplier_rows, 'name', false);
@@ -86,20 +86,20 @@ $viewHcUrl = app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . 
     <title>ใบสั่งจ่าย PO (สัญญาจ้างอิสระ)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/hire-line-table.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/pr-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
-        body { background: #f8fafc; font-family: 'Sarabun', system-ui, sans-serif; min-height: 100vh; }
         .po-hire-shell { max-width: 720px; }
         .section-card { border: 1px solid #e9ecef; border-radius: 12px; background: #fff; }
-        .section-title { font-size: 1rem; font-weight: 700; color: #0d6efd; margin-bottom: 12px; }
+        .section-title { font-size: 1rem; font-weight: 700; color: var(--tnc-orange); margin-bottom: 12px; }
     </style>
 </head>
-<body class="po-hire-mode">
+<body class="po-hire-mode purchase-module tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
     <div class="container-fluid px-3 px-lg-4 py-4 py-md-5">
         <div class="row justify-content-center">
@@ -280,7 +280,7 @@ $viewHcUrl = app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . 
                                     </div>
                                     <div class="hire-lines-toolbar">
                                         <button type="button" class="btn btn-sm btn-outline-secondary" id="addHireGroupBtn" data-tnc-hire-add="group"><i class="bi bi-folder-plus me-1"></i>เพิ่มหัวข้อหลัก</button>
-                                        <button type="button" class="btn btn-sm btn-outline-primary" id="addHireRowBtn" data-tnc-hire-add="item"><i class="bi bi-plus-circle me-1"></i>เพิ่มรายการย่อย</button>
+                                        <button type="button" class="btn btn-sm btn-outline-orange" id="addHireRowBtn" data-tnc-hire-add="item"><i class="bi bi-plus-circle me-1"></i>เพิ่มรายการย่อย</button>
                                     </div>
                                 </div>
                             </div>
@@ -302,7 +302,7 @@ $viewHcUrl = app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . 
                                 </div>
                                 <div class="po-hire-totals-card">
                                     <div class="po-hire-sum-row"><span>ยอดรวม (Subtotal)</span><span id="subtotal_text">0.00</span></div>
-                                    <div class="po-hire-sum-row text-primary"><span>VAT (+)</span><span id="vat_text">0.00</span></div>
+                                    <div class="po-hire-sum-row text-tnc-orange"><span>VAT (+)</span><span id="vat_text">0.00</span></div>
                                     <div class="po-hire-sum-row border-bottom pb-2 mb-1"><span class="text-muted fw-semibold">ยอดรวม VAT</span><span id="total_after_vat_text">0.00</span></div>
                                     <div id="retention_summary_row" class="po-hire-sum-row text-danger" style="display:none;"><span>หักประกันผลงาน (-)</span><span id="retention_display">0.00</span></div>
                                     <div class="po-hire-grand-row">
@@ -319,7 +319,7 @@ $viewHcUrl = app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . 
                         </div>
 
                         <div class="d-grid gap-2 mt-2">
-                            <button type="submit" class="btn btn-primary btn-lg shadow"<?= $submitDisabled ? ' disabled' : '' ?>><?= htmlspecialchars($submitLabel, ENT_QUOTES, 'UTF-8') ?></button>
+                            <button type="submit" class="btn btn-orange btn-lg shadow"<?= $submitDisabled ? ' disabled' : '' ?>><?= htmlspecialchars($submitLabel, ENT_QUOTES, 'UTF-8') ?></button>
                             <a href="<?= htmlspecialchars($viewHcUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light">กลับไปดูสัญญา</a>
                             <a href="<?= htmlspecialchars($listUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary">รายการสัญญาจ้าง</a>
                         </div>
@@ -442,13 +442,13 @@ $viewHcUrl = app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . 
         const projected = Math.round((remaining - net) * 100) / 100;
         const fmt = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
         hireRemainingDisplay.textContent = projected.toLocaleString(undefined, fmt) + ' บาท';
-        hireRemainingDisplay.classList.remove('text-danger', 'text-success', 'text-primary', 'fw-bold');
+        hireRemainingDisplay.classList.remove('text-danger', 'text-success', 'text-tnc-orange', 'fw-bold');
         if (projected < -0.0005) {
             hireRemainingDisplay.classList.add('text-danger', 'fw-bold');
         } else if (projected <= 0.0005) {
             hireRemainingDisplay.classList.add('text-success', 'fw-bold');
         } else {
-            hireRemainingDisplay.classList.add('text-primary', 'fw-bold');
+            hireRemainingDisplay.classList.add('text-tnc-orange', 'fw-bold');
         }
     };
 
@@ -495,4 +495,5 @@ $viewHcUrl = app_path('pages/hire-contracts/hire-contract-view.php') . '?id=' . 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 

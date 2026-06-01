@@ -477,7 +477,7 @@ if ($printType === 'sales' || $printType === 'purchase') {
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <div class="vat-print-toolbar py-2 px-3 mb-0 d-flex flex-wrap gap-2 align-items-center justify-content-between no-print">
     <span class="small"><i class="bi bi-printer me-1"></i><?= h($printTitle) ?></span>
     <div class="d-flex flex-wrap gap-2">
@@ -563,77 +563,85 @@ if ($printType === 'sales' || $printType === 'purchase') {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Sarabun', sans-serif; background: #f7f8fa; }
-        .card-soft { border: 0; border-radius: 14px; box-shadow: 0 5px 18px rgba(15, 23, 42, 0.08); }
-        .table thead th { white-space: nowrap; font-size: .82rem; }
-        .btn-export-modern {
-            border: 0;
-            border-radius: 999px;
-            padding: .55rem 1rem;
-            font-weight: 700;
-            color: #fff;
-            background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
-            box-shadow: 0 8px 20px rgba(34, 197, 94, .28);
+        .card-soft {
+            border: 1px solid var(--tnc-orange-border, #fdba74);
+            border-radius: 0.875rem;
+            background: #fff;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
         }
-        .btn-export-modern:hover { color: #fff; filter: brightness(1.03); }
-        .btn-print-modern {
-            border-radius: 999px;
-            padding: .55rem 1rem;
+        .report-summary-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .report-badge {
+            font-size: 0.8125rem;
             font-weight: 600;
+            padding: 0.35rem 0.75rem;
+            border-radius: 50rem;
+            border: 1px solid var(--tnc-border-soft, #e2e8f0);
+            background: #fff;
+            color: var(--tnc-body-ink, #1f2937);
+        }
+        .report-badge--sales { background: var(--tnc-orange-soft, #ffedd5); color: var(--tnc-orange-dark, #9a3412); border-color: var(--tnc-orange-border, #fdba74); }
+        .report-badge--purchase { background: #e6f4ea; color: #1e7e34; border-color: #b7dfc4; }
+        .report-badge--diff { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+        .report-badge--refund { background: #e0f2fe; color: #0369a1; border-color: #7dd3fc; }
+        .table thead th { white-space: nowrap; font-size: 0.8125rem; }
+        #vatSalesTable thead th,
+        #vatPurchaseTable thead th {
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            border-bottom: 2px solid var(--tnc-orange-border, #fdba74);
+            font-weight: 700;
         }
         .dataTables_wrapper .dataTables_paginate .paginate_button.current {
-            background: #0d6efd !important;
-            border-color: #0d6efd !important;
+            background: var(--tnc-orange, #ea580c) !important;
+            border-color: var(--tnc-orange, #ea580c) !important;
             color: #fff !important;
         }
         .dataTables_wrapper .dataTables_paginate {
             float: none !important;
             text-align: center !important;
-            padding-top: .5rem;
+            padding-top: 0.5rem;
         }
         .dataTables_wrapper .dataTables_info {
             float: none !important;
             text-align: center;
-            padding-top: .5rem;
+            padding-top: 0.5rem;
         }
         .dataTables_wrapper .dataTables_length,
         .dataTables_wrapper .dataTables_filter {
             display: none;
         }
-        .vat-table-wrap .table {
-            margin-bottom: 0;
-        }
-        .vat-doc-link {
-            font-weight: 600;
-            text-decoration: none;
-        }
-        .vat-doc-link:hover {
-            text-decoration: underline;
-        }
+        .vat-table-wrap .table { margin-bottom: 0; }
+        .vat-doc-link { font-weight: 600; text-decoration: none; color: var(--tnc-orange, #ea580c); }
+        .vat-doc-link:hover { text-decoration: underline; color: var(--tnc-orange-dark, #9a3412); }
+        .vat-table-wrap .table td.text-end,
+        .vat-table-wrap .table th.text-end { font-variant-numeric: tabular-nums; }
         @media (max-width: 575.98px) {
             .card-soft .card-body { padding: 1rem; }
-            h4.fw-bold { font-size: 1.1rem; }
-            .btn-export-modern,
-            .btn-print-modern { width: 100%; justify-content: center; }
+            .report-actions .btn { width: 100%; justify-content: center; }
             .nav-tabs .nav-link { font-size: 0.85rem; padding: 0.45rem 0.65rem; }
         }
         @media (max-width: 767.98px) {
             .vat-table-wrap { margin: 0 -0.25rem; }
-            .table { font-size: 0.8rem; }
+            .table { font-size: 0.8125rem; }
         }
         @media (min-width: 1200px) {
             .container { max-width: 1140px; }
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
-<div class="container pb-5">
+<div class="container pb-5 pt-4">
+    <div class="tnc-page-head mb-3">
+        <div>
+            <p class="tnc-page-kicker">Reports · Accounting</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-receipt"></i></span>รายงานภาษีซื้อ / ภาษีขาย (VAT)</h1>
+        </div>
+    </div>
+
     <div class="card card-soft mb-3">
         <div class="card-body">
-            <h4 class="fw-bold mb-3"><i class="bi bi-receipt me-2 text-primary"></i>รายงานภาษีซื้อ / ภาษีขาย (VAT)</h4>
             <form method="get" class="row g-2 align-items-end">
                 <div class="col-6 col-md-2">
                     <label class="form-label small fw-semibold">เดือน</label>
@@ -656,34 +664,29 @@ if ($printType === 'sales' || $printType === 'purchase') {
                     <input type="date" name="end_date" class="form-control" value="<?= h($endDate) ?>">
                 </div>
                 <div class="col-12 col-md-2 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search me-1"></i>ค้นหารายงาน</button>
+                    <button type="submit" class="btn btn-orange w-100"><i class="bi bi-search me-1"></i>ค้นหารายงาน</button>
                 </div>
-                <div class="col-12 d-flex flex-wrap justify-content-end gap-2">
-                    <a href="<?= h($printSalesUrl) ?>" class="btn btn-outline-primary btn-print-modern">
+                <div class="col-12 d-flex flex-wrap justify-content-end gap-2 report-actions">
+                    <a href="<?= h($printSalesUrl) ?>" class="btn btn-outline-orange rounded-pill px-3">
                         <i class="bi bi-printer me-1"></i>พิมพ์ภาษีขาย
                     </a>
-                    <a href="<?= h($printPurchaseUrl) ?>" class="btn btn-outline-success btn-print-modern">
+                    <a href="<?= h($printPurchaseUrl) ?>" class="btn btn-outline-secondary rounded-pill px-3">
                         <i class="bi bi-printer me-1"></i>พิมพ์ภาษีซื้อ
                     </a>
                     <?php
                     $exportQuery = $_GET;
                     $exportQuery['export'] = 'csv';
                     ?>
-                    <a href="<?= h(app_path('pages/reports/vat-report.php') . '?' . http_build_query($exportQuery)) ?>" class="btn btn-export-modern">
-                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export (Excel / Google Sheets)
+                    <a href="<?= h(app_path('pages/reports/vat-report.php') . '?' . http_build_query($exportQuery)) ?>" class="btn btn-outline-success rounded-pill px-3 fw-semibold">
+                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
                     </a>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <div class="card card-soft mb-3">
-        <div class="card-body">
-            <div class="d-flex flex-wrap gap-3 align-items-center">
-                <span class="badge bg-light text-dark border">ช่วงข้อมูล: <?= h($periodText) ?></span>
-                <span class="badge bg-primary-subtle text-primary-emphasis">ภาษีขายรวม: <?= number_format($sumSalesVat, 2) ?></span>
-                <span class="badge bg-success-subtle text-success-emphasis">ภาษีซื้อรวม: <?= number_format($sumPurchaseVat, 2) ?></span>
-                <span class="badge <?= $vatDiff >= 0 ? 'bg-warning text-dark' : 'bg-info text-dark' ?>"><?= h($vatSummaryLabel) ?>: <?= number_format(abs($vatDiff), 2) ?></span>
+            <div class="report-summary-row mt-3 pt-3 border-top">
+                <span class="report-badge">ช่วงข้อมูล: <?= h($periodText) ?></span>
+                <span class="report-badge report-badge--sales">ภาษีขายรวม: <?= number_format($sumSalesVat, 2) ?></span>
+                <span class="report-badge report-badge--purchase">ภาษีซื้อรวม: <?= number_format($sumPurchaseVat, 2) ?></span>
+                <span class="report-badge <?= $vatDiff >= 0 ? 'report-badge--diff' : 'report-badge--refund' ?>"><?= h($vatSummaryLabel) ?>: <?= number_format(abs($vatDiff), 2) ?></span>
             </div>
         </div>
     </div>
@@ -691,11 +694,15 @@ if ($printType === 'sales' || $printType === 'purchase') {
     <div class="card card-soft mb-3">
         <div class="card-body">
             <ul class="nav nav-tabs mb-3" id="vatTabs" role="tablist">
-                <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-sales" type="button">ตารางภาษีขาย</button></li>
-                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-purchase" type="button">ตารางภาษีซื้อ</button></li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="vat-tab-sales" data-bs-toggle="tab" data-bs-target="#tab-sales" type="button" role="tab" aria-controls="tab-sales" aria-selected="true">ตารางภาษีขาย</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="vat-tab-purchase" data-bs-toggle="tab" data-bs-target="#tab-purchase" type="button" role="tab" aria-controls="tab-purchase" aria-selected="false">ตารางภาษีซื้อ</button>
+                </li>
             </ul>
             <div class="tab-content">
-                <div class="tab-pane fade show active" id="tab-sales">
+                <div class="tab-pane fade show active" id="tab-sales" role="tabpanel" aria-labelledby="vat-tab-sales" tabindex="0">
                     <div class="table-responsive vat-table-wrap">
                         <table class="table table-sm table-bordered align-middle" id="vatSalesTable">
                             <thead class="table-light">
@@ -714,7 +721,7 @@ if ($printType === 'sales' || $printType === 'purchase') {
                         </table>
                     </div>
                 </div>
-                <div class="tab-pane fade" id="tab-purchase">
+                <div class="tab-pane fade" id="tab-purchase" role="tabpanel" aria-labelledby="vat-tab-purchase" tabindex="0">
                     <div class="table-responsive vat-table-wrap">
                         <table class="table table-sm table-bordered align-middle" id="vatPurchaseTable">
                             <thead class="table-light">
@@ -761,10 +768,21 @@ if ($printType === 'sales' || $printType === 'purchase') {
             }
         };
         const salesTable = $('#vatSalesTable').DataTable(dtOptions);
-        const purchaseTable = $('#vatPurchaseTable').DataTable(dtOptions);
-        $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function () {
+        let purchaseTable = null;
+        $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
             salesTable.columns.adjust();
-            purchaseTable.columns.adjust();
+            const target = $(e.target).attr('data-bs-target');
+            if (target === '#tab-purchase') {
+                if (!purchaseTable) {
+                    purchaseTable = $('#vatPurchaseTable').DataTable(dtOptions);
+                } else {
+                    purchaseTable.columns.adjust();
+                }
+            }
+        });
+        $('#vatTabs button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+            $('#vatTabs button[role="tab"]').attr('aria-selected', 'false');
+            $(e.target).attr('aria-selected', 'true');
         });
     });
 </script>

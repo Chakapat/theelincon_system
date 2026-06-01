@@ -82,8 +82,7 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
             border-radius: 12px;
             box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
         }
-        .btn-orange { background-color: #fd7e14; color: white; border: none; border-radius: 12px; }
-        .btn-orange:hover { background-color: #e86c00; color: white; }
+        /* .btn-orange: tnc-app.css */
         .summary-card {
             background: #fff;
             border-radius: 12px;
@@ -184,7 +183,7 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
         .btn-icon-view:hover { background: #c8e6c9; color: #1b5e20; }
         .btn-icon-edit {
             background: #e7f1ff;
-            color: #0d6efd;
+            color: #ea580c;
         }
         .btn-icon-edit:hover { background: #cfe2ff; color: #0a58ca; }
         .btn-icon-delete {
@@ -204,16 +203,15 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
         #taxTable_wrapper .dataTables_info,
         #taxTable_wrapper .dataTables_paginate { padding-top: 0.75rem; }
 
-        /* —— Modal: สร้างใบกำกับภาษี (glass + search) —— */
+        /* —— Modal: สร้างใบกำกับภาษี (solid + search) —— */
         #tirCreateModal .modal-dialog {
             max-width: min(520px, calc(100vw - 1.5rem));
         }
         #tirCreateModal .tir-modal-glass {
             border-radius: 18px;
-            background: rgba(255, 255, 255, 0.78);
-            -webkit-backdrop-filter: blur(14px) saturate(140%);
-            backdrop-filter: blur(14px) saturate(140%);
-            box-shadow: 0 0.5rem 2.5rem rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+            background: #fff;
+            box-shadow: var(--tnc-shadow-md, 0 8px 28px rgba(15, 23, 42, 0.08));
+            border: 1px solid var(--tnc-orange-border, #fdba74);
         }
         #tirCreateModal .modal-header {
             padding: 1.25rem 1.35rem 0.5rem;
@@ -252,12 +250,11 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
             font-size: 1rem;
             border-radius: 14px;
             border: 1px solid rgba(15, 23, 42, 0.1);
-            background: rgba(255, 255, 255, 0.92);
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            background: #fff;
         }
         #tirCreateModal .tir-modal-ref-input:focus {
-            border-color: #fd7e14;
-            box-shadow: 0 0 0 4px rgba(253, 126, 20, 0.28);
+            border-color: #ea580c;
+            box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.2);
             outline: none;
             background: #fff;
         }
@@ -273,9 +270,7 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
             border-radius: 14px;
             border: 1px solid rgba(15, 23, 42, 0.08);
             box-shadow: 0 0.5rem 1.5rem rgba(15, 23, 42, 0.14);
-            background: rgba(255, 255, 255, 0.96);
-            -webkit-backdrop-filter: blur(8px);
-            backdrop-filter: blur(8px);
+            background: #fff;
         }
         #tirCreateModal .tir-modal-autocomplete .list-group-item {
             border: 0;
@@ -288,7 +283,7 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
         }
         #tirCreateModal .tir-modal-autocomplete .list-group-item:hover,
         #tirCreateModal .tir-modal-autocomplete .list-group-item:focus {
-            background: rgba(253, 126, 20, 0.09);
+            background: rgba(234, 88, 12, 0.09);
         }
         #tirCreateModal .tir-suggest-num { font-weight: 600; color: #0f172a; }
         #tirCreateModal .tir-suggest-meta { font-size: 0.78rem; color: #64748b; }
@@ -297,9 +292,9 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
             font-weight: 600;
             border-radius: 14px;
             border: none;
-            background: linear-gradient(135deg, #fd7e14 0%, #ff922b 100%);
+            background: linear-gradient(135deg, #ea580c 0%, #ff922b 100%);
             color: #fff;
-            box-shadow: 0 0.35rem 1rem rgba(253, 126, 20, 0.35);
+            box-shadow: 0 0.35rem 1rem rgba(234, 88, 12, 0.35);
             transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
         }
         #tirCreateModal .tir-modal-btn-search:hover:not(:disabled) {
@@ -316,15 +311,16 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
     </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-4 mb-5">
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h3 class="fw-bold mb-0">
-            <i class="bi bi-file-earmark-break-fill text-success me-2"></i>รายการใบกำกับภาษี
-        </h3>
+    <div class="tnc-page-head mb-4 flex-wrap gap-2">
+        <div>
+            <p class="tnc-page-kicker">Invoices · Tax</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-file-earmark-break-fill"></i></span>รายการใบกำกับภาษี</h1>
+        </div>
         <button type="button" class="btn btn-orange px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#tirCreateModal">
             <i class="bi bi-plus-lg me-1"></i>สร้างใบกำกับภาษี
         </button>

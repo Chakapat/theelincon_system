@@ -230,14 +230,14 @@ usort($list, static function (array $a, array $b): int {
             padding: .58rem .88rem;
         }
         .sites-input:focus {
-            border-color: #fd7e14;
+            border-color: #ea580c;
             box-shadow: 0 0 0 .2rem rgba(253, 126, 20, 0.14);
         }
         .sites-save-btn {
             min-height: 45px;
             border-radius: 10px;
             border: 0;
-            background: linear-gradient(135deg, #fd7e14, #f97316);
+            background: linear-gradient(135deg, #ea580c, #f97316);
             color: #fff;
             font-weight: 700;
             padding: .58rem 1rem;
@@ -310,7 +310,7 @@ usort($list, static function (array $a, array $b): int {
         .sites-table-card .dataTables_wrapper .dataTables_filter input:focus,
         .sites-table-card .dataTables_wrapper .dataTables_length select:focus {
             outline: none;
-            border-color: #fd7e14;
+            border-color: #ea580c;
             box-shadow: 0 0 0 .2rem rgba(253, 126, 20, 0.14);
         }
         .site-cat-panel {
@@ -330,7 +330,7 @@ usort($list, static function (array $a, array $b): int {
             font-size: .85rem;
             font-weight: 600;
         }
-        .site-cat-chip .bi { color: #fd7e14; font-size: .8rem; }
+        .site-cat-chip .bi { color: #ea580c; font-size: .8rem; }
         .site-cat-del {
             border: 0;
             background: rgba(239, 68, 68, 0.12);
@@ -347,7 +347,7 @@ usort($list, static function (array $a, array $b): int {
         }
         .site-cat-del:hover { background: rgba(239, 68, 68, 0.22); }
         .site-cat-input:focus {
-            border-color: #fd7e14;
+            border-color: #ea580c;
             box-shadow: 0 0 0 .2rem rgba(253, 126, 20, 0.14);
         }
         @media (max-width: 767.98px) {
@@ -367,7 +367,7 @@ usort($list, static function (array $a, array $b): int {
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container pb-5 sites-page-wrap">
     <?php if (isset($_GET['created'])): ?>
@@ -390,8 +390,11 @@ usort($list, static function (array $a, array $b): int {
         <div class="alert alert-success">ลบหัวข้อย่อยเรียบร้อยแล้ว</div>
     <?php endif; ?>
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-        <h4 class="fw-bold mb-0"><i class="bi bi-geo-alt me-2 text-warning"></i>ไซต์งาน / สถานที่ทำงาน</h4>
+    <div class="tnc-page-head mb-4">
+        <div>
+            <p class="tnc-page-kicker">Organization</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-geo-alt"></i></span>ไซต์งาน / สถานที่ทำงาน</h1>
+        </div>
     </div>
     <div class="card sites-add-card mb-4">
         <div class="card-body p-4">

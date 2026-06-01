@@ -84,7 +84,7 @@ $pageTitle = $isEdit ? 'แก้ไขรายงานหน้างาน' 
         .sec-title { font-size: 0.95rem; font-weight: 700; color: #c2410c; letter-spacing: .02em; }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 

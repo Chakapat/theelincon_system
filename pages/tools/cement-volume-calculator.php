@@ -31,12 +31,12 @@ if (!isset($_SESSION['user_id'])) {
         }
         .formula-box {
             font-size: 0.9rem;
-            border-left: 4px solid #fd7e14;
+            border-left: 4px solid #ea580c;
             padding-left: 1rem;
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -45,7 +45,12 @@ if (!isset($_SESSION['user_id'])) {
         <div class="col-lg-9">
             <div class="card calc-card mb-4">
                 <div class="card-body p-4">
-                    <h4 class="fw-bold mb-1"><i class="bi bi-columns-gap text-warning me-2"></i>คำนวณปริมาตรคอนกรีต (คิว)</h4>
+                    <div class="tnc-page-head mb-3">
+                        <div>
+                            <p class="tnc-page-kicker">Tools</p>
+                            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-columns-gap"></i></span>คำนวณปริมาตรคอนกรีต (คิว)</h1>
+                        </div>
+                    </div>
                     <ul class="nav nav-pills gap-2 mb-4 flex-wrap" id="calcTabs" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active rounded-pill px-4" id="pillar-tab" data-bs-toggle="pill" data-bs-target="#pillar-pane" type="button" role="tab" aria-controls="pillar-pane" aria-selected="true">ปูนเทเสา</button>
@@ -100,7 +105,7 @@ if (!isset($_SESSION['user_id'])) {
                                     </div>
                                     <div class="col-md-6">
                                         <div class="text-muted small mb-1">ปริมาตรหลังเผื่อสำรอง (ยังไม่ปัดขึ้น)</div>
-                                        <div class="fs-4 fw-bold" style="color: #e8590c;"><span id="p_vol_spare_raw">0.000</span> <span class="fs-6">คิว</span></div>
+                                        <div class="fs-4 fw-bold" style="color: #c2410c;"><span id="p_vol_spare_raw">0.000</span> <span class="fs-6">คิว</span></div>
                                     </div>
                                 </div>
                                 <hr class="my-3 opacity-50">
@@ -147,7 +152,7 @@ if (!isset($_SESSION['user_id'])) {
                                     </div>
                                     <div class="col-md-6">
                                         <div class="text-muted small mb-1">ปริมาตรหลังเผื่อสำรอง (ยังไม่ปัดขึ้น)</div>
-                                        <div class="fs-4 fw-bold" style="color: #e8590c;"><span id="f_vol_spare_raw">0.000</span> <span class="fs-6">คิว</span></div>
+                                        <div class="fs-4 fw-bold" style="color: #c2410c;"><span id="f_vol_spare_raw">0.000</span> <span class="fs-6">คิว</span></div>
                                     </div>
                                 </div>
                                 <hr class="my-3 opacity-50">

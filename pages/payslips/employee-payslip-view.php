@@ -56,8 +56,8 @@ $payDate = (string) ($req['pay_date'] ?? '');
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body{font-family:'Sarabun',sans-serif;background:#ececec}
-        .sheet{width:297mm;max-width:100%;min-height:210mm;margin:0 auto;background:#fff;padding:10mm 12mm;display:flex;flex-direction:column;border-top:6px solid #fd7e14}
-        .net{margin-top:auto;border:2px solid #fd7e14;border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between}
+        .sheet{width:297mm;max-width:100%;min-height:210mm;margin:0 auto;background:#fff;padding:10mm 12mm;display:flex;flex-direction:column;border-top:6px solid #ea580c}
+        .net{margin-top:auto;border:2px solid #ea580c;border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between}
         @media (max-width: 575.98px){
             body{background:#fff}
             .sheet{min-height:auto;padding:1rem;box-shadow:none}
@@ -71,7 +71,7 @@ $payDate = (string) ($req['pay_date'] ?? '');
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container py-3 no-print text-end"><button class="btn btn-warning" onclick="window.print()">พิมพ์ / PDF</button></div>
 <div class="sheet">

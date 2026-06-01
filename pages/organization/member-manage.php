@@ -33,15 +33,19 @@ function member_role_badge_class(array $row): string
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { font-family: 'Sarabun', sans-serif; background-color: #fffaf5; }
-        .btn-orange { background-color: #fd7e14; color: white; border: none; }
-        .btn-orange:hover { background-color: #e8590c; color: white; }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container pb-5">
+    <div class="tnc-page-head pt-4">
+        <div>
+            <p class="tnc-page-kicker">Organization · Admin</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-person-gear"></i></span>จัดการสมาชิก</h1>
+        </div>
+    </div>
     <div class="row g-4">
         <div class="col-lg-4">
             <div class="card shadow-sm border-0 rounded-4">
@@ -117,7 +121,7 @@ function member_role_badge_class(array $row): string
                             <tbody>
                                 <?php foreach ($userRows as $row): ?>
                                 <tr>
-                                    <td class="fw-bold text-orange ps-3" style="color:#fd7e14;"><?= htmlspecialchars((string) ($row['user_code'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="fw-bold text-orange ps-3" style="color:#ea580c;"><?= htmlspecialchars((string) ($row['user_code'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                     <td><?= htmlspecialchars(trim((string) (($row['fname'] ?? '') . ' ' . ($row['lname'] ?? ''))), ENT_QUOTES, 'UTF-8') ?></td>
                                     <td class="text-center">
                                         <span class="badge rounded-pill px-3 <?= member_role_badge_class($row) ?>">
@@ -199,7 +203,7 @@ function confirmDelete(id, type) {
         input: 'password',
         inputPlaceholder: 'รหัสผ่าน',
         showCancelButton: true,
-        confirmButtonColor: '#fd7e14',
+        confirmButtonColor: '#ea580c',
         confirmButtonText: 'ลบข้อมูล',
         cancelButtonText: 'ยกเลิก',
         focusCancel: true,

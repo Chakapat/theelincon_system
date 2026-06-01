@@ -1,0 +1,241 @@
+/**
+ * Purchase module — shared design tokens & utilities (Theelincon ERP)
+ * Aligns with DESIGN.md: Construction Orange signal, office canvas, Sarabun-first.
+ */
+
+:root {
+    --tnc-orange: #ea580c;
+    --tnc-orange-dark: #c2410c;
+    --tnc-orange-soft: #ffedd5;
+    --tnc-orange-border: #fdba74;
+    --tnc-surface: #f6f7f9;
+    --tnc-ink: #0f172a;
+    --tnc-muted: #64748b;
+    --tnc-border: #e2e8f0;
+    --tnc-radius: 0.875rem;
+    --tnc-radius-lg: 1rem;
+    --tnc-shadow-sm: 0 4px 24px rgba(15, 23, 42, 0.06);
+}
+
+body.purchase-module,
+.purchase-module body {
+    background-color: var(--tnc-surface);
+    font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', Tahoma, sans-serif;
+    color: var(--tnc-ink);
+    min-height: 100vh;
+}
+
+.text-tnc-orange { color: var(--tnc-orange) !important; }
+
+.btn-orange {
+    background-color: var(--tnc-orange);
+    border-color: var(--tnc-orange);
+    color: #fff;
+}
+.btn-orange:hover,
+.btn-orange:focus {
+    background-color: var(--tnc-orange-dark);
+    border-color: var(--tnc-orange-dark);
+    color: #fff;
+}
+.btn-orange:disabled,
+.btn-orange.disabled {
+    background-color: var(--tnc-orange);
+    border-color: var(--tnc-orange);
+    opacity: 0.65;
+}
+
+.btn-pr-primary {
+    background-color: var(--tnc-orange);
+    border-color: var(--tnc-orange);
+    color: #fff;
+    font-weight: 600;
+}
+.btn-pr-primary:hover:not(:disabled),
+.btn-pr-primary:focus:not(:disabled) {
+    background-color: var(--tnc-orange-dark);
+    border-color: var(--tnc-orange-dark);
+    color: #fff;
+}
+
+.btn-outline-orange {
+    color: var(--tnc-orange);
+    border-color: var(--tnc-orange);
+}
+.btn-outline-orange:hover,
+.btn-outline-orange:focus {
+    background-color: var(--tnc-orange-soft);
+    color: var(--tnc-orange-dark);
+    border-color: var(--tnc-orange-dark);
+}
+
+/* List pages (PR / PO) */
+.purchase-list-card {
+    border: none;
+    border-radius: var(--tnc-radius-lg);
+    box-shadow: var(--tnc-shadow-sm);
+    background: #fff;
+}
+.purchase-page-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.25rem;
+}
+.purchase-page-kicker {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--tnc-orange);
+    margin: 0 0 0.2rem;
+}
+.purchase-list-title {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--tnc-ink);
+    font-size: clamp(1.25rem, 2.5vw, 1.55rem);
+    margin: 0;
+}
+.po-list-title__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.625rem;
+    background: var(--tnc-orange-soft);
+    color: var(--tnc-orange);
+    font-size: 1.1rem;
+    vertical-align: -0.15em;
+    border: 1px solid var(--tnc-orange-border);
+    box-shadow: 0 2px 8px rgba(253, 126, 20, 0.12);
+}
+.purchase-list-title i {
+    color: var(--tnc-orange);
+}
+
+/* PO create / edit hero */
+.po-create-hero {
+    background: linear-gradient(125deg, #c2410c 0%, var(--tnc-orange) 42%, #ff922b 100%);
+    border-radius: var(--tnc-radius-lg);
+    box-shadow: 0 12px 40px rgba(253, 126, 20, 0.22);
+    color: #fff;
+}
+.po-create-hero .hero-kicker {
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.92;
+    font-weight: 700;
+}
+.po-create-hero h1 {
+    font-size: clamp(1.35rem, 3.5vw, 1.75rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+.po-create-hero .hero-lead {
+    opacity: 0.9;
+    font-size: 0.9rem;
+}
+.po-create-hero .btn-light { border: 0; font-weight: 600; }
+.po-create-hero .btn-orange,
+.po-create-hero .btn-pr-primary {
+    background: #fff;
+    color: var(--tnc-orange);
+    border: 0;
+    font-weight: 700;
+}
+.po-create-hero .btn-orange:hover,
+.po-create-hero .btn-pr-primary:hover {
+    background: var(--tnc-orange-soft);
+    color: var(--tnc-orange-dark);
+}
+.po-create-hero .btn-outline-light {
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    color: #fff;
+    font-weight: 600;
+}
+.po-create-hero .btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.po-section-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.65rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(145deg, var(--tnc-orange-soft), #fff7ed);
+    color: var(--tnc-orange);
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+
+.section-title-accent {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--tnc-orange);
+    margin-bottom: 12px;
+}
+
+.summary-grand .summary-value,
+.po-hire-sum-row.text-tnc-orange span:last-child {
+    color: var(--tnc-orange) !important;
+}
+
+/* From-PR card header (purchase & hire) */
+.po-from-pr-head {
+    background: #fff;
+    color: var(--tnc-ink);
+    border-bottom: 1px solid var(--tnc-border);
+    padding: 1.35rem 1.5rem;
+    margin: 0;
+}
+.po-from-pr-head h1 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.02em;
+    color: var(--tnc-ink);
+}
+.po-from-pr-head h1 > i,
+.po-from-pr-head h1 .bi {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 10px;
+    background: var(--tnc-orange-soft);
+    color: var(--tnc-orange);
+    font-size: 1.1rem;
+    opacity: 1;
+}
+.po-from-pr-head .sub {
+    color: var(--tnc-muted);
+    opacity: 1;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-top: 0.35rem;
+}
+
+.po-from-pr-card {
+    border: 1px solid var(--tnc-border);
+    border-radius: var(--tnc-radius-lg);
+    box-shadow: var(--tnc-shadow-sm);
+    overflow: hidden;
+    background: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .po-create-hero,
+    .btn-orange,
+    .btn-pr-primary {
+        transition: none;
+    }
+}

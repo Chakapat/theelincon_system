@@ -20,27 +20,6 @@ $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 $suppliers = Db::tableKeyed('suppliers');
 $users = Db::tableKeyed('users');
 
-$poFilterType = trim((string) ($_GET['po_filter'] ?? 'all'));
-if (!in_array($poFilterType, ['all', 'day', 'month'], true)) {
-    $poFilterType = 'all';
-}
-$poFilterDay = trim((string) ($_GET['po_date'] ?? ''));
-$poFilterMonth = trim((string) ($_GET['po_month'] ?? ''));
-if ($poFilterType === 'day' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $poFilterDay) !== 1) {
-    $poFilterType = 'all';
-    $poFilterDay = '';
-}
-if ($poFilterType === 'month' && preg_match('/^\d{4}-\d{2}$/', $poFilterMonth) !== 1) {
-    $poFilterType = 'all';
-    $poFilterMonth = '';
-}
-if ($poFilterType === 'day' && $poFilterDay === '') {
-    $poFilterType = 'all';
-}
-if ($poFilterType === 'month' && $poFilterMonth === '') {
-    $poFilterType = 'all';
-}
-
 /** วันที่ใช้เรียง/แสดง: issue_date ก่อน แล้ว fallback created_at → Y-m-d หรือว่าง */
 $poListSortYmd = static function (array $row): string {
     $issue = trim((string) ($row['issue_date'] ?? ''));
@@ -134,6 +113,16 @@ $poMissingReasons = static function (array $r): array {
     }
     return $out;
 };
+$poIncompleteItemLabel = static function (array $ip): string {
+    $id = (int) ($ip['id'] ?? 0);
+    $no = trim((string) ($ip['po_number'] ?? ''));
+    $noRaw = $no !== '' ? $no : ('#' . $id);
+    $ymd = trim((string) ($ip['issue_date_ymd'] ?? ''));
+    $datePart = $ymd !== '' ? date('d/m/Y', strtotime($ymd)) : '—';
+    $amountPart = number_format((float) ($ip['total_amount'] ?? 0), 2);
+
+    return $noRaw . ' · ' . $datePart . ' · ' . $amountPart;
+};
 $incompletePoList = [];
 $ignoredPoList = [];
 foreach ($po_rows as $r) {
@@ -144,6 +133,9 @@ foreach ($po_rows as $r) {
     $entry = [
         'id' => (int) ($r['id'] ?? 0),
         'po_number' => (string) ($r['po_number'] ?? ''),
+        'issue_date_ymd' => (string) ($r['_list_sort_ymd'] ?? ''),
+        'total_amount' => (float) ($r['total_amount'] ?? 0),
+        'vat_amount' => (float) ($r['vat_amount'] ?? 0),
         'supplier' => trim((string) (($r['order_type'] ?? '') === 'hire' ? ($r['contractor_name'] ?? '') : ($r['supplier_name'] ?? ''))),
         'reasons' => $reasons,
         'need_payment' => in_array('ขาดการชำระ', $reasons, true),
@@ -157,37 +149,6 @@ foreach ($po_rows as $r) {
 }
 $incompleteCountAll = count($incompletePoList);
 $ignoredCountAll = count($ignoredPoList);
-
-$po_rows_display = $po_rows;
-if ($poFilterType === 'day' && $poFilterDay !== '') {
-    $po_rows_display = array_values(array_filter(
-        $po_rows,
-        static function (array $r) use ($poFilterDay): bool {
-            return (string) ($r['_list_sort_ymd'] ?? '') === $poFilterDay;
-        }
-    ));
-} elseif ($poFilterType === 'month' && $poFilterMonth !== '') {
-    $po_rows_display = array_values(array_filter(
-        $po_rows,
-        static function (array $r) use ($poFilterMonth): bool {
-            $ymd = (string) ($r['_list_sort_ymd'] ?? '');
-
-            return strlen($ymd) >= 7 && strncmp($ymd, $poFilterMonth, 7) === 0;
-        }
-    ));
-}
-
-$poCount = count($po_rows_display);
-$totalAmount = 0.0;
-foreach ($po_rows_display as $sumRow) {
-    if (($sumRow['status'] ?? '') === 'cancelled') {
-        continue;
-    }
-    if (($sumRow['payment_status'] ?? 'unpaid') !== 'paid') {
-        continue;
-    }
-    $totalAmount += (float) ($sumRow['total_amount'] ?? 0);
-}
 ?>
 
 <!DOCTYPE html>
@@ -197,21 +158,75 @@ foreach ($po_rows_display as $sumRow) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>รายการใบสั่งซื้อ (PO List)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
-        .main-card { border: none; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
-        #poTable th { white-space: nowrap; font-size: .84rem; }
-        #poTable td { vertical-align: middle; }
+        .po-list-title { font-size: clamp(1.35rem, 2.5vw, 1.65rem); letter-spacing: -0.02em; }
+        .po-list-title__icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.35rem;
+            height: 2.35rem;
+            border-radius: 0.625rem;
+            background: rgba(253, 126, 20, 0.12);
+            color: var(--tnc-orange);
+            font-size: 1.1rem;
+            vertical-align: -0.15em;
+        }
+        .main-card {
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: var(--tnc-radius);
+            box-shadow: 0 0.28rem 0.9rem rgba(0, 0, 0, 0.045);
+            background: #fff;
+        }
+        #poTable thead th {
+            white-space: nowrap;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--tnc-muted);
+            padding: 0.85rem 0.75rem;
+            border-bottom-width: 1px;
+        }
+        #poTable tbody td { vertical-align: middle; padding: 0.85rem 0.75rem; }
+        #poTable tbody tr { transition: background-color 0.16s ease; }
+        #poTable tbody tr:hover { background: #fff9f2; }
         #poTable .badge { font-size: .72rem; font-weight: 600; letter-spacing: .01em; }
-        .po-incomplete-box { cursor: pointer; border-left: 5px solid #f59e0b !important; transition: transform .12s ease, box-shadow .2s ease; }
-        .po-incomplete-box:hover, .po-incomplete-box:focus { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(245, 158, 11, .25) !important; outline: none; }
-        .po-incomplete-icon { width: 42px; height: 42px; border-radius: 50%; background: #fff3cd; color: #f59e0b; font-size: 1.3rem; }
-        #incompletePoModal .ipo-item { border: 1px solid #eef0f2; border-radius: .65rem; }
+        #poTable .po-amount { font-variant-numeric: tabular-nums; color: var(--tnc-ink); }
+        .po-incomplete-box {
+            cursor: pointer;
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            background: linear-gradient(180deg, rgba(255, 247, 237, 0.95) 0%, #fff 100%);
+            border-radius: var(--tnc-radius);
+            transition: transform 0.16s ease, box-shadow 0.2s ease, border-color 0.16s ease;
+        }
+        .po-incomplete-box:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0.5rem 1.25rem rgba(245, 158, 11, 0.14);
+            border-color: rgba(245, 158, 11, 0.5);
+        }
+        .po-incomplete-box:focus-visible {
+            outline: 2px solid rgba(253, 126, 20, 0.55);
+            outline-offset: 2px;
+        }
+        .po-incomplete-icon { width: 42px; height: 42px; border-radius: 50%; background: #fff3cd; color: #d97706; font-size: 1.3rem; }
+        #incompletePoModal .ipo-item { border: 1px solid var(--tnc-border); border-radius: 0.65rem; }
         #incompletePoModal .ipo-item + .ipo-item { margin-top: .6rem; }
+        .po-empty-state { padding: 2.5rem 1rem; }
+        .po-empty-state i { font-size: 2rem; color: var(--tnc-muted); opacity: 0.65; }
+        .dropdown-menu .dropdown-item { font-size: 0.92rem; }
+        .dropdown-menu .dropdown-item:focus-visible { outline: 2px solid rgba(253, 126, 20, 0.45); outline-offset: -2px; }
+        @media (prefers-reduced-motion: reduce) {
+            .po-incomplete-box:hover { transform: none; }
+            #poTable tbody tr { transition: none; }
+        }
     </style>
 </head>
-<body>
+<body class="purchase-module tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -333,18 +348,15 @@ foreach ($po_rows_display as $sumRow) {
         </div>
     <?php endif; ?>
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <h2 class="fw-bold mb-0"><i class="bi bi-file-earmark-check-fill text-primary"></i>รายการใบสั่งซื้อ (Purchase orders List)</h2>
+    <div class="purchase-page-head mb-4">
+        <div>
+            <p class="purchase-page-kicker">Purchase Module</p>
+            <h1 class="purchase-list-title po-list-title mb-0">
+                <span class="po-list-title__icon me-2" aria-hidden="true"><i class="bi bi-file-earmark-check-fill"></i></span>
+                รายการใบสั่งซื้อ (PO)
+            </h1>
+        </div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
-            <div class="dropdown">
-                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                    <li>
-                        <a class="dropdown-item" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php')) ?>">
-                            <i class="bi bi-link-45deg me-1"></i> เลือกใบขอซื้อเพื่อสร้าง PO
-                        </a>
-                    </li>
-                </ul>
-            </div>
             <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm no-print" id="poBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก">
                 <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
             </button>
@@ -355,16 +367,15 @@ foreach ($po_rows_display as $sumRow) {
     </div>
 
     <?php if ($incompleteCountAll > 0): ?>
-        <div class="card border-0 shadow-sm mb-4 po-incomplete-box" role="button" tabindex="0"
+        <div class="po-incomplete-box mb-4" role="button" tabindex="0"
              data-bs-toggle="modal" data-bs-target="#incompletePoModal"
              title="กดเพื่อดูรายการใบสั่งซื้อที่ยังไม่สมบูรณ์">
-            <div class="card-body d-flex align-items-center gap-3 py-3">
+            <div class="d-flex align-items-center gap-3 py-3 px-3">
                 <span class="po-incomplete-icon d-inline-flex align-items-center justify-content-center flex-shrink-0">
                     <i class="bi bi-exclamation-triangle-fill"></i>
                 </span>
                 <div class="flex-grow-1">
                     <div class="fw-bold text-warning-emphasis">ใบสั่งซื้อที่ไม่สมบูรณ์ <span class="js-incomplete-count"><?= number_format($incompleteCountAll) ?></span> รายการ</div>
-                    <div class="small text-muted">กดเข้าไปเพื่อดูว่าแต่ละใบยังขาดอะไร และแนบสลิป/กรอกเลขที่ใบกำกับได้ทันที</div>
                 </div>
                 <span class="badge rounded-pill bg-warning text-dark fs-6 px-3 py-2 flex-shrink-0 js-incomplete-count"><?= number_format($incompleteCountAll) ?></span>
                 <i class="bi bi-chevron-right fs-5 text-secondary flex-shrink-0"></i>
@@ -377,57 +388,6 @@ foreach ($po_rows_display as $sumRow) {
             </button>
         </div>
     <?php endif; ?>
-
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body py-3">
-            <div class="row g-3 align-items-end flex-lg-nowrap">
-                <div class="col-12 col-lg min-w-0">
-                    <form method="get" action="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="row g-2 gx-2 align-items-end" id="poFilterForm">
-                        <div class="col-auto">
-                            <label class="form-label small text-muted mb-1 text-nowrap">ค้นหาตามช่วงวันที่</label>
-                            <select name="po_filter" id="poFilterType" class="form-select form-select-sm" style="min-width: 7.5rem;" aria-label="ประเภทตัวกรอง">
-                                <option value="all" <?= $poFilterType === 'all' ? 'selected' : '' ?>>ทั้งหมด</option>
-                                <option value="day" <?= $poFilterType === 'day' ? 'selected' : '' ?>>เลือกวันที่</option>
-                            </select>
-                        </div>
-                        <div class="col-auto po-filter-day-wrap" style="<?= $poFilterType === 'day' ? '' : 'display:none;' ?>">
-                            <label class="form-label small text-muted mb-1 text-nowrap">เลือกวัน</label>
-                            <input type="date" name="po_date" class="form-control form-control-sm" value="<?= htmlspecialchars($poFilterDay, ENT_QUOTES, 'UTF-8') ?>">
-                        </div>
-                        <div class="col-auto po-filter-month-wrap" style="<?= $poFilterType === 'month' ? '' : 'display:none;' ?>">
-                            <label class="form-label small text-muted mb-1 text-nowrap">เลือกเดือน</label>
-                            <input type="month" name="po_month" class="form-control form-control-sm" value="<?= htmlspecialchars($poFilterMonth, ENT_QUOTES, 'UTF-8') ?>">
-                        </div>
-                        <div class="col-auto d-flex flex-wrap gap-2 pt-2 pt-sm-0 align-items-end">
-                            <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3"><i class="bi bi-search me-1"></i>ใช้ตัวกรอง</button>
-                            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">ล้าง</a>
-                        </div>
-                    </form>
-                    <?php if ($poFilterType === 'day' && $poFilterDay !== ''): ?>
-                        <div class="small text-muted mt-2 mb-0">กำลังแสดงเฉพาะ PO วันที่ออก <?= htmlspecialchars(date('d/m/Y', strtotime($poFilterDay)), ENT_QUOTES, 'UTF-8') ?></div>
-                    <?php elseif ($poFilterType === 'month' && $poFilterMonth !== ''): ?>
-                        <?php
-                        $mTs = strtotime($poFilterMonth . '-01');
-                        $monthLabel = $mTs !== false ? date('m/Y', $mTs) : $poFilterMonth;
-                        ?>
-                        <div class="small text-muted mt-2 mb-0">กำลังแสดงเฉพาะ PO เดือน <?= htmlspecialchars($monthLabel, ENT_QUOTES, 'UTF-8') ?></div>
-                    <?php endif; ?>
-                </div>
-                <div class="col-12 col-sm-6 col-lg-auto flex-shrink-0" style="min-width: 11rem;">
-                    <div class="rounded-3 border bg-light px-3 py-2 h-100">
-                        <div class="text-muted small text-nowrap text-truncate" title="จำนวนรายการที่แสดง">จำนวนที่แสดง<?= $poFilterType !== 'all' ? '*' : '' ?></div>
-                        <div class="fs-5 fw-bold mb-0"><?= number_format($poCount) ?> <span class="fs-6 fw-normal text-secondary">รายการ</span></div>
-                    </div>
-                </div>
-                <div class="col-12 col-sm-6 col-lg-auto flex-shrink-0" style="min-width: 12rem;">
-                    <div class="rounded-3 border bg-light px-3 py-2 h-100">
-                        <div class="text-muted small text-nowrap text-truncate" title="ยอดรวมที่จ่ายแล้ว (เฉพาะจ่ายแล้ว ไม่ยกเลิก)">ยอดจ่ายแล้ว<?= $poFilterType !== 'all' ? '*' : '' ?></div>
-                        <div class="fs-5 fw-bold text-primary mb-0"><?= number_format($totalAmount, 2) ?> <span class="fs-6 fw-normal text-secondary">บาท</span></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <div class="card main-card p-4">
         <div class="table-responsive">
@@ -445,10 +405,14 @@ foreach ($po_rows_display as $sumRow) {
                     </tr>
                 </thead>
                 <tbody id="poTableBody">
-                    <?php if (count($po_rows_display) === 0): ?>
-                        <tr><td colspan="6" class="text-center py-4 text-muted"><?= count($po_rows) === 0 ? 'ยังไม่มีการออกใบสั่งซื้อ' : 'ไม่มีรายการตามเงื่อนไขที่เลือก — ลองเปลี่ยนตัวกรองวันที่' ?></td></tr>
+                    <?php if (count($po_rows) === 0): ?>
+                        <tr><td colspan="6" class="po-empty-state text-center text-muted">
+                            <i class="bi bi-inbox d-block mb-2" aria-hidden="true"></i>
+                            <div class="fw-semibold text-dark">ยังไม่มีใบสั่งซื้อ</div>
+                            <div class="small mt-1">สร้าง PO จาก<a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">รายการใบขอซื้อ</a></div>
+                        </td></tr>
                     <?php else: ?>
-                        <?php foreach ($po_rows_display as $row): ?>
+                        <?php foreach ($po_rows as $row): ?>
                     <?php
                     $poCancelled = ($row['status'] ?? '') === 'cancelled';
                     $hasBillRef = trim((string) ($row['supplier_invoice_no'] ?? '')) !== '';
@@ -489,7 +453,7 @@ foreach ($po_rows_display as $sumRow) {
                             ?>
                         </td>
                         <td class="text-end">
-                            <div class="fw-bold <?= $poCancelled ? 'text-danger' : 'text-primary' ?>"><?= number_format((float)$row['total_amount'], 2) ?></div>
+                            <div class="fw-bold po-amount <?= $poCancelled ? 'text-danger' : '' ?>"><?= number_format((float)$row['total_amount'], 2) ?></div>
                         </td>
                         <td class="text-center">
                             <?php
@@ -536,6 +500,7 @@ foreach ($po_rows_display as $sumRow) {
                                                 data-po-number="<?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-po-total="<?= htmlspecialchars(number_format((float) ($row['total_amount'] ?? 0), 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-po-vat="<?= htmlspecialchars(number_format((float) ($row['vat_amount'] ?? 0), 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-po-issue-date="<?= htmlspecialchars((string) ($row['_list_sort_ymd'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                             ><i class="bi bi-receipt me-2"></i>เพิ่มเลขบิลซื้อ</button>
                                         </li>
                                     <?php endif; ?>
@@ -586,14 +551,14 @@ foreach ($po_rows_display as $sumRow) {
                     <?php foreach ($incompletePoList as $ip): ?>
                         <?php
                         $ipId = (int) $ip['id'];
-                        $ipNo = htmlspecialchars($ip['po_number'] !== '' ? $ip['po_number'] : ('#' . $ipId), ENT_QUOTES, 'UTF-8');
+                        $ipLabelHtml = htmlspecialchars($poIncompleteItemLabel($ip), ENT_QUOTES, 'UTF-8');
                         $ipSupplier = htmlspecialchars($ip['supplier'] !== '' ? $ip['supplier'] : '—', ENT_QUOTES, 'UTF-8');
                         $ipViewHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . $ipId;
                         ?>
                         <div class="ipo-item p-3 d-flex flex-wrap align-items-center gap-2" data-ipo-id="<?= $ipId ?>">
                             <div class="flex-grow-1 min-w-0">
                                 <div class="fw-bold">
-                                    <a href="<?= $ipViewHref ?>" class="text-decoration-none text-warning-emphasis"><?= $ipNo ?></a>
+                                    <a href="<?= $ipViewHref ?>" class="text-decoration-none text-warning-emphasis"><?= $ipLabelHtml ?></a>
                                 </div>
                                 <div class="small text-muted text-truncate"><?= $ipSupplier ?></div>
                                 <div class="mt-1 d-flex flex-wrap gap-1">
@@ -604,12 +569,20 @@ foreach ($po_rows_display as $sumRow) {
                             </div>
                             <div class="d-flex flex-wrap gap-2 flex-shrink-0">
                                 <?php if ($ip['need_payment']): ?>
-                                    <button type="button" class="btn btn-sm btn-warning rounded-pill px-3 js-fix-paid" data-po-id="<?= $ipId ?>">
+                                    <button type="button" class="btn btn-sm btn-warning rounded-pill px-3 js-fix-paid" data-po-id="<?= $ipId ?>" data-po-number="<?= htmlspecialchars((string) ($ip['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                                         <i class="bi bi-cash-coin me-1"></i>แนบสลิป
                                     </button>
                                 <?php endif; ?>
                                 <?php if ($ip['need_invoice']): ?>
-                                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 js-fix-bill" data-po-id="<?= $ipId ?>">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-orange rounded-pill px-3 js-fix-bill"
+                                        data-po-id="<?= $ipId ?>"
+                                        data-po-number="<?= htmlspecialchars((string) ($ip['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-po-total="<?= htmlspecialchars(number_format((float) ($ip['total_amount'] ?? 0), 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-po-vat="<?= htmlspecialchars(number_format((float) ($ip['vat_amount'] ?? 0), 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-po-issue-date="<?= htmlspecialchars((string) ($ip['issue_date_ymd'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                    >
                                         <i class="bi bi-receipt me-1"></i>กรอกเลขที่ใบกำกับ
                                     </button>
                                 <?php endif; ?>
@@ -630,15 +603,15 @@ foreach ($po_rows_display as $sumRow) {
                             <?php foreach ($ignoredPoList as $ip): ?>
                                 <?php
                                 $ipId = (int) $ip['id'];
-                                $ipNo = htmlspecialchars($ip['po_number'] !== '' ? $ip['po_number'] : ('#' . $ipId), ENT_QUOTES, 'UTF-8');
+                                $ipLabelHtml = htmlspecialchars($poIncompleteItemLabel($ip), ENT_QUOTES, 'UTF-8');
                                 $ipViewHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . $ipId;
                                 ?>
                                 <div class="ipo-item p-2 px-3 d-flex flex-wrap align-items-center gap-2 bg-light" data-ipo-id="<?= $ipId ?>">
                                     <div class="flex-grow-1 min-w-0">
-                                        <a href="<?= $ipViewHref ?>" class="text-decoration-none text-muted fw-semibold"><?= $ipNo ?></a>
+                                        <a href="<?= $ipViewHref ?>" class="text-decoration-none text-muted fw-semibold"><?= $ipLabelHtml ?></a>
                                         <span class="small text-muted ms-2"><?= htmlspecialchars(implode(' , ', $ip['reasons']), ENT_QUOTES, 'UTF-8') ?></span>
                                     </div>
-                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 js-po-unignore" data-po-id="<?= $ipId ?>" title="นำกลับมานับใหม่">
+                                    <button type="button" class="btn btn-sm btn-outline-orange rounded-pill px-3 js-po-unignore" data-po-id="<?= $ipId ?>" title="นำกลับมานับใหม่">
                                         <i class="bi bi-arrow-counterclockwise me-1"></i>คืนค่า
                                     </button>
                                 </div>
@@ -673,7 +646,7 @@ foreach ($po_rows_display as $sumRow) {
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">วันที่บนใบกำกับภาษี/บิลซื้อ <span class="text-danger">*</span></label>
-                        <input type="date" name="supplier_invoice_date" id="receiveBillInvoiceDate" class="form-control" required>
+                        <input type="text" name="supplier_invoice_date" id="receiveBillInvoiceDate" class="form-control" placeholder="วัน/เดือน/ปี เช่น 29/05/2026" autocomplete="off" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">ยอดเงินรวม (บาท)</label>
@@ -686,7 +659,7 @@ foreach ($po_rows_display as $sumRow) {
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-                    <button type="submit" class="btn btn-primary">บันทึกบิลซื้อ</button>
+                    <button type="submit" class="btn btn-orange">บันทึกบิลซื้อ</button>
                 </div>
             </form>
         </div>
@@ -729,7 +702,7 @@ foreach ($po_rows_display as $sumRow) {
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-                    <button type="submit" class="btn btn-primary">บันทึก</button>
+                    <button type="submit" class="btn btn-orange">บันทึก</button>
                 </div>
             </form>
         </div>
@@ -745,7 +718,7 @@ foreach ($po_rows_display as $sumRow) {
             </div>
             <div class="modal-body text-center">
                 <div id="showSlipPayMeta" class="text-start small text-muted mb-2 d-none"></div>
-                <img id="showSlipImage" src="" alt="Payment slip" class="img-fluid rounded border" style="max-height:55vh; object-fit:contain;">
+                <img id="showSlipImage" src="" alt="หลักฐานการจ่ายเงิน" class="img-fluid rounded border d-none" style="max-height:55vh; object-fit:contain;">
                 <div id="showSlipPdfHint" class="text-muted py-4 d-none">
                     <i class="bi bi-file-earmark-pdf fs-1 text-danger d-block mb-2"></i>
                     ไฟล์นี้เป็น PDF — ใช้ปุ่ม «เปิดไฟล์เต็ม» เพื่อดู หรืออัปโหลดไฟล์ใหม่ด้านล่าง
@@ -773,7 +746,7 @@ foreach ($po_rows_display as $sumRow) {
                 </form>
             </div>
             <div class="modal-footer">
-                <a id="showSlipOpenLink" href="#" target="_blank" rel="noopener" class="btn btn-outline-primary d-none">เปิดไฟล์เต็ม</a>
+                <a id="showSlipOpenLink" href="#" target="_blank" rel="noopener" class="btn btn-outline-orange d-none">เปิดไฟล์เต็ม</a>
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal">ปิด</button>
             </div>
         </div>
@@ -802,7 +775,7 @@ foreach ($po_rows_display as $sumRow) {
                         <span class="fw-semibold d-block">3. ใบสั่งซื้อ + สลิป</span>
                         <span class="small" style="opacity:0.95">รวมใบ PO สลิป และใบเสนอราคาแนบเมื่อมี</span>
                     </button>
-                    <button type="button" class="btn btn-outline-primary rounded-pill py-2 text-start" id="poBatchPrintAllBtn">
+                    <button type="button" class="btn btn-outline-orange rounded-pill py-2 text-start" id="poBatchPrintAllBtn">
                         <span class="fw-semibold d-block">4. พิมพ์ทุกอย่าง (PR + PO + สลิป/แนบ)</span>
                         <span class="small text-muted">แต่ละใบ: ใบขอซื้อ (ถ้ามี) แล้วตามด้วย PO สลิป และแนบ QT ตามที่มี</span>
                     </button>
@@ -814,6 +787,7 @@ foreach ($po_rows_display as $sumRow) {
 
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
 (function ($) {
     if ($('#poTable tbody tr').length && $('#poTable tbody tr td[colspan]').length === 0) {
@@ -888,6 +862,11 @@ foreach ($po_rows_display as $sumRow) {
             cb.checked = on;
         });
     });
+    document.querySelector('.po-incomplete-box')?.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        document.getElementById('incompletePoModal') && bootstrap.Modal.getOrCreateInstance(document.getElementById('incompletePoModal')).show();
+    });
 })();
 
 (function () {
@@ -902,15 +881,69 @@ foreach ($po_rows_display as $sumRow) {
         const invDateEl = document.getElementById('receiveBillInvoiceDate');
         const formEl = document.getElementById('receiveBillForm');
 
+        function ymdToDmy(ymd) {
+            const m = String(ymd || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+            return m ? (m[3] + '/' + m[2] + '/' + m[1]) : '';
+        }
+
+        function normalizeInvoiceDateForSubmit() {
+            const raw = (invDateEl.value || '').trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+                return true;
+            }
+            const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (!m) {
+                return false;
+            }
+            const dd = Number(m[1]);
+            const mm = Number(m[2]);
+            const yyyy = Number(m[3]);
+            const d = new Date(yyyy, mm - 1, dd);
+            if (d.getFullYear() !== yyyy || d.getMonth() !== (mm - 1) || d.getDate() !== dd) {
+                return false;
+            }
+            invDateEl.value = yyyy + '-' + String(mm).padStart(2, '0') + '-' + String(dd).padStart(2, '0');
+            return true;
+        }
+
+        let receiveBillDateFp = null;
+        if (invDateEl && typeof flatpickr === 'function') {
+            receiveBillDateFp = flatpickr(invDateEl, {
+                dateFormat: 'd/m/Y',
+                allowInput: true,
+            });
+        }
+
+        function openReceiveBillModal(data) {
+            poIdInput.value = data.poId || '';
+            poNoEl.textContent = data.poNumber || '-';
+            totalEl.value = data.total || '0.00';
+            vatEl.value = data.vat || '0.00';
+            invNoEl.value = '';
+            const issueDmy = ymdToDmy(data.issueDate || '');
+            if (receiveBillDateFp) {
+                if (issueDmy) {
+                    receiveBillDateFp.setDate(issueDmy, true, 'd/m/Y');
+                } else {
+                    receiveBillDateFp.clear();
+                }
+            } else {
+                invDateEl.value = issueDmy;
+            }
+            receiveBillModal.show();
+        }
+
+        window.tncOpenReceiveBillModal = openReceiveBillModal;
+
         document.querySelectorAll('.js-receive-bill').forEach((btn) => {
             btn.addEventListener('click', () => {
-                poIdInput.value = btn.getAttribute('data-po-id') || '';
-                poNoEl.textContent = btn.getAttribute('data-po-number') || '-';
-                totalEl.value = btn.getAttribute('data-po-total') || '0.00';
-                vatEl.value = btn.getAttribute('data-po-vat') || '0.00';
-                invNoEl.value = '';
-                invDateEl.value = '';
-                receiveBillModal.show();
+                openReceiveBillModal({
+                    poId: btn.getAttribute('data-po-id') || '',
+                    poNumber: btn.getAttribute('data-po-number') || '-',
+                    total: btn.getAttribute('data-po-total') || '0.00',
+                    vat: btn.getAttribute('data-po-vat') || '0.00',
+                    issueDate: btn.getAttribute('data-po-issue-date') || '',
+                });
             });
         });
 
@@ -920,6 +953,12 @@ foreach ($po_rows_display as $sumRow) {
             if (!Number.isFinite(totalVal) || !Number.isFinite(vatVal) || totalVal < 0 || vatVal < 0) {
                 e.preventDefault();
                 alert('ยอดเงินรวมและยอด VAT ต้องไม่เป็นค่าว่างหรือติดลบ');
+                return;
+            }
+            if (!normalizeInvoiceDateForSubmit()) {
+                e.preventDefault();
+                alert('กรุณากรอกวันที่บนใบกำกับภาษี/บิลซื้อเป็น วัน/เดือน/ปี เช่น 29/05/2026');
+                invDateEl.focus();
             }
         });
     }
@@ -993,16 +1032,25 @@ foreach ($po_rows_display as $sumRow) {
         }
     });
 
+    function openMarkPaidModal(data) {
+        poIdInput.value = data.poId || '';
+        poNumberLabel.textContent = data.poNumber || '-';
+        if (markPaidFile) markPaidFile.value = '';
+        if (payMethodTransfer) payMethodTransfer.checked = true;
+        if (payMethodCash) payMethodCash.checked = false;
+        if (markPaidCashBy) markPaidCashBy.value = '';
+        syncMarkPaidCashUi();
+        markPaidModal.show();
+    }
+
+    window.tncOpenMarkPaidModal = openMarkPaidModal;
+
     document.querySelectorAll('.js-mark-paid').forEach((btn) => {
         btn.addEventListener('click', () => {
-            poIdInput.value = btn.getAttribute('data-po-id') || '';
-            poNumberLabel.textContent = btn.getAttribute('data-po-number') || '-';
-            if (markPaidFile) markPaidFile.value = '';
-            if (payMethodTransfer) payMethodTransfer.checked = true;
-            if (payMethodCash) payMethodCash.checked = false;
-            if (markPaidCashBy) markPaidCashBy.value = '';
-            syncMarkPaidCashUi();
-            markPaidModal.show();
+            openMarkPaidModal({
+                poId: btn.getAttribute('data-po-id') || '',
+                poNumber: btn.getAttribute('data-po-number') || '-',
+            });
         });
     });
 
@@ -1059,7 +1107,12 @@ foreach ($po_rows_display as $sumRow) {
     const incompleteModalEl = document.getElementById('incompletePoModal');
     if (!incompleteModalEl || typeof bootstrap === 'undefined') return;
     const incompleteModal = bootstrap.Modal.getOrCreateInstance(incompleteModalEl);
-    let pendingClickSelector = null;
+    let pendingIncompleteAction = null;
+
+    function queueAfterIncomplete(action) {
+        pendingIncompleteAction = action;
+        incompleteModal.hide();
+    }
 
     const actionUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
     const csrfToken = <?= json_encode(csrf_token(), JSON_UNESCAPED_SLASHES) ?>;
@@ -1108,49 +1161,46 @@ foreach ($po_rows_display as $sumRow) {
         if (un) { e.preventDefault(); postIgnore('unignore_incomplete_po', un.getAttribute('data-po-id'), un); return; }
     });
 
-    function cssQuote(v) {
-        return String(v).replace(/"/g, '\\"');
-    }
-    function deferToRowButton(poId, rowClass) {
-        pendingClickSelector = '#poTable .' + rowClass + '[data-po-id="' + cssQuote(poId) + '"]';
-        incompleteModal.hide();
-    }
-
     incompleteModalEl.addEventListener('shown.bs.modal', function () { window.__poBlockReload = true; });
-    incompleteModalEl.addEventListener('hidden.bs.modal', function () { window.__poBlockReload = false; });
-
     incompleteModalEl.addEventListener('hidden.bs.modal', function () {
-        if (!pendingClickSelector) return;
-        const target = document.querySelector(pendingClickSelector);
-        pendingClickSelector = null;
-        if (target) {
-            target.click();
+        window.__poBlockReload = false;
+        if (!pendingIncompleteAction) {
+            return;
+        }
+        const action = pendingIncompleteAction;
+        pendingIncompleteAction = null;
+        if (action.type === 'receive-bill' && typeof window.tncOpenReceiveBillModal === 'function') {
+            window.tncOpenReceiveBillModal(action.data);
+        } else if (action.type === 'mark-paid' && typeof window.tncOpenMarkPaidModal === 'function') {
+            window.tncOpenMarkPaidModal(action.data);
         }
     });
 
     incompleteModalEl.querySelectorAll('.js-fix-paid').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            deferToRowButton(btn.getAttribute('data-po-id') || '', 'js-mark-paid');
+            queueAfterIncomplete({
+                type: 'mark-paid',
+                data: {
+                    poId: btn.getAttribute('data-po-id') || '',
+                    poNumber: btn.getAttribute('data-po-number') || '-',
+                },
+            });
         });
     });
     incompleteModalEl.querySelectorAll('.js-fix-bill').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            deferToRowButton(btn.getAttribute('data-po-id') || '', 'js-receive-bill');
+            queueAfterIncomplete({
+                type: 'receive-bill',
+                data: {
+                    poId: btn.getAttribute('data-po-id') || '',
+                    poNumber: btn.getAttribute('data-po-number') || '-',
+                    total: btn.getAttribute('data-po-total') || '0.00',
+                    vat: btn.getAttribute('data-po-vat') || '0.00',
+                    issueDate: btn.getAttribute('data-po-issue-date') || '',
+                },
+            });
         });
     });
-})();
-
-(function () {
-    const sel = document.getElementById('poFilterType');
-    const dayWrap = document.querySelector('.po-filter-day-wrap');
-    const monthWrap = document.querySelector('.po-filter-month-wrap');
-    if (!sel || !dayWrap || !monthWrap) return;
-    const sync = () => {
-        const v = sel.value;
-        dayWrap.style.display = v === 'day' ? '' : 'none';
-        monthWrap.style.display = v === 'month' ? '' : 'none';
-    };
-    sel.addEventListener('change', sync);
 })();
 </script>
 

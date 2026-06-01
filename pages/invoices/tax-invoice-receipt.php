@@ -456,8 +456,8 @@ if (!$inv) {
         <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
         <style>
             :root {
-                --tir-accent: #fd7e14;
-                --tir-accent-dark: #e8590c;
+                --tir-accent: #ea580c;
+                --tir-accent-dark: #c2410c;
                 --tir-focus: rgba(253, 126, 20, 0.35);
                 --tir-card-shadow: 0 0.35rem 2rem rgba(15, 23, 42, 0.06), 0 0.08rem 0.35rem rgba(15, 23, 42, 0.04);
             }
@@ -773,7 +773,7 @@ if (!$has_tax_invoice || $edit_mode) {
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
+        /* body canvas: tnc-app.css */
         .border-orange { border-left: 5px solid #FF6600 !important; }
         .btn-orange { background: linear-gradient(135deg, #FF9966 0%, #FF6600 100%); color: white; border: none; border-radius: 10px; font-weight: 600; padding: 10px 25px; }
         .btn-orange:hover { opacity: 0.9; color: white; }
@@ -787,7 +787,7 @@ if (!$has_tax_invoice || $edit_mode) {
         .remove-row:hover { transform: scale(1.2); }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-4 mb-5">

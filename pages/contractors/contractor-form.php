@@ -66,7 +66,7 @@ $hasPhoto = trim((string) ($contractor['id_card_photo_path'] ?? '')) !== '';
         .photo-preview { max-width: 280px; border-radius: 0.75rem; border: 1px solid #e2e8f0; }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 py-md-5">
@@ -188,7 +188,7 @@ $hasPhoto = trim((string) ($contractor['id_card_photo_path'] ?? '')) !== '';
 
                     <div class="d-flex justify-content-end gap-2">
                         <a href="<?= htmlspecialchars(app_path('pages/contractors/contractor-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light border px-4">ยกเลิก</a>
-                        <button type="submit" class="btn btn-primary px-4 fw-semibold"><i class="bi bi-check-lg me-1"></i>บันทึก</button>
+                        <button type="submit" class="btn btn-orange px-4 fw-semibold"><i class="bi bi-check-lg me-1"></i>บันทึก</button>
                     </div>
                 </form>
             </div>

@@ -29,11 +29,14 @@ $users = Db::tableKeyed('users');
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="fw-bold mb-0">รายการขอใบสลิปเงินเดือน</h4>
+    <div class="tnc-page-head mb-3 flex-wrap gap-2">
+        <div>
+            <p class="tnc-page-kicker">Payslips · Admin</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-list-check"></i></span>รายการขอใบสลิปเงินเดือน</h1>
+        </div>
         <a class="btn btn-outline-secondary rounded-pill" href="<?= htmlspecialchars(app_path('pages/payslips/employee-payslip.php'), ENT_QUOTES, 'UTF-8') ?>">กลับหน้าขอสลิป</a>
     </div>
     <?php if (isset($_GET['created'])): ?><div class="alert alert-success">เพิ่มคำขอสำเร็จ และพร้อมพิมพ์ได้ทันที</div><?php endif; ?>

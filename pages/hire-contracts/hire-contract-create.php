@@ -35,12 +35,12 @@ usort($contractorRows, static function (array $a, array $b): int {
         .hc-create-card { border-radius: 1rem; border: 1px solid #e8edf4; box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06); }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 pb-5" style="max-width: 720px;">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 fw-bold mb-0"><i class="bi bi-file-earmark-plus text-primary me-2"></i>สร้างสัญญาจ้าง</h1>
+        <h1 class="h4 fw-bold mb-0"><i class="bi bi-file-earmark-plus text-tnc-orange me-2"></i>สร้างสัญญาจ้าง</h1>
         <a href="<?= htmlspecialchars($listUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill">กลับ</a>
     </div>
     <?php if ($error === 'required'): ?>
@@ -80,7 +80,7 @@ usort($contractorRows, static function (array $a, array $b): int {
                 </div>
             </div>
             <div class="d-grid gap-2">
-                <button type="submit" class="btn btn-primary btn-lg rounded-pill fw-semibold">บันทึกสัญญาจ้าง</button>
+                <button type="submit" class="btn btn-orange btn-lg rounded-pill fw-semibold">บันทึกสัญญาจ้าง</button>
             </div>
         </form>
     </div>

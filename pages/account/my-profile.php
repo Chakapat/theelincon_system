@@ -64,13 +64,12 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { font-family: 'Sarabun', sans-serif; background-color: #fffaf5; }
-        .btn-orange { background-color: #fd7e14; color: white; border: none; }
-        .btn-orange:hover { background-color: #e8590c; color: white; }
+        /* .btn-orange: tnc-app.css */
         .tnc-sw-change-pw .swal2-html-container { text-align: start; }
         .tnc-sw-change-pw .swal2-html-container .input-group .form-control { font-size: 1rem; }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -137,7 +136,7 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
             icon: 'success',
             title: 'บันทึกแล้ว',
             text: 'อัปเดตข้อมูลส่วนตัวเรียบร้อย',
-            confirmButtonColor: '#fd7e14'
+            confirmButtonColor: '#ea580c'
         });
         params.delete('success');
         try {
@@ -148,7 +147,7 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
             icon: 'error',
             title: 'รหัสผ่านไม่ถูกต้อง',
             text: 'กรุณาลองอีกครั้ง',
-            confirmButtonColor: '#fd7e14'
+            confirmButtonColor: '#ea580c'
         });
         params.delete('error');
         try {
@@ -159,7 +158,7 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
             icon: 'warning',
             title: 'ต้องยืนยันรหัสผ่าน',
             text: 'กรุณาใช้ปุ่มบันทึกและกรอกรหัสผ่านในหน้าต่างที่ขึ้นมา',
-            confirmButtonColor: '#fd7e14'
+            confirmButtonColor: '#ea580c'
         });
         params.delete('error');
         try {
@@ -170,7 +169,7 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
             icon: 'error',
             title: 'รหัสผ่านใหม่ไม่ตรงกัน',
             text: 'กรุณาลองเปลี่ยนรหัสผ่านอีกครั้ง',
-            confirmButtonColor: '#fd7e14'
+            confirmButtonColor: '#ea580c'
         });
         params.delete('error');
         try {
@@ -181,7 +180,7 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
             icon: 'warning',
             title: 'รหัสผ่านสั้นเกินไป',
             text: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร',
-            confirmButtonColor: '#fd7e14'
+            confirmButtonColor: '#ea580c'
         });
         params.delete('error');
         try {
@@ -218,7 +217,7 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
             showCancelButton: true,
             confirmButtonText: 'บันทึก',
             cancelButtonText: 'ยกเลิก',
-            confirmButtonColor: '#fd7e14',
+            confirmButtonColor: '#ea580c',
             cancelButtonColor: '#6c757d',
             focusCancel: false,
             preConfirm: function (pw) {
@@ -269,7 +268,7 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
                 showCancelButton: true,
                 confirmButtonText: 'เปลี่ยน',
                 cancelButtonText: 'ยกเลิก',
-                confirmButtonColor: '#fd7e14',
+                confirmButtonColor: '#ea580c',
                 cancelButtonColor: '#6c757d',
                 focusConfirm: false,
                 customClass: { popup: 'tnc-sw-change-pw' },

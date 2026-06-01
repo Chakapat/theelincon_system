@@ -195,7 +195,7 @@ $net = $sumIncome - $sumExpense;
         body { font-family: 'Sarabun', sans-serif; background: #fffaf5; }
         .cash-ledger-shell { max-width: 1360px; }
         .card-dash { border-radius: 16px; border: 1px solid rgba(0,0,0,.06); box-shadow: 0 4px 20px rgba(0,0,0,.06); background: #fff; }
-        .card-stats { border-left: 5px solid #fd7e14; transition: transform 0.2s, box-shadow 0.2s; background: #fff; }
+        .card-stats { border-left: 5px solid #ea580c; transition: transform 0.2s, box-shadow 0.2s; background: #fff; }
         .card-stats:hover { transform: translateY(-3px); }
         .ledger-hero-title { letter-spacing: 0.01em; }
         .ledger-subtitle { color: #6c757d; font-size: 0.93rem; margin-bottom: 0; }
@@ -213,7 +213,7 @@ $net = $sumIncome - $sumExpense;
         .ledger-cta-btn:hover { transform: translateY(-1px); text-decoration: none; }
         .ledger-cta-primary {
             color: #fff;
-            background: linear-gradient(135deg, #fd7e14 0%, #f76707 100%);
+            background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
             box-shadow: 0 .38rem .9rem rgba(253,126,20,.33);
         }
         .ledger-cta-primary:hover { color:#fff; filter: brightness(1.03); }
@@ -467,14 +467,15 @@ $net = $sumIncome - $sumExpense;
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container pb-5 cash-ledger-shell">
-    <div class="no-print d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div class="tnc-page-head no-print mb-4 flex-wrap gap-3">
         <div>
-            <h4 class="fw-bold mb-1 ledger-hero-title"><i class="bi bi-speedometer2 text-warning me-2"></i>รายการบันทึกสดย่อย (Petty Cash Ledger)</h4>
+            <p class="tnc-page-kicker">Cash Ledger</p>
+            <h1 class="tnc-list-title ledger-hero-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-speedometer2"></i></span>รายการบันทึกสดย่อย (Petty Cash Ledger)</h1>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <button type="button" class="btn ledger-cta-btn ledger-cta-secondary px-3" onclick="window.print()">
@@ -520,7 +521,7 @@ $net = $sumIncome - $sumExpense;
                 </div>
 
                 <div class="col-12 d-flex gap-2 flex-wrap">
-                    <button type="submit" class="btn rounded-pill px-4 text-white" style="background-color:#fd7e14;">
+                    <button type="submit" class="btn rounded-pill px-4 text-white" style="background-color:#ea580c;">
                         <i class="bi bi-check-lg me-1"></i><?= $editRow ? 'บันทึกการแก้ไข' : 'บันทึกรายการ' ?>
                     </button>
                     <?php if ($editRow): ?>
@@ -582,7 +583,7 @@ $net = $sumIncome - $sumExpense;
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card card-stats border-0 shadow-sm p-3 rounded-4" style="border-left-color: #0d6efd;">
+            <div class="card card-stats border-0 shadow-sm p-3 rounded-4" style="border-left-color: #ea580c;">
                 <h6 class="text-muted mb-1 small">คงเหลือล่าสุด <span class="fw-normal">(สะสมทุกรายการ)</span></h6>
                 <h3 class="fw-bold mb-0 <?= $latestBalanceAllTime >= 0 ? 'text-dark' : 'text-danger' ?>">฿<?= number_format($latestBalanceAllTime, 2) ?></h3>
             </div>
@@ -670,11 +671,11 @@ $net = $sumIncome - $sumExpense;
                         <?php endif; ?>
 
                         <?php if ($page < $totalPages): ?>
-                            <a href="<?= htmlspecialchars($nextUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-primary rounded-pill">
+                            <a href="<?= htmlspecialchars($nextUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-orange rounded-pill">
                                 ดูถัดไป<i class="bi bi-arrow-right ms-1"></i>
                             </a>
                         <?php else: ?>
-                            <button type="button" class="btn btn-sm btn-primary rounded-pill" disabled>
+                            <button type="button" class="btn btn-sm btn-orange rounded-pill" disabled>
                                 ดูถัดไป<i class="bi bi-arrow-right ms-1"></i>
                             </button>
                         <?php endif; ?>
@@ -713,10 +714,10 @@ $net = $sumIncome - $sumExpense;
 <script>
 const params = new URLSearchParams(window.location.search);
 if (params.get('saved') === '1') {
-    Swal.fire({ icon: 'success', title: 'บันทึกแล้ว', confirmButtonColor: '#fd7e14' });
+    Swal.fire({ icon: 'success', title: 'บันทึกแล้ว', confirmButtonColor: '#ea580c' });
 }
 if (params.get('deleted') === '1') {
-    Swal.fire({ icon: 'success', title: 'ลบแล้ว', confirmButtonColor: '#fd7e14' });
+    Swal.fire({ icon: 'success', title: 'ลบแล้ว', confirmButtonColor: '#ea580c' });
 }
 if (params.get('err')) {
     const map = {
@@ -730,7 +731,7 @@ if (params.get('err')) {
         forbidden: 'คุณไม่มีสิทธิ์จัดการรายการนี้',
         csrf: 'เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง',
     };
-    Swal.fire({ icon: 'error', title: 'ไม่สามารถดำเนินการได้', text: map[params.get('err')] || params.get('err'), confirmButtonColor: '#fd7e14' });
+    Swal.fire({ icon: 'error', title: 'ไม่สามารถดำเนินการได้', text: map[params.get('err')] || params.get('err'), confirmButtonColor: '#ea580c' });
 }
 
 const ledgerFormCollapse = document.getElementById('ledgerFormCollapse');

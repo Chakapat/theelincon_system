@@ -184,7 +184,7 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
         }
     </style>
 </head>
-<body>
+<body class="tnc-app-body">
 
 <div class="no-print">
     <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -192,13 +192,14 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
 
 <div class="container py-4 pb-5">
     <?php if ($selectedSite === null): ?>
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div class="tnc-page-head mb-4 flex-wrap gap-3">
             <div>
-                <h4 class="fw-bold mb-1"><i class="bi bi-geo-alt text-warning me-2"></i>เลือกไซต์งาน</h4>
+                <p class="tnc-page-kicker">Stock</p>
+                <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-geo-alt"></i></span>เลือกไซต์งาน</h1>
             </div>
             <?php if ($canManage): ?>
                 <div class="d-flex flex-wrap gap-2">
-                    <a href="<?= htmlspecialchars(app_path('pages/stock/stock-product-form.php')) ?>" class="btn btn-outline-primary rounded-pill">
+                    <a href="<?= htmlspecialchars(app_path('pages/stock/stock-product-form.php')) ?>" class="btn btn-outline-orange rounded-pill">
                         <i class="bi bi-box me-1"></i>เพิ่มประเภทสินค้า/วัสดุ
                     </a>
                 </div>
@@ -230,10 +231,11 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
             <?php endif; ?>
         </div>
     <?php else: ?>
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 no-print">
+    <div class="tnc-page-head mb-4 no-print flex-wrap gap-3">
         <div>
-            <h4 class="fw-bold mb-1"><i class="bi bi-box-seam text-warning me-2"></i>Stock Dashboard</h4>
-            <div class="text-muted small">
+            <p class="tnc-page-kicker">Stock</p>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-box-seam"></i></span>Stock Dashboard</h1>
+            <div class="text-muted small mt-1">
                 ไซต์: <span class="fw-semibold"><?= htmlspecialchars((string) ($selectedSite['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
             </div>
         </div>
@@ -500,7 +502,7 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-                            <button type="submit" class="btn btn-primary">บันทึกการแก้ไข</button>
+                            <button type="submit" class="btn btn-orange">บันทึกการแก้ไข</button>
                         </div>
                     </form>
                 </div>
