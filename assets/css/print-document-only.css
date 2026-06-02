@@ -297,41 +297,69 @@
     }
 
     body.invoice-print-page .invoice-box.inv-sales-doc,
-    body.invoice-embed .invoice-box.inv-sales-doc {
+    body.invoice-embed .invoice-box.inv-sales-doc,
+    body.invoice-autoprint .invoice-box.inv-sales-doc {
         width: 100% !important;
         max-width: 100% !important;
         height: auto !important;
-        min-height: auto !important;
+        min-height: 297mm !important;
         margin: 0 !important;
         padding: 10mm 15mm !important;
         box-shadow: none !important;
         overflow: visible !important;
-        display: block !important;
+        display: flex !important;
+        flex-direction: column !important;
         box-sizing: border-box !important;
-        border-top: 8px solid #ff6600 !important;
+        border: none !important;
+        border-top: none !important;
+        border-top-width: 0 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
 
+    body.invoice-print-page .inv-sales-doc.invoice-box > .inv-doc-main,
+    body.invoice-embed .inv-sales-doc.invoice-box > .inv-doc-main,
+    body.invoice-autoprint .inv-sales-doc.invoice-box > .inv-doc-main {
+        flex: 1 1 auto !important;
+    }
+
     body.invoice-print-page .inv-sales-doc .inv-doc-main,
-    body.invoice-embed .inv-sales-doc .inv-doc-main {
-        display: block !important;
-        min-height: auto !important;
+    body.invoice-embed .inv-sales-doc .inv-doc-main,
+    body.invoice-autoprint .inv-sales-doc .inv-doc-main {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 1 auto !important;
+        min-height: calc(297mm - 20mm) !important;
         width: 100% !important;
     }
 
     body.invoice-print-page .inv-sales-doc .inv-doc-content,
-    body.invoice-embed .inv-sales-doc .inv-doc-content {
+    body.invoice-embed .inv-sales-doc .inv-doc-content,
+    body.invoice-autoprint .inv-sales-doc .inv-doc-content {
         display: block !important;
-        min-height: auto !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
         overflow: visible !important;
     }
 
     body.invoice-print-page .inv-sales-doc .footer-sticky,
-    body.invoice-embed .inv-sales-doc .footer-sticky {
-        display: block !important;
-        margin-top: 8mm !important;
+    body.invoice-embed .inv-sales-doc .footer-sticky,
+    body.invoice-autoprint .inv-sales-doc .footer-sticky {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 0 0 auto !important;
+        margin-top: auto !important;
+        padding-top: 8mm !important;
         position: relative !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    body.invoice-print-page .inv-sales-doc .inv-doc-sign-block,
+    body.invoice-embed .inv-sales-doc .inv-doc-sign-block,
+    body.invoice-autoprint .inv-sales-doc .inv-doc-sign-block {
+        flex: 0 0 auto !important;
+        margin-top: 22mm !important;
         page-break-inside: avoid;
         break-inside: avoid;
     }

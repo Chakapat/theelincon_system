@@ -482,6 +482,14 @@ body.tnc-app-body h5 .bi.text-warning {
         clip-path: none !important;
     }
 
+    body.invoice-print-page .invoice-box.inv-sales-doc,
+    body.invoice-embed .invoice-box.inv-sales-doc,
+    body.invoice-autoprint .invoice-box.inv-sales-doc {
+        border: none !important;
+        border-top: none !important;
+        border-top-width: 0 !important;
+    }
+
     /* Index — พิมพ์จากหน้าหลักขณะเปิด modal (ใช้ปุ่ม «พิมพ์» ใน modal — parent print ไม่แสดงเนื้อ iframe) */
     body.tnc-index-page.tnc-invoice-modal-open > *:not(#tncInvoiceModal) {
         display: none !important;

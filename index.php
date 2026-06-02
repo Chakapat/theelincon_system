@@ -1189,7 +1189,7 @@ function tncOpenInvoiceViewModal(id) {
     if (!frame || !modalEl || !window.bootstrap || !window.bootstrap.Modal) {
         return;
     }
-    const u = invoicePhpUrl + '?action=view&id=' + encodeURIComponent(String(id)) + '&embed=1';
+    const u = invoicePhpUrl + '?action=view&id=' + encodeURIComponent(String(id)) + '&embed=1&_=' + Date.now();
     frame.src = u;
     if (titleEl) {
         titleEl.textContent = 'ดูใบแจ้งหนี้';
@@ -1211,27 +1211,17 @@ document.getElementById('tncInvoiceModal')?.addEventListener('hidden.bs.modal', 
 
 function tncPrintInvoiceFromModal() {
     const frame = document.getElementById('tncInvoiceModalFrame');
-    if (!frame) {
-        return;
-    }
-    const src = frame.src || '';
-    if (!src || src === 'about:blank') {
+    if (!frame || !frame.contentWindow) {
         return;
     }
     try {
-        const u = new URL(src, window.location.href);
-        u.searchParams.set('autoprint', '1');
-        const printWin = window.open(u.toString(), '_blank', 'noopener,noreferrer');
-        if (printWin) {
+        const src = frame.src || '';
+        if (!src || src === 'about:blank') {
             return;
         }
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
     } catch (e) {}
-    try {
-        if (frame.contentWindow) {
-            frame.contentWindow.focus();
-            frame.contentWindow.print();
-        }
-    } catch (e2) {}
 }
 
 document.getElementById('tncInvoiceModalPrint')?.addEventListener('click', tncPrintInvoiceFromModal);

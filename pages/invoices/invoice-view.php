@@ -14,6 +14,14 @@ if (!isset($_SESSION['user_id'])) {
 
 $id = (int) ($_GET['id'] ?? 0);
 $embed = isset($_GET['embed']) && (string) $_GET['embed'] === '1';
+$autoprint = isset($_GET['autoprint']) && (string) $_GET['autoprint'] === '1';
+if ($embed || $autoprint) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+}
+if ($autoprint) {
+    $embed = true;
+}
 $print_modes = [
     ['key' => 'original', 'text' => 'ต้นฉบับ / ORIGINAL'],
     ['key' => 'copy', 'text' => 'สำเนา / COPY'],
@@ -81,9 +89,11 @@ $final_grand_total = $after_wht - $retention;
 /** แสดงที่อยู่เป็นบรรทัดเดียว (ยุบ newline ในข้อมูล) */
 $company_address_one_line = preg_replace('/\s+/u', ' ', trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($data['address'] ?? ''))));
 $customer_address_one_line = preg_replace('/\s+/u', ' ', trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($data['customer_address'] ?? ''))));
+$customer_tax_trim = trim((string) ($data['customer_tax'] ?? ''));
+$company_phone_trim = trim((string) ($data['phone'] ?? ''));
+$company_tax_trim = trim((string) ($data['tax_id'] ?? ''));
 $company_contact_bits = array_filter([
-    trim((string) ($data['phone'] ?? '')) !== '' ? 'โทร: ' . trim((string) $data['phone']) : '',
-    trim((string) ($data['tax_id'] ?? '')) !== '' ? 'เลขประจำตัวผู้เสียภาษี: ' . trim((string) $data['tax_id']) : '',
+    $company_phone_trim !== '' ? 'โทร: ' . $company_phone_trim : '',
 ], static fn (string $s): bool => $s !== '');
 $company_detail_line = $company_address_one_line;
 if ($company_detail_line !== '' && count($company_contact_bits) > 0) {
@@ -91,7 +101,6 @@ if ($company_detail_line !== '' && count($company_contact_bits) > 0) {
 } elseif ($company_detail_line === '' && count($company_contact_bits) > 0) {
     $company_detail_line = implode(' | ', $company_contact_bits);
 }
-$customer_tax_trim = trim((string) ($data['customer_tax'] ?? ''));
 
 /** ชื่อแท็บ / ชื่อไฟล์เริ่มต้นตอนพิมพ์หรือบันทึก PDF (Ctrl+P) */
 $invDocTitle = trim((string) ($data['invoice_number'] ?? ''));
@@ -111,9 +120,14 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <?php if (!$autoprint): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
+    <?php endif; ?>
+    <?php if (!$embed && !$autoprint): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/doc-view-shell.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/invoice-sales-print.css'), ENT_QUOTES, 'UTF-8') ?>">
     
     <style>
         :root { --orange: #FF6600; --dark: #333; }
@@ -128,13 +142,16 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
             padding: 10mm 15mm;
             position: relative;
             box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-            border-top: 8px solid var(--orange);
+            border-top: none;
             overflow: visible;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
             --inv-doc-a4-height: 297mm;
             --inv-doc-pad-block: 10mm;
+        }
+        .invoice-box.inv-sales-doc > .inv-doc-main {
+            flex: 1 1 auto;
         }
         .inv-doc-main {
             flex: 1 1 auto;
@@ -144,7 +161,17 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
             width: 100%;
             box-sizing: border-box;
         }
+        .invoice-box.inv-sales-doc .inv-doc-main {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: calc(var(--inv-doc-a4-height) - (var(--inv-doc-pad-block) * 2));
+        }
         .inv-doc-content {
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+        .invoice-box.inv-sales-doc .inv-doc-content {
             flex: 1 1 auto;
             min-height: 0;
         }
@@ -157,8 +184,17 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
             padding: 2px 15px; font-weight: 800; font-size: 14px; border-radius: 5px;
             display: inline-block; background-color: #fff9f5;
         }
+        .doc-site-block {
+            border-left: 3px solid var(--orange);
+            background: #fff9f5;
+            padding: 0.35rem 0.65rem;
+            margin-bottom: 0.35rem;
+            font-size: 13px;
+        }
+        .doc-site-label { font-weight: 700; margin-right: 0.35rem; }
 
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
+        .tax-id-keep { white-space: nowrap; }
         .invoice-title { font-size: 32px; font-weight: 800; color: var(--orange); line-height: 1; }
         .table-custom { margin-top: 10px; margin-bottom: 0; }
         .table-custom thead th { background: #fafafa; border-bottom: 2px solid var(--orange); font-size: 13px; padding: 8px 10px; }
@@ -166,11 +202,36 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
         
         .footer-sticky {
             flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
             margin-top: auto;
+            padding-top: 8mm;
             position: relative;
             width: 100%;
             max-width: 100%;
             box-sizing: border-box;
+        }
+        .invoice-box.inv-sales-doc .footer-sticky {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            margin-top: auto !important;
+            padding-top: 8mm;
+        }
+        .invoice-box.inv-sales-doc .footer-sticky.doc-footer {
+            margin-top: auto !important;
+            padding-top: 8mm;
+            border-top: none;
+        }
+        .inv-doc-footer-totals {
+            flex: 0 0 auto;
+            margin-bottom: 0 !important;
+        }
+        .inv-doc-sign-block {
+            flex: 0 0 auto;
+            margin-top: 22mm;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
         .payment-info-box { border: 1px solid #eee; border-radius: 8px; padding: 10px; background: #fafafa; font-size: 11.5px; line-height: 1.4; }
         
@@ -178,32 +239,68 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
         .summary-divider { border-top: 1px dashed #ddd; margin: 4px 0; }
         .grand-total-row { 
             display: flex; justify-content: space-between; align-items: center; 
-            background: var(--orange); color: white; padding: 10px 12px; border-radius: 5px; margin-top: 8px; 
+            background: var(--orange); color: #111; padding: 10px 12px; border-radius: 5px; margin-top: 8px; 
         }
         
-        .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; text-align: center; margin-top: 25px; }
+        .signature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            text-align: center;
+            margin-top: 0;
+            padding-top: 0;
+        }
         .sig-space { height: 80px; }
         .sig-box { border-top: 1px solid #333; padding-top: 15px; font-size: 13px; font-weight: 600; }
 
+        <?php if ($autoprint): ?>
+        body.invoice-autoprint {
+            margin: 0;
+            padding: 0;
+            background: #fff;
+        }
+        <?php elseif ($embed): ?>
+        body.invoice-embed { overflow-x: hidden; max-width: 100%; background: #f6f7f9; }
+        <?php endif; ?>
+
         @media print {
-            .invoice-box.inv-sales-doc {
-                min-height: auto;
-                padding: 10mm 15mm;
-                display: block !important;
+            .invoice-box.inv-sales-doc,
+            #tnc-invoice-print-root .invoice-box.inv-sales-doc {
+                border: none !important;
+                border-top: none !important;
+                border-top-width: 0 !important;
+                min-height: 297mm !important;
+                display: flex !important;
+                flex-direction: column !important;
             }
-            .invoice-box.inv-sales-doc .inv-doc-main {
-                min-height: auto !important;
-                display: block !important;
+            .invoice-box.inv-sales-doc > .inv-doc-main,
+            #tnc-invoice-print-root .invoice-box.inv-sales-doc > .inv-doc-main {
+                flex: 1 1 auto !important;
+                min-height: calc(297mm - 20mm) !important;
+                display: flex !important;
+                flex-direction: column !important;
             }
-            .invoice-box.inv-sales-doc .inv-doc-content {
-                display: block !important;
-                min-height: auto !important;
-                overflow: visible !important;
+            .invoice-box.inv-sales-doc .inv-doc-content,
+            #tnc-invoice-print-root .invoice-box.inv-sales-doc .inv-doc-content {
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
             }
-            .invoice-box.inv-sales-doc .footer-sticky {
-                margin-top: 8mm !important;
+            .invoice-box.inv-sales-doc .footer-sticky,
+            .invoice-box.inv-sales-doc .footer-sticky.doc-footer {
+                flex: 0 0 auto !important;
+                display: flex !important;
+                flex-direction: column !important;
+                margin-top: auto !important;
+                padding-top: 8mm !important;
                 page-break-inside: avoid;
                 break-inside: avoid;
+            }
+            .invoice-box.inv-sales-doc .inv-doc-sign-block {
+                margin-top: 22mm !important;
+            }
+            .inv-summary-vat-label::after,
+            .inv-summary-wht-label::after {
+                content: none !important;
             }
         }
 
@@ -220,21 +317,19 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
             }
             .inv-doc-main { min-height: 0; display: block; }
             .inv-doc-content { flex: none; }
-            .footer-sticky { margin-top: 1.25rem; }
+            .footer-sticky { margin-top: 1.25rem; padding-top: 0; display: block; }
+            .inv-doc-sign-block { margin-top: 2rem; }
             .signature-grid { grid-template-columns: 1fr; gap: 18px; }
         }
-        <?php if ($embed): ?>
-        body.invoice-embed { overflow-x: hidden; max-width: 100%; }
-        <?php endif; ?>
     </style>
 </head>
-<body class="invoice-print-page tnc-app-body<?= $embed ? ' invoice-embed' : '' ?>">
+<body class="invoice-print-page<?= $autoprint ? ' invoice-autoprint' : ($embed ? ' invoice-embed' : ' tnc-app-body') ?>">
 
-<?php if (!$embed): ?>
-<div class="no-print">
+<?php if (!$embed && !$autoprint): ?>
+<div class="tnc-inv-chrome no-print">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 </div>
-<header class="doc-view-shell no-print">
+<header class="tnc-inv-chrome doc-view-shell no-print">
     <div class="doc-view-shell-inner">
         <div class="doc-view-toolbar-row">
             <div class="doc-view-toolbar-main">
@@ -255,7 +350,7 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
 </header>
 <?php endif; ?>
 
-<div class="doc-view-canvas">
+<div id="tnc-invoice-print-root" class="doc-view-canvas">
 <?php foreach ($print_modes as $pm): ?>
 <div class="invoice-sheet">
 <div class="invoice-box inv-sales-doc">
@@ -272,7 +367,12 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
             <?php endif; ?>
             <div class="fw-bold" style="font-size: 15px;"><?= h((string) ($data['name'] ?? '')); ?></div>
             <div class="small text-muted" style="font-size: 11px; line-height: 1.2;">
-                <?= htmlspecialchars($company_detail_line, ENT_QUOTES, 'UTF-8'); ?>
+                <?php if ($company_detail_line !== ''): ?>
+                    <?= htmlspecialchars($company_detail_line, ENT_QUOTES, 'UTF-8') ?>
+                <?php endif; ?>
+                <?php if ($company_tax_trim !== ''): ?>
+                    <?= ($company_detail_line !== '' ? ' | ' : '') ?><span class="tax-id-keep">เลขประจำตัวผู้เสียภาษี: <?= htmlspecialchars($company_tax_trim, ENT_QUOTES, 'UTF-8') ?></span>
+                <?php endif; ?>
             </div>
         </div>
         <div class="col-6 text-end">
@@ -284,16 +384,14 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
     <div class="row mb-2 doc-site-row">
         <div class="col-12">
             <div class="doc-site-block">
-                <span class="doc-site-label">ลูกค้า:</span>
                 <span class="doc-site-value"><?= h((string) ($data['customer_name'] ?? '')); ?></span>
             </div>
             <?php if ($customer_address_one_line !== '' || $customer_tax_trim !== ''): ?>
             <div class="doc-site-block mt-2">
-                <span class="doc-site-label">ที่อยู่ / เลขประจำตัวผู้เสียภาษี:</span>
                 <span class="doc-site-value">
                     <?php if ($customer_address_one_line !== ''): ?><?= htmlspecialchars($customer_address_one_line, ENT_QUOTES, 'UTF-8'); ?><?php endif; ?>
                     <?php if ($customer_address_one_line !== '' && $customer_tax_trim !== ''): ?> | <?php endif; ?>
-                    <?php if ($customer_tax_trim !== ''): ?>เลขประจำตัวผู้เสียภาษี: <?= htmlspecialchars($customer_tax_trim, ENT_QUOTES, 'UTF-8'); ?><?php endif; ?>
+                    <?php if ($customer_tax_trim !== ''): ?><span class="tax-id-keep"><?= htmlspecialchars($customer_tax_trim, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
                 </span>
             </div>
             <?php endif; ?>
@@ -328,7 +426,7 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
     </div>
 
     <div class="footer-sticky doc-footer">
-        <div class="row align-items-end mb-3">
+        <div class="row align-items-end inv-doc-footer-totals">
             <div class="col-7">
                 <div class="payment-info-box">
                     <div style="font-size: 9px; color: var(--orange); font-weight: bold; margin-bottom: 3px; border-bottom: 1px solid #ddd;">PAYMENT INFO</div>
@@ -341,19 +439,19 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
             <div class="col-5">
                 <div class="summary-box">
                     <div class="summary-item"><span>ยอดรวม (Subtotal)</span><span><?= formatMoneyOrBlank($subtotal); ?></span></div>
-                    <div class="summary-item <?= $vat > 0 ? 'text-primary' : 'text-muted' ?>">
-                        <span>ภาษี 7% (VAT) (+)</span>
+                    <div class="summary-item inv-summary-vat <?= $vat > 0 ? 'text-primary' : 'text-muted' ?>">
+                        <span class="inv-summary-vat-label">ภาษีมูลค่าเพิ่ม</span>
                         <span><?= formatMoneyOrBlank($vat); ?></span>
                     </div>
                     <div class="summary-item fw-bold border-bottom pb-1 mb-1" style="font-size: 12px; color: #666;">
-                        <span>ยอดรวม VAT</span>
+                        <span>ยอดรวมภาษีมูลค่าเพิ่ม</span>
                         <span><?= formatMoneyOrBlank($total_after_vat); ?></span>
                     </div>
 
                     <div class="summary-divider"></div>
 
-                    <div class="summary-item <?= $wht > 0 ? 'text-danger' : 'text-muted' ?>">
-                        <span>หัก ณ ที่จ่าย 3% (Withholding tax)<small class="text-muted"></small></span>
+                    <div class="summary-item inv-summary-wht <?= $wht > 0 ? 'text-danger' : 'text-muted' ?>">
+                        <span class="inv-summary-wht-label">หัก ณ ที่จ่าย 3%</span>
                         <span><?= formatMoneyOrBlank($wht); ?></span>
                     </div>
                     <div class="summary-item fw-bold border-bottom pb-1 mb-1" style="font-size: 12px; color: #444;">
@@ -373,9 +471,11 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
             </div>
         </div>
 
+        <div class="inv-doc-sign-block">
         <div class="signature-grid">
             <div><div class="sig-space"></div><div class="sig-box">ผู้รับวางบิล / วันที่</div></div>
             <div><div class="sig-space"></div><div class="sig-box">ผู้วางบิล / วันที่</div></div>
+        </div>
         </div>
     </div>
     </div>
@@ -384,76 +484,109 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
 <?php endforeach; ?>
 </div>
 
+<?php if ($autoprint): ?>
+<script>
+(function () {
+    function runPrint() {
+        window.focus();
+        window.print();
+    }
+    function schedulePrint() {
+        var delay = 600;
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(function () {
+                setTimeout(runPrint, delay);
+            }).catch(function () {
+                setTimeout(runPrint, delay + 200);
+            });
+            return;
+        }
+        setTimeout(runPrint, delay + 200);
+    }
+    if (document.readyState === 'complete') {
+        schedulePrint();
+    } else {
+        window.addEventListener('load', schedulePrint, { once: true });
+    }
+    window.addEventListener('afterprint', function () {
+        if (window.opener) {
+            window.close();
+        }
+    });
+})();
+</script>
+<?php endif; ?>
+
 <?php
 $tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
-$autoprint = $embed && isset($_GET['autoprint']) && (string) $_GET['autoprint'] === '1';
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
 <style media="print">
-    /* ท้ายสุด — กัน flex A4 ดัน footer ลงล่างจนเนื้อหาหายตอนพิมพ์ */
-    body.invoice-print-page .invoice-box.inv-sales-doc,
-    body.invoice-embed .invoice-box.inv-sales-doc {
-        display: block !important;
-        min-height: auto !important;
-        height: auto !important;
-        padding: 10mm 15mm !important;
-        overflow: visible !important;
+    @page {
+        size: A4 portrait;
+        margin: 0;
     }
-    body.invoice-print-page .inv-sales-doc .inv-doc-main,
-    body.invoice-embed .inv-sales-doc .inv-doc-main,
-    body.invoice-print-page .inv-sales-doc .inv-doc-content,
-    body.invoice-embed .inv-sales-doc .inv-doc-content {
+
+    body.invoice-print-page > #tnc-invoice-print-root,
+    body.invoice-autoprint > #tnc-invoice-print-root,
+    body.invoice-embed > #tnc-invoice-print-root {
         display: block !important;
-        flex: none !important;
-        min-height: auto !important;
-        height: auto !important;
-        overflow: visible !important;
-    }
-    body.invoice-print-page .inv-sales-doc .footer-sticky,
-    body.invoice-embed .inv-sales-doc .footer-sticky {
-        display: block !important;
-        flex: none !important;
-        margin-top: 8mm !important;
-        position: relative !important;
-    }
-    body.invoice-print-page .inv-sales-doc .table-custom,
-    body.invoice-embed .inv-sales-doc .table-custom {
-        display: table !important;
+        visibility: visible !important;
+        position: static !important;
         width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        opacity: 1 !important;
+        clip: auto !important;
+        clip-path: none !important;
     }
-    body.invoice-print-page .inv-sales-doc .table-custom thead,
-    body.invoice-embed .inv-sales-doc .table-custom thead {
-        display: table-header-group !important;
+
+    body.invoice-print-page .invoice-box.inv-sales-doc,
+    body.invoice-autoprint .invoice-box.inv-sales-doc,
+    body.invoice-embed .invoice-box.inv-sales-doc {
+        border: none !important;
+        border-top: none !important;
+        border-top-width: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 297mm !important;
+        box-shadow: none !important;
     }
-    body.invoice-print-page .inv-sales-doc .table-custom tbody,
-    body.invoice-embed .inv-sales-doc .table-custom tbody {
-        display: table-row-group !important;
+
+    body.invoice-print-page .invoice-box.inv-sales-doc > .inv-doc-main,
+    body.invoice-autoprint .invoice-box.inv-sales-doc > .inv-doc-main,
+    body.invoice-embed .invoice-box.inv-sales-doc > .inv-doc-main {
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: calc(297mm - 20mm) !important;
     }
-    body.invoice-print-page .inv-sales-doc .table-custom tr,
-    body.invoice-embed .inv-sales-doc .table-custom tr {
-        display: table-row !important;
+
+    body.invoice-print-page .invoice-box.inv-sales-doc .inv-doc-content,
+    body.invoice-autoprint .invoice-box.inv-sales-doc .inv-doc-content,
+    body.invoice-embed .invoice-box.inv-sales-doc .inv-doc-content {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
     }
-    body.invoice-print-page .inv-sales-doc .table-custom th,
-    body.invoice-print-page .inv-sales-doc .table-custom td,
-    body.invoice-embed .inv-sales-doc .table-custom th,
-    body.invoice-embed .inv-sales-doc .table-custom td {
-        display: table-cell !important;
+
+    body.invoice-print-page .invoice-box.inv-sales-doc .footer-sticky,
+    body.invoice-autoprint .invoice-box.inv-sales-doc .footer-sticky,
+    body.invoice-embed .invoice-box.inv-sales-doc .footer-sticky,
+    body.invoice-print-page .invoice-box.inv-sales-doc .footer-sticky.doc-footer,
+    body.invoice-autoprint .invoice-box.inv-sales-doc .footer-sticky.doc-footer,
+    body.invoice-embed .invoice-box.inv-sales-doc .footer-sticky.doc-footer {
+        flex: 0 0 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        margin-top: auto !important;
+        padding-top: 8mm !important;
+    }
+
+    body.invoice-print-page .invoice-box.inv-sales-doc .inv-doc-sign-block,
+    body.invoice-autoprint .invoice-box.inv-sales-doc .inv-doc-sign-block,
+    body.invoice-embed .invoice-box.inv-sales-doc .inv-doc-sign-block {
+        margin-top: 22mm !important;
     }
 </style>
-<?php if ($autoprint): ?>
-<script>
-window.addEventListener('load', function () {
-    window.requestAnimationFrame(function () {
-        window.requestAnimationFrame(function () {
-            window.focus();
-            window.print();
-        });
-    });
-});
-window.addEventListener('afterprint', function () {
-    window.close();
-});
-</script>
-<?php endif; ?>
 </body>
 </html>
