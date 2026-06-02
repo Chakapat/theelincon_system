@@ -268,7 +268,7 @@ $ignoredCountAll = count($ignoredPoList);
         }
     </style>
 </head>
-<body class="purchase-module tnc-app-body">
+<body class="purchase-module tnc-app-body tnc-po-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ PO…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้แนบสลิปและบันทึกเลขบิลเมื่อโหลดเสร็จ">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -1246,6 +1246,18 @@ $ignoredCountAll = count($ignoredPoList);
                 },
             });
         });
+    });
+})();
+</script>
+<script>
+(function () {
+    function releasePoBootLock() {
+        if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.pageReady === 'function') {
+            window.TncLoadingOverlay.pageReady();
+        }
+    }
+    window.requestAnimationFrame(function () {
+        window.requestAnimationFrame(releasePoBootLock);
     });
 })();
 </script>

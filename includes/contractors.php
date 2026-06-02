@@ -311,6 +311,62 @@ if (!function_exists('tnc_contractor_normalize_national_id')) {
     }
 }
 
+if (!function_exists('tnc_contractor_name_th_key')) {
+    function tnc_contractor_name_th_key(string $prefix, string $first, string $last): string
+    {
+        $parts = array_map(
+            static fn (string $part): string => mb_strtolower(preg_replace('/\s+/u', ' ', trim($part)) ?? '', 'UTF-8'),
+            [$prefix, $first, $last]
+        );
+
+        return implode('|', array_values(array_filter($parts, static fn (string $part): bool => $part !== '')));
+    }
+}
+
+if (!function_exists('tnc_contractor_row_name_th_key')) {
+    /** @param array<string, mixed> $row */
+    function tnc_contractor_row_name_th_key(array $row): string
+    {
+        return tnc_contractor_name_th_key(
+            (string) ($row['title_prefix_th'] ?? ''),
+            (string) ($row['first_name_th'] ?? ''),
+            (string) ($row['last_name_th'] ?? '')
+        );
+    }
+}
+
+if (!function_exists('tnc_contractor_find_duplicate_conflict')) {
+    /**
+     * @param array<string, mixed> $fields
+     * @return 'duplicate_national_id'|'duplicate_name'|null
+     */
+    function tnc_contractor_find_duplicate_conflict(array $fields, int $excludeId = 0): ?string
+    {
+        $nationalId = tnc_contractor_normalize_national_id((string) ($fields['national_id'] ?? ''));
+        $nameKey = tnc_contractor_name_th_key(
+            (string) ($fields['title_prefix_th'] ?? ''),
+            (string) ($fields['first_name_th'] ?? ''),
+            (string) ($fields['last_name_th'] ?? '')
+        );
+
+        foreach (Db::tableRows('contractors') as $other) {
+            $otherId = (int) ($other['id'] ?? 0);
+            if ($otherId <= 0 || $otherId === $excludeId) {
+                continue;
+            }
+            if ($nationalId !== ''
+                && tnc_contractor_normalize_national_id((string) ($other['national_id'] ?? '')) === $nationalId) {
+                return 'duplicate_national_id';
+            }
+            if ($nameKey !== '' && tnc_contractor_row_name_th_key($other) === $nameKey) {
+                return 'duplicate_name';
+            }
+        }
+
+        return null;
+    }
+}
+
 if (!function_exists('tnc_contractor_is_valid_national_id')) {
     function tnc_contractor_is_valid_national_id(string $nationalId): bool
     {

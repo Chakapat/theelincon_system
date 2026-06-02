@@ -796,7 +796,7 @@ if (!$has_tax_invoice || $edit_mode) {
     <?php endif; ?>
 
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold"><i class="bi bi-file-earmark-break text-success"></i> <?= $has_tax_invoice ? 'แก้ไข Tax Invoice' : 'สร้าง Tax Invoice' ?></h3>
+        <h3 class="fw-bold"><i class="bi bi-file-earmark-break text-success"></i> <?= $has_tax_invoice ? 'แก้ไขใบกำกับภาษี' : 'สร้างใบกำกับภาษี' ?></h3>
         <a href="<?= htmlspecialchars($has_tax_invoice ? (app_path('pages/invoices/tax-invoice-receipt.php') . '?id=' . $id) : app_path('index.php')) ?>" class="btn btn-outline-secondary rounded-pill">กลับ</a>
     </div>
 
@@ -818,14 +818,13 @@ if (!$has_tax_invoice || $edit_mode) {
                             <option value="<?= (int) $com['id'] ?>" <?= ((int) $com['id'] === (int) ($inv['company_id'] ?? 0)) ? 'selected' : '' ?>><?= htmlspecialchars((string) $com['name'], ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <label class="form-label fw-bold text-muted small">เลขที่ Invoice อ้างอิง</label>
+                    <label class="form-label fw-bold text-muted small">เลขที่ใบแจ้งหนี้อ้างอิง</label>
                     <input type="text" class="form-control bg-light" value="<?= htmlspecialchars($invoice_number, ENT_QUOTES, 'UTF-8') ?>" readonly>
-                    <p class="small text-muted mt-2 mb-0">ผู้ออก Invoice (ตามระบบ): <?= htmlspecialchars($creatorDraftName !== '' ? $creatorDraftName : 'ไม่ระบุ', ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="card h-100 border-orange p-4 shadow-sm">
-                    <label class="form-label fw-bold">ลูกค้า</label>
+                    <label class="form-label fw-bold">บริษัทผู้รับเอกสาร</label>
                     <select name="customer_id" class="form-select mb-3 shadow-sm" required>
                         <?php foreach ($customers as $cus): ?>
                             <option value="<?= (int) $cus['id'] ?>" <?= ((int) $cus['id'] === (int) ($inv['customer_id'] ?? 0)) ? 'selected' : '' ?>><?= htmlspecialchars((string) $cus['name'], ENT_QUOTES, 'UTF-8') ?></option>
@@ -833,7 +832,7 @@ if (!$has_tax_invoice || $edit_mode) {
                     </select>
                     <div class="row g-2">
                         <div class="col-12">
-                            <label class="form-label small fw-bold">วันที่ออก Tax INV</label>
+                            <label class="form-label small fw-bold">วันที่ออกใบกำกับภาษี</label>
                             <input type="date" name="tax_date" class="form-control" value="<?= htmlspecialchars((string) ($tax['tax_date'] ?? date('Y-m-d')), ENT_QUOTES, 'UTF-8') ?>">
                         </div>
                     </div>
@@ -843,7 +842,7 @@ if (!$has_tax_invoice || $edit_mode) {
 
         <div class="card mt-4 border-orange shadow-sm">
             <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                <span class="fw-bold" style="color: #FF6600;"><i class="bi bi-list-task me-2"></i>รายการ (แก้ไขก่อนบันทึก Tax INV)</span>
+                <span class="fw-bold" style="color: #FF6600;"><i class="bi bi-list-task me-2"></i>รายการ</span>
                 <button type="button" class="btn btn-success btn-sm rounded-pill px-3" onclick="addRow()"><i class="bi bi-plus"></i> เพิ่มรายการ</button>
             </div>
             <div class="table-responsive">
@@ -948,7 +947,7 @@ if (!$has_tax_invoice || $edit_mode) {
                         <div id="grand_total_display" class="readonly-grand-total">0.00</div>
                     </div>
                     <button type="button" onclick="confirmSaveTax()" class="btn btn-orange w-100 py-3 shadow mt-3">
-                        <i class="bi bi-save2 me-2"></i> <?= $has_tax_invoice ? 'บันทึกการแก้ไข Tax INV' : 'บันทึกเป็น Tax INV' ?>
+                        <i class="bi bi-save2 me-2"></i> <?= $has_tax_invoice ? 'บันทึกการแก้ไขใบกำกับภาษี' : 'บันทึกเป็นใบกำกับภาษี' ?>
                     </button>
                 </div>
             </div>
@@ -1163,9 +1162,10 @@ if (!empty($tax['tax_date'])) {
 /** แสดงที่อยู่เป็นบรรทัดเดียว (ยุบ newline ในข้อมูล) */
 $company_address_one_line = preg_replace('/\s+/u', ' ', trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($data['address'] ?? ''))));
 $customer_address_one_line = preg_replace('/\s+/u', ' ', trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($data['customer_address'] ?? ''))));
+$company_phone_trim = trim((string) ($data['phone'] ?? ''));
+$company_tax_trim = trim((string) ($data['tax_id'] ?? ''));
 $company_contact_bits = array_filter([
-    trim((string) ($data['phone'] ?? '')) !== '' ? 'โทร: ' . trim((string) $data['phone']) : '',
-    trim((string) ($data['tax_id'] ?? '')) !== '' ? 'Tax ID: ' . trim((string) $data['tax_id']) : '',
+    $company_phone_trim !== '' ? 'โทร: ' . $company_phone_trim : '',
 ], static fn (string $s): bool => $s !== '');
 $company_detail_line = $company_address_one_line;
 if ($company_detail_line !== '' && count($company_contact_bits) > 0) {
@@ -1183,7 +1183,7 @@ if ($tirPrintDocTitle === '') {
 if ($tirPrintDocTitle === '') {
     $tirPrintDocTitle = 'TAX-INV-' . (int) $id;
 }
-$taxDocDateSubtitle = ($tax_invoice_number !== '' ? $tax_invoice_number : $tirPrintDocTitle) . ' · ' . formatDateThai($displayIssueDate);
+$taxDocDateSubtitle = formatDateThai($displayIssueDate) . ' · ' . ($tax_invoice_number !== '' ? $tax_invoice_number : $tirPrintDocTitle);
 $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || isset($_GET['updated']));
 ?>
 
@@ -1214,7 +1214,7 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
             padding: 10mm 15mm;
             position: relative;
             box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-            border-top: 8px solid var(--orange);
+            border-top: none;
             overflow: visible;
             box-sizing: border-box;
             display: flex;
@@ -1252,11 +1252,21 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
         
         .footer-sticky {
             flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
             margin-top: auto;
+            padding-top: 8mm;
             position: relative;
             width: 100%;
             max-width: 100%;
             box-sizing: border-box;
+        }
+        .tax-doc-footer-totals { flex: 0 0 auto; margin-bottom: 0 !important; }
+        .tax-doc-sign-block {
+            flex: 0 0 auto;
+            margin-top: 22mm;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
         .payment-info-box { border: 1px solid #eee; border-radius: 8px; padding: 10px; background: #fafafa; font-size: 11.5px; line-height: 1.4; }
         
@@ -1267,25 +1277,58 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
             background: var(--orange); color: white; padding: 10px 12px; border-radius: 5px; margin-top: 8px; 
         }
         
-        .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; text-align: center; margin-top: 25px; }
-        .sig-space { height: 80px; }
+        .signature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            text-align: center;
+            margin-top: 0;
+            padding-top: 0;
+            flex: 0 0 auto;
+        }
+        .sig-space { height: 72px; }
         .sig-box { border-top: 1px solid #333; padding-top: 15px; font-size: 13px; font-weight: 600; }
 
+        .tax-id-keep { white-space: nowrap; }
+        .tax-doc-meta-subtitle {
+            color: #111 !important;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+        }
+        .tax-doc-inv-ref {
+            color: #333;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .tax-doc-customer-section {
+            margin-top: 1.15em;
+        }
+        .doc-site-label.tax-id-label-split { white-space: normal; line-height: 1.35; vertical-align: top; }
+
         @media print {
-            .invoice-box.inv-sales-doc {
+            body.tax-print-page .invoice-box.inv-sales-doc {
+                border-top: none !important;
                 min-height: calc(297mm - 20mm);
                 display: flex !important;
                 flex-direction: column !important;
             }
-            .invoice-box.inv-sales-doc .inv-doc-main {
+            body.tax-print-page .invoice-box.inv-sales-doc .inv-doc-main {
                 min-height: calc(297mm - 20mm) !important;
                 display: flex !important;
                 flex-direction: column !important;
             }
-            .invoice-box.inv-sales-doc .footer-sticky {
+            body.tax-print-page .invoice-box.inv-sales-doc .footer-sticky {
+                flex: 0 0 auto !important;
+                display: flex !important;
+                flex-direction: column !important;
                 margin-top: auto !important;
+                padding-top: 8mm !important;
                 page-break-inside: avoid;
                 break-inside: avoid;
+            }
+            body.tax-print-page .invoice-box.inv-sales-doc .tax-doc-sign-block {
+                margin-top: 22mm !important;
             }
         }
 
@@ -1303,6 +1346,7 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
             .inv-doc-main { min-height: 0; display: block; }
             .inv-doc-content { flex: none; }
             .footer-sticky { margin-top: 1.25rem; }
+            .tax-doc-sign-block { margin-top: 2rem; }
             .signature-grid { grid-template-columns: 1fr; gap: 18px; }
         }
     </style>
@@ -1333,19 +1377,14 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
         <div class="doc-view-toolbar-row">
             <div class="doc-view-toolbar-main">
                 <span class="doc-view-toolbar-id"><?= htmlspecialchars($tirPrintDocTitle, ENT_QUOTES, 'UTF-8') ?></span>
-                <span class="doc-view-toolbar-sep" aria-hidden="true">—</span>
-                <span class="doc-view-toolbar-meta">ต้นฉบับ + สำเนา</span>
             </div>
             <div class="doc-view-toolbar-actions">
-                <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                    <i class="bi bi-arrow-left me-1"></i>รายการ Tax
-                </a>
-                <a href="<?= htmlspecialchars(app_path('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                    <i class="bi bi-house me-1"></i>หน้าหลัก
-                </a>
                 <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                     <i class="bi bi-printer me-1"></i>พิมพ์
                 </button>
+                <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="bi bi-arrow-left me-1"></i>กลับหน้ารายการใบกำกับภาษี
+                </a>
             </div>
         </div>
     </div>
@@ -1368,31 +1407,34 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
             <?php endif; ?>
             <div class="fw-bold" style="font-size: 15px;"><?= $data['name']; ?></div>
             <div class="small text-muted" style="font-size: 11px; line-height: 1.2;">
-                <?= htmlspecialchars($company_detail_line, ENT_QUOTES, 'UTF-8'); ?>
+                <?php if ($company_detail_line !== ''): ?>
+                    <?= htmlspecialchars($company_detail_line, ENT_QUOTES, 'UTF-8') ?>
+                <?php endif; ?>
+                <?php if ($company_tax_trim !== ''): ?>
+                    <?= ($company_detail_line !== '' ? ' | ' : '') ?><span class="tax-id-keep">เลขประจำตัวผู้เสีย <?= htmlspecialchars($company_tax_trim, ENT_QUOTES, 'UTF-8') ?></span>
+                <?php endif; ?>
             </div>
         </div>
         <div class="col-6 text-end">
             <div class="invoice-title">RECEIPT / TAX INVOICE</div>
-            <div class="fw-bold text-muted small"><?= htmlspecialchars($taxDocDateSubtitle, ENT_QUOTES, 'UTF-8') ?></div>
+            <div class="tax-doc-meta-subtitle"><?= htmlspecialchars($taxDocDateSubtitle, ENT_QUOTES, 'UTF-8') ?></div>
             <?php if ($tax_invoice_number !== '' && $invoice_number !== ''): ?>
-                <div class="small text-muted mt-1">อ้างถึงใบแจ้งหนี้ : <?= htmlspecialchars($invoice_number, ENT_QUOTES, 'UTF-8'); ?></div>
+                <div class="mt-1 tax-doc-inv-ref">อ้างถึงใบแจ้งหนี้ : <?= htmlspecialchars($invoice_number, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php endif; ?>
         </div>
     </div>
 
-    <div class="row mb-2 doc-site-row">
+    <div class="row mb-2 doc-site-row tax-doc-customer-section">
         <div class="col-12">
             <div class="doc-site-block">
-                <span class="doc-site-label">ลูกค้า:</span>
                 <span class="doc-site-value"><?= htmlspecialchars((string) ($data['customer_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
             </div>
             <?php if ($customer_address_one_line !== '' || $customer_tax_trim !== ''): ?>
             <div class="doc-site-block mt-2">
-                <span class="doc-site-label">ที่อยู่ / Tax ID:</span>
                 <span class="doc-site-value">
                     <?php if ($customer_address_one_line !== ''): ?><?= htmlspecialchars($customer_address_one_line, ENT_QUOTES, 'UTF-8'); ?><?php endif; ?>
                     <?php if ($customer_address_one_line !== '' && $customer_tax_trim !== ''): ?> | <?php endif; ?>
-                    <?php if ($customer_tax_trim !== ''): ?>Tax ID: <?= htmlspecialchars($customer_tax_trim, ENT_QUOTES, 'UTF-8'); ?><?php endif; ?>
+                    <?php if ($customer_tax_trim !== ''): ?><span class="tax-id-keep"><?= htmlspecialchars($customer_tax_trim, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
                 </span>
             </div>
             <?php endif; ?>
@@ -1425,7 +1467,7 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
     </div>
 
     <div class="footer-sticky doc-footer">
-        <div class="row align-items-end mb-3">
+        <div class="row align-items-end tax-doc-footer-totals">
             <div class="col-6">
                 <div class="payment-info-box mb-2">
                     <div style="font-size: 9px; color: var(--orange); font-weight: bold; margin-bottom: 3px; border-bottom: 1px solid #ddd;">Payment method</div>
@@ -1448,18 +1490,18 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
                         <span><?= formatMoneyByModeOrBlank($subtotal, $roundingEnabledView); ?></span>
                     </div>
                     <div class="summary-item <?= $vat > 0 ? 'text-primary' : 'text-muted' ?>">
-                        <span>ภาษีมูลค่าเพิ่ม 7% (VAT) (+)</span>
+                        <span>ภาษีมูลค่าเพิ่ม 7%</span>
                         <span><?= formatMoneyByModeOrBlank($vat, $roundingEnabledView); ?></span>
                     </div>
                     <div class="summary-item fw-bold border-bottom pb-1 mb-1" style="color: #333;">
-                        <span>ยอดรวม VAT</span>
+                        <span>ยอดรวมภาษีมูลค่าเพิ่ม</span>
                         <span><?= formatMoneyByModeOrBlank($total_after_vat, $roundingEnabledView); ?></span>
                     </div>
 
                     <div class="summary-divider"></div>
 
                     <div class="summary-item <?= $wht > 0 ? 'text-danger' : 'text-muted' ?>">
-                        <span>หัก ณ ที่จ่าย 3% (-) <small class="text-muted">(คิดจากยอดก่อน VAT)</small></span>
+                        <span>หัก ณ ที่จ่าย 3%</span>
                         <span><?= formatMoneyByModeOrBlank($wht, $roundingEnabledView); ?></span>
                     </div>
                     <div class="summary-item fw-bold border-bottom pb-1 mb-1" style="font-size: 13px; color: #444;">
@@ -1482,11 +1524,10 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
             </div>
         </div>
 
-        <div class="signature-grid">
-            <div><div class="sig-space"></div><div class="sig-box">ผู้รับเงิน / วันที่</div></div>
-        </div>
-        <div class="text-center mt-3 small text-muted" style="font-size: 9px; border-top: 1px solid #eee; padding-top: 5px;">
-            ใบเสร็จรับเงินฉบับนี้จะสมบูรณ์ต่อเมื่อบริษัทฯ ได้รับเงินเรียบร้อยแล้ว
+        <div class="tax-doc-sign-block">
+            <div class="signature-grid">
+                <div><div class="sig-space"></div><div class="sig-box">ผู้รับเงิน<span class="no-print"> / วันที่</span></div></div>
+            </div>
         </div>
     </div>
     </div>
@@ -1516,5 +1557,69 @@ document.addEventListener('DOMContentLoaded', function () {
 $tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
+<style media="print">
+    /* ทับ print-document-only — ไม่ให้ browser ใส่ URL / หมายเลขหน้า (1/2) ใน margin */
+    @page {
+        size: A4 portrait;
+        margin: 0;
+    }
+
+    body.tax-print-page > .doc-view-canvas,
+    body.invoice-print-page.tax-print-page > .doc-view-canvas {
+        display: block !important;
+        visibility: visible !important;
+        position: static !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        opacity: 1 !important;
+        clip: auto !important;
+        clip-path: none !important;
+    }
+
+    body.tax-print-page .invoice-box.inv-sales-doc {
+        border-top: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: 297mm !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 10mm 15mm !important;
+        box-sizing: border-box !important;
+        box-shadow: none !important;
+    }
+
+    body.tax-print-page .invoice-box.inv-sales-doc .inv-doc-main {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: calc(297mm - 20mm) !important;
+    }
+
+    body.tax-print-page .invoice-box.inv-sales-doc .inv-doc-content {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+    }
+
+    body.tax-print-page .invoice-box.inv-sales-doc .footer-sticky {
+        flex: 0 0 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        margin-top: auto !important;
+        padding-top: 8mm !important;
+    }
+
+    body.tax-print-page .invoice-box.inv-sales-doc .tax-doc-sign-block {
+        margin-top: 22mm !important;
+    }
+
+    body.tax-print-page .invoice-sheet a[href]::after {
+        content: none !important;
+    }
+
+    body.tax-print-page .invoice-sheet a[href] {
+        text-decoration: none !important;
+        color: inherit !important;
+    }
+</style>
 </body>
 </html>

@@ -24,9 +24,14 @@ if (isset($_GET['ajax_search'])) {
 
     if (count($rows) > 0) {
         foreach ($rows as $row): ?>
+            <?php
+            $issueRaw = trim((string) ($row['issue_date'] ?? ''));
+            $issueTs = $issueRaw !== '' ? strtotime($issueRaw) : false;
+            $dateDisplay = $issueTs !== false ? date('d/m/Y', $issueTs) : '—';
+            $dateOrder = $issueTs !== false ? date('Y-m-d', $issueTs) : '0000-00-00';
+            ?>
             <tr>
-                <td class="text-secondary small"><?= date('d/m/Y', strtotime($row['issue_date'])); ?></td>
-                <td><?php
+                <td data-order="<?= htmlspecialchars($dateOrder, ENT_QUOTES, 'UTF-8') ?>"><?php
                     $hasTaxInv = !empty($row['has_tax_invoice']);
                     $invBadgeClass = $hasTaxInv
                         ? 'badge rounded-pill inv-badge-tax-issued px-3'
@@ -37,10 +42,7 @@ if (isset($_GET['ajax_search'])) {
                     $invNoDisplay = (string) ($row['invoice_number'] ?? '');
                     ?>
                     <div><span class="<?= htmlspecialchars($invBadgeClass, ENT_QUOTES, 'UTF-8') ?> index-inv-no-copy" role="button" tabindex="0" data-invoice-copy="<?= htmlspecialchars($invNoDisplay, ENT_QUOTES, 'UTF-8') ?>" title="คลิกเพื่อคัดลอกเลขที่"><?= htmlspecialchars($invNoDisplay, ENT_QUOTES, 'UTF-8'); ?></span></div>
-                    <div class="small text-muted mt-1"><?php
-                        $cn = trim((string)($row['creator_name'] ?? ''));
-                        echo $cn !== '' ? htmlspecialchars($cn, ENT_QUOTES, 'UTF-8') : '—';
-                    ?></div>
+                    <div class="small text-muted mt-1"><?= htmlspecialchars($dateDisplay, ENT_QUOTES, 'UTF-8') ?></div>
                 </td>
                 <td class="fw-semibold">
                     <div class="d-flex align-items-center gap-2">
@@ -49,8 +51,6 @@ if (isset($_GET['ajax_search'])) {
                         if ($custLogo !== ''):
                         ?>
                             <img src="<?= htmlspecialchars(upload_logo_url($custLogo)) ?>" alt="" class="cust-logo-thumb rounded border bg-light flex-shrink-0">
-                        <?php else: ?>
-                            <div class="cust-logo-thumb rounded border bg-light flex-shrink-0 d-flex align-items-center justify-content-center text-muted"><i class="bi bi-person"></i></div>
                         <?php endif; ?>
                         <span class="text-break"><?= htmlspecialchars($row['customer_name'] ?? ''); ?></span>
                     </div>
@@ -73,7 +73,7 @@ if (isset($_GET['ajax_search'])) {
             </tr>
         <?php endforeach;
     } else {
-        echo "<tr><td colspan='5' class='text-center py-5 text-muted'>ไม่พบข้อมูลใบแจ้งหนี้ที่ค้นหา</td></tr>";
+        echo "<tr><td colspan='4' class='text-center py-5 text-muted'>ไม่พบข้อมูลใบแจ้งหนี้ที่ค้นหา</td></tr>";
     }
     exit;
 }
@@ -380,6 +380,49 @@ if ($index_display_name === '') {
             border: 1px solid rgba(25, 135, 84, 0.4);
             font-weight: 600;
         }
+        .index-inv-legend {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.55rem 1rem;
+            font-size: 0.8125rem;
+            color: #64748b;
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            border-top: 1px solid #e8edf3;
+            overflow-x: auto;
+        }
+        @media (min-width: 768px) {
+            .index-inv-legend {
+                padding-left: 1.5rem;
+                padding-right: 1.5rem;
+            }
+        }
+        .index-inv-legend__item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            white-space: nowrap;
+        }
+        .index-inv-legend__swatch {
+            display: inline-block;
+            width: 0.72rem;
+            height: 0.72rem;
+            border-radius: 999px;
+            flex-shrink: 0;
+        }
+        .index-inv-legend__swatch--pending {
+            background-color: rgba(255, 193, 7, 0.55);
+            border: 1px solid rgba(255, 193, 7, 0.75);
+        }
+        .index-inv-legend__swatch--issued {
+            background-color: rgba(25, 135, 84, 0.45);
+            border: 1px solid rgba(25, 135, 84, 0.55);
+        }
+        .index-inv-legend__sep {
+            color: #cbd5e1;
+            user-select: none;
+        }
         .index-inv-no-copy {
             cursor: pointer;
             user-select: none;
@@ -396,14 +439,23 @@ if ($index_display_name === '') {
             outline-offset: 2px;
         }
         /* Invoice table — roomier rows, single search only (no DataTables filter UI) */
-        #invoice_table.table-invoice-index thead th {
+        .index-table-card > .card-header {
+            border-bottom: 1px solid #e8edf3 !important;
+        }
+        #invoice_table.table-invoice-index thead,
+        #invoice_table.table-invoice-index.dataTable thead {
+            border-top: none !important;
+        }
+        #invoice_table.table-invoice-index thead th,
+        #invoice_table.table-invoice-index.dataTable thead th {
             font-size: 0.75rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.04em;
             color: #6c757d;
             padding: 1rem 1.25rem;
-            border-bottom-width: 1px;
+            border-top: none !important;
+            border-bottom: 1px solid #e8edf3 !important;
         }
         #invoice_table.table-invoice-index tbody td {
             padding: 1.1rem 1.25rem;
@@ -740,15 +792,14 @@ if ($index_display_name === '') {
                 text-align: left;
                 flex: 0 0 5.8rem;
             }
-            #invoice_table.table-invoice-index tbody td:nth-child(1)::before { content: "วันที่"; }
-            #invoice_table.table-invoice-index tbody td:nth-child(2)::before { content: "เลขที่"; }
-            #invoice_table.table-invoice-index tbody td:nth-child(3)::before { content: "ลูกค้า"; }
-            #invoice_table.table-invoice-index tbody td:nth-child(4)::before { content: "ยอดสุทธิ"; }
-            #invoice_table.table-invoice-index tbody td:nth-child(5)::before { content: "จัดการ"; }
+            #invoice_table.table-invoice-index tbody td:nth-child(1)::before { content: "เลขที่"; }
+            #invoice_table.table-invoice-index tbody td:nth-child(2)::before { content: "ลูกค้า"; }
+            #invoice_table.table-invoice-index tbody td:nth-child(3)::before { content: "ยอดสุทธิ"; }
+            #invoice_table.table-invoice-index tbody td:nth-child(4)::before { content: "จัดการ"; }
             #invoice_table.table-invoice-index tbody td:last-child {
                 border-bottom: 0;
             }
-            #invoice_table.table-invoice-index tbody td:nth-child(5) .d-inline-flex {
+            #invoice_table.table-invoice-index tbody td:nth-child(4) .d-inline-flex {
                 margin-left: auto;
             }
 
@@ -955,11 +1006,11 @@ if ($index_display_name === '') {
                         </div>
                         <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=create" class="index-cta-btn index-cta-primary flex-shrink-0 text-center text-nowrap">
                             <span class="index-cta-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>
-                            <span>สร้างบิลใหม่</span>
+                            <span>สร้างใบแจ้งหนี้ใหม่</span>
                         </a>
                         <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-list.php')) ?>" class="index-cta-btn index-cta-secondary flex-shrink-0 text-center text-nowrap">
                             <span class="index-cta-icon"><i class="bi bi-file-earmark-break" aria-hidden="true"></i></span>
-                            <span>ใบกำกับภาษี</span>
+                            <span>รายการใบกำกับภาษี</span>
                         </a>
                     </div>
                 </div>
@@ -968,24 +1019,29 @@ if ($index_display_name === '') {
 
         <div class="table-responsive">
             <table id="invoice_table" class="table table-invoice-index table-hover align-middle mb-0" aria-busy="false">
-                <thead class="table-light border-bottom">
+                <thead class="table-light">
                     <tr>
-                        <th class="ps-4">วันที่</th>
-                        <th>เลขที่ใบแจ้งหนี้</th>
-                        <th>ลูกค้า</th>
+                        <th class="ps-4">เลขที่ใบแจ้งหนี้</th>
+                        <th>รายชื่อบริษัทแจ้งหนี้</th>
                         <th>ยอดสุทธิ</th>
                         <th class="text-end pe-4">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody id="invoice_table_body">
                     <tr>
-                        <td colspan="5" class="text-center py-5 text-muted">
+                        <td colspan="4" class="text-center py-5 text-muted">
                             <span class="spinner-border spinner-border-sm text-warning me-2" role="status" aria-hidden="true"></span>
                             <span class="align-middle">กำลังโหลดรายการใบแจ้งหนี้…</span>
                         </td>
                     </tr>
                 </tbody>
             </table>
+        </div>
+
+        <div class="index-inv-legend px-3 px-md-4" aria-label="ความหมายสีเลขที่ใบแจ้งหนี้">
+            <span class="index-inv-legend__item"><span class="index-inv-legend__swatch index-inv-legend__swatch--pending" aria-hidden="true"></span>สีเหลือง = ยังไม่ออกใบกำกับภาษี</span>
+            <span class="index-inv-legend__sep d-none d-sm-inline" aria-hidden="true">·</span>
+            <span class="index-inv-legend__item"><span class="index-inv-legend__swatch index-inv-legend__swatch--issued" aria-hidden="true"></span>สีเขียว = ออกใบกำกับภาษีแล้ว</span>
         </div>
     </div>
     </div>
@@ -1034,14 +1090,14 @@ document.querySelector('.js-hub-member-manage')?.addEventListener('click', funct
     });
 });
 
-const loadingRowHtml = '<tr><td colspan="5">' +
+const loadingRowHtml = '<tr><td colspan="4">' +
     '<div class="index-skeleton-wrap" aria-label="Loading invoice rows">' +
     '<div class="index-skeleton-row"><span class="index-skeleton-line sm"></span><span class="index-skeleton-line md"></span><span class="index-skeleton-line lg"></span><span class="index-skeleton-line sm"></span><span class="index-skeleton-actions"><span class="index-skeleton-dot"></span><span class="index-skeleton-dot"></span><span class="index-skeleton-dot"></span></span></div>' +
     '<div class="index-skeleton-row"><span class="index-skeleton-line sm"></span><span class="index-skeleton-line md"></span><span class="index-skeleton-line lg"></span><span class="index-skeleton-line sm"></span><span class="index-skeleton-actions"><span class="index-skeleton-dot"></span><span class="index-skeleton-dot"></span><span class="index-skeleton-dot"></span></span></div>' +
     '<div class="index-skeleton-row"><span class="index-skeleton-line sm"></span><span class="index-skeleton-line md"></span><span class="index-skeleton-line lg"></span><span class="index-skeleton-line sm"></span><span class="index-skeleton-actions"><span class="index-skeleton-dot"></span><span class="index-skeleton-dot"></span><span class="index-skeleton-dot"></span></span></div>' +
     '</div></td></tr>';
-const errorRowHtml = '<tr><td colspan="5" class="text-center py-5 text-danger">' +
-    'โหลดข้อมูลไม่สำเร็จ — ลองโหลดหน้าใหม่หรือตรวจสอบการเชื่อมต่อ</td></tr>';
+const errorRowHtml = '<tr><td colspan="4" class="text-center py-5 text-danger">' +
+    'โหลดข้อมูลไม่สำเร็จ — ลองโหลดหน้าใหม่หรือตรวจสอบการเชื่อมต่ออินเตอร์เน็ต</td></tr>';
 
 function refreshInvoiceDataTable() {
     if (typeof jQuery === 'undefined' || !jQuery.fn.DataTable || typeof window.TncLiveDT === 'undefined') {
@@ -1060,9 +1116,10 @@ function refreshInvoiceDataTable() {
     }
     TncLiveDT.init('#invoice_table', {
         pageLength: 5,
-        order: [],
-        dom: 'rtip',
-        columnDefs: [{ orderable: false, targets: [0, 4] }]
+        order: [[0, 'desc']],
+        dom: 'rtp',
+        info: false,
+        columnDefs: [{ orderable: false, targets: [3] }]
     });
 }
 
@@ -1080,7 +1137,7 @@ function loadTable(query = '') {
     const normalized = (query || '').trim();
     if (normalized.length === 1) {
         if (tableBody) {
-            tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">พิมพ์เพิ่มอีกอย่างน้อย 1 ตัวอักษรเพื่อค้นหา</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">พิมพ์เพิ่มอีกอย่างน้อย 1 ตัวอักษรเพื่อค้นหา</td></tr>';
         }
         if (table) {
             table.setAttribute('aria-busy', 'false');

@@ -83,7 +83,7 @@ $company_address_one_line = preg_replace('/\s+/u', ' ', trim(str_replace(["\r\n"
 $customer_address_one_line = preg_replace('/\s+/u', ' ', trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($data['customer_address'] ?? ''))));
 $company_contact_bits = array_filter([
     trim((string) ($data['phone'] ?? '')) !== '' ? 'โทร: ' . trim((string) $data['phone']) : '',
-    trim((string) ($data['tax_id'] ?? '')) !== '' ? 'Tax ID: ' . trim((string) $data['tax_id']) : '',
+    trim((string) ($data['tax_id'] ?? '')) !== '' ? 'เลขประจำตัวผู้เสียภาษี: ' . trim((string) $data['tax_id']) : '',
 ], static fn (string $s): bool => $s !== '');
 $company_detail_line = $company_address_one_line;
 if ($company_detail_line !== '' && count($company_contact_bits) > 0) {
@@ -285,11 +285,11 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
             </div>
             <?php if ($customer_address_one_line !== '' || $customer_tax_trim !== ''): ?>
             <div class="doc-site-block mt-2">
-                <span class="doc-site-label">ที่อยู่ / Tax ID:</span>
+                <span class="doc-site-label">ที่อยู่ / เลขประจำตัวผู้เสียภาษี:</span>
                 <span class="doc-site-value">
                     <?php if ($customer_address_one_line !== ''): ?><?= htmlspecialchars($customer_address_one_line, ENT_QUOTES, 'UTF-8'); ?><?php endif; ?>
                     <?php if ($customer_address_one_line !== '' && $customer_tax_trim !== ''): ?> | <?php endif; ?>
-                    <?php if ($customer_tax_trim !== ''): ?>Tax ID: <?= htmlspecialchars($customer_tax_trim, ENT_QUOTES, 'UTF-8'); ?><?php endif; ?>
+                    <?php if ($customer_tax_trim !== ''): ?>เลขประจำตัวผู้เสียภาษี: <?= htmlspecialchars($customer_tax_trim, ENT_QUOTES, 'UTF-8'); ?><?php endif; ?>
                 </span>
             </div>
             <?php endif; ?>

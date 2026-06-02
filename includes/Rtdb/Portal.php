@@ -14,9 +14,6 @@ final class Portal
     {
         $like = mb_strtolower(trim($needle));
         $matchAll = ($like === '');
-        if ($limit <= 0) {
-            $limit = 80;
-        }
 
         $invoices = Db::tableRows('invoices');
         $customers = Db::tableKeyed('customers');
@@ -63,7 +60,7 @@ final class Portal
                 'net_pay' => $net,
                 'full_amount' => $full,
                 'customer_name' => $custName,
-                'customer_logo' => $cust['logo'] ?? '',
+                'customer_logo' => $cust !== null ? (string) ($cust['logo'] ?? '') : '',
                 'creator_name' => $creator,
                 'has_tax_invoice' => $invId > 0 && isset($invoiceIdsWithTax[$invId]),
             ]);

@@ -91,6 +91,27 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
             line-height: 1.2;
         }
         .pr-po-status-label--cancelled { color: #dc3545; }
+        .pr-po-legend {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.55rem 0 0.85rem;
+            margin-bottom: 0.15rem;
+            font-size: 0.8125rem;
+            color: #64748b;
+            overflow-x: auto;
+        }
+        .pr-po-legend__item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            white-space: nowrap;
+        }
+        .pr-po-legend__sep {
+            color: #cbd5e1;
+            user-select: none;
+        }
         @media print {
             @page { size: A4 portrait; margin: 12mm; }
             nav, .navbar, .no-print { display: none !important; }
@@ -197,6 +218,11 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
     </div>
 
     <div class="card table-card p-4">
+        <div class="pr-po-legend no-print px-1" aria-label="ความหมายสีสถานะ PO">
+            <span class="pr-po-legend__item"><span class="pr-po-status-dot pr-po-status-dot--no-po" aria-hidden="true"></span>สีเหลือง = ยังไม่ออกใบสั่งซื้อ</span>
+            <span class="pr-po-legend__sep d-none d-sm-inline" aria-hidden="true">·</span>
+            <span class="pr-po-legend__item"><span class="pr-po-status-dot pr-po-status-dot--has-po" aria-hidden="true"></span>สีเขียว = ออกใบสั่งซื้อแล้ว</span>
+        </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle pr-list-print-table" id="prTable">
                 <thead class="table-light">
@@ -205,7 +231,6 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                             <input type="checkbox" class="form-check-input m-0" id="prSelectAllPrint" aria-label="เลือกทั้งหมดในหน้านี้">
                         </th>
                         <th>เลขที่ PR</th>
-                        <th>วันที่ขอซื้อ/จัดจ้าง</th>
                         <th>ไซต์งาน</th>
                         <th class="text-center">ประเภท</th>
                         <th class="text-center">อนุมัติ</th>
@@ -220,12 +245,16 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                             $rowPrId = (int) ($row['id'] ?? 0);
                             $prHasPo = $rowPrId > 0 && !empty($pr_ids_with_po[$rowPrId]);
                             $prPoCancelled = $rowPrId > 0 && !empty($pr_ids_po_cancelled[$rowPrId]);
+                            $createdRaw = trim((string) ($row['created_at'] ?? ''));
+                            $createdTs = $createdRaw !== '' ? strtotime($createdRaw) : false;
+                            $prDateDisplay = $createdTs !== false ? date('d/m/Y', $createdTs) : '—';
+                            $prDateOrder = $createdTs !== false ? date('Y-m-d', $createdTs) : '0000-00-00';
                         ?>
                         <tr>
                             <td class="text-center align-middle no-print">
                                 <input type="checkbox" class="form-check-input m-0 js-pr-print-cb" value="<?= $rowPrId ?>" aria-label="เลือกพิมพ์ <?= htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                             </td>
-                            <td>
+                            <td data-order="<?= htmlspecialchars($prDateOrder, ENT_QUOTES, 'UTF-8') ?>">
                                 <div class="fw-bold <?= $prPoCancelled ? 'text-danger' : 'text-tnc-orange' ?>">
                                     <span class="d-inline-flex align-items-center gap-2 flex-wrap">
                                         <?php
@@ -243,12 +272,8 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                                         ?>
                                     </span>
                                 </div>
-                                <div class="small text-muted"><?php
-                                    $cr = trim(($row['creator_fname'] ?? '') . ' ' . ($row['creator_lname'] ?? ''));
-                                    echo $cr !== '' ? htmlspecialchars($cr) : '—';
-                                ?></div>
+                                <div class="small text-muted"><?= htmlspecialchars($prDateDisplay, ENT_QUOTES, 'UTF-8') ?></div>
                             </td>
-                            <td><?= date('d/m/Y', strtotime($row['created_at'])) ?></td>
                             <td class="small"><?php
                                 $sn = trim((string) ($row['site_name'] ?? ''));
                                 echo $sn !== '' ? htmlspecialchars($sn, ENT_QUOTES, 'UTF-8') : '—';
@@ -311,7 +336,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">ไม่พบข้อมูลใบขอซื้อ</td>
+                            <td colspan="7" class="text-center py-4 text-muted">ไม่พบข้อมูลใบขอซื้อ</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>

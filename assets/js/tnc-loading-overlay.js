@@ -3,6 +3,7 @@
  * - POST form ที่ไม่ถูก cancel ด้วย preventDefault → แสดง overlay จนโหลดหน้าใหม่
  * - ฟอร์ม AJAX: ควบคุมด้วย tnc-ajax-form.js (เรียก show/hide)
  * - ลบแบบ POST จาก tnc-delete-confirm.js: เรียก show ก่อน form.submit()
+ * - หน้า PO list: body.tnc-po-boot-lock → ล็อคจนเรียก pageReady()
  * ข้าม: method="get" หรือ data-tnc-no-overlay="1"
  */
 (function () {
@@ -10,6 +11,42 @@
 
     var ROOT_ID = 'tnc-global-loading-overlay';
     var refCount = 0;
+    var bootLockActive = false;
+    var bootFallbackTimer = null;
+    var defaultTitle = 'กำลังดำเนินการ…';
+    var defaultSub = 'กรุณารอสักครู่ อย่ากดซ้ำจนกว่ารระบบจะตอบกลับ';
+
+    function setOverlayCopy(title, sub) {
+        ensureRoot();
+        var el = document.getElementById(ROOT_ID);
+        if (!el) {
+            return;
+        }
+        var titleEl = el.querySelector('.tnc-lo-title');
+        var subEl = el.querySelector('.tnc-lo-sub');
+        if (titleEl) {
+            titleEl.textContent = title;
+        }
+        if (subEl) {
+            subEl.textContent = sub;
+        }
+    }
+
+    function restoreDefaultCopy() {
+        setOverlayCopy(defaultTitle, defaultSub);
+    }
+
+    function applyBootCopy() {
+        var body = document.body;
+        if (!body) {
+            restoreDefaultCopy();
+            return;
+        }
+        var title = body.getAttribute('data-tnc-boot-title') || 'กำลังโหลดข้อมูล…';
+        var sub = body.getAttribute('data-tnc-boot-sub')
+            || 'กรุณารอสักครู่ ระบบจะพร้อมให้ใช้งานเมื่อโหลดเสร็จ';
+        setOverlayCopy(title, sub);
+    }
 
     function injectStylesOnce() {
         if (document.getElementById('tnc-loading-overlay-style')) {
@@ -47,8 +84,8 @@
         el.innerHTML = ''
             + '<div class="tnc-lo-card">'
             + '<div class="tnc-lo-spinner" aria-hidden="true"></div>'
-            + '<div class="tnc-lo-title">กำลังดำเนินการ…</div>'
-            + '<div class="tnc-lo-sub">กรุณารอสักครู่ อย่ากดซ้ำจนกว่าระบบจะตอบกลับ</div>'
+            + '<div class="tnc-lo-title">' + defaultTitle + '</div>'
+            + '<div class="tnc-lo-sub">' + defaultSub + '</div>'
             + '</div>';
         document.body.appendChild(el);
         return el;
@@ -85,13 +122,50 @@
 
     function forceHide() {
         refCount = 0;
+        bootLockActive = false;
         applyVisible(false);
+        restoreDefaultCopy();
+    }
+
+    function bootLock() {
+        if (bootLockActive) {
+            return;
+        }
+        bootLockActive = true;
+        applyBootCopy();
+        show();
+        if (bootFallbackTimer !== null) {
+            window.clearTimeout(bootFallbackTimer);
+        }
+        bootFallbackTimer = window.setTimeout(function () {
+            if (bootLockActive) {
+                pageReady();
+            }
+        }, 12000);
+    }
+
+    function pageReady() {
+        if (!bootLockActive) {
+            return;
+        }
+        bootLockActive = false;
+        if (bootFallbackTimer !== null) {
+            window.clearTimeout(bootFallbackTimer);
+            bootFallbackTimer = null;
+        }
+        if (document.body) {
+            document.body.classList.remove('tnc-po-boot-lock');
+        }
+        restoreDefaultCopy();
+        hide();
     }
 
     window.TncLoadingOverlay = {
         show: show,
         hide: hide,
-        forceHide: forceHide
+        forceHide: forceHide,
+        bootLock: bootLock,
+        pageReady: pageReady
     };
 
     /** หลังจบการ dispatch ทั้งหมด — ถ้าไม่มีใคร prevent แปลว่าจะ navigate จริง */
@@ -120,4 +194,14 @@
     window.addEventListener('pageshow', function () {
         forceHide();
     });
+
+    if (document.body && document.body.classList.contains('tnc-po-boot-lock')) {
+        bootLock();
+    } else {
+        document.addEventListener('DOMContentLoaded', function () {
+            if (document.body && document.body.classList.contains('tnc-po-boot-lock')) {
+                bootLock();
+            }
+        }, { once: true });
+    }
 })();

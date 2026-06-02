@@ -42,6 +42,7 @@ foreach ($taxRows as $tax) {
         'invoice_id' => (int) ($inv['id'] ?? 0),
         'invoice_number' => (string) ($inv['invoice_number'] ?? ''),
         'customer_name' => (string) ($cust['name'] ?? ''),
+        'customer_logo' => trim((string) ($cust['logo'] ?? '')),
         'issuer_name' => trim((string) (($issuer['fname'] ?? '') . ' ' . ($issuer['lname'] ?? ''))),
         'grand_total' => $grand,
     ];
@@ -70,19 +71,13 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
-        body { background-color: #f1f3f5; font-family: 'Sarabun', sans-serif; }
-        .radius-page { border-radius: 12px; }
+        body { background-color: #f6f7f9; font-family: 'Sarabun', sans-serif; }
         .shadow-soft {
             box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
             border: none;
         }
-        .table-card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
-        }
-        /* .btn-orange: tnc-app.css */
         .summary-card {
             background: #fff;
             border-radius: 12px;
@@ -110,98 +105,162 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
             line-height: 1.15;
         }
         .tabular-nums { font-variant-numeric: tabular-nums; }
-        .tax-search-wrap {
-            position: relative;
-            flex: 1 1 220px;
-            min-width: 200px;
-            max-width: 420px;
+        .inv-badge-tax-issued {
+            background-color: rgba(25, 135, 84, 0.14);
+            color: #0f5132;
+            border: 1px solid rgba(25, 135, 84, 0.4);
+            font-weight: 700;
+            letter-spacing: 0.02em;
         }
-        .tax-search-wrap .bi-search {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
+        .tax-ref-invoice {
+            font-size: 0.8125rem;
             color: #868e96;
-            font-size: 1rem;
-            pointer-events: none;
+            line-height: 1.35;
         }
-        .tax-search-wrap .form-control {
-            border-radius: 12px;
-            padding-left: 2.5rem;
-            border: 1px solid #e9ecef;
-            box-shadow: none;
+        .tax-ref-invoice-no {
+            font-weight: 800;
+            color: #1e293b;
+            letter-spacing: 0.03em;
         }
-        .tax-search-wrap .form-control:focus {
-            border-color: #ced4da;
-            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+        .cust-logo-thumb { width: 40px; height: 40px; object-fit: contain; }
+        .index-table-toolbar .form-control.index-search-input {
+            border-radius: var(--tnc-radius, 0.875rem);
+            padding: 0.65rem 1rem 0.65rem 2.75rem;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            background: #fff;
+        }
+        .index-table-toolbar .form-control.index-search-input:focus {
+            border-color: rgba(253, 126, 20, 0.45);
+            box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.15);
         }
         .tax-month-filter {
-            border-radius: 12px;
-            border: 1px solid #e9ecef;
+            border-radius: var(--tnc-radius, 0.875rem);
+            border: 1px solid rgba(0, 0, 0, 0.08);
             max-width: 200px;
+            min-height: 2.7rem;
         }
-        #taxTable.dataTable tbody td {
-            padding-top: 0.95rem;
-            padding-bottom: 0.95rem;
-            vertical-align: middle;
-            border-bottom: 1px solid #eef1f4;
+        #taxTable.table-invoice-index thead,
+        #taxTable.table-invoice-index.dataTable thead {
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+            border-top: none !important;
         }
-        #taxTable.dataTable tbody tr:last-child td { border-bottom: none; }
-        #taxTable.dataTable thead th {
-            border-bottom: 1px solid #e9ecef;
-            font-weight: 600;
-            color: #495057;
-            padding-top: 0.85rem;
-            padding-bottom: 0.85rem;
-        }
-        .badge-ref-invoice {
-            display: inline-block;
-            font-size: 0.7rem;
-            font-weight: 500;
-            padding: 0.2rem 0.5rem;
-            border-radius: 6px;
+        #taxTable.table-invoice-index thead th,
+        #taxTable.table-invoice-index.dataTable thead th {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
             color: #6c757d;
-            background: #f1f3f5;
-            border: none;
+            padding: 1rem 1.25rem;
+            border-top: none !important;
+            border-bottom: 1px solid #e8edf3 !important;
         }
-        .btn-icon-action {
-            width: 2.25rem;
-            height: 2.25rem;
-            padding: 0;
+        #taxTable.table-invoice-index tbody td {
+            padding: 1.1rem 1.25rem;
+            vertical-align: middle;
+        }
+        #taxTable.table-invoice-index tbody tr:last-child td { border-bottom: 0; }
+        #taxTable.table-invoice-index tbody tr {
+            transition: background-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+        #taxTable.table-invoice-index tbody tr:hover {
+            background: #fff9f2;
+            box-shadow: inset 0 0 0 1px rgba(253, 126, 20, 0.1), 0 0.2rem 0.6rem rgba(0, 0, 0, 0.05);
+            transform: translateY(-1px);
+        }
+        #taxTable.table-invoice-index tbody td:nth-child(4) {
+            font-size: 1.02rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            color: var(--tnc-ink, #0f172a);
+        }
+        #taxTable.table-invoice-index tbody tr:hover td:nth-child(4) {
+            color: var(--tnc-orange-deep, #c2410c);
+        }
+        a.btn-invoice-action { text-decoration: none; }
+        .btn-invoice-action {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border-radius: 10px;
-            border: none;
-            transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+            min-width: 2.35rem;
+            min-height: 2.35rem;
+            padding: 0.4rem 0.55rem;
+            border-radius: 0.5rem;
+            border: 1px solid transparent;
+            font-size: 1rem;
+            line-height: 1;
+            transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
         }
-        .btn-icon-action:hover { transform: translateY(-1px); }
-        .btn-icon-view {
-            background: #e8f5e9;
-            color: #2e7d32;
+        .btn-invoice-action:hover { transform: translateY(-1px); }
+        .btn-invoice-action-view {
+            background: rgba(253, 126, 20, 0.14);
+            color: #c2410c;
+            border-color: rgba(253, 126, 20, 0.24);
         }
-        .btn-icon-view:hover { background: #c8e6c9; color: #1b5e20; }
-        .btn-icon-edit {
-            background: #e7f1ff;
-            color: #ea580c;
-        }
-        .btn-icon-edit:hover { background: #cfe2ff; color: #0a58ca; }
-        .btn-icon-delete {
-            background: #fde8e8;
-            color: #dc3545;
-        }
-        .btn-icon-delete:hover { background: #f8d7da; color: #b02a37; }
-        .tax-toolbar .dataTables_length label {
-            margin-bottom: 0;
-            font-size: 0.875rem;
+        .btn-invoice-action-view:hover { background: rgba(253, 126, 20, 0.24); color: #9a3412; }
+        .btn-invoice-action-edit {
+            background: rgba(108, 117, 125, 0.16);
             color: #495057;
+            border-color: rgba(108, 117, 125, 0.22);
         }
-        .tax-toolbar .dataTables_length select {
-            border-radius: 10px;
-            margin: 0 0.35rem;
+        .btn-invoice-action-edit:hover { background: rgba(108, 117, 125, 0.24); color: #343a40; }
+        .btn-invoice-action-delete {
+            background: rgba(220, 53, 69, 0.12);
+            color: #b02a37;
+            border-color: rgba(220, 53, 69, 0.25);
         }
-        #taxTable_wrapper .dataTables_info,
-        #taxTable_wrapper .dataTables_paginate { padding-top: 0.75rem; }
+        .btn-invoice-action-delete:hover { background: rgba(220, 53, 69, 0.2); color: #842029; }
+        #taxTable_wrapper .dataTables_paginate {
+            padding-left: 1rem;
+            padding-right: 1rem;
+            padding-bottom: 0.75rem;
+        }
+        @media (max-width: 991.98px) {
+            .index-table-toolbar .form-control.index-search-input { min-height: 2.7rem; }
+            .btn-invoice-action { min-width: 2.2rem; min-height: 2.2rem; }
+            .btn-invoice-action:hover { transform: none; }
+            #taxTable.table-invoice-index thead { display: none; }
+            #taxTable.table-invoice-index tbody tr {
+                display: block;
+                margin: 0.65rem 0.75rem;
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 0.75rem;
+                box-shadow: 0 0.15rem 0.75rem rgba(0, 0, 0, 0.05);
+                background: #fff;
+            }
+            #taxTable.table-invoice-index tbody td {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 0.9rem;
+                border: 0;
+                border-bottom: 1px dashed rgba(0, 0, 0, 0.08);
+                padding: 0.62rem 0.85rem;
+                text-align: right;
+            }
+            #taxTable.table-invoice-index tbody td::before {
+                color: #6c757d;
+                font-size: 0.73rem;
+                font-weight: 700;
+                letter-spacing: 0.03em;
+                text-transform: uppercase;
+                text-align: left;
+                flex: 0 0 5.8rem;
+            }
+            #taxTable.table-invoice-index tbody td:nth-child(1)::before { content: "เลขที่"; }
+            #taxTable.table-invoice-index tbody td:nth-child(2)::before { content: "วันที่"; }
+            #taxTable.table-invoice-index tbody td:nth-child(3)::before { content: "ลูกค้า"; }
+            #taxTable.table-invoice-index tbody td:nth-child(4)::before { content: "ยอดสุทธิ"; }
+            #taxTable.table-invoice-index tbody td:nth-child(5)::before { content: "จัดการ"; }
+            #taxTable.table-invoice-index tbody td:last-child { border-bottom: 0; }
+            #taxTable.table-invoice-index tbody td:nth-child(5) .d-inline-flex { margin-left: auto; }
+            #taxTable.table-invoice-index tbody tr td[colspan] {
+                display: block;
+                text-align: center;
+                border-bottom: 0;
+                padding: 1.1rem 0.75rem;
+            }
+        }
 
         /* —— Modal: สร้างใบกำกับภาษี (solid + search) —— */
         #tirCreateModal .modal-dialog {
@@ -326,56 +385,31 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
         </button>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="summary-card h-100 shadow-soft">
-                <div class="d-flex align-items-center gap-3">
-                    <span class="summary-icon bg-success-subtle text-success"><i class="bi bi-receipt"></i></span>
-                    <div>
-                        <div class="stat-label">จำนวนใบกำกับภาษีทั้งหมด</div>
-                        <div class="stat-count"><?= number_format($totalCount) ?></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-8">
-            <div class="summary-card h-100 shadow-soft">
-                <div class="d-flex align-items-center gap-3">
-                    <span class="summary-icon bg-warning-subtle text-warning"><i class="bi bi-cash-coin"></i></span>
-                    <div>
-                        <div class="stat-label">ยอดเงินรวมใบกำกับภาษี</div>
-                        <div class="stat-total">฿ <?= number_format($grandTotalSum, 2) ?></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card table-card p-3 p-md-4">
+    <div class="card index-table-card border-0 shadow-sm overflow-hidden mb-0 bg-white">
         <?php if ($totalCount > 0): ?>
-            <div class="tax-toolbar d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-3">
-                <div class="tax-search-wrap">
-                    <i class="bi bi-search" aria-hidden="true"></i>
-                    <label class="visually-hidden" for="taxSearchInput">ค้นหา</label>
-                    <input type="search" id="taxSearchInput" class="form-control" placeholder="ค้นหาเลขที่, ลูกค้า, ใบแจ้งหนี้..." autocomplete="off">
+            <div class="card-header bg-white border-bottom py-3 px-3 px-md-4">
+                <div class="d-flex flex-column flex-sm-row flex-wrap gap-2 align-items-stretch">
+                    <div class="position-relative flex-grow-1 index-table-toolbar" style="min-width: 220px; max-width: 100%;">
+                        <label class="visually-hidden" for="taxSearchInput">ค้นหาใบกำกับภาษี</label>
+                        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" aria-hidden="true"></i>
+                        <input type="search" id="taxSearchInput" class="form-control index-search-input" autocomplete="off">
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        <label class="small text-muted mb-0 text-nowrap" for="taxMonthYear">เดือน / ปี</label>
+                        <input type="month" id="taxMonthYear" class="form-control form-control-sm tax-month-filter" title="กรองตามวันที่ใบกำกับภาษี" aria-label="กรองตามเดือนและปี">
+                    </div>
                 </div>
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <label class="small text-muted mb-0 text-nowrap" for="taxMonthYear">เดือน / ปี</label>
-                    <input type="month" id="taxMonthYear" class="form-control form-control-sm tax-month-filter" title="กรองตามวันที่ใบกำกับภาษี" aria-label="กรองตามเดือนและปี">
-                </div>
-                <div id="taxLengthSlot" class="ms-md-auto"></div>
             </div>
         <?php endif; ?>
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" id="taxTable" style="width:100%">
+            <table class="table table-invoice-index table-hover align-middle mb-0" id="taxTable" style="width:100%">
                 <thead class="table-light">
                     <tr>
-                        <th>เลขที่ใบกำกับภาษี</th>
+                        <th class="ps-4">เลขที่ใบกำกับภาษี</th>
                         <th>วันที่</th>
-                        <th>อ้างอิงใบแจ้งหนี้</th>
-                        <th>ลูกค้า</th>
-                        <th class="text-end tabular-nums">ยอดสุทธิ</th>
-                        <th class="text-center">จัดการ</th>
+                        <th>รายชื่อบริษัทออกใบกำกับภาษี</th>
+                        <th>ยอดสุทธิ</th>
+                        <th class="text-end pe-4">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -383,29 +417,35 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
                         <?php foreach ($listRows as $row): ?>
                             <?php
                             $taxDateRaw = (string) ($row['tax_date'] ?? '');
+                            $taxDateTs = $taxDateRaw !== '' ? strtotime($taxDateRaw) : false;
+                            $taxDateDisplay = $taxDateTs !== false ? date('d/m/Y', $taxDateTs) : '—';
+                            $taxDateOrder = $taxDateTs !== false ? date('Y-m-d', $taxDateTs) : '0000-00-00';
                             $taxDateAttr = $taxDateRaw !== '' ? htmlspecialchars($taxDateRaw, ENT_QUOTES, 'UTF-8') : '';
+                            $custLogo = trim((string) ($row['customer_logo'] ?? ''));
                             ?>
                             <tr<?= $taxDateAttr !== '' ? ' data-tax-date="' . $taxDateAttr . '"' : '' ?>>
-                                <td>
-                                    <div class="fw-bold text-success"><?= htmlspecialchars($row['tax_invoice_number'], ENT_QUOTES, 'UTF-8') ?></div>
-                                    <div class="small text-muted"><?= htmlspecialchars($row['issuer_name'] !== '' ? $row['issuer_name'] : '-', ENT_QUOTES, 'UTF-8') ?></div>
+                                <td data-order="<?= htmlspecialchars($row['tax_invoice_number'], ENT_QUOTES, 'UTF-8') ?>">
+                                    <div><span class="badge rounded-pill inv-badge-tax-issued px-3"><?= htmlspecialchars($row['tax_invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></div>
+                                    <?php if ($row['invoice_number'] !== ''): ?>
+                                        <div class="tax-ref-invoice mt-1">อ้างอิง <span class="tax-ref-invoice-no"><?= htmlspecialchars($row['invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></div>
+                                    <?php endif; ?>
                                 </td>
-                                <td data-order="<?= $taxDateAttr !== '' ? htmlspecialchars($taxDateRaw, ENT_QUOTES, 'UTF-8') : '0' ?>"><?= $row['tax_date'] !== '' ? htmlspecialchars(date('d/m/Y', strtotime($row['tax_date'])), ENT_QUOTES, 'UTF-8') : '-' ?></td>
-                                <td><span class="badge-ref-invoice"><?= htmlspecialchars($row['invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></td>
-                                <td><?= htmlspecialchars($row['customer_name'] !== '' ? $row['customer_name'] : 'ไม่ระบุ', ENT_QUOTES, 'UTF-8') ?></td>
-                                <td class="text-end fw-semibold tabular-nums">฿ <?= number_format((float) $row['grand_total'], 2) ?></td>
-                                <td class="text-center">
-                                    <div class="d-inline-flex align-items-center justify-content-center gap-1 flex-wrap">
-                                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>" class="btn-icon-action btn-icon-view" title="ดูเอกสาร Tax INV">
-                                            <i class="bi bi-eye-fill"></i>
-                                        </a>
-                                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>&edit=1" class="btn-icon-action btn-icon-edit" title="แก้ไข Tax INV">
-                                            <i class="bi bi-pencil-square"></i>
-                                        </a>
+                                <td class="text-muted tabular-nums" data-order="<?= htmlspecialchars($taxDateOrder, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($taxDateDisplay, ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="fw-semibold">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <?php if ($custLogo !== ''): ?>
+                                            <img src="<?= htmlspecialchars(upload_logo_url($custLogo), ENT_QUOTES, 'UTF-8') ?>" alt="" class="cust-logo-thumb rounded border bg-light flex-shrink-0">
+                                        <?php endif; ?>
+                                        <span class="text-break"><?= htmlspecialchars($row['customer_name'] !== '' ? $row['customer_name'] : 'ไม่ระบุ', ENT_QUOTES, 'UTF-8') ?></span>
+                                    </div>
+                                </td>
+                                <td class="fw-bold text-dark tabular-nums">฿<?= number_format((float) $row['grand_total'], 2) ?></td>
+                                <td class="text-end pe-4">
+                                    <div class="d-inline-flex flex-wrap align-items-center justify-content-end gap-2">
+                                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>" class="btn btn-invoice-action btn-invoice-action-view" title="ดูเอกสาร Tax INV"><i class="bi bi-eye-fill"></i></a>
+                                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>&edit=1" class="btn btn-invoice-action btn-invoice-action-edit" title="แก้ไข Tax INV"><i class="bi bi-pencil-square"></i></a>
                                         <?php if ($is_admin): ?>
-                                            <a href="<?= htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-8') ?>?action=delete&type=tax_invoice&id=<?= (int) $row['tax_id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn-icon-action btn-icon-delete tnc-delete-post" title="ลบรายการ Tax INV (ต้องใส่รหัสผ่าน)">
-                                                <i class="bi bi-trash-fill"></i>
-                                            </a>
+                                            <a href="<?= htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-8') ?>?action=delete&type=tax_invoice&id=<?= (int) $row['tax_id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-invoice-action btn-invoice-action-delete tnc-delete-post" title="ลบรายการ Tax INV (ต้องใส่รหัสผ่าน)"><i class="bi bi-trash3-fill"></i></a>
                                         <?php endif; ?>
                                     </div>
                                 </td>
@@ -413,7 +453,7 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="6" class="text-center py-4 text-muted">ยังไม่มีรายการ Tax INV</td>
+                            <td colspan="5" class="text-center py-5 text-muted">ยังไม่มีรายการ Tax INV</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -639,18 +679,12 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
         };
         $.fn.dataTable.ext.search.push(taxYmFilter);
 
-        var table = $('#taxTable').DataTable({
+        var table = window.TncLiveDT.init('#taxTable', {
             order: [[1, 'desc']],
-            pageLength: 25,
-            dom: 'lrtip',
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
-            columnDefs: [{ targets: [5], orderable: false, searchable: false }],
-            initComplete: function () {
-                var $len = $('#taxTable_wrapper .dataTables_length');
-                if ($len.length && $('#taxLengthSlot').length) {
-                    $('#taxLengthSlot').append($len);
-                }
-            }
+            pageLength: 5,
+            dom: 'rtp',
+            info: false,
+            columnDefs: [{ orderable: false, targets: [4] }]
         });
 
         $('#taxSearchInput').on('keyup search input', function () {

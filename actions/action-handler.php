@@ -610,14 +610,9 @@ if ($action === 'save_contractor') {
         $redirectErr('invalid_national_id');
     }
 
-    foreach (Db::tableRows('contractors') as $other) {
-        $otherId = (int) ($other['id'] ?? 0);
-        if ($otherId <= 0 || $otherId === $c_id) {
-            continue;
-        }
-        if (tnc_contractor_normalize_national_id((string) ($other['national_id'] ?? '')) === $nationalId) {
-            $redirectErr('duplicate_national_id');
-        }
+    $duplicateConflict = tnc_contractor_find_duplicate_conflict($fields, $c_id);
+    if ($duplicateConflict !== null) {
+        $redirectErr($duplicateConflict);
     }
 
     if ($c_id <= 0) {

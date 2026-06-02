@@ -266,7 +266,7 @@ body > .dropdown-menu.show {
 }
 .index-table-card > .card-header {
     background: linear-gradient(180deg, #fff 0%, #fafbfc 100%) !important;
-    border-bottom: 2px solid var(--tnc-orange-border) !important;
+    border-bottom: 1px solid #e8edf3 !important;
 }
 .index-invoice-head-kicker {
     font-size: 0.68rem;
@@ -285,19 +285,22 @@ body > .dropdown-menu.show {
 }
 #invoice_table.table-invoice-index thead {
     background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    border-top: none !important;
 }
-#invoice_table.table-invoice-index thead th {
+#invoice_table.table-invoice-index thead th,
+#invoice_table.table-invoice-index.dataTable thead th {
     font-weight: 800 !important;
     color: #334155 !important;
-    border-bottom: 2px solid var(--tnc-orange-border) !important;
+    border-top: none !important;
+    border-bottom: 1px solid #e8edf3 !important;
 }
-#invoice_table.table-invoice-index tbody td:nth-child(4) {
+#invoice_table.table-invoice-index tbody td:nth-child(3) {
     font-size: 1.02rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     color: var(--tnc-ink);
 }
-#invoice_table.table-invoice-index tbody tr:hover td:nth-child(4) {
+#invoice_table.table-invoice-index tbody tr:hover td:nth-child(3) {
     color: var(--tnc-orange-deep);
 }
 
@@ -427,8 +430,9 @@ body.tnc-app-body h5 .bi.text-warning {
     }
 
     /* Invoice — พิมพ์เฉพาะแผ่นเอกสาร */
-    body.invoice-print-page > *:not(.invoice-sheet),
-    body.invoice-embed > *:not(.invoice-sheet) {
+    body.invoice-print-page > *:not(.invoice-sheet):not(.doc-view-canvas),
+    body.invoice-embed > *:not(.invoice-sheet):not(.doc-view-canvas),
+    body.tax-print-page > *:not(.invoice-sheet):not(.doc-view-canvas) {
         display: none !important;
         visibility: hidden !important;
         height: 0 !important;
@@ -444,8 +448,28 @@ body.tnc-app-body h5 .bi.text-warning {
         clip-path: inset(100%) !important;
     }
 
+    body.invoice-print-page > .doc-view-canvas,
+    body.invoice-embed > .doc-view-canvas,
+    body.tax-print-page > .doc-view-canvas {
+        display: block !important;
+        visibility: visible !important;
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        clip: auto !important;
+        clip-path: none !important;
+        opacity: 1 !important;
+    }
+
     body.invoice-print-page .invoice-sheet,
-    body.invoice-embed .invoice-sheet {
+    body.invoice-embed .invoice-sheet,
+    body.tax-print-page .invoice-sheet {
         display: block !important;
         visibility: visible !important;
         position: static !important;

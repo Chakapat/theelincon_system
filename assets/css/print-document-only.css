@@ -175,6 +175,9 @@
     }
 
     /* ---- Invoice ---- */
+    body.invoice-print-page > .doc-view-canvas,
+    body.invoice-embed > .doc-view-canvas,
+    body.tax-print-page > .doc-view-canvas,
     body.invoice-print-page .doc-view-canvas,
     body.invoice-embed .doc-view-canvas,
     body.tax-print-page .doc-view-canvas {
@@ -205,6 +208,35 @@
     body.invoice-embed,
     body.tax-print-page {
         visibility: hidden !important;
+    }
+
+    body.tax-print-page .invoice-sheet {
+        visibility: visible !important;
+        display: block !important;
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        page-break-after: always;
+        break-after: page;
+        clip: auto !important;
+        clip-path: none !important;
+        opacity: 1 !important;
+    }
+
+    body.tax-print-page .invoice-sheet * {
+        visibility: visible !important;
+    }
+
+    body.tax-print-page .invoice-sheet:last-child {
+        page-break-after: auto;
+        break-after: auto;
+    }
+
+    body.tax-print-page .invoice-box.inv-sales-doc {
+        border-top: none !important;
     }
 
     body.invoice-print-page .invoice-sheet,

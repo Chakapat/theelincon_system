@@ -467,7 +467,7 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
         }
     </style>
 </head>
-<body class="purchase-module tnc-app-body">
+<body class="purchase-module tnc-app-body tnc-po-boot-lock" data-tnc-boot-title="กำลังโหลดใบสั่งซื้อ…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้บันทึกเลขบิลและดำเนินการต่อเมื่อโหลดเสร็จ">
 
 <div class="no-print tnc-app-chrome">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -779,6 +779,18 @@ $hasAlerts = !empty($_GET['cancelled'])
             invDateEl.focus();
         }
     });
+})();
+</script>
+<script>
+(function () {
+    function releasePoBootLock() {
+        if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.pageReady === 'function') {
+            window.TncLoadingOverlay.pageReady();
+        }
+    }
+    window.addEventListener('load', function () {
+        window.requestAnimationFrame(releasePoBootLock);
+    }, { once: true });
 })();
 </script>
 <?php

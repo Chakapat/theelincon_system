@@ -83,6 +83,8 @@ $hasPhoto = trim((string) ($contractor['id_card_photo_path'] ?? '')) !== '';
                 <div class="alert alert-warning">เลขบัตรประชาชนไม่ถูกต้อง</div>
             <?php elseif ($errorCode === 'duplicate_national_id'): ?>
                 <div class="alert alert-danger">เลขบัตรประชาชนนี้มีในระบบแล้ว</div>
+            <?php elseif ($errorCode === 'duplicate_name'): ?>
+                <div class="alert alert-danger">ชื่อผู้รับเหมานี้มีในระบบแล้ว (คำนำหน้า ชื่อ และนามสกุลภาษาไทยตรงกับรายการที่มีอยู่)</div>
             <?php elseif ($errorCode === 'upload_type'): ?>
                 <div class="alert alert-warning">รูปบัตรประชาชนรองรับเฉพาะ JPG, PNG, WEBP</div>
             <?php elseif ($errorCode === 'upload_failed' || $errorCode === 'photo_required'): ?>
