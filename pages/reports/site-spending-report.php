@@ -58,11 +58,126 @@ function tnc_site_csv_row(array $cells): string
     return implode(',', $out) . "\r\n";
 }
 
-// ---------- ช่วงวันที่ ----------
-$startDate = trim((string) ($_GET['start_date'] ?? ''));
-$endDate = trim((string) ($_GET['end_date'] ?? ''));
-$useRange = preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) === 1 && preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate) === 1;
+/** @return float ยอดที่จ่ายแล้วของ PO */
+function tnc_site_spending_paid_amount(array $po): float
+{
+    $orderTotal = round((float) ($po['total_amount'] ?? 0), 2);
+    $billed = round((float) ($po['billed_total_amount'] ?? 0), 2);
+    $paid = $billed > 0 ? $billed : $orderTotal;
 
+    return $paid > 0 ? $paid : 0.0;
+}
+
+/** วันที่ใช้กรองยอดจ่ายแล้ว — ใช้วันที่ทำเครื่องหมายจ่ายก่อน */
+function tnc_site_spending_paid_date(array $po): string
+{
+    $paidAt = tnc_site_doc_date($po, ['payment_marked_paid_at']);
+    if ($paidAt !== '') {
+        return $paidAt;
+    }
+
+    return tnc_site_doc_date($po, ['issue_date', 'created_at']);
+}
+
+/** PO สมบูรณ์ = ชำระแล้ว + มีเลขที่ใบกำกับ (ตามเกณฑ์หน้ารายการ PO) */
+function tnc_site_spending_po_is_complete(array $po): bool
+{
+    if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+        return false;
+    }
+    if (strtolower(trim((string) ($po['payment_status'] ?? 'unpaid'))) !== 'paid') {
+        return false;
+    }
+
+    return trim((string) ($po['supplier_invoice_no'] ?? '')) !== '';
+}
+
+/**
+ * ยอดรายการ = PO สมบูรณ์ที่จ่ายแล้วเท่านั้น — คงไซต์/หมวดที่มียอดจ่ายแล้ว > 0
+ * ยอดรวมไซต์ = ผลรวมหมวดที่แสดง (ให้ตรงกับรายการย่อย)
+ *
+ * @param array<string, array<string, mixed>> $sites
+ * @return array<string, array<string, mixed>>
+ */
+function tnc_site_spending_keep_paid_only(array $sites): array
+{
+    $out = [];
+    foreach ($sites as $key => $site) {
+        $cats = [];
+        $sumPaid = 0.0;
+        foreach ($site['categories'] as $ck => $cv) {
+            $paid = round((float) ($cv['paid_total'] ?? 0), 2);
+            if ($paid <= 0.0) {
+                continue;
+            }
+            $cv['paid_total'] = $paid;
+            $cv['label'] = $ck === 'none'
+                ? 'ไม่ระบุหมวด'
+                : (string) ($cv['label'] ?? $ck);
+            $cats[$ck] = $cv;
+            $sumPaid += $paid;
+        }
+        if ($sumPaid <= 0.0) {
+            continue;
+        }
+        uasort($cats, static function (array $a, array $b): int {
+            return ($b['paid_total'] <=> $a['paid_total']) ?: strcmp($a['label'], $b['label']);
+        });
+        $site['categories'] = $cats;
+        $site['paid_total'] = round($sumPaid, 2);
+        $out[$key] = $site;
+    }
+    uasort($out, static function (array $a, array $b): int {
+        return ($b['paid_total'] <=> $a['paid_total']) ?: strcmp($a['label'], $b['label']);
+    });
+
+    return $out;
+}
+
+/**
+ * กรองไซต์ตามหมวดที่เลือก — คงเฉพาะไซต์ที่มีหมวดนั้น และคำนวณยอดจ่ายแล้วจากหมวดที่เลือกเท่านั้น
+ *
+ * @param array<string, array<string, mixed>> $sites
+ * @param list<string> $filterCatKeys
+ * @return array<string, array<string, mixed>>
+ */
+function tnc_site_spending_apply_cat_filter(array $sites, array $filterCatKeys): array
+{
+    if ($filterCatKeys === []) {
+        return $sites;
+    }
+    $allowed = array_fill_keys($filterCatKeys, true);
+    $filtered = [];
+    foreach ($sites as $key => $site) {
+        $cats = [];
+        $paidTotal = 0.0;
+        foreach ($site['categories'] as $ck => $cv) {
+            if ($ck === 'none' || !isset($allowed[$ck])) {
+                continue;
+            }
+            $paid = round((float) ($cv['paid_total'] ?? 0), 2);
+            if ($paid <= 0.0) {
+                continue;
+            }
+            $cv['paid_total'] = $paid;
+            $cats[$ck] = $cv;
+            $paidTotal += $paid;
+        }
+        if ($cats === []) {
+            continue;
+        }
+        $site['categories'] = $cats;
+        $site['paid_total'] = round($paidTotal, 2);
+        $filtered[$key] = $site;
+    }
+    uasort($filtered, static function (array $a, array $b): int {
+        return ($b['paid_total'] <=> $a['paid_total']) ?: strcmp($a['label'], $b['label']);
+    });
+
+    return $filtered;
+}
+
+// ---------- ช่วงวันที่ (เดือน/ปี) ----------
 $month = (int) ($_GET['month'] ?? date('n'));
 $year = (int) ($_GET['year'] ?? date('Y'));
 if ($month < 1 || $month > 12) {
@@ -72,18 +187,9 @@ if ($year < 2000 || $year > 2100) {
     $year = (int) date('Y');
 }
 
-if ($useRange) {
-    $fromDate = $startDate;
-    $toDate = $endDate;
-    if ($fromDate > $toDate) {
-        [$fromDate, $toDate] = [$toDate, $fromDate];
-    }
-    $periodText = $fromDate . ' ถึง ' . $toDate;
-} else {
-    $fromDate = sprintf('%04d-%02d-01', $year, $month);
-    $toDate = date('Y-m-t', strtotime($fromDate));
-    $periodText = 'เดือน ' . sprintf('%02d/%04d', $month, $year);
-}
+$fromDate = sprintf('%04d-%02d-01', $year, $month);
+$toDate = date('Y-m-t', strtotime($fromDate));
+$periodText = 'เดือน ' . sprintf('%02d/%04d', $month, $year);
 
 // ---------- เตรียม map ไซต์ / PR ----------
 $siteNameById = [];
@@ -144,10 +250,20 @@ $ensureSite = static function (string $key, string $label) use (&$sites): void {
     }
 };
 
-/** คืนค่า [catKey, catLabel] จากเอกสาร (cost_category) — ไม่มี = "ไม่ระบุหมวด" */
-$resolveCategory = static function (array $row): array {
+/** คืนค่า [catKey, catLabel] — ดึงจาก PO ก่อน แล้ว fallback จาก PR ที่เชื่อม */
+$resolveCategory = static function (array $row) use ($prById): array {
     $cid = (int) ($row['cost_category_id'] ?? 0);
     $cname = trim((string) ($row['cost_category_name'] ?? ''));
+    if ($cid <= 0) {
+        $prId = (int) ($row['pr_id'] ?? 0);
+        if ($prId > 0 && isset($prById[$prId])) {
+            $pr = $prById[$prId];
+            $cid = (int) ($pr['cost_category_id'] ?? 0);
+            if ($cname === '') {
+                $cname = trim((string) ($pr['cost_category_name'] ?? ''));
+            }
+        }
+    }
     if ($cid > 0) {
         return ['cid:' . $cid, $cname !== '' ? $cname : ('หมวด #' . $cid)];
     }
@@ -166,50 +282,31 @@ $ensureCat = static function (array &$site, string $catKey, string $catLabel): v
     }
 };
 
-// PR (ใบขอซื้อ) — ยอดที่ขอซื้อ
-foreach ($prById as $pr) {
-    $docDate = tnc_site_doc_date($pr, ['issue_date', 'pr_date', 'request_date', 'created_at']);
-    if ($docDate === '' || $docDate < $fromDate || $docDate > $toDate) {
-        continue;
-    }
-    [$key, $label] = $resolveSite($pr);
-    $ensureSite($key, $label);
-    $sites[$key]['pr_count']++;
-    $prAmount = (float) ($pr['total_amount'] ?? 0);
-    $sites[$key]['pr_total'] += $prAmount;
-    [$catKey, $catLabel] = $resolveCategory($pr);
-    $ensureCat($sites[$key], $catKey, $catLabel);
-    $sites[$key]['categories'][$catKey]['pr_total'] += $prAmount;
-}
-
-// PO (ใบสั่งซื้อ) — ยอดสั่งซื้อ + ยอดที่จ่ายแล้ว (ไม่รวมใบยกเลิก)
+// PO สมบูรณ์ + จ่ายแล้วเท่านั้น — กรองตามวันที่จ่าย (payment_marked_paid_at)
 foreach (Db::tableRows('purchase_orders') as $po) {
-    $status = strtolower(trim((string) ($po['status'] ?? 'ordered')));
-    if ($status === 'cancelled') {
+    if (!tnc_site_spending_po_is_complete($po)) {
         continue;
     }
-    $docDate = tnc_site_doc_date($po, ['issue_date', 'created_at']);
-    if ($docDate === '' || $docDate < $fromDate || $docDate > $toDate) {
+    $paidAmount = tnc_site_spending_paid_amount($po);
+    if ($paidAmount <= 0.0) {
+        continue;
+    }
+    $paidDate = tnc_site_spending_paid_date($po);
+    if ($paidDate === '' || $paidDate < $fromDate || $paidDate > $toDate) {
         continue;
     }
     [$key, $label] = $resolveSite($po);
     $ensureSite($key, $label);
 
-    $orderTotal = (float) ($po['total_amount'] ?? 0);
+    $orderTotal = round((float) ($po['total_amount'] ?? 0), 2);
     $sites[$key]['po_count']++;
     $sites[$key]['po_total'] += $orderTotal;
+    $sites[$key]['paid_total'] += $paidAmount;
 
     [$catKey, $catLabel] = $resolveCategory($po);
     $ensureCat($sites[$key], $catKey, $catLabel);
     $sites[$key]['categories'][$catKey]['po_total'] += $orderTotal;
-
-    $paymentStatus = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
-    if ($paymentStatus === 'paid') {
-        $billed = (float) ($po['billed_total_amount'] ?? 0);
-        $paidAmount = $billed > 0 ? $billed : $orderTotal;
-        $sites[$key]['paid_total'] += $paidAmount;
-        $sites[$key]['categories'][$catKey]['paid_total'] += $paidAmount;
-    }
+    $sites[$key]['categories'][$catKey]['paid_total'] += $paidAmount;
 }
 
 // outstanding + เรียงตามยอดจ่ายแล้วมากสุด
@@ -228,6 +325,69 @@ uasort($sites, static function (array $a, array $b): int {
     return ($b['paid_total'] <=> $a['paid_total']) ?: strcmp($a['label'], $b['label']);
 });
 
+$sites = tnc_site_spending_keep_paid_only($sites);
+
+// ---------- ตัวเลือกหมวด + กรองตามหมวด ----------
+$categoryCatalog = [];
+foreach ($sites as $s) {
+    foreach ($s['categories'] as $ck => $cv) {
+        if ($ck === 'none') {
+            continue;
+        }
+        $paid = round((float) ($cv['paid_total'] ?? 0), 2);
+        if ($paid <= 0.0) {
+            continue;
+        }
+        if (!isset($categoryCatalog[$ck])) {
+            $categoryCatalog[$ck] = [
+                'label' => (string) ($cv['label'] ?? $ck),
+                'paid_total' => 0.0,
+            ];
+        }
+        $categoryCatalog[$ck]['paid_total'] += $paid;
+    }
+}
+$filterCategoryOptions = $categoryCatalog;
+uasort($filterCategoryOptions, static function (array $a, array $b): int {
+    return ($b['paid_total'] <=> $a['paid_total']) ?: strcmp($a['label'], $b['label']);
+});
+
+$filterCatKeys = [];
+if (isset($_GET['cat'])) {
+    $rawCats = $_GET['cat'];
+    if (!is_array($rawCats)) {
+        $rawCats = [$rawCats];
+    }
+    $validKeys = array_fill_keys(array_keys($filterCategoryOptions), true);
+    foreach ($rawCats as $rawKey) {
+        $rawKey = trim((string) $rawKey);
+        if ($rawKey !== '' && $rawKey !== 'none' && isset($validKeys[$rawKey])) {
+            $filterCatKeys[] = $rawKey;
+        }
+    }
+    $filterCatKeys = array_values(array_unique($filterCatKeys));
+}
+
+$filterCatLabels = [];
+foreach ($filterCatKeys as $fk) {
+    if (isset($categoryCatalog[$fk]['label'])) {
+        $filterCatLabels[] = (string) $categoryCatalog[$fk]['label'];
+    }
+}
+$hasCatFilter = $filterCatKeys !== [];
+if ($hasCatFilter) {
+    $sites = tnc_site_spending_apply_cat_filter($sites, $filterCatKeys);
+}
+
+$catFilterButtonText = 'เลือกหมวดค่าใช้จ่าย';
+if ($hasCatFilter) {
+    if (count($filterCatLabels) <= 2) {
+        $catFilterButtonText = implode(', ', $filterCatLabels);
+    } else {
+        $catFilterButtonText = count($filterCatLabels) . ' หมวดที่เลือก';
+    }
+}
+
 $grandPrCount = 0;
 $grandPrTotal = 0.0;
 $grandPoCount = 0;
@@ -243,59 +403,6 @@ foreach ($sites as $s) {
     $grandOutstanding += $s['outstanding'];
 }
 
-// ---------- ตารางไขว้ (Matrix): ไซต์ (แถว) × หมวด (คอลัมน์) ----------
-$matrixMetric = (string) ($_GET['mx'] ?? 'po');
-if (!in_array($matrixMetric, ['po', 'paid'], true)) {
-    $matrixMetric = 'po';
-}
-$metricField = ['po' => 'po_total', 'paid' => 'paid_total'][$matrixMetric];
-$metricLabel = ['po' => 'ยอดสั่งซื้อ (PO)', 'paid' => 'จ่ายแล้ว'][$matrixMetric];
-
-// คอลัมน์ = สหภาพของหมวดจริงทุกไซต์ (ตัด "ไม่ระบุหมวด")
-$matrixCols = []; // catKey => ['label'=>, 'total'=>]
-foreach ($sites as $s) {
-    foreach ($s['categories'] as $ck => $cv) {
-        if ($ck === 'none') {
-            continue;
-        }
-        if (!isset($matrixCols[$ck])) {
-            $matrixCols[$ck] = ['label' => (string) $cv['label'], 'total' => 0.0];
-        }
-        $matrixCols[$ck]['total'] += (float) ($cv[$metricField] ?? 0);
-    }
-}
-uasort($matrixCols, static function (array $a, array $b): int {
-    return ($b['total'] <=> $a['total']) ?: strcmp($a['label'], $b['label']);
-});
-
-// แถว = ไซต์ที่มีหมวดจริงอย่างน้อยหนึ่งหมวด (รวมยอด > 0)
-$matrixRows = [];
-foreach ($sites as $s) {
-    $cells = [];
-    $rowTotal = 0.0;
-    foreach ($matrixCols as $ck => $col) {
-        $val = (float) ($s['categories'][$ck][$metricField] ?? 0);
-        $cells[$ck] = $val;
-        $rowTotal += $val;
-    }
-    if ($rowTotal != 0.0) {
-        $matrixRows[] = ['label' => $s['label'], 'cells' => $cells, 'total' => $rowTotal];
-    }
-}
-usort($matrixRows, static function (array $a, array $b): int {
-    return ($b['total'] <=> $a['total']) ?: strcmp($a['label'], $b['label']);
-});
-$matrixColTotals = [];
-$matrixGrand = 0.0;
-foreach ($matrixCols as $ck => $col) {
-    $sum = 0.0;
-    foreach ($matrixRows as $r) {
-        $sum += (float) ($r['cells'][$ck] ?? 0);
-    }
-    $matrixColTotals[$ck] = $sum;
-    $matrixGrand += $sum;
-}
-
 // ---------- Export CSV ----------
 if (($_GET['export'] ?? '') === 'csv') {
     $filename = 'site-spending-' . date('Ymd_His') . '.csv';
@@ -304,70 +411,33 @@ if (($_GET['export'] ?? '') === 'csv') {
     echo "\xEF\xBB\xBF";
     echo tnc_site_csv_row(['รายงานสรุปการใช้จ่ายแยกตามไซต์']);
     echo tnc_site_csv_row(['ช่วงข้อมูล', $periodText]);
+    if ($hasCatFilter) {
+        echo tnc_site_csv_row(['กรองหมวด', implode(', ', $filterCatLabels)]);
+    }
     echo tnc_site_csv_row([]);
-    echo tnc_site_csv_row(['ไซต์/สถานที่', 'หมวดค่าใช้จ่าย', 'ยอดสั่งซื้อ (PO)', 'จ่ายแล้ว', 'ค้างจ่าย']);
+    echo tnc_site_csv_row(['ไซต์/สถานที่', 'หมวดค่าใช้จ่าย', 'ยอดรายการ']);
     foreach ($sites as $s) {
         echo tnc_site_csv_row([
             $s['label'],
-            '(รวมทั้งไซต์)',
-            number_format($s['po_total'], 2, '.', ''),
+            '(สรุปยอด)',
             number_format($s['paid_total'], 2, '.', ''),
-            number_format($s['outstanding'], 2, '.', ''),
         ]);
         foreach ($s['categories'] as $ck => $c) {
             if ($ck === 'none') {
-                continue; // ไม่แสดง "ไม่ระบุหมวด"
+                continue;
             }
             echo tnc_site_csv_row([
                 '',
                 '— ' . $c['label'],
-                number_format($c['po_total'], 2, '.', ''),
                 number_format($c['paid_total'], 2, '.', ''),
-                number_format(round($c['po_total'] - $c['paid_total'], 2), 2, '.', ''),
             ]);
         }
     }
     echo tnc_site_csv_row([
         'รวมทั้งหมด',
         '',
-        number_format($grandPrTotal, 2, '.', ''),
-        $grandPoCount,
-        number_format($grandPoTotal, 2, '.', ''),
         number_format($grandPaid, 2, '.', ''),
-        number_format($grandOutstanding, 2, '.', ''),
     ]);
-    exit;
-}
-
-// ---------- Export CSV: ตารางไขว้ (Matrix) ----------
-if (($_GET['export'] ?? '') === 'matrix') {
-    $filename = 'site-spending-matrix-' . date('Ymd_His') . '.csv';
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    echo "\xEF\xBB\xBF";
-    echo tnc_site_csv_row(['ตารางค่าใช้จ่าย: ไซต์ × หมวด (' . $metricLabel . ')']);
-    echo tnc_site_csv_row(['ช่วงข้อมูล', $periodText]);
-    echo tnc_site_csv_row([]);
-    $header = ['ไซต์/สถานที่'];
-    foreach ($matrixCols as $col) {
-        $header[] = $col['label'];
-    }
-    $header[] = 'ยอดรวม';
-    echo tnc_site_csv_row($header);
-    foreach ($matrixRows as $r) {
-        $line = [$r['label']];
-        foreach ($matrixCols as $ck => $col) {
-            $line[] = number_format((float) ($r['cells'][$ck] ?? 0), 2, '.', '');
-        }
-        $line[] = number_format($r['total'], 2, '.', '');
-        echo tnc_site_csv_row($line);
-    }
-    $footer = ['รวมทั้งหมด'];
-    foreach ($matrixCols as $ck => $col) {
-        $footer[] = number_format((float) ($matrixColTotals[$ck] ?? 0), 2, '.', '');
-    }
-    $footer[] = number_format($matrixGrand, 2, '.', '');
-    echo tnc_site_csv_row($footer);
     exit;
 }
 
@@ -429,8 +499,131 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
         .report-stat--accent .report-stat__value { color: var(--tnc-orange, #ea580c); }
         .report-stat--warn .report-stat__value { color: #b45309; }
         .report-note { font-size: 0.8125rem; color: var(--tnc-muted, #64748b); }
+        .btn-orange {
+            background: #ea580c;
+            border-color: #ea580c;
+            color: #fff;
+            font-weight: 600;
+        }
+        .btn-orange:hover,
+        .btn-orange:focus {
+            background: #c2410c;
+            border-color: #c2410c;
+            color: #fff;
+        }
+        .report-filter-form { margin: 0; }
+        .report-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 0.85rem 1rem;
+        }
+        .report-toolbar__main {
+            flex: 1 1 22rem;
+            min-width: 0;
+            margin: 0;
+        }
+        .report-toolbar__tools {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            flex: 0 0 auto;
+        }
+        .report-toolbar__submit {
+            min-height: calc(1.5em + 0.75rem + 2px);
+            padding-left: 1.15rem;
+            padding-right: 1.15rem;
+            white-space: nowrap;
+        }
+        .report-toolbar__tools .btn {
+            min-height: calc(1.5em + 0.75rem + 2px);
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+        .cat-filter-dropdown .cat-filter-toggle {
+            border: 1px solid #ced4da;
+            border-radius: 0.375rem;
+            background: #fff;
+            color: var(--tnc-body-ink, #1f2937);
+            font-size: 1rem;
+            font-weight: 400;
+            line-height: 1.5;
+            padding: 0.375rem 2.1rem 0.375rem 0.75rem;
+            min-height: calc(1.5em + 0.75rem + 2px);
+            width: 100%;
+            box-shadow: none !important;
+            position: relative;
+            text-align: left;
+        }
+        .cat-filter-dropdown .cat-filter-toggle::after {
+            position: absolute;
+            right: 0.85rem;
+            top: 50%;
+            margin: 0;
+            transform: translateY(-50%);
+        }
+        .cat-filter-dropdown .cat-filter-toggle:hover,
+        .cat-filter-dropdown.show .cat-filter-toggle {
+            border-color: var(--tnc-orange-border, #fdba74);
+            background: #fff;
+            color: var(--tnc-body-ink, #1f2937);
+        }
+        .cat-filter-dropdown .cat-filter-toggle-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: block;
+            width: 100%;
+            padding-right: 0.25rem;
+        }
+        .cat-filter-menu {
+            max-height: 280px;
+            overflow: hidden;
+            border-color: var(--tnc-orange-border, #fdba74);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+        }
+        .cat-filter-menu-inner {
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .cat-filter-option {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            margin: 0;
+            padding: 0.45rem 0.85rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            user-select: none;
+        }
+        .cat-filter-option:hover { background: var(--tnc-orange-soft, #ffedd5); }
+        .cat-filter-option:has(input:checked) {
+            background: #fff7ed;
+            font-weight: 600;
+            color: var(--tnc-orange-dark, #9a3412);
+        }
+        .cat-filter-option input { margin: 0; flex-shrink: 0; }
+        .cat-filter-menu-foot {
+            background: #f8fafc;
+        }
+        .report-badge--filter {
+            border-color: var(--tnc-orange-border, #fdba74);
+            background: var(--tnc-orange-soft, #ffedd5);
+            color: var(--tnc-orange-dark, #9a3412);
+        }
         /* ---- ตารางสรุป ---- */
-        #spendTable { border-collapse: separate; border-spacing: 0; }
+        #spendTable {
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: fixed;
+            width: 100%;
+        }
+        #spendTable col.spend-col-label { width: 72%; }
+        #spendTable col.spend-col-amt { width: 28%; }
         #spendTable thead th {
             background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
             color: #334155;
@@ -440,7 +633,9 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             padding: 0.7rem 0.9rem;
             white-space: nowrap;
         }
+        #spendTable thead th.col-amt { text-align: right; }
         #spendTable td { padding: 0.65rem 0.9rem; vertical-align: middle; }
+        #spendTable td.col-amt { text-align: right; }
         #spendTable .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
         .site-row { border-top: 1px solid #eef2f7; }
         .site-row:hover { background: var(--tnc-orange-soft, #ffedd5); }
@@ -455,47 +650,30 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
         .cat-toggle-spacer { display: inline-block; width: 44px; flex: 0 0 44px; }
         .btn-cat-toggle .bi-caret-right-fill { transition: transform 0.15s ease; font-size: 0.7rem; }
         [aria-expanded="true"] .bi-caret-right-fill { transform: rotate(90deg); }
-        .cat-breakdown { background: #fcfdfe; margin: 0; }
+        .cat-breakdown {
+            background: #fcfdfe;
+            margin: 0;
+            table-layout: fixed;
+            width: 100%;
+        }
+        .cat-breakdown col.spend-col-label { width: 72%; }
+        .cat-breakdown col.spend-col-amt { width: 28%; }
         .cat-breakdown td { border: 0; border-bottom: 1px dashed #eef2f7; font-size: 0.8125rem; padding: 0.5rem 0.9rem; }
+        .cat-breakdown td.col-amt { text-align: right; padding-right: 0.9rem; }
         .cat-breakdown tr:last-child td { border-bottom: 0; }
         .cat-breakdown .cat-name { color: #475569; padding-left: 3.75rem; }
         .cat-breakdown .cat-name .bi { color: var(--tnc-orange, #ea580c); font-size: 0.75rem; }
         .cat-detail-row > td { background: rgba(255, 237, 213, 0.35); }
         .grand-row td { background: #f8fafc; border-top: 2px solid var(--tnc-orange-border, #fdba74); }
-        /* ---- ตารางไขว้ (Matrix) ---- */
-        .matrix-wrap { overflow-x: auto; }
-        #matrixTable { border-collapse: separate; border-spacing: 0; min-width: 640px; }
-        #matrixTable thead th {
-            background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
-            color: var(--tnc-orange-dark, #9a3412);
-            font-weight: 700;
-            font-size: 0.8125rem;
-            padding: 0.6rem 0.8rem;
-            white-space: nowrap;
-            position: sticky; top: 0;
-            border-bottom: 2px solid var(--tnc-orange-border, #fdba74);
-        }
-        #matrixTable th, #matrixTable td { border-bottom: 1px solid #eef2f7; padding: 0.55rem 0.8rem; }
-        #matrixTable tbody tr:nth-child(even) td { background: #f8fafc; }
-        #matrixTable tbody tr:hover td { background: var(--tnc-orange-soft, #ffedd5); }
-        #matrixTable .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-        #matrixTable .mx-site-col {
-            position: sticky; left: 0; z-index: 2;
-            background: #fff; min-width: 200px; box-shadow: 1px 0 0 #e5e7eb;
-        }
-        #matrixTable thead .mx-site-col {
-            background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
-            z-index: 3;
-        }
-        #matrixTable tbody tr:nth-child(even) .mx-site-col { background: #f8fafc; }
-        #matrixTable tbody tr:hover .mx-site-col { background: var(--tnc-orange-soft, #ffedd5); }
-        #matrixTable .mx-total-col { background: #fff7ed; font-weight: 700; }
-        #matrixTable .grand-row td { background: #eef2f7 !important; border-top: 2px solid var(--tnc-orange-border, #fdba74); }
-        #matrixTable .grand-row .mx-site-col { background: #eef2f7 !important; }
         @media (min-width: 1200px) { .container { max-width: 1140px; } }
         @media (max-width: 575.98px) {
             .card-soft .card-body { padding: 1rem; }
-            .report-actions .btn { width: 100%; justify-content: center; }
+            .report-toolbar { flex-direction: column; align-items: stretch; }
+            .report-toolbar__tools .btn { flex: 1 1 calc(50% - 0.25rem); justify-content: center; }
+            .report-toolbar__submit { flex: 1 1 100% !important; }
+        }
+        @media (min-width: 576px) and (max-width: 991.98px) {
+            .report-toolbar__tools { width: 100%; justify-content: flex-end; }
         }
         @media (prefers-reduced-motion: reduce) {
             .btn-cat-toggle .bi-caret-right-fill { transition: none; }
@@ -526,34 +704,46 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             color: #0f172a;
         }
         .print-site-block {
-            margin-bottom: 1.15rem;
+            margin-bottom: 1.35rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.4rem;
+            overflow: hidden;
             break-inside: avoid-page;
             page-break-inside: avoid;
+            background: #fff;
         }
         .print-site-block + .print-site-block {
-            padding-top: 0.35rem;
+            padding-top: 0;
         }
         .print-site-head {
             display: flex;
-            align-items: baseline;
+            align-items: center;
             flex-wrap: wrap;
-            gap: 0.35rem 0.65rem;
-            margin-bottom: 0.45rem;
-            padding: 0.45rem 0.65rem;
-            background: linear-gradient(90deg, #fff7ed 0%, #fff 72%);
-            border-left: 4px solid var(--tnc-orange, #ea580c);
-            border-radius: 0 0.35rem 0.35rem 0;
+            gap: 0.4rem 0.65rem;
+            margin-bottom: 0;
+            padding: 0.5rem 0.75rem;
+            background: linear-gradient(90deg, #fff7ed 0%, #f8fafc 55%, #fff 100%);
+            border-left: none;
+            border-bottom: 1px solid #e2e8f0;
+            border-radius: 0;
             break-after: avoid;
             page-break-after: avoid;
         }
         .print-site-num {
             flex: 0 0 auto;
-            min-width: 1.65rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.85rem;
+            height: 1.85rem;
+            padding: 0 0.35rem;
             font-size: 0.72rem;
             font-weight: 800;
             letter-spacing: 0.04em;
-            color: var(--tnc-orange-dark, #9a3412);
-            line-height: 1.2;
+            color: #fff;
+            background: var(--tnc-orange, #ea580c);
+            border-radius: 0.3rem;
+            line-height: 1;
         }
         .print-site-title {
             flex: 1 1 auto;
@@ -581,16 +771,15 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             font-size: 0.72rem;
             font-weight: 700;
             color: #475569;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            padding: 0.35rem 0.5rem;
+            letter-spacing: 0.02em;
+            padding: 0.38rem 0.75rem;
             border-bottom: 1px solid #cbd5e1;
             background: #f8fafc;
         }
-        .print-site-table thead th:first-child { text-align: left; width: 42%; }
-        .print-site-table thead th:nth-child(n+2) { text-align: right; width: 19%; }
+        .print-site-table thead th.col-cat { text-align: left; width: 72%; }
+        .print-site-table thead th.col-amt { text-align: right; width: 28%; }
         .print-site-table tbody td {
-            padding: 0.32rem 0.5rem;
+            padding: 0.34rem 0.75rem;
             border-bottom: 1px dotted #e2e8f0;
             vertical-align: top;
             font-size: 0.86rem;
@@ -614,15 +803,14 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             white-space: nowrap;
         }
         .print-site-table tfoot td {
-            padding: 0.45rem 0.5rem;
+            padding: 0.48rem 0.75rem;
             font-weight: 700;
             font-size: 0.88rem;
             border-top: 2px solid #94a3b8;
             background: #f1f5f9;
         }
         .print-site-table tfoot .num { text-align: right; font-variant-numeric: tabular-nums; }
-        .print-site-table tfoot .num--paid { color: #166534; }
-        .print-site-table tfoot .num--out { color: #92400e; }
+        .print-site-table tfoot .num--amt { font-size: 0.95rem; font-weight: 800; }
         .print-grand-wrap {
             margin-top: 1rem;
             padding-top: 0.65rem;
@@ -659,9 +847,6 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             .cat-breakdown td { font-size: .78rem; }
             .btn-export-modern,
             .btn-print-modern { width: 100%; }
-            #matrixCard .matrix-tools { width: 100%; }
-            #matrixCard .matrix-tools .btn-group { width: 100%; }
-            #matrixCard .matrix-tools .btn-group .btn { flex: 1 1 auto; }
         }
 
         @media (min-width: 576px) and (max-width: 767.98px) {
@@ -672,9 +857,6 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
         @media (max-width: 767.98px) {
             .btn-export-modern,
             .btn-print-modern { width: 100%; }
-            #matrixCard .matrix-tools { width: 100%; }
-            #matrixCard .matrix-tools .btn-group { width: 100%; }
-            #matrixCard .matrix-tools .btn-group .btn { flex: 1 1 auto; }
         }
 
         @media print {
@@ -689,7 +871,6 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             nav,
             .navbar,
             #summaryCard,
-            #matrixCard,
             .card-soft.no-print { display: none !important; }
             .print-only {
                 position: static !important;
@@ -713,20 +894,28 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             .print-header .print-title { font-size: 12pt; }
             .print-header .print-meta { color: #334155 !important; font-size: 9pt; }
             .print-site-block {
-                margin-bottom: 10px;
+                margin-bottom: 12px;
+                border: 1.5pt solid #000 !important;
+                border-radius: 0;
                 break-inside: avoid-page;
                 page-break-inside: avoid;
             }
             .print-site-head {
-                background: #f8fafc !important;
-                border-left-color: #000 !important;
+                background: #eee !important;
+                border-bottom: 1pt solid #000 !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-            .print-site-num { color: #000 !important; }
+            .print-site-num {
+                color: #fff !important;
+                background: #333 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
             .print-site-table thead th {
-                background: #eee !important;
+                background: #f5f5f5 !important;
                 color: #000 !important;
+                border-bottom-color: #000 !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
@@ -734,18 +923,20 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             .print-site-table .cat-label::before { color: #000 !important; }
             .print-site-table tfoot td {
                 background: #e5e7eb !important;
-                border-top-color: #000 !important;
+                border-top: 1.5pt solid #000 !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-            .print-site-table tfoot .num--paid { color: #000 !important; }
-            .print-site-table tfoot .num--out { color: #000 !important; }
             .print-grand-wrap {
-                border-top-color: #000 !important;
+                border-top: 2pt double #000 !important;
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
-            .print-grand-table td.num--paid { color: #000 !important; }
+            .print-grand-table tfoot td {
+                background: #ddd !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
     </style>
 </head>
@@ -766,6 +957,9 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
         <div class="print-meta">
             <span>ช่วงข้อมูล: <?= h($periodText) ?></span>
             <span>จำนวนไซต์: <?= count($sites) ?></span>
+            <?php if ($hasCatFilter): ?>
+                <span>หมวด: <?= h(implode(', ', $filterCatLabels)) ?></span>
+            <?php endif; ?>
             <span>พิมพ์เมื่อ: <?= h($printedAt) ?></span>
         </div>
     </div>
@@ -778,56 +972,42 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             <?php foreach ($sites as $s): ?>
                 <?php
                 $printCats = [];
-                foreach ($s['categories'] as $ck => $cv) {
-                    if ($ck === 'none') {
-                        continue;
-                    }
-                    if ((float) ($cv['po_total'] ?? 0) != 0.0 || (float) ($cv['paid_total'] ?? 0) != 0.0) {
+                foreach ($s['categories'] as $cv) {
+                    if (round((float) ($cv['paid_total'] ?? 0), 2) > 0.0) {
                         $printCats[] = $cv;
                     }
                 }
-                if ((float) ($s['po_total'] ?? 0) == 0.0 && (float) ($s['paid_total'] ?? 0) == 0.0 && $printCats === []) {
+                if ($printCats === []) {
                     continue;
                 }
                 $printSiteIdx++;
-                $siteOut = round((float) ($s['outstanding'] ?? 0), 2);
                 ?>
                 <section class="print-site-block">
                     <div class="print-site-head">
                         <span class="print-site-num"><?= sprintf('%02d', $printSiteIdx) ?></span>
                         <h2 class="print-site-title"><?= h($s['label']) ?></h2>
-                        <?php if ($printCats !== []): ?>
-                            <span class="print-site-meta"><?= count($printCats) ?> หมวด</span>
-                        <?php endif; ?>
                     </div>
                     <table class="print-site-table">
                         <thead>
                         <tr>
-                            <th>หมวดค่าใช้จ่าย</th>
-                            <th>ยอด PO</th>
-                            <th>จ่ายแล้ว</th>
-                            <th>ค้างจ่าย</th>
+                            <th class="col-cat">หมวดค่าใช้จ่าย</th>
+                            <th class="col-amt">ยอดรายการ</th>
                         </tr>
                         </thead>
                         <?php if ($printCats !== []): ?>
                         <tbody>
                             <?php foreach ($printCats as $c): ?>
-                                <?php $cOut = round((float) ($c['po_total'] ?? 0) - (float) ($c['paid_total'] ?? 0), 2); ?>
                                 <tr>
                                     <td class="cat-label"><?= h($c['label']) ?></td>
-                                    <td class="num"><?= number_format((float) ($c['po_total'] ?? 0), 2) ?></td>
                                     <td class="num"><?= number_format((float) ($c['paid_total'] ?? 0), 2) ?></td>
-                                    <td class="num"><?= number_format($cOut, 2) ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                         <?php endif; ?>
                         <tfoot>
                         <tr>
-                            <td>รวมไซต์นี้</td>
-                            <td class="num"><?= number_format((float) ($s['po_total'] ?? 0), 2) ?></td>
-                            <td class="num num--paid"><?= number_format((float) ($s['paid_total'] ?? 0), 2) ?></td>
-                            <td class="num num--out"><?= number_format($siteOut, 2) ?></td>
+                            <td>สรุปยอด</td>
+                            <td class="num num--amt"><?= number_format((float) ($s['paid_total'] ?? 0), 2) ?></td>
                         </tr>
                         </tfoot>
                     </table>
@@ -838,9 +1018,7 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
                     <tfoot>
                     <tr>
                         <td>รวมทั้งหมด (<?= $printSiteIdx ?> ไซต์)</td>
-                        <td class="num"><?= number_format($grandPoTotal, 2) ?></td>
-                        <td class="num num--paid"><?= number_format($grandPaid, 2) ?></td>
-                        <td class="num num--out"><?= number_format($grandOutstanding, 2) ?></td>
+                        <td class="num num--amt"><?= number_format($grandPaid, 2) ?></td>
                     </tr>
                     </tfoot>
                 </table>
@@ -851,106 +1029,112 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
 
     <div class="card card-soft mb-3 no-print">
         <div class="card-body">
-            <form method="get" class="row g-2 align-items-end">
-                <div class="col-6 col-md-2">
-                    <label class="form-label small fw-semibold">เดือน</label>
-                    <select name="month" class="form-select">
-                        <?php for ($m = 1; $m <= 12; $m++): ?>
-                            <option value="<?= $m ?>" <?= $m === $month ? 'selected' : '' ?>><?= sprintf('%02d', $m) ?></option>
-                        <?php endfor; ?>
-                    </select>
-                </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small fw-semibold">ปี</label>
-                    <input type="number" name="year" min="2000" max="2100" class="form-control" value="<?= $year ?>">
-                </div>
-                <div class="col-6 col-md-3">
-                    <label class="form-label small fw-semibold">วันที่เริ่มต้น (เลือกแทนเดือน/ปี)</label>
-                    <input type="date" name="start_date" class="form-control" value="<?= h($startDate) ?>">
-                </div>
-                <div class="col-6 col-md-3">
-                    <label class="form-label small fw-semibold">วันที่สิ้นสุด</label>
-                    <input type="date" name="end_date" class="form-control" value="<?= h($endDate) ?>">
-                </div>
-                <div class="col-12 col-md-2 d-flex gap-2">
-                    <button type="submit" class="btn btn-orange w-100"><i class="bi bi-search me-1"></i>ค้นหารายงาน</button>
-                </div>
-                <div class="col-12 d-flex flex-wrap justify-content-end gap-2 report-actions">
-                    <?php
-                    $exportQuery = $_GET;
-                    $exportQuery['export'] = 'csv';
-                    ?>
-                    <a href="<?= h(app_path('pages/reports/site-spending-report.php') . '?' . http_build_query($exportQuery)) ?>" class="btn btn-outline-success rounded-pill px-3 fw-semibold">
-                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
-                    </a>
-                    <button type="button" id="btnPrintReport" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold" onclick="tncSiteSpendingPrint(event)">
-                        <i class="bi bi-printer me-1"></i>พิมพ์เอกสาร
-                    </button>
+            <form method="get" class="report-filter-form">
+                <div class="report-toolbar">
+                    <div class="row g-2 align-items-end report-toolbar__main">
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <label class="form-label small fw-semibold mb-1">เดือน</label>
+                            <select name="month" class="form-select">
+                                <?php for ($m = 1; $m <= 12; $m++): ?>
+                                    <option value="<?= $m ?>" <?= $m === $month ? 'selected' : '' ?>><?= sprintf('%02d', $m) ?></option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <label class="form-label small fw-semibold mb-1">ปี</label>
+                            <input type="number" name="year" min="2000" max="2100" class="form-control" value="<?= $year ?>">
+                        </div>
+                        <div class="col-12 col-md-6 col-lg">
+                            <label class="form-label small fw-semibold mb-1">หมวดค่าใช้จ่าย</label>
+                            <?php if ($filterCategoryOptions === []): ?>
+                                <div class="form-control bg-light text-muted">ไม่มีหมวดในช่วงนี้</div>
+                            <?php else: ?>
+                                <div class="dropdown cat-filter-dropdown w-100">
+                                    <button type="button" class="btn dropdown-toggle cat-filter-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" id="catFilterToggle">
+                                        <span class="cat-filter-toggle-text" id="catFilterLabel"><?= h($catFilterButtonText) ?></span>
+                                    </button>
+                                    <div class="dropdown-menu cat-filter-menu w-100">
+                                        <div class="cat-filter-menu-inner">
+                                            <?php foreach ($filterCategoryOptions as $ck => $opt): ?>
+                                                <label class="dropdown-item cat-filter-option">
+                                                    <input type="checkbox" class="cat-filter-check" name="cat[]" value="<?= h($ck) ?>" data-label="<?= h($opt['label']) ?>" <?= in_array($ck, $filterCatKeys, true) ? 'checked' : '' ?>>
+                                                    <span><?= h($opt['label']) ?></span>
+                                                </label>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <div class="cat-filter-menu-foot border-top px-3 py-2">
+                                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" id="catFilterClearBtn">ล้างการเลือก</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="report-toolbar__tools">
+                        <button type="submit" class="btn btn-orange report-toolbar__submit">
+                            <i class="bi bi-search me-1"></i>ค้นหา
+                        </button>
+                        <?php
+                        $exportQuery = $_GET;
+                        $exportQuery['export'] = 'csv';
+                        ?>
+                        <a href="<?= h(app_path('pages/reports/site-spending-report.php') . '?' . http_build_query($exportQuery)) ?>" class="btn btn-outline-success">
+                            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
+                        </a>
+                        <button type="button" id="btnPrintReport" class="btn btn-outline-secondary" onclick="tncSiteSpendingPrint(event)">
+                            <i class="bi bi-printer me-1"></i>พิมพ์
+                        </button>
+                    </div>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <div class="row g-2 mb-3 no-print">
-        <div class="col-12 col-md-4">
-            <div class="report-stat report-stat--success h-100">
-                <div class="report-stat__label"><i class="bi bi-cash-coin me-1"></i>จ่ายแล้วทุกไซต์</div>
-                <div class="report-stat__value"><?= number_format($grandPaid, 2) ?></div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4">
-            <div class="report-stat report-stat--accent h-100">
-                <div class="report-stat__label"><i class="bi bi-bag-check me-1"></i>ยอดสั่งซื้อ (PO)</div>
-                <div class="report-stat__value"><?= number_format($grandPoTotal, 2) ?></div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4">
-            <div class="report-stat report-stat--warn h-100">
-                <div class="report-stat__label"><i class="bi bi-hourglass-split me-1"></i>ค้างจ่าย</div>
-                <div class="report-stat__value"><?= number_format($grandOutstanding, 2) ?></div>
-            </div>
         </div>
     </div>
 
     <div class="card card-soft mb-3 no-print" id="summaryCard">
         <div class="card-body">
             <div class="report-summary-row mb-3">
-                <span class="report-badge">ช่วงข้อมูล: <?= h($periodText) ?></span>
-                <span class="report-badge">จำนวนไซต์: <?= count($sites) ?></span>
+                <?php if ($hasCatFilter): ?>
+                    <span class="report-badge report-badge--filter"><i class="bi bi-funnel-fill me-1"></i><?= h(implode(', ', $filterCatLabels)) ?></span>
+                <?php endif; ?>
             </div>
-            <p class="report-note mb-3">จ่ายแล้ว = PO ที่ทำเครื่องหมายจ่ายเงินแล้ว (ไม่รวมใบยกเลิก) · ค้างจ่าย = ยอดสั่งซื้อ − จ่ายแล้ว</p>
+                <p class="report-note mb-3">ยอดรายการ = PO ที่สมบูรณ์แล้ว (ชำระแล้ว + มีเลขที่ใบกำกับ) ในช่วงเดือนที่เลือก (ตามวันที่บันทึกจ่าย) — แสดงเฉพาะยอด &gt; 0</p>
+            <?php if ($hasCatFilter): ?>
+                <p class="report-note mb-3">กรองหมวด: <?= h(implode(', ', $filterCatLabels)) ?> — ยอดรวมคำนวณจากหมวดที่เลือก</p>
+            <?php endif; ?>
             <div class="table-responsive">
                 <table id="spendTable" class="table align-middle mb-0">
+                    <colgroup>
+                        <col class="spend-col-label">
+                        <col class="spend-col-amt">
+                    </colgroup>
                     <thead>
                     <tr>
-                        <th>ไซต์ / หมวดค่าใช้จ่าย</th>
-                        <th class="text-end">ยอดสั่งซื้อ (PO)</th>
-                        <th class="text-end">จ่ายแล้ว</th>
-                        <th class="text-end">ค้างจ่าย</th>
+                        <th></th>
+                        <th class="col-amt"></th>
                     </tr>
                     </thead>
                     <tbody>
                     <?php if ($sites === []): ?>
-                        <tr><td colspan="4" class="text-center text-muted py-4">ไม่พบข้อมูล PR/PO ตามเงื่อนไข</td></tr>
+                        <tr><td colspan="2" class="text-center text-muted py-4"><?= $hasCatFilter ? 'ไม่พบไซต์ที่มีหมวดที่เลือกในช่วงนี้' : 'ไม่พบข้อมูล PR/PO ตามเงื่อนไข' ?></td></tr>
                     <?php else: ?>
                         <?php $siteIdx = 0; ?>
                         <?php foreach ($sites as $s): ?>
                             <?php
                             $siteIdx++;
-                            // แสดงเฉพาะหมวดจริง — ตัด "ไม่ระบุหมวด" (key 'none') ออก
                             $realCats = [];
-                            foreach ($s['categories'] as $ck => $cv) {
-                                if ($ck !== 'none') {
+                            foreach ($s['categories'] as $cv) {
+                                if (round((float) ($cv['paid_total'] ?? 0), 2) > 0.0) {
                                     $realCats[] = $cv;
                                 }
                             }
                             $hasCats = count($realCats) > 0;
+                            $expandCats = $hasCatFilter && $hasCats;
                             ?>
                             <tr class="site-row">
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
                                         <?php if ($hasCats): ?>
-                                            <button type="button" class="btn btn-cat-toggle" data-bs-toggle="collapse" data-bs-target="#cat-<?= $siteIdx ?>" aria-expanded="false" aria-label="ดูหมวดย่อยของ <?= h($s['label']) ?>">
+                                            <button type="button" class="btn btn-cat-toggle" data-bs-toggle="collapse" data-bs-target="#cat-<?= $siteIdx ?>" aria-expanded="<?= $expandCats ? 'true' : 'false' ?>" aria-label="ดูหมวดย่อยของ <?= h($s['label']) ?>">
                                                 <i class="bi bi-caret-right-fill"></i>
                                             </button>
                                         <?php else: ?>
@@ -958,27 +1142,25 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
                                         <?php endif; ?>
                                         <div>
                                             <span class="fw-semibold"><?= h($s['label']) ?></span>
-                                            <?php if ($hasCats): ?><span class="badge rounded-pill text-bg-light border ms-1"><?= count($realCats) ?> หมวด</span><?php endif; ?>
                                         </div>
                                     </div>
                                 </td>
-                                <td class="text-end num"><?= number_format($s['po_total'], 2) ?></td>
-                                <td class="text-end num fw-bold text-success"><?= number_format($s['paid_total'], 2) ?></td>
-                                <td class="text-end num <?= $s['outstanding'] > 0 ? 'text-warning-emphasis fw-semibold' : 'text-muted' ?>"><?= number_format($s['outstanding'], 2) ?></td>
+                                <td class="col-amt num fw-bold"><?= number_format($s['paid_total'], 2) ?></td>
                             </tr>
                             <?php if ($hasCats): ?>
                             <tr class="cat-detail-row">
-                                <td colspan="4" class="p-0 border-0">
-                                    <div class="collapse" id="cat-<?= $siteIdx ?>">
+                                <td colspan="2" class="p-0 border-0">
+                                    <div class="collapse<?= $expandCats ? ' show' : '' ?>" id="cat-<?= $siteIdx ?>">
                                         <table class="table table-sm mb-0 cat-breakdown">
+                                            <colgroup>
+                                                <col class="spend-col-label">
+                                                <col class="spend-col-amt">
+                                            </colgroup>
                                             <tbody>
                                             <?php foreach ($realCats as $c): ?>
-                                                <?php $cOut = round($c['po_total'] - $c['paid_total'], 2); ?>
                                                 <tr>
                                                     <td class="cat-name"><i class="bi bi-tag-fill me-1"></i><?= h($c['label']) ?></td>
-                                                    <td class="text-end num"><?= number_format($c['po_total'], 2) ?></td>
-                                                    <td class="text-end num text-success"><?= number_format($c['paid_total'], 2) ?></td>
-                                                    <td class="text-end num <?= $cOut > 0 ? 'text-warning-emphasis' : 'text-muted' ?>"><?= number_format($cOut, 2) ?></td>
+                                                    <td class="col-amt num"><?= number_format($c['paid_total'], 2) ?></td>
                                                 </tr>
                                             <?php endforeach; ?>
                                             </tbody>
@@ -993,84 +1175,12 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
                     <?php if ($sites !== []): ?>
                     <tfoot>
                         <tr class="grand-row fw-bold">
-                            <td>รวมทั้งหมด</td>
-                            <td class="text-end num"><?= number_format($grandPoTotal, 2) ?></td>
-                            <td class="text-end num text-success"><?= number_format($grandPaid, 2) ?></td>
-                            <td class="text-end num"><?= number_format($grandOutstanding, 2) ?></td>
+                            <td>สรุปค่าใช้จ่ายทุกไซต์</td>
+                            <td class="col-amt num"><?= number_format($grandPaid, 2) ?></td>
                         </tr>
                     </tfoot>
                     <?php endif; ?>
                 </table>
-            </div>
-        </div>
-    </div>
-
-    <?php
-    $selfUrl = app_path('pages/reports/site-spending-report.php');
-    $mkUrl = static function (array $override) use ($selfUrl): string {
-        return $selfUrl . '?' . http_build_query(array_merge($_GET, $override));
-    };
-    ?>
-    <div class="card card-soft mb-3 no-print" id="matrixCard">
-        <div class="card-body">
-            <div class="print-header d-none">
-                <div class="print-company"><?= h($companyName) ?></div>
-                <div class="print-title">ตารางค่าใช้จ่าย: ไซต์ × หมวด (<?= h($metricLabel) ?>)</div>
-                <div class="print-meta">
-                    <span>ช่วงข้อมูล: <?= h($periodText) ?></span>
-                    <span>พิมพ์เมื่อ: <?= h($printedAt) ?></span>
-                </div>
-            </div>
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                <h5 class="fw-bold mb-0"><i class="bi bi-grid-3x3-gap me-2 text-tnc-orange"></i>ตารางค่าใช้จ่าย: ไซต์ × หมวด</h5>
-                <div class="d-flex flex-wrap gap-2 align-items-center matrix-tools">
-                    <div class="btn-group btn-group-sm" role="group" aria-label="เลือกค่าที่แสดง">
-                        <?php foreach (['po' => 'ยอดสั่งซื้อ', 'paid' => 'จ่ายแล้ว'] as $mk => $mlabel): ?>
-                            <a href="<?= h($mkUrl(['mx' => $mk])) ?>#matrixCard" class="btn <?= $matrixMetric === $mk ? 'btn-orange' : 'btn-outline-orange' ?>"><?= h($mlabel) ?></a>
-                        <?php endforeach; ?>
-                    </div>
-                    <a href="<?= h($mkUrl(['export' => 'matrix'])) ?>" class="btn btn-sm btn-export-modern"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Export</a>
-                    <button type="button" id="btnPrintMatrix" class="btn btn-sm btn-print-modern" onclick="tncSiteSpendingPrint(event)"><i class="bi bi-printer me-1"></i>พิมพ์</button>
-                </div>
-            </div>
-            <p class="text-muted small mb-2">แสดงค่า: <strong><?= h($metricLabel) ?></strong> ต่อไซต์ แยกตามหมวดค่าใช้จ่าย (ไม่รวมรายการที่ไม่ระบุหมวด)</p>
-            <div class="table-responsive matrix-wrap">
-                <?php if ($matrixCols === [] || $matrixRows === []): ?>
-                    <div class="text-center text-muted py-4">ยังไม่มีข้อมูลค่าใช้จ่ายที่ระบุหมวดในช่วงนี้</div>
-                <?php else: ?>
-                <table id="matrixTable" class="table align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th class="mx-site-col">ไซต์ / สถานที่</th>
-                            <?php foreach ($matrixCols as $col): ?>
-                                <th class="text-end"><?= h($col['label']) ?></th>
-                            <?php endforeach; ?>
-                            <th class="text-end mx-total-col">ยอดรวม</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($matrixRows as $r): ?>
-                            <tr>
-                                <td class="mx-site-col fw-semibold"><?= h($r['label']) ?></td>
-                                <?php foreach ($matrixCols as $ck => $col): ?>
-                                    <?php $val = (float) ($r['cells'][$ck] ?? 0); ?>
-                                    <td class="text-end num <?= $val == 0.0 ? 'text-muted' : '' ?>"><?= $val == 0.0 ? '–' : number_format($val, 2) ?></td>
-                                <?php endforeach; ?>
-                                <td class="text-end num fw-bold mx-total-col"><?= number_format($r['total'], 2) ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                    <tfoot>
-                        <tr class="grand-row fw-bold">
-                            <td class="mx-site-col">รวมทั้งหมด</td>
-                            <?php foreach ($matrixCols as $ck => $col): ?>
-                                <td class="text-end num"><?= number_format((float) ($matrixColTotals[$ck] ?? 0), 2) ?></td>
-                            <?php endforeach; ?>
-                            <td class="text-end num mx-total-col"><?= number_format($matrixGrand, 2) ?></td>
-                        </tr>
-                    </tfoot>
-                </table>
-                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -1100,6 +1210,37 @@ function tncSiteSpendingPrint(e) {
     <?php if ($autoPrint): ?>
     window.addEventListener('load', function () { setTimeout(function () { tncSiteSpendingPrint(); }, 350); });
     <?php endif; ?>
+
+    var labelEl = document.getElementById('catFilterLabel');
+    var checks = document.querySelectorAll('.cat-filter-check');
+    var clearBtn = document.getElementById('catFilterClearBtn');
+    if (!labelEl || checks.length === 0) {
+        return;
+    }
+    function updateCatFilterLabel() {
+        var selected = [];
+        checks.forEach(function (cb) {
+            if (cb.checked) {
+                selected.push(cb.getAttribute('data-label') || cb.value);
+            }
+        });
+        if (selected.length === 0) {
+            labelEl.textContent = 'เลือกหมวดค่าใช้จ่าย';
+        } else if (selected.length <= 2) {
+            labelEl.textContent = selected.join(', ');
+        } else {
+            labelEl.textContent = selected.length + ' หมวดที่เลือก';
+        }
+    }
+    checks.forEach(function (cb) {
+        cb.addEventListener('change', updateCatFilterLabel);
+    });
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            checks.forEach(function (cb) { cb.checked = false; });
+            updateCatFilterLabel();
+        });
+    }
 })();
 </script>
 </body>

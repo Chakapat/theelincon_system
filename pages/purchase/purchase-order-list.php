@@ -20,6 +20,40 @@ $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 $suppliers = Db::tableKeyed('suppliers');
 $users = Db::tableKeyed('users');
 
+$siteNameById = [];
+foreach (Db::tableRows('sites') as $site) {
+    $sid = (int) ($site['id'] ?? 0);
+    if ($sid > 0) {
+        $siteNameById[$sid] = trim((string) ($site['name'] ?? ''));
+    }
+}
+$prById = [];
+foreach (Db::tableRows('purchase_requests') as $pr) {
+    $pid = (int) ($pr['id'] ?? 0);
+    if ($pid > 0) {
+        $prById[$pid] = $pr;
+    }
+}
+$resolvePoSiteName = static function (array $po) use ($siteNameById, $prById): string {
+    $siteId = (int) ($po['site_id'] ?? 0);
+    $siteName = trim((string) ($po['site_name'] ?? ''));
+    if ($siteId <= 0) {
+        $prId = (int) ($po['pr_id'] ?? 0);
+        if ($prId > 0 && isset($prById[$prId])) {
+            $pr = $prById[$prId];
+            $siteId = (int) ($pr['site_id'] ?? 0);
+            if ($siteName === '') {
+                $siteName = trim((string) ($pr['site_name'] ?? ''));
+            }
+        }
+    }
+    if ($siteId > 0 && isset($siteNameById[$siteId]) && $siteNameById[$siteId] !== '') {
+        $siteName = $siteNameById[$siteId];
+    }
+
+    return $siteName;
+};
+
 /** วันที่ใช้เรียง/แสดง: issue_date ก่อน แล้ว fallback created_at → Y-m-d หรือว่าง */
 $poListSortYmd = static function (array $row): string {
     $issue = trim((string) ($row['issue_date'] ?? ''));
@@ -83,6 +117,7 @@ foreach (Db::tableRows('purchase_orders') as $po) {
         'installment_no' => (int) ($po['installment_no'] ?? 0),
         'installment_total' => (int) ($po['installment_total'] ?? 0),
         'incomplete_ignored' => (int) ($po['incomplete_ignored'] ?? 0) === 1,
+        'site_display' => $resolvePoSiteName($po),
     ]);
     $merged['_list_sort_ymd'] = $poListSortYmd($merged);
     $po_rows[] = $merged;
@@ -197,6 +232,13 @@ $ignoredCountAll = count($ignoredPoList);
         #poTable tbody tr:hover { background: #fff9f2; }
         #poTable .badge { font-size: .72rem; font-weight: 600; letter-spacing: .01em; }
         #poTable .po-amount { font-variant-numeric: tabular-nums; color: var(--tnc-ink); }
+        #poTable .po-site-col { max-width: 14rem; }
+        #poTable .po-site-name {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         .po-incomplete-box {
             cursor: pointer;
             border: 1px solid rgba(245, 158, 11, 0.35);
@@ -398,7 +440,7 @@ $ignoredCountAll = count($ignoredPoList);
                             <input type="checkbox" class="form-check-input m-0" id="poSelectAllPrint" aria-label="เลือกทั้งหมดในหน้านี้">
                         </th>
                         <th>เลขที่ PO</th>
-                        <th>วันที่ออก</th>
+                        <th>ไซต์งาน</th>
                         <th>ผู้ขาย / ผู้รับจ้าง</th>
                         <th class="text-end">ยอดเงินรวม</th>
                         <th class="text-center">จัดการ</th>
@@ -423,7 +465,11 @@ $ignoredCountAll = count($ignoredPoList);
                         <td class="text-center align-middle no-print">
                             <input type="checkbox" class="form-check-input m-0 js-po-print-cb" value="<?= (int) ($row['id'] ?? 0) ?>" aria-label="เลือกพิมพ์ <?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                         </td>
-                        <td>
+                        <?php
+                        $ymd = trim((string) ($row['_list_sort_ymd'] ?? ''));
+                        $dateOrderAttr = $ymd !== '' ? $ymd : '0000-00-00';
+                        ?>
+                        <td data-order="<?= htmlspecialchars($dateOrderAttr, ENT_QUOTES, 'UTF-8') ?>">
                             <div class="fw-bold <?= $poCancelled ? 'text-danger' : ($isDocComplete ? 'text-info' : 'text-warning') ?>">
                                 <?php
                                 $poNoDisp = htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -432,16 +478,16 @@ $ignoredCountAll = count($ignoredPoList);
                                 echo '<a href="' . $poViewHref . '" class="' . $poLinkClass . ' text-decoration-none" title="ดูรายละเอียด">' . $poNoDisp . '</a>';
                                 ?>
                             </div>
-                            <div class="small text-muted"><?php $cb = trim((string)($row['created_by_name'] ?? '')); echo $cb !== '' ? htmlspecialchars($cb) : '—'; ?></div>
+                            <div class="small text-muted"><?= $ymd !== '' ? htmlspecialchars(date('d/m/Y', strtotime($ymd)), ENT_QUOTES, 'UTF-8') : '—' ?></div>
                         </td>
-                        <?php
-                        $ymd = trim((string) ($row['_list_sort_ymd'] ?? ''));
-                        $dateOrderAttr = $ymd !== '' ? $ymd : '0000-00-00';
-                        ?>
-                        <td data-order="<?= htmlspecialchars($dateOrderAttr, ENT_QUOTES, 'UTF-8') ?>">
+                        <td class="po-site-col small">
                             <?php
-                            echo $ymd !== '' ? htmlspecialchars(date('d/m/Y', strtotime($ymd)), ENT_QUOTES, 'UTF-8') : '<span class="text-muted">—</span>';
-                            ?>
+                            $siteDisp = trim((string) ($row['site_display'] ?? ''));
+                            if ($siteDisp !== ''): ?>
+                                <span class="po-site-name" title="<?= htmlspecialchars($siteDisp, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($siteDisp, ENT_QUOTES, 'UTF-8') ?></span>
+                            <?php else: ?>
+                                <span class="text-muted">—</span>
+                            <?php endif; ?>
                         </td>
                         <td>
                             <?php
@@ -792,7 +838,7 @@ $ignoredCountAll = count($ignoredPoList);
 (function ($) {
     if ($('#poTable tbody tr').length && $('#poTable tbody tr td[colspan]').length === 0) {
         $('#poTable').DataTable({
-            order: [[2, 'desc']],
+            order: [[1, 'desc']],
             pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
