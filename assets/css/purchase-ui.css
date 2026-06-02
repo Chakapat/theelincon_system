@@ -470,3 +470,55 @@ body.pr-doc-view-page {
         border-top: none !important;
     }
 }
+
+/* Table skeleton (PR/PO lists — same pattern as index invoice table) */
+.tnc-table-skeleton-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.35rem 0;
+}
+
+.tnc-table-skeleton-row {
+    display: grid;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.tnc-table-skeleton-line {
+    display: block;
+    height: 0.72rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 45%, #eef2f7 90%);
+    background-size: 200% 100%;
+    animation: tncTableSkeletonWave 1.35s ease-in-out infinite;
+}
+
+.tnc-table-skeleton-line.sm { width: 42%; }
+.tnc-table-skeleton-line.md { width: 68%; }
+.tnc-table-skeleton-line.lg { width: 88%; }
+
+.tnc-table-skeleton-actions {
+    display: inline-flex;
+    gap: 0.35rem;
+    justify-content: flex-end;
+}
+
+.tnc-table-skeleton-dot {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.45rem;
+    background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 45%, #eef2f7 90%);
+    background-size: 200% 100%;
+    animation: tncTableSkeletonWave 1.35s ease-in-out infinite;
+}
+
+@keyframes tncTableSkeletonWave {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+#prTableBody.tnc-table-is-loading > tr:not(.tnc-table-skeleton-row),
+#poTableBody.tnc-table-is-loading > tr:not(.tnc-table-skeleton-row) {
+    display: none;
+}

@@ -727,15 +727,102 @@ $hasAlerts = !empty($_GET['cancelled'])
 </script>
 <?php endif; ?>
 <script>
+window.__tncPoBoot = window.__tncPoBoot || { table: true, sync: false };
+window.tncPoLiveDatasetsUrl = <?= json_encode(app_path('actions/live-datasets.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+window.tncPoViewPoId = <?= (int) $id ?>;
+
+window.tncPoShowWait = function (title, sub) {
+    if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.showWithMessage === 'function') {
+        window.TncLoadingOverlay.showWithMessage(title, sub);
+    } else if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.show === 'function') {
+        window.TncLoadingOverlay.show();
+    }
+};
+window.tncPoHideWait = function () {
+    if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.hide === 'function') {
+        window.TncLoadingOverlay.hide();
+    }
+};
+window.tncPoTryPageReady = function () {
+    var boot = window.__tncPoBoot;
+    if (!boot || !boot.table || !boot.sync) return;
+    if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.pageReady === 'function') {
+        window.TncLoadingOverlay.pageReady();
+    }
+};
+window.tncPoFetchActionRow = function (poId) {
+    var url = window.tncPoLiveDatasetsUrl + '?dataset=po_action_row&po_id=' + encodeURIComponent(String(poId || ''));
+    return fetch(url, { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('fetch_failed'); return r.json(); })
+        .then(function (d) { if (!d || !d.ok || !d.row) throw new Error('bad_payload'); return d.row; });
+};
+window.tncPoReloadWithWait = function (title, sub) {
+    window.__tncPoReloading = true;
+    window.tncPoShowWait(title || 'กำลังอัปเดตข้อมูล PO…', sub || 'กำลังโหลดหน้าใหม่…');
+    window.location.reload();
+};
+
+fetch(window.tncPoLiveDatasetsUrl + '?dataset=po_action_row&po_id=' + encodeURIComponent(String(window.tncPoViewPoId)), { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .catch(function () { return null; })
+    .finally(function () {
+        window.__tncPoBoot.sync = true;
+        window.tncPoTryPageReady();
+    });
+</script>
+<script>
 (function () {
     const btn = document.getElementById('btnOpenReceiveBill');
     const modalEl = document.getElementById('receiveBillModal');
+    const totalEl = document.getElementById('receiveBillTotalAmount');
+    const vatEl = document.getElementById('receiveBillVatAmount');
+    const invNoEl = document.querySelector('#receiveBillForm [name="supplier_invoice_no"]');
+    const invDateEl = document.getElementById('receiveBillInvoiceDate');
     if (!btn || !modalEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
         return;
     }
     const modal = new bootstrap.Modal(modalEl);
+    function ymdToDmy(ymd) {
+        const m = String(ymd || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+        return m ? (m[3] + '/' + m[2] + '/' + m[1]) : '';
+    }
     btn.addEventListener('click', function () {
-        modal.show();
+        window.tncPoShowWait(
+            'กำลังโหลดข้อมูล PO…',
+            'กรุณารอสักครู่ ระบบกำลังดึงข้อมูลล่าสุดก่อนบันทึกเลขบิล'
+        );
+        window.tncPoFetchActionRow(window.tncPoViewPoId)
+            .then(function (row) {
+                if (row.status === 'cancelled') {
+                    alert('ใบสั่งซื้อนี้ถูกยกเลิกแล้ว');
+                    window.tncPoReloadWithWait();
+                    return;
+                }
+                if (row.billing_status === 'billed') {
+                    alert('ใบสั่งซื้อนี้บันทึกเลขบิลแล้ว');
+                    window.tncPoReloadWithWait();
+                    return;
+                }
+                if (totalEl) totalEl.value = Number(row.billed_total_amount ?? row.total_amount ?? 0).toFixed(2);
+                if (vatEl) vatEl.value = Number(row.billed_vat_amount ?? 0).toFixed(2);
+                if (invNoEl) invNoEl.value = row.supplier_invoice_no || '';
+                if (invDateEl) {
+                    const issueDmy = ymdToDmy(row.issue_date || '');
+                    if (invDateEl._flatpickr) {
+                        if (issueDmy) invDateEl._flatpickr.setDate(issueDmy, true, 'd/m/Y');
+                        else invDateEl._flatpickr.clear();
+                    } else {
+                        invDateEl.value = issueDmy;
+                    }
+                }
+                modal.show();
+            })
+            .catch(function () {
+                alert('โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่');
+            })
+            .finally(function () {
+                if (!window.__tncPoReloading) window.tncPoHideWait();
+            });
     });
 })();
 
@@ -779,18 +866,6 @@ $hasAlerts = !empty($_GET['cancelled'])
             invDateEl.focus();
         }
     });
-})();
-</script>
-<script>
-(function () {
-    function releasePoBootLock() {
-        if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.pageReady === 'function') {
-            window.TncLoadingOverlay.pageReady();
-        }
-    }
-    window.addEventListener('load', function () {
-        window.requestAnimationFrame(releasePoBootLock);
-    }, { once: true });
 })();
 </script>
 <?php

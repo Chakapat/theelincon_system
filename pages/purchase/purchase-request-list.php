@@ -8,6 +8,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/line_pr_approval.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_table_skeleton.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -224,7 +225,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
             <span class="pr-po-legend__item"><span class="pr-po-status-dot pr-po-status-dot--has-po" aria-hidden="true"></span>สีเขียว = ออกใบสั่งซื้อแล้ว</span>
         </div>
         <div class="table-responsive">
-            <table class="table table-hover align-middle pr-list-print-table" id="prTable">
+            <table class="table table-hover align-middle pr-list-print-table" id="prTable"<?= count($pr_rows) > 0 ? ' aria-busy="true"' : '' ?>>
                 <thead class="table-light">
                     <tr>
                         <th class="text-center no-print" style="width:2.5rem;" title="เลือกเพื่อพิมพ์หลายใบ">
@@ -238,8 +239,9 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                         <th class="text-center no-print">การจัดการ</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="prTableBody"<?= count($pr_rows) > 0 ? ' class="tnc-table-is-loading"' : '' ?>>
                     <?php if (count($pr_rows) > 0): ?>
+                        <?= tnc_purchase_table_skeleton_tr(7, 'pr') ?>
                         <?php foreach ($pr_rows as $row): ?>
                         <?php
                             $rowPrId = (int) ($row['id'] ?? 0);
@@ -347,6 +349,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
 </div>
 
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-table-skeleton.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function () {
@@ -373,14 +376,27 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
 </script>
 <script>
 (function ($) {
-    if ($('#prTable tbody tr td[colspan]').length === 0 && $('#prTable tbody tr').length) {
-        $('#prTable').DataTable({
-            order: [[1, 'desc']],
-            pageLength: 10,
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
-            columnDefs: [{ targets: [0, 6], orderable: false, searchable: false }]
-        });
+    function initPrDataTable() {
+        if ($('#prTable tbody tr td[colspan]').length === 0 && $('#prTable tbody tr').length) {
+            $('#prTable').DataTable({
+                order: [[1, 'desc']],
+                pageLength: 10,
+                language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+                columnDefs: [{ targets: [0, 6], orderable: false, searchable: false }]
+            });
+        }
     }
+
+    if (window.TncTableSkeleton && document.getElementById('prTableBody')?.classList.contains('tnc-table-is-loading')) {
+        window.TncTableSkeleton.bootListPage({
+            bodyId: 'prTableBody',
+            tableId: 'prTable',
+            onReady: initPrDataTable
+        });
+    } else {
+        initPrDataTable();
+    }
+
     var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_requests'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
     var c = '';
     setInterval(function () {

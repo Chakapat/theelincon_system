@@ -482,14 +482,14 @@ body.tnc-app-body h5 .bi.text-warning {
         clip-path: none !important;
     }
 
-    /* Index — ถ้าพิมพ์จากหน้าหลักขณะเปิด modal ใบแจ้งหนี้ */
-    body.tnc-index-page.tnc-invoice-modal-open * {
-        visibility: hidden;
+    /* Index — พิมพ์จากหน้าหลักขณะเปิด modal (ใช้ปุ่ม «พิมพ์» ใน modal — parent print ไม่แสดงเนื้อ iframe) */
+    body.tnc-index-page.tnc-invoice-modal-open > *:not(#tncInvoiceModal) {
+        display: none !important;
     }
 
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal,
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal * {
-        visibility: visible;
+    body.tnc-index-page.tnc-invoice-modal-open {
+        visibility: visible !important;
+        background: #fff !important;
     }
 
     body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal {

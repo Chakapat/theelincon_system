@@ -28,10 +28,10 @@ if (isset($_GET['ajax_search'])) {
             $issueRaw = trim((string) ($row['issue_date'] ?? ''));
             $issueTs = $issueRaw !== '' ? strtotime($issueRaw) : false;
             $dateDisplay = $issueTs !== false ? date('d/m/Y', $issueTs) : '—';
-            $dateOrder = $issueTs !== false ? date('Y-m-d', $issueTs) : '0000-00-00';
+            $createdOrder = sprintf('%010d', (int) ($row['id'] ?? 0));
             ?>
             <tr>
-                <td data-order="<?= htmlspecialchars($dateOrder, ENT_QUOTES, 'UTF-8') ?>"><?php
+                <td data-order="<?= htmlspecialchars($createdOrder, ENT_QUOTES, 'UTF-8') ?>"><?php
                     $hasTaxInv = !empty($row['has_tax_invoice']);
                     $invBadgeClass = $hasTaxInv
                         ? 'badge rounded-pill inv-badge-tax-issued px-3'
@@ -1209,15 +1209,32 @@ document.getElementById('tncInvoiceModal')?.addEventListener('hidden.bs.modal', 
     }
 });
 
-document.getElementById('tncInvoiceModalPrint')?.addEventListener('click', function () {
+function tncPrintInvoiceFromModal() {
     const frame = document.getElementById('tncInvoiceModalFrame');
+    if (!frame) {
+        return;
+    }
+    const src = frame.src || '';
+    if (!src || src === 'about:blank') {
+        return;
+    }
     try {
-        if (frame && frame.contentWindow) {
+        const u = new URL(src, window.location.href);
+        u.searchParams.set('autoprint', '1');
+        const printWin = window.open(u.toString(), '_blank', 'noopener,noreferrer');
+        if (printWin) {
+            return;
+        }
+    } catch (e) {}
+    try {
+        if (frame.contentWindow) {
             frame.contentWindow.focus();
             frame.contentWindow.print();
         }
-    } catch (e) {}
-});
+    } catch (e2) {}
+}
+
+document.getElementById('tncInvoiceModalPrint')?.addEventListener('click', tncPrintInvoiceFromModal);
 
 document.addEventListener('keydown', function (e) {
     if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'p') {
@@ -1227,15 +1244,8 @@ document.addEventListener('keydown', function (e) {
     if (!modalEl || !modalEl.classList.contains('show')) {
         return;
     }
-    const frame = document.getElementById('tncInvoiceModalFrame');
-    if (!frame || !frame.contentWindow) {
-        return;
-    }
     e.preventDefault();
-    try {
-        frame.contentWindow.focus();
-        frame.contentWindow.print();
-    } catch (err) {}
+    tncPrintInvoiceFromModal();
 });
 
 document.getElementById('invoice_table_body')?.addEventListener('click', function (ev) {

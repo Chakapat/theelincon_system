@@ -7,6 +7,7 @@ header('Content-Type: application/json; charset=UTF-8');
 
 require_once dirname(__DIR__) . '/config/connect_database.php';
 require_once dirname(__DIR__) . '/includes/datasets.php';
+require_once dirname(__DIR__) . '/includes/purchase_po_payment_slips.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -79,6 +80,18 @@ if ($dataset === 'mirror_table') {
     $rows = Db::tableRows($table);
     $checksum = hash('sha256', json_encode($rows, JSON_UNESCAPED_UNICODE));
     echo json_encode(['ok' => true, 'checksum' => $checksum, 'rows' => $rows], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if ($dataset === 'po_action_row') {
+    $poId = (int) ($_GET['po_id'] ?? 0);
+    $row = tnc_po_action_row_for_modal($poId);
+    if ($row === null) {
+        http_response_code(404);
+        echo json_encode(['ok' => false, 'error' => 'not_found'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    echo json_encode(['ok' => true, 'row' => $row], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

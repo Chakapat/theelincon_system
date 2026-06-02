@@ -8,6 +8,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_po_payment_slips.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_table_skeleton.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -433,7 +434,7 @@ $ignoredCountAll = count($ignoredPoList);
 
     <div class="card main-card p-4">
         <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle" id="poTable">
+            <table class="table table-sm table-hover align-middle" id="poTable"<?= count($po_rows) > 0 ? ' aria-busy="true"' : '' ?>>
                 <thead class="table-light">
                     <tr>
                         <th class="text-center no-print" style="width:2.5rem;" title="เลือกเพื่อพิมพ์หลายใบ">
@@ -446,7 +447,7 @@ $ignoredCountAll = count($ignoredPoList);
                         <th class="text-center">จัดการ</th>
                     </tr>
                 </thead>
-                <tbody id="poTableBody">
+                <tbody id="poTableBody"<?= count($po_rows) > 0 ? ' class="tnc-table-is-loading"' : '' ?>>
                     <?php if (count($po_rows) === 0): ?>
                         <tr><td colspan="6" class="po-empty-state text-center text-muted">
                             <i class="bi bi-inbox d-block mb-2" aria-hidden="true"></i>
@@ -454,6 +455,7 @@ $ignoredCountAll = count($ignoredPoList);
                             <div class="small mt-1">สร้าง PO จาก<a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">รายการใบขอซื้อ</a></div>
                         </td></tr>
                     <?php else: ?>
+                        <?= tnc_purchase_table_skeleton_tr(6, 'po') ?>
                         <?php foreach ($po_rows as $row): ?>
                     <?php
                     $poCancelled = ($row['status'] ?? '') === 'cancelled';
@@ -832,28 +834,117 @@ $ignoredCountAll = count($ignoredPoList);
 </div>
 
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-table-skeleton.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
-(function ($) {
-    if ($('#poTable tbody tr').length && $('#poTable tbody tr td[colspan]').length === 0) {
-        $('#poTable').DataTable({
-            order: [[1, 'desc']],
-            pageLength: 10,
-            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
-            columnDefs: [{ targets: [0, 5], orderable: false, searchable: false }]
-        });
+window.__tncPoBoot = window.__tncPoBoot || { table: false, sync: false };
+window.tncPoLiveDatasetsUrl = <?= json_encode(app_path('actions/live-datasets.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+
+window.tncPoShowWait = function (title, sub) {
+    if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.showWithMessage === 'function') {
+        window.TncLoadingOverlay.showWithMessage(title, sub);
+    } else if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.show === 'function') {
+        window.TncLoadingOverlay.show();
     }
-    var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_orders'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+};
+
+window.tncPoHideWait = function () {
+    if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.hide === 'function') {
+        window.TncLoadingOverlay.hide();
+    }
+};
+
+window.tncPoTryPageReady = function () {
+    var boot = window.__tncPoBoot;
+    if (!boot || !boot.table || !boot.sync) {
+        return;
+    }
+    if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.pageReady === 'function') {
+        window.TncLoadingOverlay.pageReady();
+    }
+};
+
+window.tncPoFetchActionRow = function (poId) {
+    var url = window.tncPoLiveDatasetsUrl + '?dataset=po_action_row&po_id=' + encodeURIComponent(String(poId || ''));
+    return fetch(url, { credentials: 'same-origin' })
+        .then(function (r) {
+            if (!r.ok) {
+                throw new Error('fetch_failed');
+            }
+            return r.json();
+        })
+        .then(function (d) {
+            if (!d || !d.ok || !d.row) {
+                throw new Error('bad_payload');
+            }
+            return d.row;
+        });
+};
+
+window.tncPoReloadWithWait = function (title, sub) {
+    window.__tncPoReloading = true;
+    window.tncPoShowWait(title || 'กำลังอัปเดตข้อมูล PO…', sub || 'พบข้อมูลเปลี่ยนแปลง กำลังโหลดหน้าใหม่…');
+    window.location.reload();
+};
+</script>
+<script>
+(function ($) {
+    var poBoot = window.__tncPoBoot;
+
+    function initPoDataTable() {
+        var hasDataRows = $('#poTable tbody tr').length && $('#poTable tbody tr td[colspan]').length === 0;
+        if (hasDataRows) {
+            $('#poTable').DataTable({
+                order: [[1, 'desc']],
+                pageLength: 10,
+                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
+                language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+                columnDefs: [{ targets: [0, 5], orderable: false, searchable: false }],
+                initComplete: function () {
+                    poBoot.table = true;
+                    window.tncPoTryPageReady();
+                }
+            });
+        } else {
+            poBoot.table = true;
+        }
+    }
+
+    if (window.TncTableSkeleton && document.getElementById('poTableBody')?.classList.contains('tnc-table-is-loading')) {
+        window.TncTableSkeleton.bootListPage({
+            bodyId: 'poTableBody',
+            tableId: 'poTable',
+            onReady: initPoDataTable
+        });
+    } else {
+        initPoDataTable();
+    }
+
+    var u = window.tncPoLiveDatasetsUrl + '?dataset=mirror_table&table=purchase_orders';
     var c = '';
+    fetch(u, { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (d && d.ok) {
+                c = d.checksum || '';
+            }
+        })
+        .catch(function () {})
+        .finally(function () {
+            poBoot.sync = true;
+            window.tncPoTryPageReady();
+        });
+
     setInterval(function () {
         if (document.hidden) return;
         if (window.__poBlockReload) return;
         fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
             if (!d || !d.ok) return;
             if (c === '') { c = d.checksum; return; }
-            if (d.checksum !== c) window.location.reload();
+            if (d.checksum !== c) {
+                window.tncPoReloadWithWait();
+            }
         }).catch(function () {});
     }, 6000);
 })(jQuery);
@@ -961,22 +1052,48 @@ $ignoredCountAll = count($ignoredPoList);
         }
 
         function openReceiveBillModal(data) {
-            poIdInput.value = data.poId || '';
-            poNoEl.textContent = data.poNumber || '-';
-            totalEl.value = data.total || '0.00';
-            vatEl.value = data.vat || '0.00';
-            invNoEl.value = '';
-            const issueDmy = ymdToDmy(data.issueDate || '');
-            if (receiveBillDateFp) {
-                if (issueDmy) {
-                    receiveBillDateFp.setDate(issueDmy, true, 'd/m/Y');
-                } else {
-                    receiveBillDateFp.clear();
-                }
-            } else {
-                invDateEl.value = issueDmy;
-            }
-            receiveBillModal.show();
+            const poId = data.poId || '';
+            window.tncPoShowWait(
+                'กำลังโหลดข้อมูล PO…',
+                'กรุณารอสักครู่ ระบบกำลังดึงข้อมูลล่าสุดก่อนบันทึกเลขบิล'
+            );
+            window.tncPoFetchActionRow(poId)
+                .then(function (row) {
+                    if (row.status === 'cancelled') {
+                        alert('ใบสั่งซื้อนี้ถูกยกเลิกแล้ว');
+                        window.tncPoReloadWithWait();
+                        return;
+                    }
+                    if (row.billing_status === 'billed') {
+                        alert('ใบสั่งซื้อนี้บันทึกเลขบิลแล้ว');
+                        window.tncPoReloadWithWait();
+                        return;
+                    }
+                    poIdInput.value = String(row.id || poId);
+                    poNoEl.textContent = row.po_number || data.poNumber || '-';
+                    totalEl.value = Number(row.billed_total_amount ?? row.total_amount ?? 0).toFixed(2);
+                    vatEl.value = Number(row.billed_vat_amount ?? 0).toFixed(2);
+                    invNoEl.value = row.supplier_invoice_no || '';
+                    const issueDmy = ymdToDmy(row.issue_date || data.issueDate || '');
+                    if (receiveBillDateFp) {
+                        if (issueDmy) {
+                            receiveBillDateFp.setDate(issueDmy, true, 'd/m/Y');
+                        } else {
+                            receiveBillDateFp.clear();
+                        }
+                    } else {
+                        invDateEl.value = issueDmy;
+                    }
+                    receiveBillModal.show();
+                })
+                .catch(function () {
+                    alert('โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่');
+                })
+                .finally(function () {
+                    if (!window.__tncPoReloading) {
+                        window.tncPoHideWait();
+                    }
+                });
         }
 
         window.tncOpenReceiveBillModal = openReceiveBillModal;
@@ -1079,14 +1196,40 @@ $ignoredCountAll = count($ignoredPoList);
     });
 
     function openMarkPaidModal(data) {
-        poIdInput.value = data.poId || '';
-        poNumberLabel.textContent = data.poNumber || '-';
-        if (markPaidFile) markPaidFile.value = '';
-        if (payMethodTransfer) payMethodTransfer.checked = true;
-        if (payMethodCash) payMethodCash.checked = false;
-        if (markPaidCashBy) markPaidCashBy.value = '';
-        syncMarkPaidCashUi();
-        markPaidModal.show();
+        const poId = data.poId || '';
+        window.tncPoShowWait(
+            'กำลังโหลดข้อมูล PO…',
+            'กรุณารอสักครู่ ระบบกำลังดึงข้อมูลล่าสุดก่อนแนบหลักฐาน'
+        );
+        window.tncPoFetchActionRow(poId)
+            .then(function (row) {
+                if (row.status === 'cancelled') {
+                    alert('ใบสั่งซื้อนี้ถูกยกเลิกแล้ว');
+                    window.tncPoReloadWithWait();
+                    return;
+                }
+                if (row.payment_status === 'paid') {
+                    alert('ใบสั่งซื้อนี้จ่ายแล้ว');
+                    window.tncPoReloadWithWait();
+                    return;
+                }
+                poIdInput.value = String(row.id || poId);
+                poNumberLabel.textContent = row.po_number || data.poNumber || '-';
+                if (markPaidFile) markPaidFile.value = '';
+                if (payMethodTransfer) payMethodTransfer.checked = true;
+                if (payMethodCash) payMethodCash.checked = false;
+                if (markPaidCashBy) markPaidCashBy.value = '';
+                syncMarkPaidCashUi();
+                markPaidModal.show();
+            })
+            .catch(function () {
+                alert('โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่');
+            })
+            .finally(function () {
+                if (!window.__tncPoReloading) {
+                    window.tncPoHideWait();
+                }
+            });
     }
 
     window.tncOpenMarkPaidModal = openMarkPaidModal;
@@ -1103,48 +1246,64 @@ $ignoredCountAll = count($ignoredPoList);
     document.querySelectorAll('.js-show-slip').forEach((btn) => {
         btn.addEventListener('click', () => {
             const poId = btn.getAttribute('data-po-id') || '';
-            const poNumber = btn.getAttribute('data-po-number') || '-';
-            const slipUrl = btn.getAttribute('data-slip-url') || '';
-            const slipPath = btn.getAttribute('data-slip-path') || '';
-            const pm = (btn.getAttribute('data-payment-method') || 'transfer').toLowerCase();
-            const paidBy = btn.getAttribute('data-cash-paid-by') || '';
-            const isPdf = /\.pdf(\?|$)/i.test(slipUrl);
-            showSlipPoNumber.textContent = poNumber;
-            if (replaceSlipPoId) replaceSlipPoId.value = poId;
-            if (replaceSlipPath) replaceSlipPath.value = slipPath;
-            if (replaceSlipFile) replaceSlipFile.value = '';
-            if (showSlipPayMeta) {
-                if (pm === 'cash') {
-                    showSlipPayMeta.classList.remove('d-none');
-                    const extra = paidBy.trim() !== '' ? (' · <strong>จ่ายโดย:</strong> ' + tncEscHtml(paidBy)) : '';
-                    showSlipPayMeta.innerHTML = '<strong>ชำระ:</strong> เงินสด' + extra;
-                } else {
-                    showSlipPayMeta.classList.remove('d-none');
-                    showSlipPayMeta.innerHTML = '<strong>ชำระ:</strong> โอน/ช่องทางอื่น';
-                }
-            }
-            if (slipUrl !== '') {
-                showSlipNoImage.classList.add('d-none');
-                showSlipOpenLink.href = slipUrl;
-                showSlipOpenLink.classList.remove('d-none');
-                if (isPdf) {
-                    showSlipImage.src = '';
-                    showSlipImage.classList.add('d-none');
-                    showSlipPdfHint?.classList.remove('d-none');
-                } else {
-                    showSlipImage.src = slipUrl;
-                    showSlipImage.classList.remove('d-none');
-                    showSlipPdfHint?.classList.add('d-none');
-                }
-            } else {
-                showSlipImage.src = '';
-                showSlipImage.classList.add('d-none');
-                showSlipPdfHint?.classList.add('d-none');
-                showSlipNoImage.classList.remove('d-none');
-                showSlipOpenLink.href = '#';
-                showSlipOpenLink.classList.add('d-none');
-            }
-            showSlipModal.show();
+            window.tncPoShowWait(
+                'กำลังโหลดหลักฐาน…',
+                'กรุณารอสักครู่ ระบบกำลังดึงข้อมูลล่าสุด'
+            );
+            window.tncPoFetchActionRow(poId)
+                .then(function (row) {
+                    const poNumber = row.po_number || btn.getAttribute('data-po-number') || '-';
+                    const slip = Array.isArray(row.slip_items) && row.slip_items.length ? row.slip_items[0] : null;
+                    const slipUrl = slip ? (slip.url || '') : '';
+                    const slipPath = slip ? (slip.path || '') : '';
+                    const pm = (row.payment_method || 'transfer').toLowerCase();
+                    const paidBy = row.payment_cash_paid_by || '';
+                    const isPdf = slip ? !!slip.is_pdf : /\.pdf(\?|$)/i.test(slipUrl);
+                    showSlipPoNumber.textContent = poNumber;
+                    if (replaceSlipPoId) replaceSlipPoId.value = String(row.id || poId);
+                    if (replaceSlipPath) replaceSlipPath.value = slipPath;
+                    if (replaceSlipFile) replaceSlipFile.value = '';
+                    if (showSlipPayMeta) {
+                        if (pm === 'cash') {
+                            showSlipPayMeta.classList.remove('d-none');
+                            const extra = paidBy.trim() !== '' ? (' · <strong>จ่ายโดย:</strong> ' + tncEscHtml(paidBy)) : '';
+                            showSlipPayMeta.innerHTML = '<strong>ชำระ:</strong> เงินสด' + extra;
+                        } else {
+                            showSlipPayMeta.classList.remove('d-none');
+                            showSlipPayMeta.innerHTML = '<strong>ชำระ:</strong> โอน/ช่องทางอื่น';
+                        }
+                    }
+                    if (slipUrl !== '') {
+                        showSlipNoImage.classList.add('d-none');
+                        showSlipOpenLink.href = slipUrl;
+                        showSlipOpenLink.classList.remove('d-none');
+                        if (isPdf) {
+                            showSlipImage.src = '';
+                            showSlipImage.classList.add('d-none');
+                            showSlipPdfHint?.classList.remove('d-none');
+                        } else {
+                            showSlipImage.src = slipUrl;
+                            showSlipImage.classList.remove('d-none');
+                            showSlipPdfHint?.classList.add('d-none');
+                        }
+                    } else {
+                        showSlipImage.src = '';
+                        showSlipImage.classList.add('d-none');
+                        showSlipPdfHint?.classList.add('d-none');
+                        showSlipNoImage.classList.remove('d-none');
+                        showSlipOpenLink.href = '#';
+                        showSlipOpenLink.classList.add('d-none');
+                    }
+                    showSlipModal.show();
+                })
+                .catch(function () {
+                    alert('โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่');
+                })
+                .finally(function () {
+                    if (!window.__tncPoReloading) {
+                        window.tncPoHideWait();
+                    }
+                });
         });
     });
 })();
@@ -1246,18 +1405,6 @@ $ignoredCountAll = count($ignoredPoList);
                 },
             });
         });
-    });
-})();
-</script>
-<script>
-(function () {
-    function releasePoBootLock() {
-        if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.pageReady === 'function') {
-            window.TncLoadingOverlay.pageReady();
-        }
-    }
-    window.requestAnimationFrame(function () {
-        window.requestAnimationFrame(releasePoBootLock);
     });
 })();
 </script>

@@ -117,6 +117,7 @@
         refCount = Math.max(0, refCount - 1);
         if (refCount === 0) {
             applyVisible(false);
+            restoreDefaultCopy();
         }
     }
 
@@ -165,7 +166,11 @@
         hide: hide,
         forceHide: forceHide,
         bootLock: bootLock,
-        pageReady: pageReady
+        pageReady: pageReady,
+        showWithMessage: function (title, sub) {
+            setOverlayCopy(title || defaultTitle, sub || defaultSub);
+            show();
+        }
     };
 
     /** หลังจบการ dispatch ทั้งหมด — ถ้าไม่มีใคร prevent แปลว่าจะ navigate จริง */

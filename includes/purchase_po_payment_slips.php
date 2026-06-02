@@ -157,3 +157,69 @@ function tnc_po_payment_slip_delete_file(string $rel): void
         @unlink($abs);
     }
 }
+
+function tnc_po_issue_date_ymd(array $po): string
+{
+    $issue = trim((string) ($po['issue_date'] ?? ''));
+    if ($issue !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $issue)) {
+        return $issue;
+    }
+    if ($issue !== '') {
+        $ts = strtotime($issue);
+        if ($ts !== false) {
+            return date('Y-m-d', $ts);
+        }
+    }
+    $created = trim((string) ($po['created_at'] ?? ''));
+    if ($created !== '') {
+        $ts = strtotime($created);
+        if ($ts !== false) {
+            return date('Y-m-d', $ts);
+        }
+    }
+
+    return '';
+}
+
+/** @return array<string, mixed>|null */
+function tnc_po_action_row_for_modal(int $poId): ?array
+{
+    if ($poId <= 0) {
+        return null;
+    }
+    $po = \Theelincon\Rtdb\Db::rowByIdField('purchase_orders', $poId);
+    if ($po === null) {
+        return null;
+    }
+
+    $amt = (float) ($po['total_amount'] ?? 0);
+    $status = strtolower(trim((string) ($po['status'] ?? 'ordered')));
+    if ($status === '') {
+        $status = 'ordered';
+    }
+    $paymentStatus = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
+    if (!in_array($paymentStatus, ['paid', 'unpaid'], true)) {
+        $paymentStatus = 'unpaid';
+    }
+    $billingStatus = strtolower(trim((string) ($po['billing_status'] ?? 'pending')));
+    if (!in_array($billingStatus, ['pending', 'billed'], true)) {
+        $billingStatus = 'pending';
+    }
+    $slipItems = tnc_po_payment_slip_items($po);
+
+    return [
+        'id' => $poId,
+        'po_number' => (string) ($po['po_number'] ?? ''),
+        'status' => $status,
+        'payment_status' => $paymentStatus,
+        'billing_status' => $billingStatus,
+        'issue_date' => tnc_po_issue_date_ymd($po),
+        'total_amount' => $amt,
+        'billed_total_amount' => (float) ($po['billed_total_amount'] ?? $amt),
+        'billed_vat_amount' => (float) ($po['billed_vat_amount'] ?? ($po['vat_amount'] ?? 0)),
+        'payment_method' => strtolower(trim((string) ($po['payment_method'] ?? 'transfer'))) === 'cash' ? 'cash' : 'transfer',
+        'payment_cash_paid_by' => trim((string) ($po['payment_cash_paid_by'] ?? '')),
+        'supplier_invoice_no' => trim((string) ($po['supplier_invoice_no'] ?? '')),
+        'slip_items' => $slipItems,
+    ];
+}

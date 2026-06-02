@@ -187,17 +187,21 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
 
         @media print {
             .invoice-box.inv-sales-doc {
-                min-height: calc(297mm - 20mm);
-                display: flex !important;
-                flex-direction: column !important;
+                min-height: auto;
+                padding: 10mm 15mm;
+                display: block !important;
             }
             .invoice-box.inv-sales-doc .inv-doc-main {
-                min-height: calc(297mm - 20mm) !important;
-                display: flex !important;
-                flex-direction: column !important;
+                min-height: auto !important;
+                display: block !important;
+            }
+            .invoice-box.inv-sales-doc .inv-doc-content {
+                display: block !important;
+                min-height: auto !important;
+                overflow: visible !important;
             }
             .invoice-box.inv-sales-doc .footer-sticky {
-                margin-top: auto !important;
+                margin-top: 8mm !important;
                 page-break-inside: avoid;
                 break-inside: avoid;
             }
@@ -382,7 +386,74 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
 
 <?php
 $tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
+$autoprint = $embed && isset($_GET['autoprint']) && (string) $_GET['autoprint'] === '1';
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
+<style media="print">
+    /* ท้ายสุด — กัน flex A4 ดัน footer ลงล่างจนเนื้อหาหายตอนพิมพ์ */
+    body.invoice-print-page .invoice-box.inv-sales-doc,
+    body.invoice-embed .invoice-box.inv-sales-doc {
+        display: block !important;
+        min-height: auto !important;
+        height: auto !important;
+        padding: 10mm 15mm !important;
+        overflow: visible !important;
+    }
+    body.invoice-print-page .inv-sales-doc .inv-doc-main,
+    body.invoice-embed .inv-sales-doc .inv-doc-main,
+    body.invoice-print-page .inv-sales-doc .inv-doc-content,
+    body.invoice-embed .inv-sales-doc .inv-doc-content {
+        display: block !important;
+        flex: none !important;
+        min-height: auto !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    body.invoice-print-page .inv-sales-doc .footer-sticky,
+    body.invoice-embed .inv-sales-doc .footer-sticky {
+        display: block !important;
+        flex: none !important;
+        margin-top: 8mm !important;
+        position: relative !important;
+    }
+    body.invoice-print-page .inv-sales-doc .table-custom,
+    body.invoice-embed .inv-sales-doc .table-custom {
+        display: table !important;
+        width: 100% !important;
+    }
+    body.invoice-print-page .inv-sales-doc .table-custom thead,
+    body.invoice-embed .inv-sales-doc .table-custom thead {
+        display: table-header-group !important;
+    }
+    body.invoice-print-page .inv-sales-doc .table-custom tbody,
+    body.invoice-embed .inv-sales-doc .table-custom tbody {
+        display: table-row-group !important;
+    }
+    body.invoice-print-page .inv-sales-doc .table-custom tr,
+    body.invoice-embed .inv-sales-doc .table-custom tr {
+        display: table-row !important;
+    }
+    body.invoice-print-page .inv-sales-doc .table-custom th,
+    body.invoice-print-page .inv-sales-doc .table-custom td,
+    body.invoice-embed .inv-sales-doc .table-custom th,
+    body.invoice-embed .inv-sales-doc .table-custom td {
+        display: table-cell !important;
+    }
+</style>
+<?php if ($autoprint): ?>
+<script>
+window.addEventListener('load', function () {
+    window.requestAnimationFrame(function () {
+        window.requestAnimationFrame(function () {
+            window.focus();
+            window.print();
+        });
+    });
+});
+window.addEventListener('afterprint', function () {
+    window.close();
+});
+</script>
+<?php endif; ?>
 </body>
 </html>

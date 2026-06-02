@@ -50,11 +50,7 @@ foreach ($taxRows as $tax) {
 }
 
 usort($listRows, static function (array $a, array $b): int {
-    $dateCmp = strcmp((string) ($b['tax_date'] ?? ''), (string) ($a['tax_date'] ?? ''));
-    if ($dateCmp !== 0) {
-        return $dateCmp;
-    }
-    return strcmp((string) ($b['tax_invoice_number'] ?? ''), (string) ($a['tax_invoice_number'] ?? ''));
+    return ((int) ($b['tax_id'] ?? 0)) <=> ((int) ($a['tax_id'] ?? 0));
 });
 
 $totalCount = count($listRows);
@@ -422,9 +418,10 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
                             $taxDateOrder = $taxDateTs !== false ? date('Y-m-d', $taxDateTs) : '0000-00-00';
                             $taxDateAttr = $taxDateRaw !== '' ? htmlspecialchars($taxDateRaw, ENT_QUOTES, 'UTF-8') : '';
                             $custLogo = trim((string) ($row['customer_logo'] ?? ''));
+                            $taxSortOrder = sprintf('%010d', (int) ($row['tax_id'] ?? 0));
                             ?>
                             <tr<?= $taxDateAttr !== '' ? ' data-tax-date="' . $taxDateAttr . '"' : '' ?>>
-                                <td data-order="<?= htmlspecialchars($row['tax_invoice_number'], ENT_QUOTES, 'UTF-8') ?>">
+                                <td data-order="<?= htmlspecialchars($taxSortOrder, ENT_QUOTES, 'UTF-8') ?>">
                                     <div><span class="badge rounded-pill inv-badge-tax-issued px-3"><?= htmlspecialchars($row['tax_invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></div>
                                     <?php if ($row['invoice_number'] !== ''): ?>
                                         <div class="tax-ref-invoice mt-1">อ้างอิง <span class="tax-ref-invoice-no"><?= htmlspecialchars($row['invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></div>
@@ -680,7 +677,7 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
         $.fn.dataTable.ext.search.push(taxYmFilter);
 
         var table = window.TncLiveDT.init('#taxTable', {
-            order: [[1, 'desc']],
+            order: [[0, 'desc']],
             pageLength: 5,
             dom: 'rtp',
             info: false,
