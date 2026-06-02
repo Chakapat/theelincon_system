@@ -945,14 +945,13 @@ if ($index_display_name === '') {
             <div class="row align-items-center g-3">
                 <div class="col-12 col-lg-4">
                     <h1 class="index-invoice-head-title">รายการใบแจ้งหนี้</h1>
-                    <p class="small text-muted mb-0 mt-1">ค้นหาและจัดการใบแจ้งหนี้ในระบบ</p>
                 </div>
                 <div class="col-12 col-lg-8">
                     <div class="d-flex flex-column flex-sm-row flex-wrap gap-2 align-items-stretch justify-content-lg-end">
                         <div class="position-relative flex-grow-1 index-table-toolbar" style="min-width: 220px; max-width: 100%;">
                             <label class="visually-hidden" for="search_invoice">ค้นหาใบแจ้งหนี้</label>
                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" aria-hidden="true"></i>
-                            <input type="search" id="search_invoice" autocomplete="off" class="form-control index-search-input" placeholder="ค้นหาเลขที่หรือชื่อลูกค้า…">
+                            <input type="search" id="search_invoice" autocomplete="off" class="form-control index-search-input">
                         </div>
                         <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=create" class="index-cta-btn index-cta-primary flex-shrink-0 text-center text-nowrap">
                             <span class="index-cta-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>

@@ -1097,10 +1097,6 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
                     <span class="report-badge report-badge--filter"><i class="bi bi-funnel-fill me-1"></i><?= h(implode(', ', $filterCatLabels)) ?></span>
                 <?php endif; ?>
             </div>
-                <p class="report-note mb-3">ยอดรายการ = PO ที่สมบูรณ์แล้ว (ชำระแล้ว + มีเลขที่ใบกำกับ) ในช่วงเดือนที่เลือก (ตามวันที่บันทึกจ่าย) — แสดงเฉพาะยอด &gt; 0</p>
-            <?php if ($hasCatFilter): ?>
-                <p class="report-note mb-3">กรองหมวด: <?= h(implode(', ', $filterCatLabels)) ?> — ยอดรวมคำนวณจากหมวดที่เลือก</p>
-            <?php endif; ?>
             <div class="table-responsive">
                 <table id="spendTable" class="table align-middle mb-0">
                     <colgroup>

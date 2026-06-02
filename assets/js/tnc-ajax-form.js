@@ -227,4 +227,6 @@
     } else {
         scan();
     }
+
+    window.TncAjaxForm = { rescan: scan };
 })();
