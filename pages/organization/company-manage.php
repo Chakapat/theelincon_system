@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/banks.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -22,6 +23,7 @@ $is_admin = true;
 
 $companies = Db::tableRows('company');
 Db::sortRows($companies, 'id', true);
+$banks = tnc_bank_options();
 
 /**
  * @param array<string, mixed> $row
@@ -50,6 +52,8 @@ function company_type_label_th(string $type): string
     <style>
         body { background-color: #fffaf5; }
         .logo-preview { height: 88px; width: 88px; object-fit: contain; border-radius: 10px; background: var(--tnc-surface, #f6f7f9); }
+        .bank-logo-chip { width: 22px; height: 22px; object-fit: contain; border-radius: 4px; flex-shrink: 0; }
+        .bank-select-preview { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; font-size: 12px; color: #6b7280; }
     </style>
 </head>
 <body class="tnc-app-body">
@@ -97,7 +101,7 @@ function company_type_label_th(string $type): string
                             <label class="form-label small fw-bold text-muted js-company-label-address" data-form-scope="add">ที่อยู่</label>
                             <textarea name="address" class="form-control border-0 bg-light rounded-3 js-company-input-address" data-form-scope="add" rows="3" placeholder="ที่อยู่จดทะเบียน" required></textarea>
                         </div>
-                        <div class="row g-2 mb-4">
+                        <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <label class="form-label small fw-bold text-muted">เบอร์โทรศัพท์</label>
                                 <input type="text" name="phone" class="form-control border-0 bg-light py-2 rounded-3">
@@ -105,6 +109,27 @@ function company_type_label_th(string $type): string
                             <div class="col-6">
                                 <label class="form-label small fw-bold text-muted">อีเมล</label>
                                 <input type="email" name="email" class="form-control border-0 bg-light py-2 rounded-3">
+                            </div>
+                        </div>
+                        <div class="border-top pt-3 mb-4">
+                            <div class="small fw-bold text-muted mb-2"><i class="bi bi-bank2 me-1"></i>บัญชีรับชำระ (PAYMENT INFO)</div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">ธนาคาร</label>
+                                <select name="bank_name" class="form-select border-0 bg-light rounded-3 js-bank-select" data-form-scope="add">
+                                    <option value="">— ไม่ระบุ —</option>
+                                    <?php foreach ($banks as $bank): ?>
+                                    <option value="<?= htmlspecialchars($bank, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($bank, ENT_QUOTES, 'UTF-8') ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <div class="bank-select-preview mt-1 js-bank-logo-preview" data-form-scope="add"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">ชื่อบัญชี</label>
+                                <input type="text" name="bank_account_name" class="form-control border-0 bg-light py-2 rounded-3" maxlength="200" placeholder="ชื่อบัญชีตามสมุดธนาคาร">
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label small fw-bold text-muted">เลขที่บัญชี</label>
+                                <input type="text" name="bank_account_number" class="form-control border-0 bg-light py-2 rounded-3 font-monospace" maxlength="20" inputmode="numeric" placeholder="ตัวเลขเท่านั้น">
                             </div>
                         </div>
                         <button type="submit" class="btn btn-orange w-100 py-2 fw-bold shadow-sm"><i class="bi bi-save2 me-2"></i>บันทึกข้อมูล</button>
@@ -149,8 +174,19 @@ function company_type_label_th(string $type): string
                                 </td>
                                 <td><span class="badge bg-warning-subtle text-warning border px-3 py-2 rounded-pill"><?= htmlspecialchars($row['tax_id']) ?></span></td>
                                 <td class="small">
-                                    <div><i class="bi bi-telephone text-warning me-1"></i><?= htmlspecialchars($row['phone']) ?></div>
-                                    <div class="text-muted"><i class="bi bi-envelope text-warning me-1"></i><?= htmlspecialchars($row['email']) ?></div>
+                                    <div><i class="bi bi-telephone text-warning me-1"></i><?= htmlspecialchars((string) ($row['phone'] ?? '')) ?></div>
+                                    <div class="text-muted"><i class="bi bi-envelope text-warning me-1"></i><?= htmlspecialchars((string) ($row['email'] ?? '')) ?></div>
+                                    <?php
+                                    $rowBank = trim((string) ($row['bank_name'] ?? ''));
+                                    $rowAccNo = trim((string) ($row['bank_account_number'] ?? ''));
+                                    if ($rowBank !== '' || $rowAccNo !== ''):
+                                        $rowBankLogo = $rowBank !== '' ? tnc_bank_logo_url($rowBank) : '';
+                                    ?>
+                                    <div class="text-muted mt-1 d-flex align-items-center gap-1">
+                                        <?php if ($rowBankLogo !== ''): ?><img src="<?= htmlspecialchars($rowBankLogo, ENT_QUOTES, 'UTF-8') ?>" alt="" class="bank-logo-chip"><?php endif; ?>
+                                        <span><?= htmlspecialchars($rowBank !== '' ? $rowBank : '—') ?><?= $rowAccNo !== '' ? ' · ' . htmlspecialchars($rowAccNo) : '' ?></span>
+                                    </div>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="text-end pe-4">
                                     <?php if($is_admin): ?>
@@ -196,9 +232,30 @@ function company_type_label_th(string $type): string
                     <div class="mb-3"><label class="small fw-bold js-company-label-name" data-form-scope="edit">ชื่อนิติบุคคล / บริษัท</label><input type="text" name="name" id="edit_name" class="form-control bg-light border-0 py-2 rounded-3 js-company-input-name" data-form-scope="edit" required></div>
                     <div class="mb-3"><label class="small fw-bold js-company-label-tax" data-form-scope="edit">เลขประจำตัวผู้เสียภาษี</label><input type="text" name="tax_id" id="edit_tax_id" class="form-control bg-light border-0 py-2 rounded-3 js-company-input-tax" data-form-scope="edit" required></div>
                     <div class="mb-3"><label class="small fw-bold js-company-label-address" data-form-scope="edit">ที่อยู่</label><textarea name="address" id="edit_address" class="form-control bg-light border-0 rounded-3 js-company-input-address" data-form-scope="edit" rows="2" required></textarea></div>
-                    <div class="row g-2">
+                    <div class="row g-2 mb-3">
                         <div class="col-6"><label class="small fw-bold">โทรศัพท์</label><input type="text" name="phone" id="edit_phone" class="form-control bg-light border-0 py-2 rounded-3"></div>
                         <div class="col-6"><label class="small fw-bold">อีเมล</label><input type="email" name="email" id="edit_email" class="form-control bg-light border-0 py-2 rounded-3"></div>
+                    </div>
+                    <div class="border-top pt-3">
+                        <div class="small fw-bold text-muted mb-2"><i class="bi bi-bank2 me-1"></i>บัญชีรับชำระ (PAYMENT INFO)</div>
+                        <div class="mb-3">
+                            <label class="small fw-bold">ธนาคาร</label>
+                            <select name="bank_name" id="edit_bank_name" class="form-select bg-light border-0 py-2 rounded-3 js-bank-select" data-form-scope="edit">
+                                <option value="">— ไม่ระบุ —</option>
+                                <?php foreach ($banks as $bank): ?>
+                                <option value="<?= htmlspecialchars($bank, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($bank, ENT_QUOTES, 'UTF-8') ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="bank-select-preview mt-1 js-bank-logo-preview" data-form-scope="edit"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="small fw-bold">ชื่อบัญชี</label>
+                            <input type="text" name="bank_account_name" id="edit_bank_account_name" class="form-control bg-light border-0 py-2 rounded-3" maxlength="200">
+                        </div>
+                        <div class="mb-0">
+                            <label class="small fw-bold">เลขที่บัญชี</label>
+                            <input type="text" name="bank_account_number" id="edit_bank_account_number" class="form-control bg-light border-0 py-2 rounded-3 font-monospace" maxlength="20" inputmode="numeric">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-4 pt-0"><button type="submit" class="btn btn-orange w-100 py-2 fw-bold">บันทึกการแก้ไข</button></div>
@@ -213,6 +270,7 @@ function company_type_label_th(string $type): string
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
 const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
 const uploadsLogosBase = <?= json_encode(upload_logos_base_url(), JSON_UNESCAPED_SLASHES) ?>;
+const BANK_LOGOS = <?= json_encode(tnc_bank_logo_url_map(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const COMPANY_FORM_LABELS = {
     company: {
         name: 'ชื่อนิติบุคคล / บริษัท',
@@ -245,6 +303,26 @@ function applyCompanyTypeUi(scope, type) {
     document.querySelectorAll('.js-company-input-tax[data-form-scope="' + scope + '"]').forEach(function (el) { el.placeholder = labels.taxPh; });
     document.querySelectorAll('.js-company-input-address[data-form-scope="' + scope + '"]').forEach(function (el) { el.placeholder = labels.addressPh; });
 }
+
+function updateBankLogoPreview(scope, bankName) {
+    const el = document.querySelector('.js-bank-logo-preview[data-form-scope="' + scope + '"]');
+    if (!el) return;
+    const name = String(bankName || '').trim();
+    const url = name && BANK_LOGOS[name] ? BANK_LOGOS[name] : '';
+    if (!name) {
+        el.innerHTML = '';
+        return;
+    }
+    el.innerHTML = url
+        ? '<img src="' + url + '" alt="" class="bank-logo-chip"><span>' + name + '</span>'
+        : '<span>' + name + '</span>';
+}
+
+document.querySelectorAll('.js-bank-select').forEach(function (sel) {
+    const scope = sel.getAttribute('data-form-scope') || 'add';
+    sel.addEventListener('change', function () { updateBankLogoPreview(scope, sel.value); });
+    updateBankLogoPreview(scope, sel.value);
+});
 
 document.querySelectorAll('.js-company-type-select').forEach(function (sel) {
     const scope = sel.getAttribute('data-form-scope') || 'add';
@@ -303,7 +381,15 @@ function confirmDelete(id, type) {
 function editCompany(id) {
     fetch(`${actionHandlerUrl}?action=get_data&type=company&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`)
     .then(res => res.json()).then(data => {
-        ['id','name','tax_id','address','phone','email'].forEach(k => document.getElementById(`edit_${k}`).value = data[k]);
+        ['id','name','tax_id','address','phone','email','bank_account_name','bank_account_number'].forEach(function (k) {
+            const el = document.getElementById('edit_' + k);
+            if (el) el.value = data[k] || '';
+        });
+        const bankSel = document.getElementById('edit_bank_name');
+        if (bankSel) {
+            bankSel.value = data.bank_name || '';
+            updateBankLogoPreview('edit', bankSel.value);
+        }
         const typeSel = document.getElementById('edit_company_type');
         if (typeSel) {
             typeSel.value = (data.company_type === 'individual') ? 'individual' : 'company';

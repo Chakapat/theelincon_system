@@ -6,6 +6,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/banks.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -232,6 +233,8 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
             break-inside: avoid;
         }
         .payment-info-box { border: 1px solid #eee; border-radius: 8px; padding: 10px; background: #fafafa; font-size: 11.5px; line-height: 1.4; }
+        .inv-bank-display { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
+        .inv-bank-logo { width: 18px; height: 18px; object-fit: contain; vertical-align: middle; border-radius: 3px; }
         
         .summary-item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 13px; }
         .summary-divider { border-top: 1px dashed #ddd; margin: 4px 0; }
@@ -428,9 +431,7 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
             <div class="col-7">
                 <div class="payment-info-box">
                     <div style="font-size: 9px; color: var(--orange); font-weight: bold; margin-bottom: 3px; border-bottom: 1px solid #ddd;">PAYMENT INFO</div>
-                    <strong>ธนาคาร:</strong> <?= h((string) ($data['bank_name'] ?? '')); ?><br>
-                    <strong>ชื่อบัญชี:</strong> <?= h((string) ($data['bank_account_name'] ?? '')); ?><br>
-                    <strong>เลขที่บัญชี:</strong> <span style="font-family: monospace; font-weight: bold; font-size: 13px;"><?= h((string) ($data['bank_account_number'] ?? '')); ?></span>
+                    <?php include dirname(__DIR__, 2) . '/includes/invoice_payment_info_bank.php'; ?>
                 </div>
             </div>
 

@@ -3248,6 +3248,15 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
             'email' => $email,
         ];
 
+        if ($table === 'company') {
+            require_once dirname(__DIR__) . '/includes/banks.php';
+            $row = array_merge($row, tnc_normalize_company_bank_fields([
+                'bank_name' => $_POST['bank_name'] ?? '',
+                'bank_account_name' => $_POST['bank_account_name'] ?? '',
+                'bank_account_number' => $_POST['bank_account_number'] ?? '',
+            ]));
+        }
+
         if (strpos($action, 'add') !== false) {
             $nid = Db::nextNumericId($table, 'id');
             $row['id'] = $nid;
