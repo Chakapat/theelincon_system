@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/contractors.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -38,12 +39,16 @@ usort($contractors, static function (array $a, array $b): int {
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-5 mb-5">
-    <?php if (!empty($_GET['success'])): ?>
-        <div class="alert alert-success">บันทึกข้อมูลผู้รับจ้างเรียบร้อยแล้ว</div>
-    <?php endif; ?>
-    <?php if (($_GET['error'] ?? '') === 'in_use'): ?>
-        <div class="alert alert-danger">ไม่สามารถลบได้: ผู้รับจ้างรายนี้ถูกใช้ใน PR / PO / สัญญาจ้างแล้ว</div>
-    <?php endif; ?>
+    <?php
+    $contractorFlash = tnc_flash_from_query($_GET);
+    if ($contractorFlash !== null && !empty($_GET['success'])) {
+        $contractorFlash['message'] = 'บันทึกข้อมูลผู้รับจ้างเรียบร้อยแล้ว';
+    }
+    if (($_GET['error'] ?? '') === 'in_use') {
+        $contractorFlash = ['type' => 'danger', 'message' => 'ไม่สามารถลบได้: ผู้รับจ้างรายนี้ถูกใช้ใน PR / PO / สัญญาจ้างแล้ว'];
+    }
+    tnc_render_flash($contractorFlash);
+    ?>
 
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h2 class="fw-bold text-tnc-orange mb-0"><i class="bi bi-person-badge"></i> ลงทะเบียนผู้รับจ้าง</h2>

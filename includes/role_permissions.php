@@ -97,7 +97,6 @@ function tnc_role_permission_defaults(): array
         'page.payslip' => true,
         'page.leave' => true,
         'page.account.profile' => true,
-        'page.tools.cement' => true,
         'page.tools.po_payment' => true,
         'page.org.members' => false,
         'page.cash' => false,
@@ -122,7 +121,6 @@ function tnc_role_permission_defaults(): array
         'page.leave' => true,
         'page.payslip' => true,
         'page.account.profile' => true,
-        'page.tools.cement' => true,
     ];
     if (function_exists('tnc_role_page_registry_flat')) {
         foreach (array_keys(tnc_role_page_registry_flat()) as $pageKey) {

@@ -298,7 +298,7 @@ $ignoredCountAll = count($ignoredPoList);
             </a>
             <?php endif; ?>
             <a href="<?= htmlspecialchars($woListUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-primary rounded-pill px-3 shadow-sm">
-                <i class="bi bi-file-earmark-ruled me-1"></i>รายการ Work Order (WO)
+                <i class="bi bi-file-earmark-ruled me-1"></i>รายการสั่งจ้างงาน
             </a>
             <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm no-print" id="poBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก">
                 <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก

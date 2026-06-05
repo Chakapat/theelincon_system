@@ -5,6 +5,7 @@ declare(strict_types=1);
 session_start();
 require_once dirname(__DIR__, 2) . '/includes/line_notify_runtime.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -259,9 +260,13 @@ foreach ($userRows as $u) {
 <div class="container py-4 line-shell">
     <h4 class="fw-bold mb-3"><i class="bi bi-bell-fill me-2 text-success"></i>ตั้งค่า LINE แจ้งเตือน</h4>
 
-    <?php if (!empty($_GET['saved'])): ?>
-        <div class="alert alert-success rounded-3">บันทึกการตั้งค่าแล้ว</div>
-    <?php endif; ?>
+    <?php
+    $lineFlash = tnc_flash_from_query($_GET);
+    if ($lineFlash !== null && !empty($_GET['saved'])) {
+        $lineFlash['message'] = 'บันทึกการตั้งค่าแล้ว';
+    }
+    tnc_render_flash($lineFlash);
+    ?>
 
     <?php if ($configError === 'csrf'): ?>
         <div class="alert alert-danger rounded-3">เซสชันหมดอายุหรือ token ไม่ถูกต้อง กรุณารีเฟรชแล้วลองใหม่</div>

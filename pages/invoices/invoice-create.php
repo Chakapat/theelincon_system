@@ -139,12 +139,14 @@ Db::sortRows($customer_data, 'name', false);
 <html lang="th">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>สร้าง Invoice ใหม่</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        /* body canvas: tnc-app.css */
         .invoice-shell { max-width: 1320px; }
         .invoice-card {
             border: 1px solid #e0e0e0 !important;
@@ -162,29 +164,29 @@ Db::sortRows($customer_data, 'name', false);
             color: #1f2937;
             letter-spacing: .01em;
         }
-        .form-label {
+        .invoice-shell .form-label {
             color: #374151;
             font-weight: 700 !important;
             font-size: .93rem;
         }
-        .form-control,
-        .form-select,
-        .btn {
+        .invoice-shell .form-control,
+        .invoice-shell .form-select,
+        .invoice-shell .btn {
             min-height: 44px;
         }
-        .form-control,
-        .form-select {
+        .invoice-shell .form-control,
+        .invoice-shell .form-select {
             padding: .62rem .82rem;
             border: 1px solid #d9dde3;
             border-radius: .72rem;
         }
-        .form-control:focus,
-        .form-select:focus {
+        .invoice-shell .form-control:focus,
+        .invoice-shell .form-select:focus {
             border-color: rgba(234, 88, 12, .5);
             box-shadow: 0 0 0 .2rem rgba(234, 88, 12, .14);
         }
-        .form-control[readonly],
-        textarea.form-control[readonly] {
+        .invoice-shell .form-control[readonly],
+        .invoice-shell textarea.form-control[readonly] {
             background: transparent !important;
             border-color: #e4e7eb !important;
             color: #4b5563;

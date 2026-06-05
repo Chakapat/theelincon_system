@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 /**
  * รองรับฟอร์ม AJAX: ส่ง _tnc_ajax=1 ใน POST หรือ header X-Tnc-Ajax: 1
- * แทน redirect จะตอบ JSON { ok, message, query, url }
+ * แทน redirect จะตอบ JSON { ok, message, query, url, audio? }
  */
+
+require_once __DIR__ . '/tnc_flash.php';
 
 if (!function_exists('tnc_ajax_form_requested')) {
     function tnc_ajax_form_requested(): bool
@@ -54,6 +56,15 @@ if (!function_exists('tnc_ajax_flash_message')) {
         }
         if (isset($q['invoice_updated'])) {
             return 'อัปเดตใบแจ้งหนี้แล้ว';
+        }
+        if (isset($q['product_added'])) {
+            return 'เพิ่มประเภทสินค้า/วัสดุเรียบร้อยแล้ว';
+        }
+        if (isset($q['cat_saved'])) {
+            return 'บันทึกหัวข้อย่อยเรียบร้อยแล้ว';
+        }
+        if (isset($q['cat_deleted'])) {
+            return 'ลบหัวข้อย่อยเรียบร้อยแล้ว';
         }
         if (isset($q['line_error'])) {
             return 'บันทึกแล้ว แต่แจ้ง LINE ไม่สำเร็จ';
@@ -117,12 +128,19 @@ if (!function_exists('tnc_action_redirect')) {
             if (!$ok) {
                 http_response_code(422);
             }
-            echo json_encode([
+            $payload = [
                 'ok' => $ok,
                 'message' => $message,
                 'query' => $q,
                 'url' => $url,
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            ];
+            if ($ok) {
+                $audio = tnc_audio_from_query($q);
+                if ($audio !== null) {
+                    $payload['audio'] = $audio;
+                }
+            }
+            echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             exit;
         }
         header('Location: ' . $url);

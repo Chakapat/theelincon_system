@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -34,12 +35,16 @@ Db::sortRows($suppliers, 'name', false);
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-5">
-    <?php if(isset($_GET['success'])): ?>
-        <div class="alert alert-success">บันทึกข้อมูลเรียบร้อยแล้ว</div>
-    <?php endif; ?>
-    <?php if(isset($_GET['error']) && $_GET['error'] == 'in_use'): ?>
-        <div class="alert alert-danger">ไม่สามารถลบได้: ผู้ขายรายนี้ถูกใช้ในใบสั่งซื้อ (PO) แล้ว</div>
-    <?php endif; ?>
+    <?php
+    $supplierFlash = tnc_flash_from_query($_GET);
+    if ($supplierFlash !== null && isset($_GET['success'])) {
+        $supplierFlash['message'] = 'บันทึกข้อมูลเรียบร้อยแล้ว';
+    }
+    if (isset($_GET['error']) && $_GET['error'] === 'in_use') {
+        $supplierFlash = ['type' => 'danger', 'message' => 'ไม่สามารถลบได้: ผู้ขายรายนี้ถูกใช้ในใบสั่งซื้อ (PO) แล้ว'];
+    }
+    tnc_render_flash($supplierFlash);
+    ?>
 
     <div class="tnc-page-head">
         <div>

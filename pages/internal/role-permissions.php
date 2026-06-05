@@ -17,6 +17,7 @@ if (!is_file($tncRolePermissionsFile) || !function_exists('tnc_role_permission_d
 }
 
 require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -232,9 +233,13 @@ $roleLabels = [
         </div>
     </div>
 
-    <?php if ($saved): ?>
-        <div class="alert alert-success rounded-3 border-0 shadow-sm">บันทึกสิทธิ์เรียบร้อยแล้ว</div>
-    <?php endif; ?>
+    <?php
+    $rolePermFlash = tnc_flash_from_query($_GET);
+    if ($saved && $rolePermFlash !== null) {
+        $rolePermFlash['message'] = 'บันทึกสิทธิ์เรียบร้อยแล้ว';
+    }
+    tnc_render_flash($rolePermFlash);
+    ?>
     <?php if ($configError === 'csrf'): ?>
         <div class="alert alert-warning rounded-3 border-0 shadow-sm">โทเค็นความปลอดภัยไม่ถูกต้อง — กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง</div>
     <?php elseif ($configError === 'save_failed'): ?>

@@ -356,29 +356,9 @@ if (!function_exists('tnc_purchase_render_flash')) {
      */
     function tnc_purchase_render_flash(?array $flash, bool $dismissible = true): void
     {
-        if ($flash === null) {
-            return;
+        if (!function_exists('tnc_render_flash')) {
+            require_once __DIR__ . '/tnc_flash.php';
         }
-
-        $type = $flash['type'] ?? 'info';
-        $allowed = ['success', 'danger', 'warning', 'info', 'secondary'];
-        if (!in_array($type, $allowed, true)) {
-            $type = 'info';
-        }
-
-        $audio = trim((string) ($flash['audio'] ?? ''));
-        $audioAttr = $audio !== '' ? ' data-tnc-audio="' . htmlspecialchars($audio, ENT_QUOTES, 'UTF-8') . '"' : '';
-        $dismissClass = $dismissible ? ' alert-dismissible fade show' : '';
-        $closeBtn = $dismissible
-            ? '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>'
-            : '';
-
-        echo '<div class="alert alert-' . htmlspecialchars($type, ENT_QUOTES, 'UTF-8') . $dismissClass . '" role="alert" data-tnc-purchase-flash="1"' . $audioAttr . '>';
-        echo htmlspecialchars((string) ($flash['message'] ?? ''), ENT_QUOTES, 'UTF-8');
-        if (!empty($flash['html'])) {
-            echo $flash['html'];
-        }
-        echo $closeBtn;
-        echo '</div>';
+        tnc_render_flash($flash, $dismissible, 'data-tnc-purchase-flash="1"');
     }
 }

@@ -142,11 +142,11 @@ function tnc_role_permission_menu_tree(): array
                 ],
                 'page.hire' => [
                     'label' => 'สัญญาจ้าง (Hire Contract)',
-                    'path' => 'pages/hire-contracts/hire-contract-list.php',
+                    'path' => 'pages/purchase/work-order-list.php',
                     'paths' => [
-                        'pages/hire-contracts/hire-contract-list.php',
-                        'pages/hire-contracts/hire-contract-create.php',
-                        'pages/hire-contracts/hire-contract-view.php',
+                        'pages/purchase/work-order-list.php',
+                        'pages/purchase/purchase-order-hire-contract-create.php',
+                        'pages/purchase/purchase-order-from-hire-contract.php',
                     ],
                     'actions' => ['po.create'],
                 ],
@@ -270,12 +270,6 @@ function tnc_role_permission_menu_tree(): array
         'hub_tools' => [
             'label' => 'เครื่องมือ (Tools)',
             'pages' => [
-                'page.tools.cement' => [
-                    'label' => 'คำนวณปูน',
-                    'path' => 'pages/tools/cement-volume-calculator.php',
-                    'paths' => ['pages/tools/cement-volume-calculator.php'],
-                    'actions' => [],
-                ],
                 'page.tools.po_payment' => [
                     'label' => 'เอกสารแนบการจ่าย PO',
                     'path' => 'pages/tools/po-payment-document.php',

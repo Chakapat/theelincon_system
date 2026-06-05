@@ -976,7 +976,7 @@ if ($index_display_name === '') {
             <div class="home-hub-section">
                 <button type="button" class="home-hub-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#hub-collapse-purchase" aria-expanded="false" aria-controls="hub-collapse-purchase" id="hub-toggle-purchase">
                     <span class="home-hub-ico home-hub-ico--purchase flex-shrink-0"><i class="bi bi-cart3" aria-hidden="true"></i></span>
-                    <span class="fw-semibold text-dark">จัดซื้อ / จัดจ้าง (Purchase / Hire)</span>
+                    <span class="fw-semibold text-dark">ระบบจัดซื้อ (Purchase)</span>
                     <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
                 </button>
                 <div id="hub-collapse-purchase" class="collapse home-hub-panel" aria-labelledby="hub-toggle-purchase">

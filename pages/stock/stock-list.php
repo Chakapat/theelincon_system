@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -205,9 +206,13 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
                 </div>
             <?php endif; ?>
         </div>
-        <?php if (!empty($_GET['product_added'])): ?>
-            <div class="alert alert-success rounded-3">เพิ่มประเภทสินค้า/วัสดุเรียบร้อยแล้ว</div>
-        <?php endif; ?>
+        <?php
+        $stockHubFlash = tnc_flash_from_query($_GET);
+        if ($stockHubFlash !== null && !empty($_GET['product_added'])) {
+            $stockHubFlash['message'] = 'เพิ่มประเภทสินค้า/วัสดุเรียบร้อยแล้ว';
+        }
+        tnc_render_flash($stockHubFlash);
+        ?>
         <div class="row g-3">
             <?php if (!$sites): ?>
                 <div class="col-12">
@@ -258,21 +263,22 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
         <div class="print-date">วันที่พิมพ์ <?= htmlspecialchars(date('d/m/Y')) ?></div>
     </div>
 
-    <?php if (!empty($_GET['saved'])): ?>
-        <div class="alert alert-success rounded-3">บันทึกรายการเรียบร้อยแล้ว</div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['updated'])): ?>
-        <div class="alert alert-success rounded-3">แก้ไขรายการเรียบร้อยแล้ว</div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['deleted'])): ?>
-        <div class="alert alert-success rounded-3">ลบรายการเรียบร้อยแล้ว</div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['error']) && (string) $_GET['error'] === 'transfer_locked'): ?>
-        <div class="alert alert-warning rounded-3">รายการโอนระหว่างไซต์แก้ไขแยกทีละรายการไม่ได้ ให้ลบคู่รายการแล้วบันทึกใหม่</div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['product_added'])): ?>
-        <div class="alert alert-success rounded-3">เพิ่มประเภทสินค้า/วัสดุเรียบร้อยแล้ว</div>
-    <?php endif; ?>
+    <?php
+    $stockFlash = tnc_flash_from_query($_GET);
+    if ($stockFlash !== null) {
+        $stockFlash['message'] = match (true) {
+            !empty($_GET['saved']) => 'บันทึกรายการเรียบร้อยแล้ว',
+            !empty($_GET['updated']) => 'แก้ไขรายการเรียบร้อยแล้ว',
+            !empty($_GET['deleted']) => 'ลบรายการเรียบร้อยแล้ว',
+            !empty($_GET['product_added']) => 'เพิ่มประเภทสินค้า/วัสดุเรียบร้อยแล้ว',
+            default => $stockFlash['message'],
+        };
+    }
+    if (!empty($_GET['error']) && (string) $_GET['error'] === 'transfer_locked') {
+        $stockFlash = ['type' => 'warning', 'message' => 'รายการโอนระหว่างไซต์แก้ไขแยกทีละรายการไม่ได้ ให้ลบคู่รายการแล้วบันทึกใหม่'];
+    }
+    tnc_render_flash($stockFlash);
+    ?>
 
     <div class="row g-3 mb-3 no-print">
         <div class="col-12 col-md-4">

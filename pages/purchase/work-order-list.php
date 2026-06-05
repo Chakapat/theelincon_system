@@ -180,24 +180,23 @@ usort($wo_rows, static function (array $a, array $b): int {
 
     <div class="purchase-page-head mb-4">
         <div>
-            <p class="purchase-page-kicker">Purchase Module · สัญญาจ้าง</p>
+            <p class="purchase-page-kicker">Purchase Module · สัญญาจ้าง</p>   
             <h1 class="purchase-list-title wo-list-title mb-0">
                 <span class="wo-list-title__icon me-2" aria-hidden="true"><i class="bi bi-file-earmark-ruled-fill"></i></span>
                 รายการ Work Order (WO)
             </h1>
-            <p class="text-muted small mb-0 mt-1">ใบสั่งงานสัญญาจ้าง — ส่งให้ผู้รับจ้างก่อน จากนั้นออก PO สั่งจ่ายรายงวด/ครั้งใน<a href="<?= htmlspecialchars($poListUrl, ENT_QUOTES, 'UTF-8') ?>" class="text-decoration-none">รายการ PO</a></p>
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <?php if (user_can('po.create')): ?>
             <a href="<?= htmlspecialchars($woCreateUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-3 shadow-sm">
-                <i class="bi bi-plus-lg me-1"></i>ออก Work Order
+                <i class="bi bi-plus-lg me-1"></i>ออกเอกสารสั่งจ้างงาน
             </a>
             <?php endif; ?>
             <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm no-print" id="woBatchPrintBtn" title="พิมพ์ WO ที่เลือก">
                 <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
             </button>
             <a href="<?= htmlspecialchars($poListUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3 shadow-sm">
-                <i class="bi bi-bag-check me-1"></i>รายการ PO สั่งจ่าย
+                <i class="bi bi-bag-check me-1"></i>ไปหน้ารายการใบสั่งซื้อ
             </a>
         </div>
     </div>

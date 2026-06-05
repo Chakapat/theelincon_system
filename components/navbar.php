@@ -289,8 +289,7 @@ if (!function_exists('app_path')) {
                                 <div class="form-check form-switch mb-0">
                                     <input class="form-check-input" type="checkbox" role="switch" id="tncSoundToggle" checked>
                                     <label class="form-check-label small" for="tncSoundToggle">
-                                        <span class="fw-semibold text-secondary"><i class="bi bi-volume-up-fill me-1"></i>เสียงในระบบ</span>
-                                        <span class="d-block text-muted" style="font-size:0.72rem;line-height:1.3;">แจ้งเตือน · PR / PO</span>
+                                        <span class="fw-semibold text-secondary"><i class="bi bi-volume-up-fill me-1"></i>เสียงแจ้งเตือน</span>
                                     </label>
                                 </div>
                             </div>
@@ -553,8 +552,10 @@ if (!is_int($tncNotifBellVer) || $tncNotifBellVer <= 0) {
 }
 ?>
 <script>
-window.TNC_PR_PO_AUDIO = window.TNC_PR_PO_AUDIO || {};
-window.TNC_PR_PO_AUDIO.trashDeleteUrl = <?= json_encode(app_path('assets/audio/trash-delete.mp3') . '?v=' . $tncTrashAudioVer, JSON_UNESCAPED_SLASHES) ?>;
+window.TNC_CRUD_AUDIO = window.TNC_CRUD_AUDIO || {};
+window.TNC_PR_PO_AUDIO = window.TNC_PR_PO_AUDIO || window.TNC_CRUD_AUDIO;
+window.TNC_CRUD_AUDIO.trashDeleteUrl = <?= json_encode(app_path('assets/audio/trash-delete.mp3') . '?v=' . $tncTrashAudioVer, JSON_UNESCAPED_SLASHES) ?>;
+window.TNC_PR_PO_AUDIO.trashDeleteUrl = window.TNC_CRUD_AUDIO.trashDeleteUrl;
 </script>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-sound-settings.js') . '?v=' . $tncSoundSettingsJsVer, ENT_QUOTES, 'UTF-8') ?>" defer></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-pr-po-audio.js') . '?v=' . $tncPrPoAudioJsVer, ENT_QUOTES, 'UTF-8') ?>" defer></script>

@@ -1,5 +1,5 @@
 /**
- * Audio feedback for PR / PO flows (create, update, approve, payment, billing).
+ * CRUD audio feedback ทั้งระบบ (โหลดจาก navbar)
  * Web Audio API for most sounds; delete uses assets/audio/trash-delete.mp3.
  */
 (function () {
@@ -7,6 +7,7 @@
 
     var STORAGE_KEY = 'tnc_system_audio_muted';
     var STORAGE_KEY_LEGACY = 'tnc_pr_po_audio_muted';
+    var AUDIO_KINDS = ['create', 'update', 'approve', 'complete', 'delete'];
     var ctx = null;
     var masterGain = null;
     var trashAudio = null;
@@ -46,8 +47,9 @@
         return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
 
-    function isPurchasePage() {
-        return /\/pages\/purchase\//.test(window.location.pathname || '');
+    function normalizeKind(kind) {
+        var k = String(kind || '').trim();
+        return AUDIO_KINDS.indexOf(k) !== -1 ? k : null;
     }
 
     function ensureCtx() {
@@ -135,7 +137,7 @@
     }
 
     function getTrashDeleteUrl() {
-        var cfg = window.TNC_PR_PO_AUDIO || {};
+        var cfg = window.TNC_PR_PO_AUDIO || window.TNC_CRUD_AUDIO || {};
         return cfg.trashDeleteUrl || 'assets/audio/trash-delete.mp3';
     }
 
@@ -171,7 +173,6 @@
     }
 
     var sounds = {
-        /** สร้าง PR/PO — fanfare ขึ้นพร้อม shimmer */
         create: function () {
             playNote({ freq: 65.41, start: 0, dur: 0.22, vol: 0.1, type: 'sine' });
             playFanfare([
@@ -205,7 +206,6 @@
             playNote({ freq: 739.99, start: 0.09, dur: 0.12, vol: 0.17, type: 'sine' });
         },
 
-        /** อนุมัติ PR — โทนชนะ สว่างขึ้น */
         approve: function () {
             playNote({ freq: 82.41, start: 0, dur: 0.18, vol: 0.08, type: 'sine' });
             playFanfare([
@@ -225,7 +225,6 @@
             ], 0.12);
         },
 
-        /** จ่ายเงิน / บิล — cha-ching */
         complete: function () {
             playNote({ freq: 880, start: 0, dur: 0.07, vol: 0.22, type: 'square' });
             playNote({ freq: 880, start: 0, dur: 0.07, vol: 0.1, type: 'sine', detune: -12 });
@@ -234,7 +233,6 @@
             playSparkle(0.2, 0.1);
         },
 
-        /** ลบ / ยกเลิก — ไฟล์เสียงถังขยะ */
         delete: function () {
             playTrashDeleteSound();
         }
@@ -255,14 +253,15 @@
     }
 
     function playInternal(kind) {
-        if (isMuted() || prefersReduced()) {
+        var normalized = normalizeKind(kind);
+        if (!normalized || isMuted() || prefersReduced()) {
             return;
         }
-        if (kind === 'delete') {
+        if (normalized === 'delete') {
             playTrashDeleteSound();
             return;
         }
-        playSynth(kind);
+        playSynth(normalized);
     }
 
     function play(kind) {
@@ -287,48 +286,69 @@
         (sounds[k] || sounds.update)();
     }
 
-    function detectFromDom() {
-        if (!isPurchasePage()) {
+    /**
+     * สอดคล้องกับ tnc_audio_from_query() ใน includes/tnc_flash.php
+     */
+    function audioFromQuery(params) {
+        if (params.get('error')) {
             return null;
         }
-        var el = document.querySelector('[data-tnc-audio]');
-        return el ? String(el.getAttribute('data-tnc-audio') || '').trim() : null;
-    }
-
-    function detectFromUrl() {
-        if (!isPurchasePage()) {
-            return null;
+        if (params.get('deleted') || params.get('cancelled') || params.get('cat_deleted')) {
+            return 'delete';
         }
-        var p = new URLSearchParams(window.location.search);
-        if (p.get('created') === '1') {
-            return 'create';
-        }
-        if (p.get('success') === '1') {
-            return 'create';
-        }
-        if (p.get('web_approved') === '1') {
+        if (params.get('web_approved') || params.get('approved')) {
             return 'approve';
         }
-        if (p.get('updated') === '1' || p.get('pr_updated') === '1' || p.get('payment_slips_updated') === '1') {
-            return 'update';
+        if (params.get('rejected') || params.get('web_rejected')) {
+            return 'delete';
         }
-        if (p.get('payment_saved') === '1' || p.get('billing_saved') === '1') {
+        if (params.get('payment_saved') || params.get('billing_saved')) {
             return 'complete';
         }
-        if (p.get('deleted') === '1' || p.get('cancelled') === '1') {
-            return 'delete';
+        if (params.get('created') || params.get('success') || params.get('product_added')) {
+            return 'create';
+        }
+        if (
+            params.get('updated')
+            || params.get('pr_updated')
+            || params.get('payment_slips_updated')
+            || params.get('invoice_updated')
+            || params.get('saved')
+            || params.get('cat_saved')
+        ) {
+            return 'update';
         }
         return null;
     }
 
-    function mapAjaxAction(action) {
+    function detectFromDom() {
+        var el = document.querySelector('[data-tnc-audio]');
+        return el ? normalizeKind(el.getAttribute('data-tnc-audio')) : null;
+    }
+
+    function detectFromUrl() {
+        return audioFromQuery(new URLSearchParams(window.location.search || ''));
+    }
+
+    function mapAjaxAction(action, detail) {
+        detail = detail || {};
+        if (detail.audio) {
+            return normalizeKind(detail.audio);
+        }
         if (!action) {
             return null;
+        }
+        if (action === 'site_saved') {
+            return detail.mode === 'create' ? 'create' : 'update';
         }
         if (action === 'po_created' || action === 'save_pr') {
             return 'create';
         }
-        if (action === 'update_pr' || action === 'update_po_direct' || action === 'update_po_direct_hire') {
+        if (
+            action === 'update_pr'
+            || action === 'update_po_direct'
+            || action === 'update_po_direct_hire'
+        ) {
             return 'update';
         }
         if (action === 'cancel_purchase_order' || action === 'delete_pr') {
@@ -343,8 +363,26 @@
         ) {
             return 'complete';
         }
+        if (action.slice(-8) === '_created' || (action.slice(-6) === '_saved' && detail.mode === 'create')) {
+            return 'create';
+        }
+        if (action.slice(-8) === '_deleted' || action.slice(-11) === '_cancelled') {
+            return 'delete';
+        }
+        if (action.slice(-9) === '_approved') {
+            return 'approve';
+        }
+        if (action.slice(-8) === '_updated' || action.slice(-6) === '_saved') {
+            return 'update';
+        }
+        if (action.indexOf('payment') !== -1 || action.indexOf('billing') !== -1) {
+            return 'complete';
+        }
         if (action.indexOf('po_payment') !== -1 || action.indexOf('pr_') === 0) {
             return 'update';
+        }
+        if (detail.query) {
+            return audioFromQuery(new URLSearchParams(detail.query));
         }
         return null;
     }
@@ -384,13 +422,13 @@
         if (window.__tncPurchaseNavPending) {
             return;
         }
-        var kind = mapAjaxAction(d.action);
+        var kind = mapAjaxAction(d.action, d);
         if (kind) {
             play(kind);
         }
     });
 
-    window.TncPrPoAudio = {
+    var api = {
         play: play,
         mute: function () {
             setMuted(true);
@@ -408,6 +446,9 @@
             return nowMuted;
         }
     };
+
+    window.TncCrudAudio = api;
+    window.TncPrPoAudio = api;
 
     window.addEventListener('tnc:sound-settings-changed', function (e) {
         var d = e.detail || {};

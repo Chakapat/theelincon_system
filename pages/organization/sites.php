@@ -46,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site'])) {
                     'message' => 'แก้ไขไซต์แล้ว',
                     'action' => 'site_saved',
                     'mode' => 'update',
+                    'audio' => 'update',
                     'site' => ['id' => $id, 'name' => $n],
                 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                 exit;
@@ -71,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site'])) {
                 'message' => 'เพิ่มไซต์แล้ว',
                 'action' => 'site_saved',
                 'mode' => 'create',
+                'audio' => 'create',
                 'site' => ['id' => $nid, 'name' => $n],
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             exit;
@@ -170,6 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_category'])
                 'ok' => true,
                 'message' => 'บันทึกหัวข้อย่อยแล้ว',
                 'action' => 'site_category_saved',
+                'audio' => 'update',
                 'category' => [
                     'id' => $savedId,
                     'name' => $catName,
@@ -233,6 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site_category'
             'ok' => true,
             'message' => 'ลบหัวข้อย่อยแล้ว',
             'action' => 'site_category_deleted',
+            'audio' => 'delete',
             'category' => [
                 'id' => $catId,
                 'site_id' => $catSiteId > 0 ? $catSiteId : (int) ($snap['site_id'] ?? 0),
@@ -484,25 +488,33 @@ usort($list, static function (array $a, array $b): int {
 <body class="tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container pb-5 sites-page-wrap">
-    <?php if (isset($_GET['created'])): ?>
-        <div class="alert alert-success">เพิ่มไซต์เรียบร้อยแล้ว</div>
-    <?php elseif (isset($_GET['updated'])): ?>
-        <div class="alert alert-success">แก้ไขไซต์เรียบร้อยแล้ว</div>
-    <?php elseif (isset($_GET['deleted'])): ?>
-        <div class="alert alert-success">ลบไซต์เรียบร้อยแล้ว</div>
-    <?php elseif (isset($_GET['error']) && $_GET['error'] === 'in_use'): ?>
-        <div class="alert alert-danger">ลบไม่ได้: ไซต์นี้ถูกใช้งานในรายการรายรับ/รายจ่ายแล้ว</div>
-    <?php elseif (isset($_GET['error']) && $_GET['error'] === 'invalid_name'): ?>
-        <div class="alert alert-warning">กรุณาระบุชื่อไซต์ให้ถูกต้อง</div>
-    <?php elseif (isset($_GET['error']) && $_GET['error'] === 'confirm_password_required'): ?>
-        <div class="alert alert-warning">กรุณากรอกรหัสผ่านของคุณเพื่อยืนยันการลบ</div>
-    <?php elseif (isset($_GET['error']) && $_GET['error'] === 'confirm_password_invalid'): ?>
-        <div class="alert alert-danger">รหัสผ่านไม่ถูกต้อง</div>
-    <?php elseif (isset($_GET['cat_saved'])): ?>
-        <div class="alert alert-success">บันทึกหัวข้อย่อยเรียบร้อยแล้ว</div>
-    <?php elseif (isset($_GET['cat_deleted'])): ?>
-        <div class="alert alert-success">ลบหัวข้อย่อยเรียบร้อยแล้ว</div>
-    <?php endif; ?>
+    <?php
+    require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
+    $sitesFlash = tnc_flash_from_query($_GET);
+    if ($sitesFlash !== null) {
+        $sitesMsg = match (true) {
+            isset($_GET['created']) => 'เพิ่มไซต์เรียบร้อยแล้ว',
+            isset($_GET['updated']) => 'แก้ไขไซต์เรียบร้อยแล้ว',
+            isset($_GET['deleted']) => 'ลบไซต์เรียบร้อยแล้ว',
+            isset($_GET['cat_saved']) => 'บันทึกหัวข้อย่อยเรียบร้อยแล้ว',
+            isset($_GET['cat_deleted']) => 'ลบหัวข้อย่อยเรียบร้อยแล้ว',
+            isset($_GET['error']) && $_GET['error'] === 'in_use' => 'ลบไม่ได้: ไซต์นี้ถูกใช้งานในรายการรายรับ/รายจ่ายแล้ว',
+            isset($_GET['error']) && $_GET['error'] === 'invalid_name' => 'กรุณาระบุชื่อไซต์ให้ถูกต้อง',
+            isset($_GET['error']) && $_GET['error'] === 'confirm_password_required' => 'กรุณากรอกรหัสผ่านของคุณเพื่อยืนยันการลบ',
+            isset($_GET['error']) && $_GET['error'] === 'confirm_password_invalid' => 'รหัสผ่านไม่ถูกต้อง',
+            default => $sitesFlash['message'],
+        };
+        $sitesFlash['message'] = $sitesMsg;
+        if (isset($_GET['error'])) {
+            $sitesFlash['type'] = match ((string) ($_GET['error'] ?? '')) {
+                'invalid_name', 'confirm_password_required' => 'warning',
+                default => 'danger',
+            };
+            unset($sitesFlash['audio']);
+        }
+    }
+    tnc_render_flash($sitesFlash);
+    ?>
 
     <div class="tnc-page-head mb-4">
         <div>
