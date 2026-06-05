@@ -1401,12 +1401,12 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
     </div>
 
     <div class="row align-items-start mb-2">
-        <div class="col-6">
+        <div class="col-6 inv-company-col">
             <?php if(!empty($data['logo'])): ?>
                 <img src="<?= htmlspecialchars(upload_logo_url($data['logo'])) ?>" class="company-logo" alt="Logo">
             <?php endif; ?>
-            <div class="fw-bold" style="font-size: 15px;"><?= $data['name']; ?></div>
-            <div class="small text-muted" style="font-size: 11px; line-height: 1.2;">
+            <div class="inv-company-name"><?= $data['name']; ?></div>
+            <div class="inv-company-detail text-muted">
                 <?php if ($company_detail_line !== ''): ?>
                     <?= htmlspecialchars($company_detail_line, ENT_QUOTES, 'UTF-8') ?>
                 <?php endif; ?>

@@ -3,8 +3,12 @@ declare(strict_types=1);
 use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
-if (!isset($_SESSION['user_id']) || !user_is_admin_only_role()) {
-    header('Location: ' . app_path('index.php'));
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ' . app_path('sign-in.php'));
+    exit();
+}
+if (!user_can('page.org.members')) {
+    header('Location: ' . app_path('index.php') . '?error=forbidden');
     exit();
 }
 $userRows = Db::tableRows('users');

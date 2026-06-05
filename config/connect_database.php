@@ -13,6 +13,11 @@ if (is_file($tncRolePermissionsFile)) {
     require_once dirname(__DIR__) . '/includes/role_permissions_fallback.php';
 }
 
+$tncPageAccessFile = dirname(__DIR__) . '/includes/tnc_page_access.php';
+if (is_file($tncPageAccessFile)) {
+    require_once $tncPageAccessFile;
+}
+
 /**
  * ฐานข้อมูลหลัก: Firebase Realtime Database (mirror theelincon_mirror/)
  * อ่าน/เขียนผ่าน Theelincon\Rtdb\Db
@@ -27,4 +32,8 @@ if (session_status() === PHP_SESSION_ACTIVE) {
         $_SESSION['role'] = $_SESSION['position'];
     }
     unset($_SESSION['position']);
+}
+
+if (function_exists('tnc_page_access_guard')) {
+    tnc_page_access_guard();
 }

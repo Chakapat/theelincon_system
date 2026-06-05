@@ -15,11 +15,22 @@ $id = (int) ($_GET['id'] ?? 0);
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/po_document.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_po_payment_slips.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/pr_document.php';
+use Theelincon\Rtdb\Purchase;
 $poCtx = tnc_purchase_po_print_prepare($id);
 if ($poCtx === null) {
     die('ไม่พบข้อมูลใบสั่งซื้อ');
 }
 extract($poCtx, EXTR_OVERWRITE);
+$isHireContractPoDoc = Purchase::isHireContractPo($po);
+$isHireAdvancePoDoc = Purchase::isHireAdvancePo($po);
+$hireContractIdForPo = (int) ($po['hire_contract_id'] ?? 0);
+$poPaymentFromHcUrl = $hireContractIdForPo > 0
+    ? app_path('pages/purchase/purchase-order-from-hire-contract.php') . '?hire_contract_id=' . $hireContractIdForPo
+    : '';
+$poAdvanceFromHcUrl = $hireContractIdForPo > 0
+    ? app_path('pages/purchase/purchase-order-from-hire-contract.php') . '?hire_contract_id=' . $hireContractIdForPo . '&mode=advance'
+    : '';
+$woSummaryIncluded = false;
 $paymentStatusPo = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
 $isPoPaid = ($paymentStatusPo === 'paid');
 $billingStatusPo = strtolower(trim((string) ($po['billing_status'] ?? 'pending')));
@@ -119,16 +130,22 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
         }
 
         .po-view-shell-inner {
-            max-width: calc(210mm + 1.5rem);
+            max-width: 100%;
             margin: 0 auto;
-            padding: 0.85rem 0.75rem;
+            padding: 0.85rem 1rem;
         }
 
         .po-view-toolbar-row {
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            flex-wrap: nowrap;
             min-width: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            padding-bottom: 2px;
         }
 
         .po-view-toolbar-main {
@@ -136,13 +153,8 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
             flex-wrap: nowrap;
             align-items: center;
             gap: 0.5rem;
+            flex: 0 0 auto;
             min-width: 0;
-            flex: 1 1 auto;
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: thin;
-            padding-bottom: 1px;
         }
 
         .po-view-toolbar-id {
@@ -162,16 +174,19 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
             flex-shrink: 0;
         }
 
+        .po-view-toolbar-sep--actions {
+            margin-left: 0.25rem;
+            opacity: 0.65;
+        }
+
         .po-view-toolbar-actions {
             display: flex;
             flex-wrap: nowrap;
             align-items: center;
-            justify-content: flex-end;
             gap: 0.5rem;
             flex: 0 0 auto;
-            flex-shrink: 0;
-            padding-left: 0.25rem;
-            background: #fff;
+            margin-left: auto;
+            padding-left: 0.5rem;
         }
 
         .po-view-toolbar-row .btn,
@@ -430,10 +445,18 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
         @media print {
             .invoice-box.po-purchase-order-doc,
             .invoice-box.pr-purchase-requisition-doc {
+                width: 210mm !important;
+                max-width: 210mm !important;
+                min-height: 297mm !important;
+                margin: 0 auto !important;
+                border: none !important;
                 border-top: none !important;
+                border-top-width: 0 !important;
+                outline: none !important;
+                box-shadow: none !important;
+                padding: 10mm 15mm !important;
             }
             .invoice-box.po-purchase-order-doc {
-                min-height: calc(297mm - 20mm);
                 display: flex !important;
                 flex-direction: column !important;
             }
@@ -478,11 +501,18 @@ $pmToolbar = strtolower(trim((string) ($po['payment_method'] ?? 'transfer'))) ==
 $cashByToolbar = trim((string) ($po['payment_cash_paid_by'] ?? ''));
 $slipItemsToolbar = $isPoPaid ? tnc_po_payment_slip_items($po) : [];
 $slipRelToolbar = $slipItemsToolbar !== [] ? (string) ($slipItemsToolbar[0]['path'] ?? '') : '';
-$poListHref = htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8');
+$poListHref = htmlspecialchars(
+    $isHireContractPoDoc
+        ? app_path('pages/purchase/work-order-list.php')
+        : app_path('pages/purchase/purchase-order-list.php'),
+    ENT_QUOTES,
+    'UTF-8'
+);
 $poViewFullHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8');
 $hasAlerts = !empty($_GET['cancelled'])
+    || (!empty($_GET['created']))
     || (!empty($_GET['error']) && $_GET['error'] === 'po_paid')
-    || (!empty($_GET['error']) && in_array((string) $_GET['error'], ['billing_required', 'billing_amount_invalid'], true))
+    || (!empty($_GET['error']) && in_array((string) $_GET['error'], ['billing_required', 'billing_amount_invalid', 'no_contract_po'], true))
     || !empty($_GET['billing_saved'])
     || ($hasFollowPagesPrint && $poPrintMode === 'po')
     || ($poPrintMode === 'slip')
@@ -493,6 +523,11 @@ $hasAlerts = !empty($_GET['cancelled'])
         <div class="po-view-toolbar-row mb-2">
             <div class="po-view-toolbar-main">
                 <span class="po-view-toolbar-id"><?= htmlspecialchars($poDocTitle, ENT_QUOTES, 'UTF-8') ?></span>
+                <?php if ($isHireContractPoDoc): ?>
+                    <span class="badge rounded-pill px-3 py-2 text-bg-primary ms-2">WORK ORDER (WO)</span>
+                <?php elseif ($isHireAdvancePoDoc): ?>
+                    <span class="badge rounded-pill px-3 py-2 text-bg-warning ms-2">PO เบิกล่วงหน้า</span>
+                <?php endif; ?>
                 <span class="po-view-toolbar-sep" aria-hidden="true">—</span>
                 <?php if ($isPoCancelled): ?>
                     <span class="badge rounded-pill px-3 py-2 text-bg-danger">ยกเลิกแล้ว</span>
@@ -525,15 +560,24 @@ $hasAlerts = !empty($_GET['cancelled'])
                         <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3"><i class="bi bi-x-circle me-1"></i>ยกเลิก PO</button>
                     </form>
                 <?php endif; ?>
-                <?php if (user_can('po.update') && !$isPoCancelled && $billingStatusPo === 'pending'): ?>
+                <?php if (user_can('po.update') && !$isPoCancelled && $billingStatusPo === 'pending' && !$isHireContractPoDoc): ?>
                     <button type="button" class="btn btn-outline-orange btn-sm rounded-pill px-3" id="btnOpenReceiveBill">
                         <i class="bi bi-receipt me-1"></i>บันทึกเลขที่บิลซื้อ
                     </button>
                 <?php endif; ?>
             </div>
+            <span class="po-view-toolbar-sep po-view-toolbar-sep--actions" aria-hidden="true">|</span>
             <div class="po-view-toolbar-actions">
+                <?php if ($isHireContractPoDoc && !$isPoCancelled && user_can('po.create') && $poPaymentFromHcUrl !== ''): ?>
+                    <a href="<?= htmlspecialchars($poPaymentFromHcUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3">
+                        <i class="bi bi-cash-coin me-1"></i>ออก PO สั่งจ่าย
+                    </a>
+                    <a href="<?= htmlspecialchars($poAdvanceFromHcUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-warning btn-sm rounded-pill px-3">
+                        <i class="bi bi-wallet2 me-1"></i>เบิกล่วงหน้า
+                    </a>
+                <?php endif; ?>
                 <a href="<?= $poListHref ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                    <i class="bi bi-arrow-left me-1"></i>รายการ PO
+                    <i class="bi bi-arrow-left me-1"></i><?= $isHireContractPoDoc ? 'รายการ WO' : 'รายการ PO' ?>
                 </a>
                 <?php if ($hasPrintChoiceModal): ?>
                     <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#poPrintChoiceModal">
@@ -550,6 +594,12 @@ $hasAlerts = !empty($_GET['cancelled'])
             <div class="po-view-alerts">
                 <?php if (!empty($_GET['cancelled'])): ?>
                     <div class="alert alert-success mb-0" data-tnc-audio="delete">ยกเลิกใบสั่งซื้อเรียบร้อยแล้ว</div>
+                <?php endif; ?>
+                <?php if (!empty($_GET['created'])): ?>
+                    <div class="alert alert-success mb-0" data-tnc-audio="create">บันทึก Work Order เรียบร้อยแล้ว</div>
+                <?php endif; ?>
+                <?php if (!empty($_GET['error']) && (string) $_GET['error'] === 'no_contract_po'): ?>
+                    <div class="alert alert-warning mb-0">ยังไม่มี Work Order (WO) — ต้องออก WO ก่อนจึงจะสั่งจ่าย PO ได้</div>
                 <?php endif; ?>
                 <?php if (!empty($_GET['error']) && $_GET['error'] === 'po_paid'): ?>
                     <div class="alert alert-warning mb-0">ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถยกเลิกได้</div>
@@ -641,8 +691,8 @@ $hasAlerts = !empty($_GET['cancelled'])
                     <div class="col-12 col-md-6 col-xl-3">
                         <button type="button" class="btn btn-outline-secondary w-100 h-100 py-3 text-start js-po-print-choice border-2 rounded-3" data-print-mode="po">
                             <i class="bi bi-file-earmark-text d-block mb-2 fs-4 text-secondary"></i>
-                            <span class="fw-bold d-block">1. เฉพาะใบสั่งซื้อ</span>
-                            <span class="small text-muted">ไม่รวมสลิปและแนบ QT</span>
+                            <span class="fw-bold d-block"><?= $isHireContractPoDoc ? '1. เฉพาะใบสั่งจ้าง (WO)' : '1. เฉพาะใบสั่งซื้อ' ?></span>
+                            <span class="small text-muted"><?= $isHireContractPoDoc ? 'เอกสาร WORK ORDER / ใบสั่งจ้าง' : 'ไม่รวมสลิปและแนบ QT' ?></span>
                         </button>
                     </div>
                     <div class="col-12 col-md-6 col-xl-3">
@@ -673,6 +723,10 @@ $hasAlerts = !empty($_GET['cancelled'])
 </div>
 <?php endif; ?>
 
+<?php if ($isHireContractPoDoc && $hireContractIdForPo > 0): ?>
+<?php include dirname(__DIR__, 2) . '/includes/purchase/wo_contract_summary.php'; ?>
+<?php endif; ?>
+
 <div class="po-view-canvas">
 <?php if ($printIncludePr && $prCtxForPo !== null): ?>
 <div class="pr-bundle-inline po-print-bundle-pr">
@@ -698,6 +752,73 @@ $hasAlerts = !empty($_GET['cancelled'])
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-po-print.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<?php if (!empty($woSummaryIncluded)): ?>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+<script>
+(function () {
+    if (typeof jQuery === 'undefined' || !jQuery.fn.DataTable) {
+        return;
+    }
+    var poViewBase = window.__woSummaryPoViewBase || '';
+    function fmt(n) {
+        var x = Number(n) || 0;
+        return x.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function poLinkCol() {
+        return {
+            data: 'po_id',
+            className: 'text-center',
+            orderable: false,
+            searchable: false,
+            render: function (id) {
+                if (!id) return '<span class="text-muted">—</span>';
+                return '<a href="' + poViewBase + '?id=' + id + '" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-up-right"></i></a>';
+            }
+        };
+    }
+    if (window.__woSummaryPayRows) {
+        jQuery('#woPayDT').DataTable({
+            data: window.__woSummaryPayRows,
+            order: [[1, 'desc']],
+            pageLength: 10,
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+            columns: [
+                { data: 'po_number' },
+                { data: 'created_at', className: 'text-center text-nowrap' },
+                { data: 'installment', className: 'text-center' },
+                { data: 'sub', className: 'text-end', render: fmt },
+                { data: 'vat', className: 'text-end', render: fmt },
+                { data: 'wht', className: 'text-end', render: fmt },
+                { data: 'net', className: 'text-end fw-bold', render: fmt },
+                { data: 'contract_line', className: 'text-end', render: fmt },
+                poLinkCol()
+            ]
+        });
+    }
+    if (window.__woSummaryAdvanceRows && jQuery('#woAdvanceDT').length) {
+        jQuery('#woAdvanceDT').DataTable({
+            data: window.__woSummaryAdvanceRows,
+            order: [[1, 'desc']],
+            pageLength: 10,
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+            columns: [
+                { data: 'po_number' },
+                { data: 'created_at', className: 'text-center text-nowrap' },
+                { data: 'installment', className: 'text-center' },
+                { data: 'sub', className: 'text-end', render: fmt },
+                { data: 'vat', className: 'text-end', render: fmt },
+                { data: 'wht', className: 'text-end', render: fmt },
+                { data: 'net', className: 'text-end fw-bold', render: fmt },
+                poLinkCol()
+            ]
+        });
+    }
+})();
+</script>
+<?php endif; ?>
 <?php if ($hasPrintChoiceModal): ?>
 <script>
 (function () {

@@ -578,6 +578,9 @@ function updatePoVatBasisUi() {
     vatBasisWrap.classList.toggle('opacity-50', !on);
     vatBasisWrap.style.pointerEvents = on ? '' : 'none';
     vatBasisWrap.setAttribute('aria-disabled', on ? 'false' : 'true');
+    vatBasisWrap.querySelectorAll('input[name="vat_basis"]').forEach(function (el) {
+        el.disabled = !on;
+    });
 }
 
 function poLineAmountAfterDiscount(qty, price, discRaw) {

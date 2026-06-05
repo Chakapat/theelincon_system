@@ -209,6 +209,26 @@ if (!function_exists('tnc_contractor_payment_lines')) {
     }
 }
 
+if (!function_exists('tnc_contractor_payment_note_text')) {
+    /**
+     * ข้อความหมายเหตุ PO — ช่องทางชำระผู้รับจ้าง (หลายบรรทัด)
+     *
+     * @param array<string, mixed>|int $contractor แถว contractors หรือ id
+     */
+    function tnc_contractor_payment_note_text(array|int $contractor): string
+    {
+        if (is_int($contractor)) {
+            $row = tnc_contractor_row_by_id($contractor);
+            if ($row === null) {
+                return '';
+            }
+            $contractor = $row;
+        }
+
+        return implode("\n", tnc_contractor_payment_lines($contractor));
+    }
+}
+
 if (!function_exists('tnc_contractor_transfer_display_line')) {
     /**
      * บรรทัดช่องทางชำระ: ธนาคาร · เลขบัญชี · ชื่อบัญชี (ไม่รวมชื่อวิธีชำระ)

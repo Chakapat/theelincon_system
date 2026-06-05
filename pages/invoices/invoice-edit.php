@@ -127,7 +127,7 @@ Db::sortRows($customers, 'name', false);
             </div>
             <div class="col-md-6">
                 <div class="card h-100 border-orange p-4">
-                    <label class="form-label fw-bold">ลูกค้า</label>
+                    <label class="form-label fw-bold">บริษัทผู้รับเอกสาร</label>
                     <select name="customer_id" class="form-select mb-3 shadow-sm" required>
                         <?php foreach ($customers as $cus): ?>
                             <option value="<?= $cus['id'] ?>" <?= ($cus['id'] == $invoice['customer_id']) ? 'selected' : '' ?>><?= htmlspecialchars((string) $cus['name']) ?></option>
@@ -135,7 +135,7 @@ Db::sortRows($customers, 'name', false);
                     </select>
                     <div class="row g-2">
                         <div class="col-6">
-                            <label class="form-label small fw-bold">วันที่ออก</label>
+                            <label class="form-label small fw-bold">วันที่ออกใบแจ้งหนี้</label>
                             <input type="date" name="issue_date" class="form-control" value="<?= $invoice['issue_date'] ?>">
                         </div>
                     </div>
@@ -144,9 +144,6 @@ Db::sortRows($customers, 'name', false);
         </div>
 
         <div class="card mt-4 border-orange">
-            <div class="card-header bg-white py-3">
-                <span class="fw-bold" style="color: #FF6600;"><i class="bi bi-list-task me-2"></i>รายการสินค้า</span><span class="small text-muted d-none d-lg-inline">(รวมเงิน = จำนวน × ราคา/หน่วย · พิมพ์ % ในช่องราคาได้)</span>
-            </div>
             <div class="table-responsive">
                 <table class="table align-middle" id="items_table">
                     <thead>
@@ -187,11 +184,11 @@ Db::sortRows($customers, 'name', false);
                     <h6 class="fw-bold mb-3">การตั้งค่าภาษีและเงินหัก</h6>
                     <div class="form-check form-switch mb-3">
                         <input type="checkbox" name="vat_enabled" class="form-check-input" id="vatCheck" <?= $invoice['vat_amount'] > 0 ? 'checked' : '' ?>>
-                        <label class="form-check-label fw-bold text-primary" for="vatCheck">บวกภาษีมูลค่าเพิ่ม VAT 7% (+)</label>
+                        <label class="form-check-label fw-bold text-primary" for="vatCheck">บวกภาษีมูลค่าเพิ่ม</label>
                     </div>
                     <div class="form-check form-switch mb-3">
                         <input type="checkbox" name="withholding_enabled" class="form-check-input" id="whtCheck" <?= $invoice['withholding_tax'] > 0 ? 'checked' : '' ?>>
-                        <label class="form-check-label fw-bold text-danger" for="whtCheck">หัก ณ ที่จ่าย 3% (-) <span class="text-muted small fw-normal">(คิดจากยอดก่อน VAT)</span></label>
+                        <label class="form-check-label fw-bold text-danger" for="whtCheck">หัก ณ ที่จ่าย 3% <span class="text-muted small fw-normal"></span></label>
                     </div>
                     <hr>
                     <label class="form-label text-danger fw-bold">หักประกันผลงาน Retention (บาท)</label>
@@ -207,30 +204,30 @@ Db::sortRows($customers, 'name', false);
             <div class="col-md-6">
                 <div class="total-box shadow-sm border-0">
                 <div class="d-flex justify-content-between mb-2">
-                    <span class="text-muted">ยอดรวม (Subtotal):</span>
+                    <span class="text-muted">ยอดรวม (Subtotal)</span>
                     <span id="subtotal_text" class="fw-bold text-dark">0.00</span>
                 </div>
                 <div class="d-flex justify-content-between mb-2 text-primary">
-                    <span>ภาษีมูลค่าเพิ่ม VAT 7% (+):</span>
+                    <span>ภาษีมูลค่าเพิ่ม</span>
                     <span id="vat_text" class="fw-bold">0.00</span>
                 </div>
                 <div class="d-flex justify-content-between mb-2 border-bottom pb-2 mb-2">
-                    <span class="fw-bold text-muted">ยอดรวม VAT:</span>
+                    <span class="fw-bold text-muted">ยอดรวมภาษีมูลค่าเพิ่ม</span>
                     <span id="total_after_vat_text" class="fw-bold text-dark">0.00</span>
                 </div>
 
                 <div class="d-flex justify-content-between mb-2 text-danger">
-                    <span>หัก ณ ที่จ่าย 3% (-) <small class="text-muted fw-normal">(คิดจากยอดก่อน VAT)</small></span>
+                    <span>หัก ณ ที่จ่าย 3%</span>
                     <span id="wht_text" class="fw-bold">0.00</span>
                 </div>
                 <div class="d-flex justify-content-between mb-2" style="padding-left: 10px; border-left: 3px solid #dc3545;">
-                    <span class="small text-muted fw-bold">ยอดรวมหลังหัก ณ ที่จ่าย:</span>
+                    <span class="small text-muted fw-bold">ยอดรวมหลังหัก ณ ที่จ่าย</span>
                     <span id="after_wht_text" class="fw-bold text-dark">0.00</span>
                 </div>
                 <hr class="my-2">
 
                 <div id="retention_summary_row" class="d-flex justify-content-between mb-2 text-danger" style="display: none;">
-                    <span>หักประกันผลงาน Retention (-):</span>
+                    <span>หักประกันผลงาน</span>
                     <span id="retention_display" class="fw-bold">0.00</span>
                 </div>
                 <hr class="my-3" style="border-top: 2px solid #FF6600;">

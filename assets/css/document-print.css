@@ -4,6 +4,11 @@
  */
 
 /* --- ใบ PO (po_invoice_body) — จัดรูปบนหน้าจอ + พื้นฐานสำหรับพิมพ์ --- */
+.po-purchase-order-doc.invoice-box,
+.pr-purchase-requisition-doc.invoice-box {
+    border-top: none;
+}
+
 .po-purchase-order-doc .po-section-kicker {
     font-size: 0.65rem;
     font-weight: 700;
@@ -601,6 +606,16 @@
     margin-bottom: 0.75rem !important;
 }
 
+.pr-purchase-requisition-doc .pr-footer-row:has(.pr-notes-panel),
+.po-purchase-order-doc .po-footer-row:has(.po-notes-panel) {
+    row-gap: 1.15rem;
+    column-gap: 0.75rem;
+}
+
+.po-purchase-order-doc.po-hire-contract-doc .po-footer-row:has(.po-notes-panel) {
+    row-gap: 1.5rem;
+}
+
 .pr-purchase-requisition-doc .pr-footer-notes-col .pr-notes-wrap:empty,
 .po-purchase-order-doc .po-footer-notes-col .po-notes-wrap:empty {
     display: none;
@@ -746,6 +761,41 @@
 .inv-sales-doc .signature-grid {
     page-break-inside: avoid;
     break-inside: avoid;
+}
+
+/* Invoice — ข้อมูลบริษัท (ขยายตัวอักษรเมื่อไม่มีโลโก้ ให้สมดุลกับหัวเอกสาร) */
+.inv-sales-doc .inv-company-col {
+    min-width: 0;
+}
+
+.inv-sales-doc .inv-company-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+}
+
+.inv-sales-doc .inv-company-col:has(.company-logo) .inv-company-name {
+    margin-top: 0.5rem;
+}
+
+.inv-sales-doc .inv-company-col:not(:has(.company-logo)) .inv-company-name {
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.inv-sales-doc .inv-company-detail {
+    font-size: 11px;
+    line-height: 1.35;
+    color: #475569 !important;
+    margin-top: 0.25rem;
+}
+
+.inv-sales-doc .inv-company-col:not(:has(.company-logo)) .inv-company-detail {
+    font-size: 0.92rem;
+    line-height: 1.5;
+    margin-top: 0.35rem;
 }
 
 /* Invoice / Tax เก่า (ไม่มี inv-sales-doc) — footer ไหลตามเอกสาร */
@@ -900,7 +950,7 @@
 @media print {
     @page {
         size: A4 portrait;
-        margin: 10mm;
+        margin: 0;
     }
 
     html,
@@ -978,17 +1028,17 @@
     }
 
     .po-purchase-order-doc .po-note-heading {
-        font-size: 8.5pt !important;
+        font-size: 0.8rem !important;
         font-weight: 700 !important;
         color: #9a3412 !important;
-        margin-bottom: 0.25rem !important;
+        margin-bottom: 0.35rem !important;
     }
 
     .po-purchase-order-doc .po-notes-panel {
         border: 1px solid #e2e8f0 !important;
-        border-left: 2px solid #ea580c !important;
+        border-left: 3px solid #ea580c !important;
         background: #f8fafc !important;
-        padding: 0.35rem 0.45rem 0.4rem !important;
+        padding: 0.45rem 0.55rem 0.5rem !important;
         page-break-inside: avoid;
         break-inside: avoid;
         -webkit-print-color-adjust: exact !important;
@@ -996,22 +1046,22 @@
     }
 
     .po-purchase-order-doc .po-note-item {
-        font-size: 8pt !important;
-        line-height: 1.4 !important;
-        padding: 0.18rem 0 !important;
+        font-size: 0.72rem !important;
+        line-height: 1.45 !important;
+        padding: 0.28rem 0 !important;
         color: #334155 !important;
-        border-bottom-color: #e8edf3 !important;
+        border-bottom-color: #eef2f7 !important;
     }
 
     .po-purchase-order-doc .po-note-k {
-        font-size: 7.5pt !important;
-        color: #475569 !important;
+        font-size: 0.72rem !important;
+        color: #64748b !important;
     }
 
     .po-purchase-order-doc .po-note-v,
     .po-purchase-order-doc .po-note-text {
-        font-size: 8pt !important;
-        color: #0f172a !important;
+        font-size: 0.72rem !important;
+        color: #334155 !important;
     }
 
     .po-purchase-order-doc .po-note-item--kv {
@@ -1019,27 +1069,41 @@
         gap: 0.1rem 0.35rem !important;
     }
 
+    .pr-purchase-requisition-doc .pr-footer-row,
     .po-purchase-order-doc .po-footer-row {
         align-items: flex-start !important;
-        flex-wrap: wrap !important;
+        flex-wrap: nowrap !important;
     }
 
+    .pr-purchase-requisition-doc .pr-footer-row:has(.pr-notes-panel),
+    .po-purchase-order-doc .po-footer-row:has(.po-notes-panel) {
+        column-gap: 0.75rem !important;
+        row-gap: 1.15rem !important;
+    }
+
+    .po-purchase-order-doc.po-hire-contract-doc .po-footer-row:has(.po-notes-panel) {
+        row-gap: 1.5rem !important;
+    }
+
+    .pr-purchase-requisition-doc .pr-footer-notes-col,
     .po-purchase-order-doc .po-footer-notes-col {
-        flex: 1 1 100% !important;
-        max-width: 100% !important;
-        padding-right: 0 !important;
+        flex: 0 0 auto !important;
+        width: 58.33333333% !important;
+        max-width: 58.33333333% !important;
+        padding-right: 0.75rem !important;
     }
 
+    .pr-purchase-requisition-doc .pr-footer-totals-col,
     .po-purchase-order-doc .po-footer-totals-col {
         flex: 0 0 auto !important;
-        width: min(100%, 15.5rem) !important;
-        max-width: 15.5rem !important;
-        margin-left: auto !important;
+        width: 41.66666667% !important;
+        max-width: 41.66666667% !important;
+        margin-left: 0 !important;
     }
 
     .po-purchase-order-doc .po-note-body {
-        font-size: 8pt !important;
-        line-height: 1.4 !important;
+        font-size: 0.72rem !important;
+        line-height: 1.45 !important;
         color: #334155 !important;
         white-space: pre-line !important;
     }
@@ -1169,6 +1233,12 @@
         color: #fff !important;
     }
 
+    /* Payment / Advance PO — ซ่อนค่าวัสดุ·ค่าแรง ตอนพิมพ์ เหลือราคา/หน่วย */
+    .po-purchase-order-doc.po-hire-pay-advance-doc .po-items-table .po-col-material,
+    .po-purchase-order-doc.po-hire-pay-advance-doc .po-items-table .po-col-labor {
+        display: none !important;
+    }
+
     .po-purchase-order-doc .badge {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
@@ -1244,13 +1314,13 @@
     }
 
     .invoice-box.pr-purchase-requisition-doc {
-        width: 100%;
-        max-width: 100%;
-        min-height: calc(297mm - 20mm);
+        width: 210mm;
+        max-width: 210mm;
+        min-height: 297mm;
         height: auto;
         max-height: none;
         margin: 0 auto;
-        padding: 0;
+        padding: 10mm 15mm;
         overflow: visible;
         page-break-after: always;
         break-after: page;
@@ -1262,18 +1332,21 @@
     }
 
     .invoice-box.po-purchase-order-doc {
-        width: 100%;
-        max-width: 100%;
-        min-height: calc(297mm - 20mm);
+        width: 210mm;
+        max-width: 210mm;
+        min-height: 297mm;
         height: auto;
         max-height: none;
         margin: 0 auto;
-        padding: 0;
+        padding: 10mm 15mm;
         overflow: visible;
         page-break-after: always;
         break-after: page;
         box-shadow: none !important;
+        border: none !important;
         border-top: none !important;
+        border-top-width: 0 !important;
+        outline: none !important;
         position: relative;
         box-sizing: border-box;
         display: flex !important;
@@ -1282,7 +1355,10 @@
 
     .invoice-box.pr-purchase-requisition-doc,
     .invoice-box.po-purchase-order-doc {
+        border: none !important;
         border-top: none !important;
+        border-top-width: 0 !important;
+        outline: none !important;
     }
 
     .tnc-batch-print-wrap:last-child .invoice-box.po-purchase-order-doc,
@@ -1793,6 +1869,28 @@
         margin-top: 22mm !important;
         page-break-inside: avoid;
         break-inside: avoid;
+    }
+
+    .inv-sales-doc .inv-company-name {
+        font-size: 15px !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
+    }
+
+    .inv-sales-doc .inv-company-col:not(:has(.company-logo)) .inv-company-name {
+        font-size: 1.25rem !important;
+        font-weight: 800 !important;
+    }
+
+    .inv-sales-doc .inv-company-detail {
+        font-size: 11px !important;
+        line-height: 1.35 !important;
+        color: #475569 !important;
+    }
+
+    .inv-sales-doc .inv-company-col:not(:has(.company-logo)) .inv-company-detail {
+        font-size: 0.92rem !important;
+        line-height: 1.5 !important;
     }
 
     .inv-sales-doc .table-custom {

@@ -19,7 +19,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $me = (int) $_SESSION['user_id'];
-$isAdmin = user_is_admin_only_role();
+$isAdmin = user_can('page.cash') && user_is_admin_only_role();
 if (!$isAdmin) {
     $access_denied_title = 'สดย่อย (Petty Cash)';
     $access_denied_text = 'เข้าใช้งานได้เฉพาะผู้ใช้ที่มีสิทธิ์ ADMIN เท่านั้น';

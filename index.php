@@ -936,12 +936,12 @@ if ($index_display_name === '') {
                 </button>
                 <div id="hub-collapse-master" class="collapse<?= $index_hub_start_all_collapsed ? '' : ' show' ?> home-hub-panel" aria-labelledby="hub-toggle-master">
                     <div class="home-hub-panel-inner pb-1">
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/customer-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-people me-2 text-secondary"></i>ลูกค้า (Customer)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/company-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-building me-2 text-secondary"></i>บริษัท (Company)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-geo-alt me-2 text-secondary"></i>ไซต์งาน (Sites)</a>
-                        <a class="home-hub-link d-flex align-items-center js-hub-member-manage<?= $is_admin_only ? '' : ' text-muted' ?>" href="<?= htmlspecialchars(app_path('pages/organization/member-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-person-gear me-2 text-secondary"></i>จัดการสมาชิก (Members)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-truck me-2 text-secondary"></i>ผู้ขาย (Suppliers)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/contractors/contractor-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-person-badge me-2 text-secondary"></i>ผู้รับจ้าง (Contractors)</a>
+                        <?php if (user_can('page.org.customer')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/customer-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-people me-2 text-secondary"></i>ลูกค้า (Customer)</a><?php endif; ?>
+                        <?php if (user_can('page.org.company')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/company-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-building me-2 text-secondary"></i>บริษัท (Company)</a><?php endif; ?>
+                        <?php if (user_can('page.org.sites')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-geo-alt me-2 text-secondary"></i>ไซต์งาน (Sites)</a><?php endif; ?>
+                        <?php if (user_can('page.org.members')): ?><a class="home-hub-link d-flex align-items-center js-hub-member-manage" href="<?= htmlspecialchars(app_path('pages/organization/member-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-person-gear me-2 text-secondary"></i>จัดการสมาชิก (Members)</a><?php endif; ?>
+                        <?php if (user_can('page.org.suppliers')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-truck me-2 text-secondary"></i>ผู้ขาย (Suppliers)</a><?php endif; ?>
+                        <?php if (user_can('page.org.contractors')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/contractors/contractor-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-person-badge me-2 text-secondary"></i>ผู้รับจ้าง (Contractors)</a><?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -953,8 +953,8 @@ if ($index_display_name === '') {
                 </button>
                 <div id="hub-collapse-purchase" class="collapse home-hub-panel" aria-labelledby="hub-toggle-purchase">
                     <div class="home-hub-panel-inner pb-1">
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cart-plus me-2 text-secondary"></i>ใบขอซื้อ (Purchase Request)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-bag-check me-2 text-secondary"></i>ใบสั่งซื้อ (Purchase Order)</a>
+                        <?php if (user_can('page.pr')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cart-plus me-2 text-secondary"></i>ใบขอซื้อ (Purchase Request)</a><?php endif; ?>
+                        <?php if (user_can('page.po')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-bag-check me-2 text-secondary"></i>ใบสั่งซื้อ (Purchase Order)</a><?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -966,9 +966,9 @@ if ($index_display_name === '') {
                 </button>
                 <div id="hub-collapse-docs" class="collapse home-hub-panel" aria-labelledby="hub-toggle-docs">
                     <div class="home-hub-panel-inner pb-1">
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-ruled me-2 text-secondary"></i>สัญญาจ้าง (Hire Contract)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-box-seam me-2 text-secondary"></i>คลังสินค้า (Stock)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/daily-site-reports/daily-site-report-calendar.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calendar3 me-2 text-secondary"></i>สมุดรายวันหน้างาน (DSR)</a>
+                        <?php if (user_can('page.wo')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/work-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-ruled me-2 text-secondary"></i>Work Order (WO)</a><?php endif; ?>
+                        <?php if (user_can('page.stock')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-box-seam me-2 text-secondary"></i>คลังสินค้า (Stock)</a><?php endif; ?>
+                        <?php if (user_can('page.dsr')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/daily-site-reports/daily-site-report-calendar.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calendar3 me-2 text-secondary"></i>สมุดรายวันหน้างาน (DSR)</a><?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -980,9 +980,9 @@ if ($index_display_name === '') {
                 </button>
                 <div id="hub-collapse-cash" class="collapse home-hub-panel" aria-labelledby="hub-toggle-cash">
                     <div class="home-hub-panel-inner pb-1">
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/reports/vat-report.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-bar-graph me-2 text-secondary"></i>รายงานภาษีซื้อ/ขาย (VAT Report)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/reports/site-spending-report.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-geo-alt me-2 text-secondary"></i>รายงานใช้จ่ายตามไซต์ (Site Spending)</a>
-                        <a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-speedometer2 me-2 text-secondary"></i>สดย่อย (Petty Cash)</a>
+                        <?php if (user_can('page.report.vat')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/reports/vat-report.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-bar-graph me-2 text-secondary"></i>รายงานภาษีซื้อ/ขาย (VAT Report)</a><?php endif; ?>
+                        <?php if (user_can('page.report.site')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/reports/site-spending-report.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-geo-alt me-2 text-secondary"></i>รายงานใช้จ่ายตามไซต์ (Site Spending)</a><?php endif; ?>
+                        <?php if (user_can('page.cash')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-speedometer2 me-2 text-secondary"></i>สดย่อย (Petty Cash)</a><?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -1004,14 +1004,14 @@ if ($index_display_name === '') {
                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" aria-hidden="true"></i>
                             <input type="search" id="search_invoice" autocomplete="off" class="form-control index-search-input">
                         </div>
-                        <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=create" class="index-cta-btn index-cta-primary flex-shrink-0 text-center text-nowrap">
+                        <?php if (user_can('page.invoice.create') && user_can('invoice.edit')): ?><a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php')) ?>?action=create" class="index-cta-btn index-cta-primary flex-shrink-0 text-center text-nowrap">
                             <span class="index-cta-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>
                             <span>สร้างใบแจ้งหนี้ใหม่</span>
-                        </a>
-                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-list.php')) ?>" class="index-cta-btn index-cta-secondary flex-shrink-0 text-center text-nowrap">
+                        </a><?php endif; ?>
+                        <?php if (user_can('page.invoice.tax_list')): ?><a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-list.php')) ?>" class="index-cta-btn index-cta-secondary flex-shrink-0 text-center text-nowrap">
                             <span class="index-cta-icon"><i class="bi bi-file-earmark-break" aria-hidden="true"></i></span>
                             <span>รายการใบกำกับภาษี</span>
-                        </a>
+                        </a><?php endif; ?>
                     </div>
                 </div>
             </div>

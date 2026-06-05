@@ -13,6 +13,7 @@ if (!isset($_SESSION['user_id'])) {
 $pr_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/pr_document.php';
+use Theelincon\Rtdb\Purchase;
 $prCtx = tnc_purchase_pr_print_prepare($pr_id);
 if ($prCtx === null) {
     echo "<script>alert('ไม่พบข้อมูลใบขอซื้อ'); window.location.href='" . htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES) . "';</script>";
@@ -291,10 +292,18 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
         @media print {
             .invoice-box.pr-purchase-requisition-doc,
             .invoice-box.po-purchase-order-doc {
+                width: 210mm !important;
+                max-width: 210mm !important;
+                min-height: 297mm !important;
+                margin: 0 auto !important;
+                padding: 10mm 15mm !important;
+                border: none !important;
                 border-top: none !important;
+                border-top-width: 0 !important;
+                outline: none !important;
+                box-shadow: none !important;
             }
             .invoice-box.pr-purchase-requisition-doc {
-                min-height: calc(297mm - 20mm);
                 display: flex !important;
                 flex-direction: column !important;
             }
@@ -371,20 +380,32 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                     <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="รออนุมัติก่อนออก PO">
                         <i class="bi bi-lock me-1"></i>รออนุมัติ
                     </span>
-                <?php elseif (!empty($prIsApprovedForPo) && user_can('po.create')): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
-                        <i class="bi bi-file-earmark-plus me-1"></i>ออก PO (ตามงวด)
+                <?php elseif ($requestType === 'hire' && user_can('po.create')): ?>
+                    <?php
+                    $woViewPrUrl = Purchase::workOrderViewUrl(0, (int) $pr['id']);
+                    $woFromPrUrl = app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . (int) $pr['id'] . '&mode=contract';
+                    ?>
+                    <?php if ($woViewPrUrl !== null): ?>
+                    <a href="<?= htmlspecialchars($woViewPrUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3">
+                        <i class="bi bi-file-earmark-ruled me-1"></i>ดู Work Order
                     </a>
-                    <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-view.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                        <i class="bi bi-file-earmark-ruled me-1"></i>สัญญาจ้าง
+                    <?php else: ?>
+                    <a href="<?= htmlspecialchars($woFromPrUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="ออก WO จาก PR เก่า">
+                        <i class="bi bi-file-earmark-ruled me-1"></i>ออก Work Order
                     </a>
-                <?php else: ?>
-                    <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="รออนุมัติก่อนออก PO">
-                        <i class="bi bi-lock me-1"></i>รออนุมัติ
-                    </span>
-                    <a href="<?= htmlspecialchars(app_path('pages/hire-contracts/hire-contract-view.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                        <i class="bi bi-file-earmark-ruled me-1"></i>สัญญาจ้าง
+                    <?php endif; ?>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-hire-contract-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3" title="สัญญาจ้างใหม่ — ไม่ผ่าน PR">
+                        <i class="bi bi-plus-lg me-1"></i>WO ใหม่
                     </a>
+                <?php elseif ($requestType === 'hire'): ?>
+                    <?php
+                    $woViewPrUrl = Purchase::workOrderViewUrl(0, (int) $pr['id']);
+                    ?>
+                    <?php if ($woViewPrUrl !== null): ?>
+                    <a href="<?= htmlspecialchars($woViewPrUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                        <i class="bi bi-file-earmark-ruled me-1"></i>ดู Work Order
+                    </a>
+                    <?php endif; ?>
                 <?php endif; ?>
                 <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                     <i class="bi bi-arrow-left me-1"></i>รายการ PR

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Theelincon\Rtdb\Db;
+use Theelincon\Rtdb\Purchase;
 
 require_once __DIR__ . '/../hire_line_items.php';
 require_once __DIR__ . '/../contractors.php';
@@ -188,7 +189,31 @@ function tnc_purchase_po_print_prepare(int $id): ?array
     }
     $installmentNo = (int) ($data['installment_no'] ?? 0);
     $installmentTotal = (int) ($data['installment_total'] ?? 0);
+    if ($installmentTotal < 0) {
+        $installmentTotal = 0;
+    }
+    $hirePoKind = $orderType === 'hire' ? Purchase::hirePoKind($po) : '';
     $referencePrNumber = trim((string) ($data['reference_pr_number'] ?? ($data['pr_number'] ?? '')));
+    $referenceContractPoNumber = trim((string) ($data['reference_contract_po_number'] ?? ''));
+    if ($orderType === 'hire') {
+        if ($hirePoKind === 'contract') {
+            $referencePrNumber = '';
+        } elseif (preg_match('/^HC-TNC-/i', $referencePrNumber)) {
+            $referencePrNumber = '';
+        }
+        if ($referenceContractPoNumber === '' && in_array($hirePoKind, ['payment', 'advance'], true)) {
+            $hcIdPrint = (int) ($data['hire_contract_id'] ?? 0);
+            if ($hcIdPrint > 0) {
+                $hcPrint = Db::row('hire_contracts', (string) $hcIdPrint);
+                if (is_array($hcPrint)) {
+                    $woDoc = Purchase::hireContractDocumentNumber($hcPrint);
+                    if ($woDoc !== '' && !preg_match('/^HC-TNC-/i', $woDoc)) {
+                        $referenceContractPoNumber = $woDoc;
+                    }
+                }
+            }
+        }
+    }
     $withholdingType = trim((string) ($data['withholding_type'] ?? 'none'));
     if ($withholdingType === 'wht5') {
         $withholdingType = 'wht3';
@@ -204,6 +229,13 @@ function tnc_purchase_po_print_prepare(int $id): ?array
     $retentionAmount = (float) ($data['retention_amount'] ?? 0);
     $poNotePo = trim((string) ($data['po_note'] ?? ''));
     $poNoteQt = trim((string) ($data['quotation_note'] ?? ''));
+    $hireWorkConditions = '';
+    if ($orderType === 'hire' && $hirePoKind === 'contract') {
+        $hireWorkConditions = Purchase::hireWorkConditionsText($po);
+        if ($hireWorkConditions !== '') {
+            $poNotePo = $hireWorkConditions;
+        }
+    }
 
     $poSiteDisplay = trim((string) ($data['site_name'] ?? ''));
     $poSiteId = (int) ($data['site_id'] ?? 0);
@@ -304,22 +336,31 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         $poDocTitle = 'PO-' . (int) ($po['id'] ?? $id);
     }
 
+    $hirePaymentSequenceLabel = '';
+    if ($orderType === 'hire' && $hirePoKind !== 'contract') {
+        $hirePaymentSequenceLabel = Purchase::hirePayablePoSequenceLabel($po, $installmentTotal);
+    }
+
     return [
         'po' => $po,
         'data' => $data,
         'items' => $items,
         'orderType' => $orderType,
+        'hirePoKind' => $hirePoKind,
         'contractorName' => $contractorName,
         'contractorPrint' => $contractorPrint,
         'installmentNo' => $installmentNo,
         'installmentTotal' => $installmentTotal,
         'referencePrNumber' => $referencePrNumber,
+        'referenceContractPoNumber' => $referenceContractPoNumber,
         'withholdingType' => $withholdingType,
         'withholdingAmount' => $withholdingAmount,
         'retentionType' => $retentionType,
         'retentionAmount' => $retentionAmount,
         'poNotePo' => $poNotePo,
         'poNoteQt' => $poNoteQt,
+        'hireWorkConditions' => $hireWorkConditions,
+        'hirePaymentSequenceLabel' => $hirePaymentSequenceLabel,
         'poSiteDisplay' => $poSiteDisplay,
         'po_vat_enabled' => $po_vat_enabled,
         'poVatMode' => $poVatMode,

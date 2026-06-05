@@ -17,7 +17,7 @@ if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
     exit;
 }
-if (!user_is_admin_only_role()) {
+if (!user_can('page.cash')) {
     $access_denied_title = 'สดย่อย (Petty Cash)';
     $access_denied_text = 'เข้าใช้งานได้เฉพาะผู้ใช้ที่มีสิทธิ์ ADMIN เท่านั้น';
     require dirname(__DIR__, 2) . '/includes/page_access_denied_swal.php';

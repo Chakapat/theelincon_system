@@ -13,8 +13,8 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-if (!user_can_edit_invoice()) {
-    header('Location: ' . app_path('index.php'));
+if (!user_can('page.org.customer')) {
+    header('Location: ' . app_path('index.php') . '?error=forbidden');
     exit();
 }
 

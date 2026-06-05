@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 
 use Theelincon\Rtdb\Db;
+use Theelincon\Rtdb\Purchase;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
@@ -77,8 +78,13 @@ $poListSortYmd = static function (array $row): string {
     return '';
 };
 
+$woListUrl = app_path('pages/purchase/work-order-list.php');
+
 $po_rows = [];
 foreach (Db::tableRows('purchase_orders') as $po) {
+    if (Purchase::isWorkOrder($po)) {
+        continue;
+    }
     $s = $suppliers[(string) ($po['supplier_id'] ?? '')] ?? null;
     $u = $users[(string) ($po['created_by'] ?? '')] ?? null;
     $status = strtolower(trim((string) ($po['status'] ?? 'ordered')));
@@ -321,6 +327,8 @@ $ignoredCountAll = count($ignoredPoList);
                 echo 'ใบสั่งซื้อนี้ยกเลิกไปแล้ว';
             } elseif ($errorCode === 'po_paid') {
                 echo 'ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถแก้ไข ยกเลิก หรือลบได้';
+            } elseif ($errorCode === 'contract_po_not_payable') {
+                echo 'WO สัญญาจ้างไม่ใช่ใบสั่งจ่าย — ใช้ «ออก PO สั่งจ่าย» สำหรับงวด/ครั้งที่ต้องโอนเงิน';
             } elseif ($errorCode === 'billing_required') {
                 echo 'กรุณากรอกเลขที่บิลซื้อและวันที่บนบิลให้ครบถ้วน';
             } elseif ($errorCode === 'billing_amount_invalid') {
@@ -400,6 +408,14 @@ $ignoredCountAll = count($ignoredPoList);
             </h1>
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
+            <?php if (user_can('po.create')): ?>
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-3 shadow-sm">
+                <i class="bi bi-plus-lg me-1"></i>ออก PO สั่งซื้อ
+            </a>
+            <?php endif; ?>
+            <a href="<?= htmlspecialchars($woListUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-primary rounded-pill px-3 shadow-sm">
+                <i class="bi bi-file-earmark-ruled me-1"></i>รายการ Work Order (WO)
+            </a>
             <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm no-print" id="poBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก">
                 <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
             </button>
@@ -452,7 +468,7 @@ $ignoredCountAll = count($ignoredPoList);
                         <tr><td colspan="6" class="po-empty-state text-center text-muted">
                             <i class="bi bi-inbox d-block mb-2" aria-hidden="true"></i>
                             <div class="fw-semibold text-dark">ยังไม่มีใบสั่งซื้อ</div>
-                            <div class="small mt-1">สร้าง PO จาก<a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">รายการใบขอซื้อ</a></div>
+                            <div class="small mt-1"><?php if (user_can('po.create')): ?><a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ออก PO โดยตรง</a> · <?php endif; ?>จาก<a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ใบขอซื้อ (PR)</a> · สัญญาจ้าง: <a href="<?= htmlspecialchars($woListUrl, ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">Work Order (WO)</a></div>
                         </td></tr>
                     <?php else: ?>
                         <?= tnc_purchase_table_skeleton_tr(6, 'po') ?>

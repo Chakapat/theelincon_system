@@ -120,13 +120,11 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <?php if (!$autoprint): ?>
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
-    <?php endif; ?>
     <?php if (!$embed && !$autoprint): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/doc-view-shell.css'), ENT_QUOTES, 'UTF-8') ?>">
     <?php endif; ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/invoice-sales-print.css'), ENT_QUOTES, 'UTF-8') ?>">
     
     <style>
@@ -361,12 +359,12 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
     </div>
 
     <div class="row align-items-start mb-2">
-        <div class="col-6">
+        <div class="col-6 inv-company-col">
             <?php if(!empty($data['logo'])): ?>
                 <img src="<?= htmlspecialchars(upload_logo_url($data['logo'])) ?>" class="company-logo" alt="Logo">
             <?php endif; ?>
-            <div class="fw-bold" style="font-size: 15px;"><?= h((string) ($data['name'] ?? '')); ?></div>
-            <div class="small text-muted" style="font-size: 11px; line-height: 1.2;">
+            <div class="inv-company-name"><?= h((string) ($data['name'] ?? '')); ?></div>
+            <div class="inv-company-detail text-muted">
                 <?php if ($company_detail_line !== ''): ?>
                     <?= htmlspecialchars($company_detail_line, ENT_QUOTES, 'UTF-8') ?>
                 <?php endif; ?>

@@ -13,8 +13,8 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-if (!user_is_admin_role()) {
-    header('Location: ' . app_path('index.php'));
+if (!user_can('page.org.company')) {
+    header('Location: ' . app_path('index.php') . '?error=forbidden');
     exit();
 }
 
@@ -22,6 +22,20 @@ $is_admin = true;
 
 $companies = Db::tableRows('company');
 Db::sortRows($companies, 'id', true);
+
+/**
+ * @param array<string, mixed> $row
+ */
+function company_type_key(array $row): string
+{
+    $t = trim((string) ($row['company_type'] ?? ''));
+    return $t === 'individual' ? 'individual' : 'company';
+}
+
+function company_type_label_th(string $type): string
+{
+    return $type === 'individual' ? 'บุคคลธรรมดา' : 'นิติบุคคล';
+}
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -61,20 +75,27 @@ Db::sortRows($companies, 'id', true);
                     <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=add_company" method="POST" enctype="multipart/form-data" data-tnc-soft-reload="1">
                         <?php csrf_field(); ?>
                         <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted">โลโก้บริษัท</label>
+                            <label class="form-label small fw-bold text-muted js-company-label-logo" data-form-scope="add">โลโก้บริษัท</label>
                             <input type="file" name="logo" class="form-control border-0 bg-light py-2 rounded-3" accept="image/*">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted">ชื่อบริษัท</label>
-                            <input type="text" name="name" class="form-control border-0 bg-light py-2 rounded-3" placeholder="ชื่อบริษัทเต็ม" required>
+                            <label class="form-label small fw-bold text-muted">ประเภท</label>
+                            <select name="company_type" id="add_company_type" class="form-select border-0 bg-light rounded-3 js-company-type-select" data-form-scope="add">
+                                <option value="company">นิติบุคคล (บริษัท / ห้างหุ้นส่วน)</option>
+                                <option value="individual">บุคคลธรรมดา</option>
+                            </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted">เลขผู้เสียภาษี</label>
-                            <input type="text" name="tax_id" class="form-control border-0 bg-light py-2 rounded-3" placeholder="เลขประจำตัว 13 หลัก" required>
+                            <label class="form-label small fw-bold text-muted js-company-label-name" data-form-scope="add">ชื่อนิติบุคคล / บริษัท</label>
+                            <input type="text" name="name" class="form-control border-0 bg-light py-2 rounded-3 js-company-input-name" data-form-scope="add" placeholder="ชื่อบริษัทเต็ม" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted">ที่อยู่</label>
-                            <textarea name="address" class="form-control border-0 bg-light rounded-3" rows="3" placeholder="ที่อยู่จดทะเบียน" required></textarea>
+                            <label class="form-label small fw-bold text-muted js-company-label-tax" data-form-scope="add">เลขประจำตัวผู้เสียภาษี</label>
+                            <input type="text" name="tax_id" class="form-control border-0 bg-light py-2 rounded-3 js-company-input-tax" data-form-scope="add" placeholder="เลขประจำตัว 13 หลัก" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted js-company-label-address" data-form-scope="add">ที่อยู่</label>
+                            <textarea name="address" class="form-control border-0 bg-light rounded-3 js-company-input-address" data-form-scope="add" rows="3" placeholder="ที่อยู่จดทะเบียน" required></textarea>
                         </div>
                         <div class="row g-2 mb-4">
                             <div class="col-6">
@@ -99,7 +120,7 @@ Db::sortRows($companies, 'id', true);
                     <table class="table table-hover align-middle mb-0" id="companyTable" width="100%">
                         <thead class="bg-light text-muted small">
                             <tr>
-                                <th class="ps-4 border-0">บริษัท</th>
+                                <th class="ps-4 border-0">ชื่อ / ประเภท</th>
                                 <th class="border-0">เลขผู้เสียภาษี</th>
                                 <th class="border-0">ติดต่อ</th>
                                 <?php if($is_admin): ?>
@@ -108,17 +129,20 @@ Db::sortRows($companies, 'id', true);
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($companies as $row): ?>
+                            <?php foreach ($companies as $row):
+                                $ctype = company_type_key($row);
+                            ?>
                             <tr>
                                 <td class="ps-4">
                                     <div class="d-flex align-items-center">
                                         <?php if($row['logo']): ?>
                                             <img src="<?= htmlspecialchars(upload_logo_url($row['logo'])) ?>" class="logo-preview me-3 border">
                                         <?php else: ?>
-                                            <div class="logo-preview me-3 d-flex align-items-center justify-content-center border text-muted"><i class="bi bi-building"></i></div>
+                                            <div class="logo-preview me-3 d-flex align-items-center justify-content-center border text-muted"><i class="bi bi-<?= $ctype === 'individual' ? 'person' : 'building' ?>"></i></div>
                                         <?php endif; ?>
                                         <div>
                                             <div class="fw-bold"><?= htmlspecialchars($row['name']) ?></div>
+                                            <div class="text-muted small"><?= htmlspecialchars(company_type_label_th($ctype)) ?></div>
                                             <small class="text-muted d-inline-block text-truncate" style="max-width: 180px;"><?= htmlspecialchars($row['address']) ?></small>
                                         </div>
                                     </div>
@@ -162,9 +186,16 @@ Db::sortRows($companies, 'id', true);
                         <div id="edit_logo_preview" class="mb-2"></div>
                         <input type="file" name="logo" class="form-control bg-light border-0 py-2 rounded-3" accept="image/*">
                     </div>
-                    <div class="mb-3"><label class="small fw-bold">ชื่อบริษัท</label><input type="text" name="name" id="edit_name" class="form-control bg-light border-0 py-2 rounded-3" required></div>
-                    <div class="mb-3"><label class="small fw-bold">เลขผู้เสียภาษี</label><input type="text" name="tax_id" id="edit_tax_id" class="form-control bg-light border-0 py-2 rounded-3" required></div>
-                    <div class="mb-3"><label class="small fw-bold">ที่อยู่</label><textarea name="address" id="edit_address" class="form-control bg-light border-0 rounded-3" rows="2" required></textarea></div>
+                    <div class="mb-3">
+                        <label class="small fw-bold">ประเภท</label>
+                        <select name="company_type" id="edit_company_type" class="form-select bg-light border-0 py-2 rounded-3 js-company-type-select" data-form-scope="edit">
+                            <option value="company">นิติบุคคล (บริษัท / ห้างหุ้นส่วน)</option>
+                            <option value="individual">บุคคลธรรมดา</option>
+                        </select>
+                    </div>
+                    <div class="mb-3"><label class="small fw-bold js-company-label-name" data-form-scope="edit">ชื่อนิติบุคคล / บริษัท</label><input type="text" name="name" id="edit_name" class="form-control bg-light border-0 py-2 rounded-3 js-company-input-name" data-form-scope="edit" required></div>
+                    <div class="mb-3"><label class="small fw-bold js-company-label-tax" data-form-scope="edit">เลขประจำตัวผู้เสียภาษี</label><input type="text" name="tax_id" id="edit_tax_id" class="form-control bg-light border-0 py-2 rounded-3 js-company-input-tax" data-form-scope="edit" required></div>
+                    <div class="mb-3"><label class="small fw-bold js-company-label-address" data-form-scope="edit">ที่อยู่</label><textarea name="address" id="edit_address" class="form-control bg-light border-0 rounded-3 js-company-input-address" data-form-scope="edit" rows="2" required></textarea></div>
                     <div class="row g-2">
                         <div class="col-6"><label class="small fw-bold">โทรศัพท์</label><input type="text" name="phone" id="edit_phone" class="form-control bg-light border-0 py-2 rounded-3"></div>
                         <div class="col-6"><label class="small fw-bold">อีเมล</label><input type="email" name="email" id="edit_email" class="form-control bg-light border-0 py-2 rounded-3"></div>
@@ -182,6 +213,45 @@ Db::sortRows($companies, 'id', true);
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
 const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
 const uploadsLogosBase = <?= json_encode(upload_logos_base_url(), JSON_UNESCAPED_SLASHES) ?>;
+const COMPANY_FORM_LABELS = {
+    company: {
+        name: 'ชื่อนิติบุคคล / บริษัท',
+        namePh: 'ชื่อบริษัทเต็ม',
+        tax: 'เลขประจำตัวผู้เสียภาษี',
+        taxPh: 'เลขประจำตัว 13 หลัก',
+        address: 'ที่อยู่จดทะเบียน',
+        addressPh: 'ที่อยู่จดทะเบียน',
+        logo: 'โลโก้บริษัท'
+    },
+    individual: {
+        name: 'ชื่อ-นามสกุล',
+        namePh: 'เช่น นายธีรยุทธ์ หนุนุน',
+        tax: 'เลขประจำตัวผู้เสียภาษี / เลขบัตรประชาชน',
+        taxPh: 'เลขประจำตัว 13 หลัก',
+        address: 'ที่อยู่ตามบัตรประชาชน',
+        addressPh: 'ที่อยู่ตามบัตรประชาชน',
+        logo: 'รูปโปรไฟล์ (ถ้ามี)'
+    }
+};
+
+function applyCompanyTypeUi(scope, type) {
+    const key = type === 'individual' ? 'individual' : 'company';
+    const labels = COMPANY_FORM_LABELS[key];
+    document.querySelectorAll('.js-company-label-name[data-form-scope="' + scope + '"]').forEach(function (el) { el.textContent = labels.name; });
+    document.querySelectorAll('.js-company-label-tax[data-form-scope="' + scope + '"]').forEach(function (el) { el.textContent = labels.tax; });
+    document.querySelectorAll('.js-company-label-address[data-form-scope="' + scope + '"]').forEach(function (el) { el.textContent = labels.address; });
+    document.querySelectorAll('.js-company-label-logo[data-form-scope="' + scope + '"]').forEach(function (el) { el.textContent = labels.logo; });
+    document.querySelectorAll('.js-company-input-name[data-form-scope="' + scope + '"]').forEach(function (el) { el.placeholder = labels.namePh; });
+    document.querySelectorAll('.js-company-input-tax[data-form-scope="' + scope + '"]').forEach(function (el) { el.placeholder = labels.taxPh; });
+    document.querySelectorAll('.js-company-input-address[data-form-scope="' + scope + '"]').forEach(function (el) { el.placeholder = labels.addressPh; });
+}
+
+document.querySelectorAll('.js-company-type-select').forEach(function (sel) {
+    const scope = sel.getAttribute('data-form-scope') || 'add';
+    sel.addEventListener('change', function () { applyCompanyTypeUi(scope, sel.value); });
+    applyCompanyTypeUi(scope, sel.value);
+});
+
 function confirmDelete(id, type) {
     Swal.fire({
         title: 'ยืนยันการลบ?',
@@ -234,6 +304,11 @@ function editCompany(id) {
     fetch(`${actionHandlerUrl}?action=get_data&type=company&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`)
     .then(res => res.json()).then(data => {
         ['id','name','tax_id','address','phone','email'].forEach(k => document.getElementById(`edit_${k}`).value = data[k]);
+        const typeSel = document.getElementById('edit_company_type');
+        if (typeSel) {
+            typeSel.value = (data.company_type === 'individual') ? 'individual' : 'company';
+            applyCompanyTypeUi('edit', typeSel.value);
+        }
         document.getElementById('edit_logo_preview').innerHTML = data.logo ? `<img src="${uploadsLogosBase}${encodeURIComponent(data.logo)}" class="logo-preview border p-1 shadow-sm mb-2" style="width:100px;height:100px">` : `<div class="logo-preview mx-auto d-flex align-items-center justify-content-center border mb-2" style="width:100px;height:100px"><i class="bi bi-image fs-2"></i></div>`;
         new bootstrap.Modal(document.getElementById('editCompanyModal')).show();
     });

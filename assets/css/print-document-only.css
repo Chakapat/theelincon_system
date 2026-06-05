@@ -5,7 +5,7 @@
 @media print {
     @page {
         size: A4 portrait;
-        margin: 10mm;
+        margin: 0;
     }
 
     html,
@@ -83,7 +83,8 @@
     body.purchase-module .pr-view-canvas,
     body.purchase-module .po-view-canvas {
         visibility: visible !important;
-        display: block !important;
+        display: flex !important;
+        justify-content: center !important;
         position: absolute !important;
         left: 0 !important;
         top: 0 !important;
@@ -154,8 +155,8 @@
         break-inside: avoid !important;
     }
 
-    body.purchase-module .invoice-box,
-    body.tnc-batch-print-body .invoice-box {
+    body.purchase-module .invoice-box:not(.po-purchase-order-doc):not(.pr-purchase-requisition-doc),
+    body.tnc-batch-print-body .invoice-box:not(.po-purchase-order-doc):not(.pr-purchase-requisition-doc) {
         width: 100% !important;
         max-width: 100% !important;
         min-height: 0 !important;
@@ -166,6 +167,155 @@
         overflow: visible !important;
         page-break-after: always;
         break-after: page;
+    }
+
+    body.purchase-module .invoice-box.po-purchase-order-doc,
+    body.purchase-module .invoice-box.pr-purchase-requisition-doc,
+    body.tnc-batch-print-body .invoice-box.po-purchase-order-doc,
+    body.tnc-batch-print-body .invoice-box.pr-purchase-requisition-doc {
+        width: 210mm !important;
+        max-width: 210mm !important;
+        min-height: 297mm !important;
+        height: auto !important;
+        margin: 0 auto !important;
+        padding: 10mm 15mm !important;
+        border: none !important;
+        border-top: none !important;
+        border-top-width: 0 !important;
+        outline: none !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        display: flex !important;
+        flex-direction: column !important;
+        box-sizing: border-box !important;
+        page-break-after: always;
+        break-after: page;
+    }
+
+    body.purchase-module .invoice-box.po-purchase-order-doc::before,
+    body.purchase-module .invoice-box.po-purchase-order-doc::after,
+    body.purchase-module .invoice-box.pr-purchase-requisition-doc::before,
+    body.purchase-module .invoice-box.pr-purchase-requisition-doc::after,
+    body.tnc-batch-print-body .invoice-box.po-purchase-order-doc::before,
+    body.tnc-batch-print-body .invoice-box.po-purchase-order-doc::after,
+    body.tnc-batch-print-body .invoice-box.pr-purchase-requisition-doc::before,
+    body.tnc-batch-print-body .invoice-box.pr-purchase-requisition-doc::after {
+        display: none !important;
+        content: none !important;
+    }
+
+    body.purchase-module .tnc-batch-print-wrap:last-child .invoice-box.po-purchase-order-doc:last-child,
+    body.purchase-module .tnc-batch-print-wrap:last-child .invoice-box.pr-purchase-requisition-doc:last-child,
+    body.tnc-batch-print-body .tnc-batch-print-wrap:last-child .invoice-box.po-purchase-order-doc:last-child,
+    body.tnc-batch-print-body .tnc-batch-print-wrap:last-child .invoice-box.pr-purchase-requisition-doc:last-child {
+        page-break-after: auto;
+        break-after: auto;
+    }
+
+    body.purchase-module .po-purchase-order-doc .po-doc-main,
+    body.purchase-module .pr-purchase-requisition-doc .pr-doc-main,
+    body.tnc-batch-print-body .po-purchase-order-doc .po-doc-main,
+    body.tnc-batch-print-body .pr-purchase-requisition-doc .pr-doc-main {
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: calc(297mm - 20mm) !important;
+        width: 100% !important;
+        padding-bottom: 0 !important;
+    }
+
+    body.purchase-module .po-purchase-order-doc .po-doc-content,
+    body.purchase-module .pr-purchase-requisition-doc .pr-doc-content,
+    body.tnc-batch-print-body .po-purchase-order-doc .po-doc-content,
+    body.tnc-batch-print-body .pr-purchase-requisition-doc .pr-doc-content {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+    }
+
+    body.purchase-module .po-purchase-order-doc .footer-sticky,
+    body.purchase-module .pr-purchase-requisition-doc .footer-sticky,
+    body.tnc-batch-print-body .po-purchase-order-doc .footer-sticky,
+    body.tnc-batch-print-body .pr-purchase-requisition-doc .footer-sticky {
+        flex: 0 0 auto !important;
+        margin-top: auto !important;
+        position: relative !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    body.purchase-module .po-purchase-order-doc .signature-grid,
+    body.purchase-module .pr-purchase-requisition-doc .signature-grid,
+    body.tnc-batch-print-body .po-purchase-order-doc .signature-grid,
+    body.tnc-batch-print-body .pr-purchase-requisition-doc .signature-grid,
+    body.purchase-module .po-purchase-order-doc .po-total-sheet,
+    body.purchase-module .pr-purchase-requisition-doc .pr-total-sheet,
+    body.tnc-batch-print-body .po-purchase-order-doc .po-total-sheet,
+    body.tnc-batch-print-body .pr-purchase-requisition-doc .pr-total-sheet {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    body.purchase-module .po-purchase-order-doc .po-footer-row,
+    body.purchase-module .pr-purchase-requisition-doc .pr-footer-row,
+    body.tnc-batch-print-body .po-purchase-order-doc .po-footer-row,
+    body.tnc-batch-print-body .pr-purchase-requisition-doc .pr-footer-row {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: flex-start !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    body.purchase-module .po-purchase-order-doc .po-footer-row:has(.po-notes-panel),
+    body.purchase-module .pr-purchase-requisition-doc .pr-footer-row:has(.pr-notes-panel),
+    body.tnc-batch-print-body .po-purchase-order-doc .po-footer-row:has(.po-notes-panel),
+    body.tnc-batch-print-body .pr-purchase-requisition-doc .pr-footer-row:has(.pr-notes-panel) {
+        column-gap: 0.75rem !important;
+        row-gap: 1.15rem !important;
+    }
+
+    body.purchase-module .po-purchase-order-doc.po-hire-contract-doc .po-footer-row:has(.po-notes-panel),
+    body.tnc-batch-print-body .po-purchase-order-doc.po-hire-contract-doc .po-footer-row:has(.po-notes-panel) {
+        row-gap: 1.5rem !important;
+    }
+
+    body.purchase-module .po-purchase-order-doc .po-footer-notes-col,
+    body.purchase-module .pr-purchase-requisition-doc .pr-footer-notes-col,
+    body.tnc-batch-print-body .po-purchase-order-doc .po-footer-notes-col,
+    body.tnc-batch-print-body .pr-purchase-requisition-doc .pr-footer-notes-col {
+        flex: 0 0 auto !important;
+        width: 58.33333333% !important;
+        max-width: 58.33333333% !important;
+        padding-right: 0.75rem !important;
+    }
+
+    body.purchase-module .po-purchase-order-doc .po-footer-totals-col,
+    body.purchase-module .pr-purchase-requisition-doc .pr-footer-totals-col,
+    body.tnc-batch-print-body .po-purchase-order-doc .po-footer-totals-col,
+    body.tnc-batch-print-body .pr-purchase-requisition-doc .pr-footer-totals-col {
+        flex: 0 0 auto !important;
+        width: 41.66666667% !important;
+        max-width: 41.66666667% !important;
+        margin-left: 0 !important;
+    }
+
+    body.purchase-module .po-purchase-order-doc .po-footer-notes-col:not(:has(.po-notes-panel)),
+    body.purchase-module .pr-purchase-requisition-doc .pr-footer-notes-col:not(:has(.pr-notes-panel)),
+    body.tnc-batch-print-body .po-purchase-order-doc .po-footer-notes-col:not(:has(.po-notes-panel)),
+    body.tnc-batch-print-body .pr-purchase-requisition-doc .pr-footer-notes-col:not(:has(.pr-notes-panel)) {
+        display: none !important;
+    }
+
+    body.purchase-module .po-purchase-order-doc .po-footer-row:not(:has(.po-notes-panel)) .po-footer-totals-col,
+    body.purchase-module .pr-purchase-requisition-doc .pr-footer-row:not(:has(.pr-notes-panel)) .pr-footer-totals-col,
+    body.tnc-batch-print-body .po-purchase-order-doc .po-footer-row:not(:has(.po-notes-panel)) .po-footer-totals-col,
+    body.tnc-batch-print-body .pr-purchase-requisition-doc .pr-footer-row:not(:has(.pr-notes-panel)) .pr-footer-totals-col {
+        margin-left: auto !important;
+        flex: 0 0 auto !important;
+        width: min(100%, 15.5rem) !important;
+        max-width: 15.5rem !important;
     }
 
     body.purchase-module .tnc-batch-print-wrap:last-child .invoice-box:last-child,

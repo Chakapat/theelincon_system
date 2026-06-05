@@ -30,7 +30,12 @@ $ids = array_slice($ids, 0, 25);
 
 $backPr = app_path('pages/purchase/purchase-request-list.php');
 $backPo = app_path('pages/purchase/purchase-order-list.php');
-$backUrl = $kind === 'po' ? $backPo : $backPr;
+$backWo = app_path('pages/purchase/work-order-list.php');
+$backKind = strtolower(trim((string) ($_GET['back'] ?? '')));
+$backUrl = match ($backKind) {
+    'wo' => $backWo,
+    default => $kind === 'po' ? $backPo : $backPr,
+};
 
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/pr_document.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/po_document.php';
@@ -176,7 +181,7 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
         .invoice-box {
             width: 210mm;
             max-width: 100%;
-            min-height: 0;
+            min-height: 297mm;
             height: auto;
             margin: 0 auto;
             background: #fff;
@@ -185,6 +190,13 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
             box-shadow: 0 5px 20px rgba(0,0,0,0.08);
             overflow: visible;
             box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        .invoice-box.po-purchase-order-doc,
+        .invoice-box.pr-purchase-requisition-doc {
+            --po-doc-a4-height: 297mm;
+            --po-doc-pad-block: 10mm;
         }
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
         .po-purchase-order-doc .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
@@ -219,11 +231,29 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
             display: flex; justify-content: space-between; align-items: center;
             background: #28a745; color: #fff; padding: 12px; border-radius: 5px; margin-top: 8px;
         }
-        .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; text-align: center; margin-top: 22px; }
+        .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; text-align: center; margin-top: 22px; page-break-inside: avoid; break-inside: avoid; }
         .sig-space { height: 72px; }
         .sig-box { border-top: 1px solid #333; padding-top: 10px; font-size: 13px; font-weight: 600; }
         .pr-doc-main,
         .po-doc-main {
+            box-sizing: border-box;
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: calc(var(--po-doc-a4-height, 297mm) - (var(--po-doc-pad-block, 10mm) * 2));
+            width: 100%;
+        }
+        .pr-doc-content,
+        .po-doc-content {
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+        .invoice-box.po-purchase-order-doc .footer-sticky,
+        .invoice-box.pr-purchase-requisition-doc .footer-sticky {
+            flex: 0 0 auto;
+            margin-top: auto;
+            width: 100%;
+            max-width: 100%;
             box-sizing: border-box;
         }
         .po-cancelled-watermark,
@@ -243,8 +273,51 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
             text-transform: uppercase;
         }
         @media (max-width: 575.98px) {
-            .invoice-box { width: 100%; min-height: 0; height: auto; padding: 1rem; box-shadow: none; overflow: visible; }
+            .invoice-box { width: 100%; min-height: 0; height: auto; padding: 1rem; box-shadow: none; overflow: visible; display: block; }
             .signature-grid { grid-template-columns: 1fr; gap: 18px; }
+        }
+        @media print {
+            .invoice-box.po-purchase-order-doc,
+            .invoice-box.pr-purchase-requisition-doc {
+                width: 210mm !important;
+                max-width: 210mm !important;
+                min-height: 297mm !important;
+                margin: 0 auto !important;
+                height: auto !important;
+                display: flex !important;
+                flex-direction: column !important;
+                padding: 10mm 15mm !important;
+                border: none !important;
+                border-top: none !important;
+                border-top-width: 0 !important;
+                outline: none !important;
+                box-shadow: none !important;
+            }
+            .invoice-box.po-purchase-order-doc .po-doc-main,
+            .invoice-box.pr-purchase-requisition-doc .pr-doc-main {
+                flex: 1 1 auto !important;
+                display: flex !important;
+                flex-direction: column !important;
+                min-height: calc(297mm - 20mm) !important;
+            }
+            .invoice-box.po-purchase-order-doc .po-doc-content,
+            .invoice-box.pr-purchase-requisition-doc .pr-doc-content {
+                flex: 1 1 auto !important;
+            }
+            .invoice-box.po-purchase-order-doc .footer-sticky,
+            .invoice-box.pr-purchase-requisition-doc .footer-sticky {
+                flex: 0 0 auto !important;
+                margin-top: auto !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+            .invoice-box.po-purchase-order-doc .signature-grid,
+            .invoice-box.pr-purchase-requisition-doc .signature-grid,
+            .invoice-box.po-purchase-order-doc .po-total-sheet,
+            .invoice-box.pr-purchase-requisition-doc .pr-total-sheet {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
         }
     </style>
 </head>

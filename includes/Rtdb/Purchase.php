@@ -31,7 +31,37 @@ final class Purchase
         return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
     }
 
-    /** PR-TNC-YYMM-xxx */
+    /** WO-TNC-001 — ใบสั่งงาน (สัญญาจ้าง) */
+    public static function generateWorkOrderNumber(): string
+    {
+        $prefix = 'WO-TNC-';
+        $max = 0;
+        foreach (Db::tableRows('purchase_orders') as $r) {
+            $pn = (string) ($r['po_number'] ?? '');
+            if (strncmp($pn, $prefix, strlen($prefix)) !== 0) {
+                continue;
+            }
+            $tail = substr($pn, strlen($prefix));
+            if (preg_match('/^\d+$/', $tail) === 1) {
+                $max = max($max, (int) $tail);
+            }
+        }
+
+        return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
+    }
+
+    /** เอกสารสัญญาจ้าง (WO) — ไม่ใช่ PO สั่งจ่าย */
+    public static function isWorkOrder(array $po): bool
+    {
+        return self::isHireContractPo($po);
+    }
+
+    /** ป้ายประเภทเอกสารบนหน้าจอ */
+    public static function hireDocumentKindLabel(array $po): string
+    {
+        return self::isWorkOrder($po) ? 'WO' : 'PO';
+    }
+
     public static function nextPRNumber(): string
     {
         $suffix = date('ym');
@@ -48,7 +78,7 @@ final class Purchase
         return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
     }
 
-    /** HC-TNC-YYMM-xxx — เลขที่สัญญาจ้างอิสระ (ไม่อิง PR) */
+    /** @deprecated ใช้ WO-TNC-xxx เป็นเลขที่สัญญาจ้าง — คงไว้สำหรับข้อมูลเก่าเท่านั้น */
     public static function nextHireContractNumber(): string
     {
         $suffix = date('ym');
@@ -63,6 +93,39 @@ final class Purchase
         }
 
         return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
+    }
+
+    /** เลขที่สัญญาจ้างสำหรับแสดงผล — WO-TNC-xxx (ข้อมูลเก่า HC-TNC จะ resolve จาก contract PO) */
+    public static function hireContractDocumentNumber(array $hc): string
+    {
+        $contractPoId = (int) ($hc['contract_po_id'] ?? 0);
+        if ($contractPoId > 0) {
+            $po = Db::row('purchase_orders', (string) $contractPoId);
+            if (is_array($po)) {
+                $woNo = trim((string) ($po['po_number'] ?? ''));
+                if ($woNo !== '') {
+                    return $woNo;
+                }
+            }
+        }
+
+        $stored = trim((string) ($hc['pr_number'] ?? ''));
+        if ($stored !== '' && preg_match('/^WO-TNC-/i', $stored)) {
+            return $stored;
+        }
+
+        $hcId = (int) ($hc['id'] ?? 0);
+        if ($hcId > 0) {
+            $contractPo = self::hireContractPoFor((int) ($hc['pr_id'] ?? 0), $hcId);
+            if ($contractPo !== null) {
+                $woNo = trim((string) ($contractPo['po_number'] ?? ''));
+                if ($woNo !== '') {
+                    return $woNo;
+                }
+            }
+        }
+
+        return $stored;
     }
 
     public static function createHireContractIfNeededForPr(int $prId): void
@@ -124,8 +187,346 @@ final class Purchase
         ]);
     }
 
+    /** ประเภท PO จัดจ้าง: contract = WO, payment = สั่งจ่ายงวด/ครั้ง, advance = เบิกล่วงหน้า */
+    public static function hirePoKind(array $po): string
+    {
+        if (trim((string) ($po['order_type'] ?? 'purchase')) !== 'hire') {
+            return '';
+        }
+        $kind = trim((string) ($po['hire_po_kind'] ?? ''));
+        if (in_array($kind, ['contract', 'payment', 'advance'], true)) {
+            return $kind;
+        }
+        $pn = trim((string) ($po['po_number'] ?? ''));
+        if ($pn !== '' && preg_match('/^WO-TNC-/i', $pn)) {
+            return 'contract';
+        }
+
+        return 'payment';
+    }
+
+    public static function isHireContractPo(array $po): bool
+    {
+        return self::hirePoKind($po) === 'contract';
+    }
+
+    public static function isHireAdvancePo(array $po): bool
+    {
+        return trim((string) ($po['order_type'] ?? 'purchase')) === 'hire' && self::hirePoKind($po) === 'advance';
+    }
+
+    public static function isHirePaymentPo(array $po): bool
+    {
+        return trim((string) ($po['order_type'] ?? 'purchase')) === 'hire' && self::hirePoKind($po) === 'payment';
+    }
+
+    /** PO สั่งจ่าย/เบิกล่วงหน้า (ไม่รวม WO สัญญา) */
+    public static function isHirePayablePo(array $po): bool
+    {
+        $kind = self::hirePoKind($po);
+
+        return in_array($kind, ['payment', 'advance'], true);
+    }
+
+    /** PO สัญญาจ้างที่ยังใช้งาน (ไม่ถูกยกเลิก) */
+    public static function hireContractPoFor(int $prId = 0, int $hireContractId = 0): ?array
+    {
+        foreach (Db::tableRows('purchase_orders') as $po) {
+            if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+                continue;
+            }
+            if (!self::isHireContractPo($po)) {
+                continue;
+            }
+            if ($prId > 0 && (int) ($po['pr_id'] ?? 0) !== $prId) {
+                continue;
+            }
+            if ($hireContractId > 0 && (int) ($po['hire_contract_id'] ?? 0) !== $hireContractId) {
+                continue;
+            }
+
+            return $po;
+        }
+
+        return null;
+    }
+
+    public static function hasHireContractPo(int $prId = 0, int $hireContractId = 0): bool
+    {
+        return self::hireContractPoFor($prId, $hireContractId) !== null;
+    }
+
+    /** รายการ Work Order (WO) — สัญญาจ้างใช้ WO เป็นหน้าหลัก */
+    public static function workOrderListUrl(): string
+    {
+        return app_path('pages/purchase/work-order-list.php');
+    }
+
+    /** หน้าดู WO จาก hire_contract_id หรือ pr_id (legacy) */
+    public static function workOrderViewUrl(int $hireContractId = 0, int $prId = 0): ?string
+    {
+        $po = self::hireContractPoFor($prId, $hireContractId);
+        if ($po === null) {
+            return null;
+        }
+        $woId = (int) ($po['id'] ?? 0);
+
+        return $woId > 0
+            ? app_path('pages/purchase/purchase-order-view.php') . '?id=' . $woId
+            : null;
+    }
+
+    /** 0 = ไม่กำหนดจำนวนงวด — นับการสั่งจ่ายเป็น "ครั้ง" */
+    public static function hireInstallmentsUnspecified(int $installmentTotal): bool
+    {
+        return $installmentTotal === 0;
+    }
+
+    public static function parseHireInstallmentTotalPost(mixed $raw): int
+    {
+        return min(120, max(0, (int) $raw));
+    }
+
+    public static function hirePoPayableAmount(array $po): float
+    {
+        $payable = (float) ($po['payable_amount'] ?? 0);
+        if ($payable <= 0) {
+            $payable = (float) ($po['total_amount'] ?? 0);
+        }
+
+        return round($payable, 2);
+    }
+
+    /** @return list<array<string, mixed>> PO สั่งจ่ายงวด/ครั้ง (ไม่รวมเบิกล่วงหน้า) */
+    public static function activeHirePaymentPos(int $hireContractId = 0, int $prId = 0): array
+    {
+        $rows = [];
+        foreach (Db::tableRows('purchase_orders') as $po) {
+            if (trim((string) ($po['order_type'] ?? 'purchase')) !== 'hire') {
+                continue;
+            }
+            if (self::isHireContractPo($po)) {
+                continue;
+            }
+            if (!self::isHirePaymentPo($po)) {
+                continue;
+            }
+            if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+                continue;
+            }
+            if ($hireContractId > 0 && (int) ($po['hire_contract_id'] ?? 0) !== $hireContractId) {
+                continue;
+            }
+            if ($prId > 0 && (int) ($po['pr_id'] ?? 0) !== $prId) {
+                continue;
+            }
+
+            $rows[] = $po;
+        }
+
+        return $rows;
+    }
+
+    /** @return list<array<string, mixed>> PO เบิกล่วงหน้า (ไม่รวมสั่งจ่ายงวด/ครั้ง) */
+    public static function activeHireAdvancePos(int $hireContractId = 0, int $prId = 0): array
+    {
+        $rows = [];
+        foreach (Db::tableRows('purchase_orders') as $po) {
+            if (trim((string) ($po['order_type'] ?? 'purchase')) !== 'hire') {
+                continue;
+            }
+            if (self::isHireContractPo($po)) {
+                continue;
+            }
+            if (!self::isHireAdvancePo($po)) {
+                continue;
+            }
+            if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+                continue;
+            }
+            if ($hireContractId > 0 && (int) ($po['hire_contract_id'] ?? 0) !== $hireContractId) {
+                continue;
+            }
+            if ($prId > 0 && (int) ($po['pr_id'] ?? 0) !== $prId) {
+                continue;
+            }
+
+            $rows[] = $po;
+        }
+
+        return $rows;
+    }
+
+    public static function hireNextPaymentNo(int $hireContractId = 0, int $prId = 0): int
+    {
+        $maxNo = 0;
+        foreach (self::activeHirePaymentPos($hireContractId, $prId) as $po) {
+            $no = (int) ($po['installment_no'] ?? 0);
+            if ($no > $maxNo) {
+                $maxNo = $no;
+            }
+        }
+
+        return $maxNo + 1;
+    }
+
+    public static function formatHirePaymentSequenceLabel(int $no, int $installmentTotal): string
+    {
+        if ($no <= 0) {
+            return '';
+        }
+        if (self::hireInstallmentsUnspecified($installmentTotal)) {
+            return 'ครั้งที่ ' . number_format($no);
+        }
+
+        return 'งวดที่ ' . number_format($no) . ' / ' . number_format($installmentTotal);
+    }
+
+    /** ลำดับ PO เบิกล่วงหน้าของสัญญา (เรียงตาม id) */
+    public static function hireAdvanceSequenceNo(array $po): int
+    {
+        if (!self::isHireAdvancePo($po)) {
+            return 0;
+        }
+        $hcId = (int) ($po['hire_contract_id'] ?? 0);
+        $poId = (int) ($po['id'] ?? 0);
+        if ($hcId <= 0 || $poId <= 0) {
+            return 1;
+        }
+        $seq = 0;
+        $rows = [];
+        foreach (Db::tableRows('purchase_orders') as $row) {
+            if ((int) ($row['hire_contract_id'] ?? 0) !== $hcId) {
+                continue;
+            }
+            if (!self::isHireAdvancePo($row)) {
+                continue;
+            }
+            if (strtolower(trim((string) ($row['status'] ?? ''))) === 'cancelled') {
+                continue;
+            }
+            $rows[] = $row;
+        }
+        usort($rows, static function (array $a, array $b): int {
+            return ((int) ($a['id'] ?? 0)) <=> ((int) ($b['id'] ?? 0));
+        });
+        foreach ($rows as $row) {
+            ++$seq;
+            if ((int) ($row['id'] ?? 0) === $poId) {
+                return $seq;
+            }
+        }
+
+        return max(1, $seq);
+    }
+
+    public static function formatHireAdvanceLabel(array $po): string
+    {
+        $n = self::hireAdvanceSequenceNo($po);
+
+        return $n > 1 ? ('เบิกล่วงหน้า ครั้งที่ ' . number_format($n)) : 'เบิกล่วงหน้า';
+    }
+
+    public static function hirePayablePoSequenceLabel(array $po, int $installmentTotal = 0): string
+    {
+        if (self::isHireAdvancePo($po)) {
+            return self::formatHireAdvanceLabel($po);
+        }
+
+        return self::formatHirePaymentSequenceLabel((int) ($po['installment_no'] ?? 0), $installmentTotal);
+    }
+
+    /** @param array<string, mixed> $paymentRow แถว hire_contract_payments */
+    public static function hireContractPaymentLabel(array $paymentRow, int $installmentTotal = 0): string
+    {
+        $poId = (int) ($paymentRow['po_id'] ?? 0);
+        if ($poId > 0) {
+            $po = Db::row('purchase_orders', (string) $poId);
+            if (is_array($po)) {
+                return self::hirePayablePoSequenceLabel($po, $installmentTotal);
+            }
+        }
+
+        return self::formatHirePaymentSequenceLabel((int) ($paymentRow['installment_no'] ?? 0), $installmentTotal);
+    }
+
+    /** ข้อความหมายเหตุจาก PO หรือสัญญาจ้าง */
+    public static function hireWorkConditionsText(array $po, ?array $hireContract = null): string
+    {
+        $note = trim((string) ($po['po_note'] ?? ''));
+        if ($note !== '') {
+            return $note;
+        }
+        if ($hireContract !== null) {
+            return trim((string) ($hireContract['title'] ?? ''));
+        }
+        $hcId = (int) ($po['hire_contract_id'] ?? 0);
+        if ($hcId > 0) {
+            $hc = Db::row('hire_contracts', (string) $hcId);
+            if (is_array($hc)) {
+                return trim((string) ($hc['title'] ?? ''));
+            }
+        }
+
+        return '';
+    }
+
+    /** ข้อมูล PO สัญญาจ้างสำหรับผูกกับ PO สั่งจ่ายงวด */
+    public static function referenceContractPoPayload(int $hireContractId, int $prId = 0): array
+    {
+        $contractPo = self::hireContractPoFor($prId, $hireContractId);
+        if ($contractPo === null) {
+            return [];
+        }
+        $poId = (int) ($contractPo['id'] ?? 0);
+        $poNo = trim((string) ($contractPo['po_number'] ?? ''));
+        if ($poId <= 0) {
+            return [];
+        }
+
+        $payload = [
+            'reference_contract_po_id' => $poId,
+            'reference_contract_po_number' => $poNo,
+        ];
+
+        $siteId = (int) ($contractPo['site_id'] ?? 0);
+        if ($siteId > 0) {
+            $siteName = trim((string) ($contractPo['site_name'] ?? ''));
+            if ($siteName === '') {
+                $siteRow = Db::row('sites', (string) $siteId);
+                if (is_array($siteRow)) {
+                    $siteName = trim((string) ($siteRow['name'] ?? ''));
+                }
+            }
+            $payload['site_id'] = $siteId;
+            if ($siteName !== '') {
+                $payload['site_name'] = $siteName;
+            }
+        }
+
+        $catId = (int) ($contractPo['cost_category_id'] ?? 0);
+        if ($catId > 0) {
+            $catName = trim((string) ($contractPo['cost_category_name'] ?? ''));
+            if ($catName === '') {
+                $catHelper = dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
+                if (is_file($catHelper)) {
+                    require_once $catHelper;
+                    if (function_exists('tnc_site_category_name')) {
+                        $catName = tnc_site_category_name($catId);
+                    }
+                }
+            }
+            $payload['cost_category_id'] = $catId;
+            if ($catName !== '') {
+                $payload['cost_category_name'] = $catName;
+            }
+        }
+
+        return $payload;
+    }
+
     /**
-     * ยอด payable ที่ออก PO จัดจ้างไปแล้ว (ไม่รวม PO ที่ยกเลิก)
+     * ยอด payable จาก PO สั่งจ่ายงวด/ครั้ง (ไม่รวมเบิกล่วงหน้า และ PO ที่ยกเลิก)
      */
     public static function hireContractCommittedPayable(int $hireContractId): float
     {
@@ -133,27 +534,28 @@ final class Purchase
             return 0.0;
         }
         $sum = 0.0;
-        foreach (Db::tableRows('purchase_orders') as $po) {
-            if ((int) ($po['hire_contract_id'] ?? 0) !== $hireContractId) {
-                continue;
-            }
-            if (trim((string) ($po['order_type'] ?? 'purchase')) !== 'hire') {
-                continue;
-            }
-            if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
-                continue;
-            }
-            $payable = (float) ($po['payable_amount'] ?? 0);
-            if ($payable <= 0) {
-                $payable = (float) ($po['total_amount'] ?? 0);
-            }
-            $sum += $payable;
+        foreach (self::activeHirePaymentPos($hireContractId) as $po) {
+            $sum += self::hirePoPayableAmount($po);
         }
 
         return round($sum, 2);
     }
 
-    /** ยอดคงเหลือของสัญญา (มูลค่าสัญญา − ยอดที่ออก PO แล้ว) — อาจติดลบหากจ่ายเกินสัญญา */
+    /** ยอด payable จาก PO เบิกล่วงหน้า (แยกจากมูลค่าสัญญา — ไม่หักคงเหลือ) */
+    public static function hireContractCommittedAdvance(int $hireContractId): float
+    {
+        if ($hireContractId <= 0) {
+            return 0.0;
+        }
+        $sum = 0.0;
+        foreach (self::activeHireAdvancePos($hireContractId) as $po) {
+            $sum += self::hirePoPayableAmount($po);
+        }
+
+        return round($sum, 2);
+    }
+
+    /** ยอดคงเหลือของสัญญา (มูลค่าสัญญา − ยอดสั่งจ่ายงวด/ครั้ง) — ไม่หักเบิกล่วงหน้า */
     public static function hireContractRemainingPayable(array $hc, int $hireContractId): float
     {
         $contractAmount = round((float) ($hc['contract_amount'] ?? 0), 2);
@@ -198,10 +600,10 @@ final class Purchase
         if ($po === null) {
             return ['ok' => false, 'remaining' => 0.0, 'room' => 0.0, 'message' => 'not_found'];
         }
-        $oldPayable = round((float) ($po['payable_amount'] ?? 0), 2);
-        if ($oldPayable <= 0) {
-            $oldPayable = round((float) ($po['total_amount'] ?? 0), 2);
+        if (self::isHireAdvancePo($po)) {
+            return ['ok' => true, 'remaining' => self::hireContractRemainingPayable($hc, $hireContractId), 'room' => 0.0, 'message' => ''];
         }
+        $oldPayable = self::hirePoPayableAmount($po);
         $remaining = self::hireContractRemainingPayable($hc, $hireContractId);
         $room = round($remaining + $oldPayable, 2);
         $newPayable = round($newPayable, 2);
@@ -218,25 +620,17 @@ final class Purchase
         if ($hireContractId <= 0) {
             return;
         }
+        self::purgeStaleHireContractPayments($hireContractId);
         $hire = Db::row('hire_contracts', (string) $hireContractId);
         if ($hire === null) {
             return;
         }
-        $payments = Db::filter('hire_contract_payments', static function (array $row) use ($hireContractId): bool {
-            return isset($row['hire_contract_id']) && (int) $row['hire_contract_id'] === $hireContractId;
-        });
-        $paidAmount = 0.0;
-        $paidInstallments = 0;
-        foreach ($payments as $p) {
-            if (!self::isActiveHireContractPayment($p, $hireContractId)) {
-                continue;
-            }
-            $paidAmount += (float) ($p['amount'] ?? 0);
-            ++$paidInstallments;
-        }
+        $prId = (int) ($hire['pr_id'] ?? 0);
+        $paidAmount = self::hireContractCommittedPayable($hireContractId);
+        $paidInstallments = count(self::activeHirePaymentPos($hireContractId, $prId));
         $contractAmount = (float) ($hire['contract_amount'] ?? 0);
         Db::mergeRow('hire_contracts', (string) $hireContractId, [
-            'paid_amount' => round($paidAmount, 2),
+            'paid_amount' => $paidAmount,
             'paid_installments' => $paidInstallments,
             'remaining_amount' => round($contractAmount - $paidAmount, 2),
             'updated_at' => date('Y-m-d H:i:s'),
@@ -263,6 +657,9 @@ final class Purchase
         if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
             return false;
         }
+        if (self::isHireContractPo($po)) {
+            return false;
+        }
         if ($prId !== null && $prId > 0 && (int) ($po['pr_id'] ?? 0) !== $prId) {
             return false;
         }
@@ -273,6 +670,21 @@ final class Purchase
         return true;
     }
 
+    /** งวดสัญญาที่ผูก PO สั่งจ่าย (ไม่รวมเบิกล่วงหน้า) */
+    public static function isActiveHireContractPaymentPo(array $row, ?int $hireContractId = null, ?int $prId = null): bool
+    {
+        if (!self::isActiveHireContractPayment($row, $hireContractId, $prId)) {
+            return false;
+        }
+        $poId = (int) ($row['po_id'] ?? 0);
+        if ($poId <= 0) {
+            return false;
+        }
+        $po = Db::row('purchase_orders', (string) $poId);
+
+        return is_array($po) && self::isHirePaymentPo($po);
+    }
+
     /**
      * @param array<int, array<string, mixed>> $rows
      * @return array<int, array<string, mixed>>
@@ -281,6 +693,17 @@ final class Purchase
     {
         return array_values(array_filter($rows, static function (array $row) use ($hireContractId, $prId): bool {
             return self::isActiveHireContractPayment($row, $hireContractId, $prId);
+        }));
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    public static function filterActiveHireContractPaymentPos(array $rows, ?int $hireContractId = null, ?int $prId = null): array
+    {
+        return array_values(array_filter($rows, static function (array $row) use ($hireContractId, $prId): bool {
+            return self::isActiveHireContractPaymentPo($row, $hireContractId, $prId);
         }));
     }
 
@@ -381,6 +804,46 @@ final class Purchase
         return $deleted;
     }
 
+    /**
+     * ลบแถว hire_contract_payments ที่ค้าง (PO ยกเลิก/ไม่มีแล้ว หรือ PO เบิกล่วงหน้า legacy)
+     */
+    public static function purgeStaleHireContractPayments(int $hireContractId = 0): int
+    {
+        $removed = 0;
+        foreach (Db::tableKeyed('hire_contract_payments') as $key => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $hid = (int) ($row['hire_contract_id'] ?? 0);
+            if ($hireContractId > 0 && $hid > 0 && $hid !== $hireContractId) {
+                continue;
+            }
+            if (self::isActiveHireContractPaymentPo($row, $hireContractId > 0 ? $hireContractId : null, null)) {
+                continue;
+            }
+            $poId = (int) ($row['po_id'] ?? 0);
+            $shouldPurge = ($poId <= 0);
+            if (!$shouldPurge) {
+                $po = Db::row('purchase_orders', (string) $poId);
+                if ($po === null) {
+                    $shouldPurge = true;
+                } elseif (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+                    $shouldPurge = true;
+                } elseif (self::isHireAdvancePo($po)) {
+                    $shouldPurge = true;
+                }
+            }
+            if (!$shouldPurge) {
+                continue;
+            }
+            $rowId = (string) (($row['id'] ?? 0) ?: $key);
+            Db::deleteRow('hire_contract_payments', $rowId);
+            ++$removed;
+        }
+
+        return $removed;
+    }
+
     public static function seedPoPayments(int $poId, float $totalAmount, ?int $hireContractId = null): void
     {
         if ($poId <= 0) {
@@ -390,6 +853,9 @@ final class Purchase
         $po = Db::row('purchase_orders', (string) $poId);
         if ($po === null) {
             return;
+        }
+        if (self::isHireContractPo($po)) {
+            $hireContractId = null;
         }
 
         $amount = round($totalAmount, 2);
@@ -431,11 +897,27 @@ final class Purchase
             return;
         }
 
+        if (self::isHireAdvancePo($po)) {
+            return;
+        }
+
+        $existingHcp = Db::findFirst('hire_contract_payments', static function (array $r) use ($poId): bool {
+            return isset($r['po_id']) && (int) $r['po_id'] === $poId;
+        });
+        if ($existingHcp !== null) {
+            self::syncHireContractTotals($hireContractId);
+
+            return;
+        }
+
         $installmentNo = (int) ($po['installment_no'] ?? 0);
         if ($installmentNo <= 0) {
-            $installmentNo = max(1, ((int) ($hire['paid_installments'] ?? 0)) + 1);
+            $installmentNo = self::hireNextPaymentNo($hireContractId, (int) ($hire['pr_id'] ?? 0));
         }
-        $installmentTotal = max(1, (int) ($hire['installment_total'] ?? 1));
+        $installmentTotal = (int) ($hire['installment_total'] ?? 1);
+        if ($installmentTotal < 0) {
+            $installmentTotal = 0;
+        }
 
         $hirePayId = Db::nextNumericId('hire_contract_payments', 'id');
         Db::setRow('hire_contract_payments', (string) $hirePayId, [
@@ -450,24 +932,15 @@ final class Purchase
             'created_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $payments = Db::filter('hire_contract_payments', static function (array $row) use ($hireContractId): bool {
-            return isset($row['hire_contract_id']) && (int) $row['hire_contract_id'] === $hireContractId;
-        });
-        $paidAmount = 0.0;
-        $paidInstallments = 0;
-        foreach ($payments as $p) {
-            if (!self::isActiveHireContractPayment($p, $hireContractId)) {
-                continue;
-            }
-            $paidAmount += (float) ($p['amount'] ?? 0);
-            ++$paidInstallments;
-        }
+        $prIdHire = (int) ($hire['pr_id'] ?? 0);
+        $paidAmount = self::hireContractCommittedPayable($hireContractId);
+        $paidInstallments = count(self::activeHirePaymentPos($hireContractId, $prIdHire));
         $contractAmount = (float) ($hire['contract_amount'] ?? 0);
         $remaining = round($contractAmount - $paidAmount, 2);
 
         $hireBeforeUp = $hire;
         Db::mergeRow('hire_contracts', (string) $hireContractId, [
-            'paid_amount' => round($paidAmount, 2),
+            'paid_amount' => $paidAmount,
             'paid_installments' => $paidInstallments,
             'remaining_amount' => $remaining,
             'updated_at' => date('Y-m-d H:i:s'),
@@ -483,7 +956,7 @@ final class Purchase
                 'po_payment_id' => $payId,
             ],
         ]);
-        $hcDoc = trim((string) ($hireAfterUp['pr_number'] ?? ''));
+        $hcDoc = is_array($hireAfterUp) ? Purchase::hireContractDocumentNumber($hireAfterUp) : '';
         tnc_audit_log('update', 'hire_contract', (string) $hireContractId, $hcDoc !== '' ? $hcDoc : ('#' . $hireContractId), [
             'source' => 'Purchase::seedPoPayments',
             'action' => 'hire_contract_payment_totals',

@@ -14,8 +14,8 @@ if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
     exit;
 }
-if (!user_is_finance_role()) {
-    header('Location: ' . app_path('index.php'));
+if (!user_can('page.org.sites')) {
+    header('Location: ' . app_path('index.php') . '?error=forbidden');
     exit;
 }
 

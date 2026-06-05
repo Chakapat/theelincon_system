@@ -61,17 +61,50 @@ $issuedInstallments = [];
 $paidAmountSoFar = 0.0;
 $hireContract = null;
 $hirePaymentRows = [];
+$hasHireContractPo = false;
+$hireContractPoRow = null;
+$hirePoMode = 'contract';
+$pr_hire_items = [];
 if ($requestType === 'hire') {
     // สร้างสัญญาจ้างอัตโนมัติถ้ายังไม่มี (รองรับ PR เก่าที่อนุมัติก่อนระบบนี้)
     if (method_exists(Purchase::class, 'createHireContractIfNeededForPr')) {
         Purchase::createHireContractIfNeededForPr($pr_id);
     }
+    $hireContract = Db::findFirst('hire_contracts', static function (array $r) use ($pr_id): bool {
+        return (int) ($r['pr_id'] ?? 0) === $pr_id;
+    });
+    $hcIdForPayments = is_array($hireContract) ? (int) ($hireContract['id'] ?? 0) : 0;
+    $hasHireContractPo = Purchase::hasHireContractPo($pr_id, $hcIdForPayments);
+    $hireContractPoRow = Purchase::hireContractPoFor($pr_id, $hcIdForPayments);
+    $modeReq = strtolower(trim((string) ($_GET['mode'] ?? '')));
+    if ($modeReq === 'payment' || $modeReq === 'contract' || $modeReq === 'advance') {
+        $hirePoMode = $modeReq;
+    } else {
+        $hirePoMode = $hasHireContractPo ? 'payment' : 'contract';
+    }
+    if ($hirePoMode === 'contract' && $hasHireContractPo) {
+        header('Location: ' . app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&mode=payment');
+        exit();
+    }
+    if (($hirePoMode === 'payment' || $hirePoMode === 'advance') && !$hasHireContractPo) {
+        header('Location: ' . app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&mode=contract');
+        exit();
+    }
     foreach (Db::tableRows('purchase_orders') as $row) {
         if ((int) ($row['pr_id'] ?? 0) !== $pr_id) {
             continue;
         }
+        if (trim((string) ($row['order_type'] ?? 'purchase')) !== 'hire') {
+            continue;
+        }
         // ข้าม PO ที่ถูกยกเลิก เพื่อให้ออกงวดเดิมซ้ำได้และนับยอดถูกต้อง
         if (strtolower(trim((string) ($row['status'] ?? ''))) === 'cancelled') {
+            continue;
+        }
+        if (Purchase::isHireContractPo($row)) {
+            continue;
+        }
+        if (Purchase::isHireAdvancePo($row)) {
             continue;
         }
         $paidAmountSoFar += (float) (($row['subtotal_amount'] ?? '') !== '' ? $row['subtotal_amount'] : ($row['payable_amount'] ?? 0));
@@ -80,11 +113,7 @@ if ($requestType === 'hire') {
             $issuedInstallments[$no] = true;
         }
     }
-    $hireContract = Db::findFirst('hire_contracts', static function (array $r) use ($pr_id): bool {
-        return (int) ($r['pr_id'] ?? 0) === $pr_id;
-    });
-    $hcIdForPayments = is_array($hireContract) ? (int) ($hireContract['id'] ?? 0) : 0;
-    $hirePaymentRows = Purchase::filterActiveHireContractPayments(
+    $hirePaymentRows = Purchase::filterActiveHireContractPaymentPos(
         Db::filter('hire_contract_payments', static function (array $r) use ($pr_id, $hcIdForPayments): bool {
             if ((int) ($r['pr_id'] ?? 0) !== $pr_id) {
                 return false;
@@ -99,22 +128,44 @@ if ($requestType === 'hire') {
         $pr_id
     );
     Db::sortRows($hirePaymentRows, 'installment_no', false);
+    $pr_hire_items = Db::filter('purchase_request_items', static function (array $r) use ($pr_id): bool {
+        return isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
+    });
+    Db::sortRows($pr_hire_items, 'id', false);
+}
+$poNoteDefaultHire = '';
+if ($requestType === 'hire' && in_array($hirePoMode, ['payment', 'advance'], true) && is_array($hireContract)) {
+    require_once dirname(__DIR__, 2) . '/includes/contractors.php';
+    $hcContractorIdNote = (int) ($hireContract['contractor_id'] ?? 0);
+    if ($hcContractorIdNote > 0) {
+        $poNoteDefaultHire = tnc_contractor_payment_note_text($hcContractorIdNote);
+    }
 }
 $hireContractAmount = 0.0;
 $hireContractRemaining = 0.0;
 $hireCommittedPayable = 0.0;
+$hireCommittedAdvance = 0.0;
+$hireOpenPayments = false;
 if ($requestType === 'hire' && is_array($hireContract)) {
     $hcIdCalc = (int) ($hireContract['id'] ?? 0);
     $hireContractAmount = round((float) ($hireContract['contract_amount'] ?? 0), 2);
     $hireCommittedPayable = Purchase::hireContractCommittedPayable($hcIdCalc);
+    $hireCommittedAdvance = Purchase::hireContractCommittedAdvance($hcIdCalc);
     $hireContractRemaining = Purchase::hireContractRemainingPayable($hireContract, $hcIdCalc);
+    $hcInstallmentTotalOpen = (int) ($hireContract['installment_total'] ?? $installmentTotal);
+    if ($hcInstallmentTotalOpen < 0) {
+        $hcInstallmentTotalOpen = 0;
+    }
+    $hireOpenPayments = Purchase::hireInstallmentsUnspecified($hcInstallmentTotalOpen);
 }
 $remainingInstallments = $requestType === 'hire' ? max(0, $installmentTotal - count($issuedInstallments)) : 0;
 
 $supplier_rows = Db::tableRows('suppliers');
 Db::sortRows($supplier_rows, 'name', false);
 
-$po_number = Purchase::generatePONumber();
+$po_number = ($requestType === 'hire' && $hirePoMode === 'contract')
+    ? Purchase::generateWorkOrderNumber()
+    : Purchase::generatePONumber();
 $errorCode = trim((string) ($_GET['error'] ?? ''));
 $prUpdated = !empty($_GET['pr_updated']);
 
@@ -139,10 +190,15 @@ if ($requestType === 'purchase') {
     }
 }
 
-$tnc_po_submit_disabled = ($requestType === 'hire' && $remainingInstallments === 0)
+$tnc_po_submit_disabled = ($requestType === 'hire' && $hirePoMode === 'payment' && $remainingInstallments === 0)
+    || ($requestType === 'hire' && $hirePoMode === 'payment' && $hireContractRemaining <= 0.0005)
     || ($requestType === 'purchase' && $pr_has_unknown_line_price);
 $tnc_po_submit_label = $requestType === 'hire'
-    ? ($remainingInstallments === 0 ? 'ออกครบทุกงวดแล้ว' : 'ยืนยันสร้างใบสั่งจ่ายงวดนี้')
+    ? ($hirePoMode === 'contract'
+        ? 'ยืนยันออก Work Order'
+        : ($hirePoMode === 'advance'
+            ? 'ยืนยันออก PO เบิกล่วงหน้า'
+            : ($remainingInstallments === 0 ? 'ออกครบทุกงวดแล้ว' : 'ยืนยันสร้างใบสั่งจ่ายงวดนี้')))
     : ($pr_has_unknown_line_price ? 'ไม่สามารถออกใบสั่งซื้อได้' : 'สร้างใบสั่งซื้อ');
 $hireRemainingOver = $requestType === 'hire' && $hireContractRemaining < -0.0005;
 $hireRemainingCss = $hireRemainingOver
@@ -175,7 +231,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $requestType === 'hire' ? 'ใบสั่งจ่าย PO' : 'สร้างใบสั่งซื้อจาก PR' ?></title>
+    <title><?= $requestType === 'hire' ? ($hirePoMode === 'contract' ? 'ออก Work Order (WO)' : 'ใบสั่งจ่าย PO') : 'สร้างใบสั่งซื้อจาก PR' ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -212,9 +268,15 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                             <div class="min-w-0 flex-grow-1">
                                 <h1 class="d-flex align-items-center gap-2 mb-0">
                                     <i class="bi bi-file-earmark-plus-fill opacity-90"></i>
-                                    <?= $requestType === 'hire' ? 'สร้างใบสั่งจ่าย' : 'สร้างใบสั่งซื้อ' ?>
+                                    <?= $requestType === 'hire'
+                                        ? ($hirePoMode === 'contract' ? 'ออก Work Order (WO)' : ($hirePoMode === 'advance' ? 'ออก PO เบิกล่วงหน้า' : 'สร้างใบสั่งจ่าย'))
+                                        : 'สร้างใบสั่งซื้อ' ?>
                                 </h1>
-                                <div class="sub"><?= $requestType === 'hire' ? 'ออกเอกสารสั่งจ่ายจากใบขอจัดจ้าง' : 'ออกใบสั่งซื้อ (PO) -> จากใบขอซื้อ (PR)' ?></div>
+                                <div class="sub"><?= $requestType === 'hire'
+                                    ? ($hirePoMode === 'contract'
+                                        ? 'PR = ขอสร้างสัญญา → PO นี้เป็นเอกสารสัญญาจ้าง (ยังไม่ใช่การสั่งจ่ายเงิน)'
+                                        : 'ออก PO สั่งจ่าย (หลังออก WO สัญญาแล้ว)')
+                                    : 'ออกใบสั่งซื้อ (PO) -> จากใบขอซื้อ (PR)' ?></div>
                             </div>
                             <?php if ($requestType === 'purchase' && $pr_needs_price_fix && count($pr_items_for_edit) > 0): ?>
                             <button type="button" class="btn btn-warning text-dark fw-semibold rounded-pill px-3 py-2 flex-shrink-0 align-self-start" data-bs-toggle="modal" data-bs-target="#prFixFromPoModal" id="prFixOpenBtn" title="แก้รายการสินค้าและ VAT ในใบขอซื้อ">
@@ -224,6 +286,39 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                         </div>
                     </div>
                     <div class="p-4 p-md-4">
+                    <?php if ($requestType === 'hire'): ?>
+                        <div class="alert alert-info py-2 mb-3">
+                            <i class="bi bi-diagram-3-fill me-1"></i>
+                            <strong>ขั้นตอน:</strong> PR (ขอสร้างสัญญา) →
+                            <strong>Work Order (WO)</strong> (ส่งให้ผู้รับจ้าง) →
+                            <strong>PO สั่งจ่าย</strong> (งวด/ครั้ง)
+                            <?php if ($hirePoMode === 'contract'): ?>
+                                — ตอนนี้อยู่ขั้น <strong>ออก WO</strong>
+                            <?php else: ?>
+                                — ตอนนี้อยู่ขั้น <strong>ออก PO สั่งจ่าย</strong>
+                                <?php if (is_array($hireContractPoRow)): ?>
+                                    · WO:
+                                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) ($hireContractPoRow['id'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" class="alert-link"><?= htmlspecialchars((string) ($hireContractPoRow['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></a>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($requestType === 'hire' && $hasHireContractPo && $hirePoMode !== 'contract'): ?>
+                        <ul class="nav nav-pills gap-2 mb-3">
+                            <li class="nav-item">
+                                <a class="nav-link<?= $hirePoMode === 'payment' ? ' active' : '' ?>" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&mode=payment', ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cash-coin me-1"></i>สั่งจ่ายตามงวด/ครั้ง</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link<?= $hirePoMode === 'advance' ? ' active' : '' ?>" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&mode=advance', ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-wallet2 me-1"></i>เบิกล่วงหน้า</a>
+                            </li>
+                        </ul>
+                    <?php endif; ?>
+                    <?php if ($errorCode === 'contract_po_required'): ?>
+                        <div class="alert alert-warning py-2">กรุณาออก <strong>Work Order (WO)</strong> ก่อน จึงจะออก PO สั่งจ่ายได้</div>
+                    <?php endif; ?>
+                    <?php if ($errorCode === 'contract_po_exists'): ?>
+                        <div class="alert alert-warning py-2">ออก WO แล้ว — ใช้โหมด <strong>สั่งจ่าย PO</strong> แทน</div>
+                    <?php endif; ?>
                     <?php if ($errorCode === 'invalid_installment'): ?>
                         <div class="alert alert-warning py-2">งวดที่เลือกไม่ถูกต้อง</div>
                     <?php endif; ?>
@@ -243,7 +338,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                         <div class="alert alert-danger py-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>ยังไม่มีสัญญาจ้างผูกกับใบขอจัดจ้างนี้ — ระบบจะพยายามสร้างให้อัตโนมัติ หากยังพบปัญหา กรุณาเปิดหน้า «สัญญาจ้าง» เพื่อสร้าง/ตรวจสอบสัญญาก่อนออกใบสั่งจ่าย</div>
                     <?php endif; ?>
                     <?php if ($errorCode === 'contract_fully_paid'): ?>
-                        <div class="alert alert-danger py-2"><i class="bi bi-x-circle-fill me-1"></i>มูลค่าสัญญาจ้างจ่ายครบแล้ว (คงเหลือ 0 บาท) — ไม่สามารถออกใบสั่งจ่ายเพิ่มได้</div>
+                        <div class="alert alert-danger py-2"><i class="bi bi-x-circle-fill me-1"></i>มูลค่าสัญญาจ้างออก PO ครบแล้ว (คงเหลือ 0 บาท) — ไม่สามารถออกใบสั่งจ่ายเพิ่มได้ หากออก PO ผิดโดยไม่ได้จ่ายเงินจริง ให้ยกเลิก PO นั้นก่อน</div>
                     <?php endif; ?>
                     <?php if ($errorCode === 'contract_exceeds_remaining' || $errorCode === 'contract_exceeds_confirm'): ?>
                         <div class="alert alert-warning py-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>กรุณายืนยันการออกใบสั่งจ่ายเมื่อยอดเกินมูลค่าสัญญา</div>
@@ -256,8 +351,8 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                     <?php endif; ?>
                     <?php if ($requestType === 'hire' && $hireRemainingOver): ?>
                         <div class="alert alert-danger py-2"><i class="bi bi-exclamation-octagon-fill me-1"></i>จ่ายเกินมูลค่าสัญญาแล้ว <strong><?= number_format(abs($hireContractRemaining), 2) ?> บาท</strong> (คงเหลือ <?= number_format($hireContractRemaining, 2) ?> บาท)</div>
-                    <?php elseif ($requestType === 'hire' && $hireContractRemaining <= 0.0005 && $hireContractRemaining >= -0.0005): ?>
-                        <div class="alert alert-success py-2"><i class="bi bi-check-circle-fill me-1"></i>มูลค่าสัญญาจ้างจ่ายครบแล้ว (คงเหลือ 0 บาท)</div>
+                    <?php elseif ($requestType === 'hire' && $hirePoMode === 'payment' && $hireContractRemaining <= 0.0005 && $hireContractRemaining >= -0.0005): ?>
+                        <div class="alert alert-success py-2"><i class="bi bi-check-circle-fill me-1"></i>มูลค่าสัญญาจ้างออก PO สั่งจ่ายครบแล้ว (คงเหลือ 0 บาท)</div>
                     <?php endif; ?>
                     <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" data-tnc-fullnav="1"<?= $requestType === 'hire' ? ' data-hire-remaining="' . htmlspecialchars(number_format($hireContractRemaining, 2, '.', ''), ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
                         <input type="hidden" name="confirm_over_contract" id="confirm_over_contract" value="">
@@ -265,6 +360,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                         <input type="hidden" name="pr_id" value="<?= $pr['id'] ?>">
                         <?php if ($requestType === 'hire' && $hireContract !== null): ?>
                         <input type="hidden" name="hire_contract_id" value="<?= (int) ($hireContract['id'] ?? 0) ?>">
+                        <input type="hidden" name="hire_po_kind" value="<?= htmlspecialchars($hirePoMode, ENT_QUOTES, 'UTF-8') ?>">
                         <?php endif; ?>
 
                         <div class="row g-3 mb-4">
@@ -273,7 +369,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                 <input type="text" class="form-control form-control-lg bg-light border-0" value="<?= htmlspecialchars((string) ($pr['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" readonly>
                             </div>
                             <div class="col-md-6">
-                                <div class="po-field-label">เลขที่ PO (อัตโนมัติ)</div>
+                                <div class="po-field-label"><?= ($requestType === 'hire' && $hirePoMode === 'contract') ? 'เลขที่ WO (Work Order)' : 'เลขที่ PO (อัตโนมัติ)' ?></div>
                                 <input type="text" name="po_number" class="form-control form-control-lg bg-light border-0" value="<?= htmlspecialchars((string) $po_number, ENT_QUOTES, 'UTF-8') ?>" readonly>
                             </div>
                         </div>
@@ -283,9 +379,14 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                             <div class="hire-meta-kv hire-meta-kv--readonly">
                                 <span class="hire-meta-chip"><strong>ผู้รับจ้าง:</strong> <?= htmlspecialchars($contractorName !== '' ? $contractorName : '-', ENT_QUOTES, 'UTF-8') ?></span>
                                 <span class="hire-meta-chip sep">|</span>
-                                <span class="hire-meta-chip"><strong>จำนวนงวด:</strong> <?= number_format($installmentTotal) ?> งวด</span>
+                                <span class="hire-meta-chip"><strong>จำนวนงวดจ่าย:</strong> <?= number_format($installmentTotal) ?> งวด</span>
+                                <?php if ($hirePoMode === 'payment'): ?>
                                 <span class="hire-meta-chip sep">|</span>
                                 <span class="hire-meta-chip"><strong>งวดถัดไป:</strong> <?php for ($i = 1; $i <= $installmentTotal; $i++) { if (!isset($issuedInstallments[$i])) { echo $i . ' / ' . $installmentTotal; break; } } ?></span>
+                                <?php else: ?>
+                                <span class="hire-meta-chip sep">|</span>
+                                <span class="hire-meta-chip"><strong>มูลค่าสัญญา:</strong> <?= number_format($hireContractAmount, 2) ?> บาท</span>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <?php endif; ?>
@@ -296,11 +397,12 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                             <div class="po-hire-block__body"><?= htmlspecialchars((string) ($pr['details'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
                         </div>
 
+                        <?php if ($hirePoMode === 'payment'): ?>
                         <div class="po-hire-block">
-                            <h3 class="po-hire-block__title"><i class="bi bi-file-earmark-ruled"></i>สถานะสัญญาจ้าง</h3>
+                            <h3 class="po-hire-block__title"><i class="bi bi-file-earmark-ruled"></i>สถานะสัญญาจ้าง (PO สั่งจ่าย)</h3>
                             <?php
                                 $hcRow = is_array($hireContract) ? $hireContract : [];
-                                $paidInstallmentsDisplay = (int) ($hcRow['paid_installments'] ?? count($issuedInstallments));
+                                $paidInstallmentsDisplay = count($issuedInstallments);
                                 $paidAmountDisplay = $hireCommittedPayable;
                             ?>
                             <div class="po-hire-stats">
@@ -309,7 +411,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                     <span class="po-hire-stat__value"><?= number_format($hireContractAmount, 2) ?> บาท</span>
                                 </div>
                                 <div class="po-hire-stat">
-                                    <span class="po-hire-stat__label">จ่ายแล้ว</span>
+                                    <span class="po-hire-stat__label">สั่งจ่ายแล้ว</span>
                                     <span class="po-hire-stat__value"><?= number_format($paidAmountDisplay, 2) ?> บาท</span>
                                 </div>
                                 <div class="po-hire-stat">
@@ -317,8 +419,8 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                     <span class="po-hire-stat__value <?= $hireRemainingCss ?>" id="hire_remaining_display"><?= number_format($hireContractRemaining, 2) ?> บาท</span>
                                 </div>
                                 <div class="po-hire-stat">
-                                    <span class="po-hire-stat__label">งวดที่จ่ายแล้ว</span>
-                                    <span class="po-hire-stat__value"><?= number_format($paidInstallmentsDisplay) ?> / <?= number_format($installmentTotal) ?></span>
+                                    <span class="po-hire-stat__label"><?= $hireOpenPayments ? 'ครั้งที่สั่งจ่าย' : 'งวดที่สั่งจ่ายแล้ว' ?></span>
+                                    <span class="po-hire-stat__value"><?php if ($hireOpenPayments): ?><?= number_format($paidInstallmentsDisplay) ?><?php else: ?><?= number_format($paidInstallmentsDisplay) ?> / <?= number_format($installmentTotal) ?><?php endif; ?></span>
                                 </div>
                             </div>
                             <div class="po-hire-ledger-wrap">
@@ -335,7 +437,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                     <tbody>
                                         <?php if (count($hirePaymentRows) === 0): ?>
                                             <tr>
-                                                <td colspan="5" class="text-center text-muted">ยังไม่มีการจ่ายงวด</td>
+                                                <td colspan="5" class="text-center text-muted">ยังไม่มี PO งวด</td>
                                             </tr>
                                         <?php else: ?>
                                             <?php foreach ($hirePaymentRows as $payment): ?>
@@ -344,7 +446,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                                     <td>งวด <?= (int) ($payment['installment_no'] ?? 0) ?>/<?= (int) ($payment['installment_total'] ?? $installmentTotal) ?></td>
                                                     <td class="text-end"><?= number_format((float) ($payment['amount'] ?? 0), 2) ?> บาท</td>
                                                     <td><?= htmlspecialchars((string) ($payment['created_at'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                                                    <td><span class="badge bg-success">จ่ายแล้ว</span></td>
+                                                    <td><span class="badge bg-success">ออก PO แล้ว</span></td>
                                                 </tr>
                                             <?php endforeach; ?>
                                         <?php endif; ?>
@@ -352,6 +454,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                 </table>
                             </div>
                         </div>
+                        <?php endif; ?>
                         <?php endif; ?>
 
                         <div class="mb-4<?= $requestType === 'hire' ? ' d-none' : '' ?>">
@@ -395,12 +498,16 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                         </div>
 
                         <?php if ($requestType === 'hire'): ?>
+                        <?php if ($hirePoMode === 'payment'): ?>
                         <input type="hidden" name="installment_no" value="<?php for ($i = 1; $i <= $installmentTotal; $i++) { if (!isset($issuedInstallments[$i])) { echo $i; break; } } ?>">
+                        <?php else: ?>
+                        <input type="hidden" name="installment_no" value="0">
+                        <?php endif; ?>
                         <input type="hidden" name="installment_amount" id="installment_amount" value="0">
                         <input type="hidden" name="installment_description" id="installment_description" value="">
 
                         <div class="section-card p-3 mb-3 hire-lines-section" data-tnc-hire-root>
-                            <div class="section-title"><i class="bi bi-table me-1"></i>ตารางรายละเอียดสั่งจ่าย</div>
+                            <div class="section-title"><i class="bi bi-table me-1"></i><?= $hirePoMode === 'contract' ? 'ตารางรายละเอียดสัญญา (จาก PR)' : 'ตารางรายละเอียดสั่งจ่าย' ?></div>
                             <div class="row g-3">
                                 <div class="col-12">
                                     <div class="hire-table-panel">
@@ -420,7 +527,11 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <?php tnc_hire_form_default_rows('hire', 'po'); ?>
+                                                <?php if ($hirePoMode === 'contract' && count($pr_hire_items) > 0): ?>
+                                                    <?php tnc_hire_form_rows_from_items('hire', $pr_hire_items, 'po'); ?>
+                                                <?php else: ?>
+                                                    <?php tnc_hire_form_default_rows('hire', 'po'); ?>
+                                                <?php endif; ?>
                                             </tbody>
                                         </table>
                                     </div>
@@ -439,11 +550,15 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                 <div class="po-hire-summary-settings">
                                     <h6 class="fw-bold mb-3 small text-uppercase text-secondary" style="letter-spacing:0.05em;">ภาษีและเงินหัก</h6>
                                     <div class="form-check form-switch mb-3">
-                                        <input class="form-check-input" type="checkbox" name="vat_enabled" id="vat_enabled">
+                                        <input class="form-check-input" type="checkbox" name="vat_enabled" id="vat_enabled"<?= ($hirePoMode === 'contract' && (int) ($pr['vat_enabled'] ?? 0) === 1) ? ' checked' : '' ?>>
                                         <label class="form-check-label fw-semibold" for="vat_enabled">บวก VAT 7% (+)</label>
                                     </div>
+                                    <?php if ($hirePoMode === 'payment'): ?>
                                     <label class="form-label text-danger fw-bold mb-1" for="retention_value">หักประกันผลงาน (บาท)</label>
                                     <input type="text" name="retention_value" id="retention_value" class="form-control" value="0" placeholder="0">
+                                    <?php else: ?>
+                                    <input type="hidden" name="retention_value" id="retention_value" value="0">
+                                    <?php endif; ?>
                                     <input type="hidden" name="withholding_type" id="withholding_type" value="none">
                                     <input type="hidden" name="retention_type" id="retention_type" value="fixed">
                                 </div>
@@ -461,8 +576,11 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                         </div>
 
                         <div class="section-card p-3 mb-3">
-                            <label class="po-field-label" for="po_note_hire">หมายเหตุ</label>
-                            <textarea name="po_note" id="po_note_hire" class="form-control" rows="3" maxlength="500" placeholder="หมายเหตุใบสั่งจ่าย (แสดงตอนพิมพ์)"></textarea>
+                            <label class="po-field-label" for="po_note_hire">หมายเหตุใบสั่งซื้อ</label>
+                            <textarea name="po_note" id="po_note_hire" class="form-control" rows="<?= ($poNoteDefaultHire !== '' && in_array($hirePoMode, ['payment', 'advance'], true)) ? min(5, max(2, substr_count($poNoteDefaultHire, "\n") + 1)) : 3 ?>" maxlength="500" placeholder="<?= ($poNoteDefaultHire === '' || !in_array($hirePoMode, ['payment', 'advance'], true)) ? ($hirePoMode === 'contract' ? 'หมายเหตุสัญญาจ้าง (แสดงตอนพิมพ์)' : 'หมายเหตุใบสั่งจ่าย (แสดงตอนพิมพ์)') : '' ?>"><?php if (in_array($hirePoMode, ['payment', 'advance'], true)): ?><?= htmlspecialchars($poNoteDefaultHire, ENT_QUOTES, 'UTF-8') ?><?php endif; ?></textarea>
+                            <?php if (in_array($hirePoMode, ['payment', 'advance'], true) && $poNoteDefaultHire !== ''): ?>
+                                <div class="form-text">ดึงช่องทางชำระจากข้อมูลผู้รับจ้าง — แก้ไขได้ก่อนบันทึก</div>
+                            <?php endif; ?>
                         </div>
                         <?php else: ?>
                         <input type="hidden" name="withholding_type" value="none">

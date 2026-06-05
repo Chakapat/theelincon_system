@@ -380,7 +380,7 @@ body.pr-doc-view-page {
 @media print {
     @page {
         size: A4 portrait;
-        margin: 10mm;
+        margin: 0;
     }
 
     body.purchase-module,
@@ -452,7 +452,8 @@ body.pr-doc-view-page {
         box-shadow: none !important;
     }
 
-    body.purchase-module .invoice-box {
+    body.purchase-module .invoice-box:not(.po-purchase-order-doc):not(.pr-purchase-requisition-doc),
+    body.tnc-batch-print-body .invoice-box:not(.po-purchase-order-doc):not(.pr-purchase-requisition-doc) {
         width: 100% !important;
         max-width: 100% !important;
         min-height: 0 !important;
@@ -463,11 +464,22 @@ body.pr-doc-view-page {
         overflow: visible !important;
     }
 
-    body.purchase-module .invoice-box.pr-purchase-requisition-doc,
     body.purchase-module .invoice-box.po-purchase-order-doc,
-    body.tnc-batch-print-body .invoice-box.pr-purchase-requisition-doc,
-    body.tnc-batch-print-body .invoice-box.po-purchase-order-doc {
+    body.purchase-module .invoice-box.pr-purchase-requisition-doc,
+    body.tnc-batch-print-body .invoice-box.po-purchase-order-doc,
+    body.tnc-batch-print-body .invoice-box.pr-purchase-requisition-doc {
+        width: 210mm !important;
+        max-width: 210mm !important;
+        min-height: 297mm !important;
+        height: auto !important;
+        margin: 0 auto !important;
+        padding: 10mm 15mm !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        border: none !important;
         border-top: none !important;
+        border-top-width: 0 !important;
+        outline: none !important;
     }
 }
 

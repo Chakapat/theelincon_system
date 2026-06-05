@@ -14,7 +14,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // เฉพาะบทบาท ADMIN — CEO และบทบาทอื่นเข้าไม่ได้
-if (!user_is_admin_only_role()) {
+if (!user_can('page.internal.line')) {
     http_response_code(403);
     echo 'ไม่มีสิทธิ์เข้าถึง — หน้านี้สำหรับผู้ดูแลระบบ (ADMIN) เท่านั้น';
     exit;

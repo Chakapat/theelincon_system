@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Theelincon\Rtdb\Db;
+use Theelincon\Rtdb\Purchase;
 
 require_once __DIR__ . '/../hire_line_items.php';
 require_once __DIR__ . '/../contractors.php';
@@ -68,6 +69,13 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
     }
     $hireScope = trim((string) ($pr['hire_scope_details'] ?? ''));
 
+    $hireContractPo = null;
+    $hasHireContractPo = false;
+    if ($requestType === 'hire') {
+        $hireContractPo = Purchase::hireContractPoFor($pr_id);
+        $hasHireContractPo = $hireContractPo !== null;
+    }
+
     $companies = Db::tableRows('company');
     Db::sortRows($companies, 'id', false);
     $com = array_values($companies)[0] ?? [];
@@ -120,7 +128,7 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         $poShortcutUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $existing_po['id'];
     } elseif ($prIsApprovedForPo) {
         $poShortcutUrl = $requestType === 'hire'
-            ? app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . (int) $pr['id']
+            ? app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . (int) $pr['id'] . ($hasHireContractPo ? '&mode=payment' : '&mode=contract')
             : app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . (int) $pr['id'];
     }
 
@@ -164,6 +172,8 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         'detailsText' => $detailsText,
         'hireTableNote' => $hireTableNote,
         'existing_po' => $existing_po,
+        'hireContractPo' => $hireContractPo,
+        'hasHireContractPo' => $hasHireContractPo,
         'poStatus' => $poStatus,
         'isPoCancelled' => $isPoCancelled,
         'poShortcutUrl' => $poShortcutUrl,

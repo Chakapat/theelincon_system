@@ -19,24 +19,42 @@ function tnc_role_permission_roles(): array
 }
 
 /**
- * @return array<string, array{label: string, group: string, hint?: string}>
+ * @return array<string, array{label: string, group: string, hint?: string, kind?: string}>
+ */
+function tnc_role_action_permission_definitions(): array
+{
+    return [
+        'pr.create' => ['label' => 'สร้าง PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'บันทึกใบขอซื้อใหม่', 'kind' => 'action'],
+        'pr.update' => ['label' => 'แก้ไข PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'แก้ไขใบขอซื้อที่ยังไม่ล็อก', 'kind' => 'action'],
+        'pr.delete' => ['label' => 'ลบ PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'ลบใบขอซื้อ (ต้องยืนยันรหัสผ่าน)', 'kind' => 'action'],
+        'pr.approve' => ['label' => 'อนุมัติ / ไม่อนุมัติ PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'กดอนุมัติบนเว็บ', 'kind' => 'action'],
+        'pr.send_line' => ['label' => 'ส่ง PR ขออนุมัติ LINE', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'ส่งคำขออนุมัติไปกลุ่ม LINE', 'kind' => 'action'],
+        'po.create' => ['label' => 'สร้าง PO / WO', 'group' => 'ใบสั่งซื้อ (PO)', 'hint' => 'ออก PO จาก PR หรือสร้างตรง / WO', 'kind' => 'action'],
+        'po.update' => ['label' => 'แก้ไข / จ่าย / บิล PO', 'group' => 'ใบสั่งซื้อ (PO)', 'hint' => 'แก้ไข PO, สถานะจ่าย, บิลซื้อ, สลิป', 'kind' => 'action'],
+        'po.cancel' => ['label' => 'ยกเลิก PO', 'group' => 'ใบสั่งซื้อ (PO)', 'hint' => 'เปลี่ยนสถานะเป็นยกเลิก', 'kind' => 'action'],
+        'po.delete' => ['label' => 'ลบ PO', 'group' => 'ใบสั่งซื้อ (PO)', 'hint' => 'ลบใบสั่งซื้อที่ยังไม่จ่าย', 'kind' => 'action'],
+        'invoice.edit' => ['label' => 'แก้ไข Invoice', 'group' => 'Invoice / Tax', 'hint' => 'แก้ไขใบแจ้งหนี้', 'kind' => 'action'],
+        'invoice.delete' => ['label' => 'ลบ Invoice', 'group' => 'Invoice / Tax', 'hint' => 'ลบใบแจ้งหนี้', 'kind' => 'action'],
+        'invoice.tax_delete' => ['label' => 'ลบ Tax Invoice', 'group' => 'Invoice / Tax', 'hint' => 'ลบใบกำกับภาษี', 'kind' => 'action'],
+    ];
+}
+
+/**
+ * @return array<string, array{label: string, group: string, hint?: string, kind?: string}>
  */
 function tnc_role_permission_definitions(): array
 {
-    return [
-        'pr.create' => ['label' => 'สร้าง PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'บันทึกใบขอซื้อใหม่'],
-        'pr.update' => ['label' => 'แก้ไข PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'แก้ไขใบขอซื้อที่ยังไม่ล็อก'],
-        'pr.delete' => ['label' => 'ลบ PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'ลบใบขอซื้อ (ต้องยืนยันรหัสผ่าน)'],
-        'pr.approve' => ['label' => 'อนุมัติ / ไม่อนุมัติ PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'กดอนุมัติบนเว็บ'],
-        'pr.send_line' => ['label' => 'ส่ง PR ขออนุมัติ LINE', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'ส่งคำขออนุมัติไปกลุ่ม LINE'],
-        'po.create' => ['label' => 'สร้าง PO', 'group' => 'ใบสั่งซื้อ (PO)', 'hint' => 'ออก PO จาก PR หรือสร้างตรง'],
-        'po.update' => ['label' => 'แก้ไข / จ่าย / บิล PO', 'group' => 'ใบสั่งซื้อ (PO)', 'hint' => 'แก้ไข PO, สถานะจ่าย, บิลซื้อ, สลิป'],
-        'po.cancel' => ['label' => 'ยกเลิก PO', 'group' => 'ใบสั่งซื้อ (PO)', 'hint' => 'เปลี่ยนสถานะเป็นยกเลิก'],
-        'po.delete' => ['label' => 'ลบ PO', 'group' => 'ใบสั่งซื้อ (PO)', 'hint' => 'ลบใบสั่งซื้อที่ยังไม่จ่าย'],
-        'invoice.edit' => ['label' => 'แก้ไข Invoice', 'group' => 'Invoice / Tax', 'hint' => 'แก้ไขใบแจ้งหนี้'],
-        'invoice.delete' => ['label' => 'ลบ Invoice', 'group' => 'Invoice / Tax', 'hint' => 'ลบใบแจ้งหนี้'],
-        'invoice.tax_delete' => ['label' => 'ลบ Tax Invoice', 'group' => 'Invoice / Tax', 'hint' => 'ลบใบกำกับภาษี'],
-    ];
+    $pageFile = dirname(__FILE__) . '/tnc_page_access.php';
+    if (is_file($pageFile)) {
+        require_once $pageFile;
+
+        return array_merge(
+            tnc_role_page_permission_definitions(),
+            tnc_role_action_permission_definitions()
+        );
+    }
+
+    return tnc_role_action_permission_definitions();
 }
 
 /** @return list<string> */
@@ -57,7 +75,38 @@ function tnc_role_permission_defaults(): array
         $allTrue[$key] = true;
     }
 
-    $accounting = array_merge($allTrue, [
+    $accountingPagesOn = [
+        'page.index' => true,
+        'page.invoice.create' => true,
+        'page.invoice.view' => true,
+        'page.invoice.tax_list' => true,
+        'page.invoice.tax' => true,
+        'page.org.customer' => true,
+        'page.org.company' => true,
+        'page.org.sites' => true,
+        'page.org.suppliers' => true,
+        'page.org.contractors' => true,
+        'page.pr' => true,
+        'page.po' => true,
+        'page.wo' => true,
+        'page.hire' => true,
+        'page.stock' => true,
+        'page.dsr' => true,
+        'page.report.vat' => true,
+        'page.report.site' => true,
+        'page.payslip' => true,
+        'page.leave' => true,
+        'page.account.profile' => true,
+        'page.tools.cement' => true,
+        'page.tools.po_payment' => true,
+        'page.org.members' => false,
+        'page.cash' => false,
+        'page.internal.roles' => false,
+        'page.internal.audit' => false,
+        'page.internal.line' => false,
+    ];
+
+    $accounting = array_merge($allTrue, $accountingPagesOn, [
         'pr.delete' => false,
         'pr.send_line' => false,
         'po.delete' => false,
@@ -65,7 +114,25 @@ function tnc_role_permission_defaults(): array
         'invoice.tax_delete' => false,
     ]);
 
-    $user = array_merge($allTrue, [
+    $userPagesOn = [
+        'page.index' => true,
+        'page.invoice.view' => true,
+        'page.pr' => true,
+        'page.dsr' => true,
+        'page.leave' => true,
+        'page.payslip' => true,
+        'page.account.profile' => true,
+        'page.tools.cement' => true,
+    ];
+    if (function_exists('tnc_role_page_registry_flat')) {
+        foreach (array_keys(tnc_role_page_registry_flat()) as $pageKey) {
+            if (!isset($userPagesOn[$pageKey])) {
+                $userPagesOn[$pageKey] = false;
+            }
+        }
+    }
+
+    $user = array_merge($allTrue, $userPagesOn, [
         'pr.delete' => false,
         'pr.approve' => false,
         'pr.send_line' => false,

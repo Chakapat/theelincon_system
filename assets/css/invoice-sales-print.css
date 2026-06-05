@@ -39,6 +39,36 @@
     margin-top: 22mm;
 }
 
+/* ข้อมูลบริษัท — ขยายเมื่อไม่มีโลโก้ */
+#tnc-invoice-print-root .inv-company-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+}
+
+#tnc-invoice-print-root .inv-company-col:has(.company-logo) .inv-company-name {
+    margin-top: 0.5rem;
+}
+
+#tnc-invoice-print-root .inv-company-col:not(:has(.company-logo)) .inv-company-name {
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+#tnc-invoice-print-root .inv-company-detail {
+    font-size: 11px;
+    line-height: 1.35;
+    color: #475569 !important;
+    margin-top: 0.25rem;
+}
+
+#tnc-invoice-print-root .inv-company-col:not(:has(.company-logo)) .inv-company-detail {
+    font-size: 0.92rem;
+    line-height: 1.5;
+    margin-top: 0.35rem;
+}
+
 @media print {
     @page {
         size: A4 portrait;
@@ -162,6 +192,16 @@
         margin-top: 22mm !important;
         page-break-inside: avoid;
         break-inside: avoid;
+    }
+
+    #tnc-invoice-print-root .inv-company-col:not(:has(.company-logo)) .inv-company-name {
+        font-size: 1.25rem !important;
+        font-weight: 800 !important;
+    }
+
+    #tnc-invoice-print-root .inv-company-col:not(:has(.company-logo)) .inv-company-detail {
+        font-size: 0.92rem !important;
+        line-height: 1.5 !important;
     }
 
     #tnc-invoice-print-root .table-custom {
