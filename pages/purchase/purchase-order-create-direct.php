@@ -105,7 +105,7 @@ $items = [[
         <div class="alert alert-warning py-2 mb-3">ยังไม่มีไซต์งานในระบบ — กรุณา<a href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>">เพิ่มไซต์งาน</a>ก่อนออก PO</div>
     <?php endif; ?>
 
-    <form action="<?= htmlspecialchars($handlerUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data">
+    <form action="<?= htmlspecialchars($handlerUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1">
         <?php csrf_field(); ?>
 
         <header class="po-create-hero p-4 p-md-4 mb-4">

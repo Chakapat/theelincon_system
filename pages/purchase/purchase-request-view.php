@@ -13,6 +13,7 @@ if (!isset($_SESSION['user_id'])) {
 $pr_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/pr_document.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_flash.php';
 use Theelincon\Rtdb\Purchase;
 $prCtx = tnc_purchase_pr_print_prepare($pr_id);
 if ($prCtx === null) {
@@ -337,7 +338,7 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
         }
     </style>
 </head>
-<body class="purchase-module tnc-app-body">
+<body class="purchase-module tnc-app-body tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดใบขอซื้อ…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้ดำเนินการต่อเมื่อโหลดเสร็จ">
 
 <div class="no-print tnc-app-chrome">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -414,44 +415,12 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                     <i class="bi bi-printer me-1"></i>พิมพ์
                 </button>
         </div>
-        <?php if (!empty($_GET['error']) && $_GET['error'] === 'po_exists'): ?>
-            <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ใบขอซื้อนี้มีใบสั่งซื้อแล้ว ไม่สามารถออกซ้ำได้</div>
-        <?php endif; ?>
-        <?php if (!empty($_GET['created'])): ?>
-            <div class="alert alert-success py-2 px-3 mb-3 border-0 shadow-sm" data-tnc-audio="create">บันทึกใบขอซื้อ (PR) เรียบร้อยแล้ว</div>
-        <?php endif; ?>
-        <?php if (!empty($_GET['updated'])): ?>
-            <div class="alert alert-success py-2 px-3 mb-3 border-0 shadow-sm" data-tnc-audio="update">แก้ไขใบขอซื้อเรียบร้อยแล้ว</div>
-        <?php endif; ?>
         <?php
-        $lineNotifyView = trim((string) ($_GET['line_notify'] ?? ''));
-        if ($lineNotifyView === 'sent'): ?>
-            <div class="alert alert-info py-2 px-3 mb-3 border-0 shadow-sm">ส่งคำขออนุมัติไป LINE แล้ว</div>
-        <?php elseif ($lineNotifyView === 'missing_target'): ?>
-            <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ยังไม่ได้ตั้งกลุ่ม LINE — ไปที่หน้าตั้งค่า LINE</div>
-        <?php elseif ($lineNotifyView === 'missing_token'): ?>
-            <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ยังไม่ได้ตั้ง Channel Access Token — ไปที่หน้าตั้งค่า LINE</div>
-        <?php elseif ($lineNotifyView !== ''): ?>
-            <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">ส่ง LINE ไม่สำเร็จ (<?= htmlspecialchars($lineNotifyView, ENT_QUOTES, 'UTF-8') ?>)</div>
-        <?php endif; ?>
-        <?php if (!empty($_GET['web_approved'])): ?>
-            <div class="alert alert-success py-2 px-3 mb-3 border-0 shadow-sm" data-tnc-audio="approve">อนุมัติ PR บนเว็บแล้ว — สามารถออก PO ได้</div>
-        <?php endif; ?>
-        <?php if (!empty($_GET['web_rejected'])): ?>
-            <div class="alert alert-danger py-2 px-3 mb-3 border-0 shadow-sm">บันทึกผลไม่อนุมัติแล้ว</div>
-        <?php endif; ?>
-        <?php if (!empty($_GET['error']) && $_GET['error'] === 'pr_decision'): ?>
-            <div class="alert alert-danger py-2 px-3 mb-3 border-0 shadow-sm"><?= htmlspecialchars(trim((string) ($_GET['message'] ?? 'ไม่สามารถบันทึกผลได้')), ENT_QUOTES, 'UTF-8') ?></div>
-        <?php endif; ?>
-        <?php if (!empty($_GET['error']) && $_GET['error'] === 'pr_not_approved'): ?>
-            <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm">
-                <i class="bi bi-hourglass-split me-1"></i>ใบขอซื้อยังรออนุมัติ — ออก PO ได้หลังอนุมัติ (LINE หรือ ADMIN บนเว็บ)
-            </div>
-        <?php endif; ?>
-        <?php if (!empty($_GET['error']) && $_GET['error'] === 'pr_rejected'): ?>
-            <div class="alert alert-danger py-2 px-3 mb-3 border-0 shadow-sm">
-                <i class="bi bi-x-circle me-1"></i>ใบขอซื้อไม่ได้รับการอนุมัติ — แก้ไข PR แล้วบันทึกใหม่เพื่อส่งขออนุมัติอีกครั้ง
-            </div>
+        $prViewFlash = tnc_purchase_pr_view_flash($_GET);
+        if ($prViewFlash !== null): ?>
+        <div class="mb-3">
+            <?php tnc_purchase_render_flash($prViewFlash, true); ?>
+        </div>
         <?php endif; ?>
         <?php if (!empty($isPoCancelled)): ?>
             <div class="alert alert-danger py-2 px-3 mb-3 border-0 shadow-sm">
@@ -487,10 +456,19 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
 <script>
 (function () {
     function submitIfConfirm(form, msg) {
-        if (!form) return;
-        if (window.confirm(msg)) {
-            form.submit();
+        if (!form || !window.confirm(msg)) {
+            return;
         }
+        if (window.TncPurchaseLoading && typeof window.TncPurchaseLoading.submitWithOverlay === 'function') {
+            window.TncPurchaseLoading.submitWithOverlay(form);
+            return;
+        }
+        form.submit();
+    }
+
+    if (window.TncPurchaseLoading) {
+        window.TncPurchaseLoading.markBootTableReady();
+        window.TncPurchaseLoading.markBootSyncReady();
     }
     document.getElementById('btnPrSendLine')?.addEventListener('click', function () {
         submitIfConfirm(

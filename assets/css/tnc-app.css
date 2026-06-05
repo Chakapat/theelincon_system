@@ -490,17 +490,21 @@ body.tnc-app-body h5 .bi.text-warning {
         border-top-width: 0 !important;
     }
 
-    /* Index — พิมพ์จากหน้าหลักขณะเปิด modal (ใช้ปุ่ม «พิมพ์» ใน modal — parent print ไม่แสดงเนื้อ iframe) */
-    body.tnc-index-page.tnc-invoice-modal-open > *:not(#tncInvoiceModal) {
+    /* Index — พิมพ์จากหน้าหลักขณะเปิด popover (ใช้ปุ่ม «พิมพ์» — parent print ไม่แสดงเนื้อ iframe) */
+    body.tnc-index-page.tnc-invoice-popover-open > *:not(#tncInvoicePopover):not(#tncInvoicePopoverBackdrop) {
         display: none !important;
     }
 
-    body.tnc-index-page.tnc-invoice-modal-open {
+    body.tnc-index-page.tnc-invoice-popover-open {
         visibility: visible !important;
         background: #fff !important;
     }
 
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal {
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopoverBackdrop {
+        display: none !important;
+    }
+
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopover {
         display: block !important;
         visibility: visible !important;
         position: static !important;
@@ -512,11 +516,12 @@ body.tnc-app-body h5 .bi.text-warning {
         padding: 0 !important;
         overflow: visible !important;
         opacity: 1 !important;
+        transform: none !important;
+        border: none !important;
+        box-shadow: none !important;
     }
 
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal .modal-dialog,
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal .modal-content,
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal .modal-body {
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopover .popover-body {
         display: block !important;
         visibility: visible !important;
         position: static !important;
@@ -534,14 +539,15 @@ body.tnc-app-body h5 .bi.text-warning {
         transform: none !important;
     }
 
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal .modal-header,
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal .btn-close,
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModalPrint {
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopover .popover-header,
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopover .btn-close,
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopoverPrint,
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopover .popover-arrow {
         display: none !important;
         visibility: hidden !important;
     }
 
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModalFrame {
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopoverFrame {
         display: block !important;
         visibility: visible !important;
         width: 100% !important;

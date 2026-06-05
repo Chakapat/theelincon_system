@@ -531,6 +531,27 @@ body.pr-doc-view-page {
 }
 
 #prTableBody.tnc-table-is-loading > tr:not(.tnc-table-skeleton-row),
-#poTableBody.tnc-table-is-loading > tr:not(.tnc-table-skeleton-row) {
+#poTableBody.tnc-table-is-loading > tr:not(.tnc-table-skeleton-row),
+#woTableBody.tnc-table-is-loading > tr:not(.tnc-table-skeleton-row) {
     display: none;
+}
+
+/* Submit button loading (Purchase) */
+@keyframes tncBtnSpin {
+    to { transform: rotate(360deg); }
+}
+.btn.tnc-is-loading {
+    pointer-events: none;
+    opacity: 0.88;
+}
+.tnc-btn-spinner {
+    display: inline-block;
+    width: 0.95rem;
+    height: 0.95rem;
+    margin-right: 0.4rem;
+    vertical-align: -0.15em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: tncBtnSpin 0.65s linear infinite;
 }

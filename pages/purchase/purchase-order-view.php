@@ -15,6 +15,7 @@ $id = (int) ($_GET['id'] ?? 0);
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/po_document.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_po_payment_slips.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/pr_document.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_flash.php';
 use Theelincon\Rtdb\Purchase;
 $poCtx = tnc_purchase_po_print_prepare($id);
 if ($poCtx === null) {
@@ -509,11 +510,8 @@ $poListHref = htmlspecialchars(
     'UTF-8'
 );
 $poViewFullHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8');
-$hasAlerts = !empty($_GET['cancelled'])
-    || (!empty($_GET['created']))
-    || (!empty($_GET['error']) && $_GET['error'] === 'po_paid')
-    || (!empty($_GET['error']) && in_array((string) $_GET['error'], ['billing_required', 'billing_amount_invalid', 'no_contract_po'], true))
-    || !empty($_GET['billing_saved'])
+$poViewFlash = tnc_purchase_po_view_flash($_GET);
+$hasAlerts = $poViewFlash !== null
     || ($hasFollowPagesPrint && $poPrintMode === 'po')
     || ($poPrintMode === 'slip')
     || ($poPrintMode === 'all');
@@ -592,26 +590,8 @@ $hasAlerts = !empty($_GET['cancelled'])
         </div>
         <?php if ($hasAlerts): ?>
             <div class="po-view-alerts">
-                <?php if (!empty($_GET['cancelled'])): ?>
-                    <div class="alert alert-success mb-0" data-tnc-audio="delete">ยกเลิกใบสั่งซื้อเรียบร้อยแล้ว</div>
-                <?php endif; ?>
-                <?php if (!empty($_GET['created'])): ?>
-                    <div class="alert alert-success mb-0" data-tnc-audio="create">บันทึก Work Order เรียบร้อยแล้ว</div>
-                <?php endif; ?>
-                <?php if (!empty($_GET['error']) && (string) $_GET['error'] === 'no_contract_po'): ?>
-                    <div class="alert alert-warning mb-0">ยังไม่มี Work Order (WO) — ต้องออก WO ก่อนจึงจะสั่งจ่าย PO ได้</div>
-                <?php endif; ?>
-                <?php if (!empty($_GET['error']) && $_GET['error'] === 'po_paid'): ?>
-                    <div class="alert alert-warning mb-0">ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถยกเลิกได้</div>
-                <?php endif; ?>
-                <?php if (!empty($_GET['billing_saved'])): ?>
-                    <div class="alert alert-success mb-0" data-tnc-audio="complete">บันทึกเลขที่บิลซื้อเรียบร้อยแล้ว และสร้างข้อมูลในตาราง bills แล้ว</div>
-                <?php endif; ?>
-                <?php if (!empty($_GET['error']) && $_GET['error'] === 'billing_required'): ?>
-                    <div class="alert alert-warning mb-0">กรุณากรอกเลขที่บิลซื้อและวันที่บนบิลให้ครบถ้วน</div>
-                <?php endif; ?>
-                <?php if (!empty($_GET['error']) && $_GET['error'] === 'billing_amount_invalid'): ?>
-                    <div class="alert alert-warning mb-0">ยอดเงินรวมและยอด VAT ต้องไม่เป็นค่าว่างหรือติดลบ</div>
+                <?php if ($poViewFlash !== null): ?>
+                    <?php tnc_purchase_render_flash($poViewFlash, false); ?>
                 <?php endif; ?>
                 <?php if ($hasFollowPagesPrint && $poPrintMode === 'po'): ?>
                     <div class="alert alert-light border mb-0 small">

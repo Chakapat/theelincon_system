@@ -9,6 +9,7 @@ session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/line_pr_approval.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_table_skeleton.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_flash.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -124,72 +125,13 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
         }
     </style>
 </head>
-<body class="purchase-module tnc-app-body">
+<body class="purchase-module tnc-app-body tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ PR…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้จัดการใบขอซื้อเมื่อโหลดเสร็จ" data-tnc-boot-sync-url="<?= htmlspecialchars(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_requests'), ENT_QUOTES, 'UTF-8') ?>">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-4 mb-5">
     <div class="no-print">
-    <?php if (!empty($_GET['success'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="create">
-            บันทึกใบขอซื้อ (PR) เรียบร้อยแล้ว — ส่งขออนุมัติ LINE หรือให้ ADMIN อนุมัติได้จากหน้ารายละเอียด PR
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php
-    $lineNotify = trim((string) ($_GET['line_notify'] ?? ''));
-    if ($lineNotify === 'sent'): ?>
-        <div class="alert alert-info alert-dismissible fade show" role="alert">
-            ส่งข้อความขออนุมัติไป LINE แล้ว
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php elseif ($lineNotify === 'missing_token'): ?>
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            บันทึก PR แล้ว แต่ยังไม่ได้ตั้ง Channel Access Token — ไปที่หน้าตั้งค่า LINE
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php elseif ($lineNotify === 'missing_target'): ?>
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            บันทึก PR แล้ว แต่ยังไม่ได้ตั้ง <strong>กลุ่ม LINE</strong> ในหน้าตั้งค่า LINE — ไปที่เมนูตั้งค่า LINE แล้วเลือก Group ID
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php elseif ($lineNotify !== '' && $lineNotify !== 'sent'): ?>
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            บันทึก PR แล้ว แต่ส่ง LINE ไม่สำเร็จ (<?= htmlspecialchars($lineNotify, ENT_QUOTES, 'UTF-8') ?>) — ตรวจสอบการตั้งค่า LINE
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['updated'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="update">
-            แก้ไขใบขอซื้อ (PR) เรียบร้อยแล้ว
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['deleted'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="delete">
-            ลบใบขอซื้อเรียบร้อยแล้ว
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <?php
-            $err = $_GET['error'];
-            if ($err === 'invalid_pr') {
-                echo 'ไม่พบรหัสใบขอซื้อที่ถูกต้อง';
-            } elseif ($err === 'pr_has_po') {
-                echo 'ใบขอซื้อนี้มีใบสั่งซื้อ (PO) แล้ว ไม่สามารถแก้ไขได้';
-            } elseif ($err === 'pr_approved_locked') {
-                echo 'ใบขอซื้ออนุมัติแล้ว ไม่สามารถแก้ไขได้';
-            } elseif ($err === 'delete_pr_failed') {
-                echo 'ไม่สามารถลบใบขอซื้อได้ กรุณาลองใหม่หรือติดต่อผู้ดูแลระบบ';
-            } else {
-                echo 'เกิดข้อผิดพลาด กรุณาลองใหม่';
-            }
-            ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
+    <?php tnc_purchase_render_flash(tnc_purchase_pr_list_flash($_GET)); ?>
     </div>
 
     <div class="purchase-page-head mb-4">
@@ -382,8 +324,15 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                 order: [[1, 'desc']],
                 pageLength: 10,
                 language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
-                columnDefs: [{ targets: [0, 6], orderable: false, searchable: false }]
+                columnDefs: [{ targets: [0, 6], orderable: false, searchable: false }],
+                initComplete: function () {
+                    if (window.TncPurchaseLoading) {
+                        window.TncPurchaseLoading.markBootTableReady();
+                    }
+                }
             });
+        } else if (window.TncPurchaseLoading) {
+            window.TncPurchaseLoading.markBootTableReady();
         }
     }
 
@@ -404,7 +353,13 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
         fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
             if (!d || !d.ok) return;
             if (c === '') { c = d.checksum; return; }
-            if (d.checksum !== c) window.location.reload();
+            if (d.checksum !== c) {
+                if (typeof window.tncPurchaseReloadWithWait === 'function') {
+                    window.tncPurchaseReloadWithWait('กำลังอัปเดตรายการ PR…', 'พบข้อมูลเปลี่ยนแปลง กำลังโหลดหน้าใหม่…');
+                } else {
+                    window.location.reload();
+                }
+            }
         }).catch(function () {});
     }, 6000);
 })(jQuery);

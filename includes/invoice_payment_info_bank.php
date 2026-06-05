@@ -16,7 +16,7 @@ $bankAccountNumber = trim((string) ($data['bank_account_number'] ?? ''));
 <span class="inv-bank-display">
     <?= htmlspecialchars($bankName, ENT_QUOTES, 'UTF-8') ?>
     <?php if ($bankLogoUrl !== ''): ?>
-    · <img src="<?= htmlspecialchars($bankLogoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="" class="inv-bank-logo" width="18" height="18">
+    · <img src="<?= htmlspecialchars($bankLogoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="" class="inv-bank-logo" width="24" height="24">
     <?php endif; ?>
 </span>
 <?php endif; ?>

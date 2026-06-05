@@ -156,6 +156,7 @@
         }
         if (document.body) {
             document.body.classList.remove('tnc-po-boot-lock');
+            document.body.classList.remove('tnc-purchase-boot-lock');
         }
         restoreDefaultCopy();
         hide();
@@ -174,6 +175,18 @@
     };
 
     /** หลังจบการ dispatch ทั้งหมด — ถ้าไม่มีใคร prevent แปลว่าจะ navigate จริง */
+    function overlayMessageForForm(form) {
+        var title = form.getAttribute('data-tnc-overlay-title');
+        var sub = form.getAttribute('data-tnc-overlay-sub');
+        if (title) {
+            return { title: title, sub: sub || defaultSub };
+        }
+        if (window.TncPurchaseLoading && typeof window.TncPurchaseLoading.resolveFormMessage === 'function') {
+            return window.TncPurchaseLoading.resolveFormMessage(form);
+        }
+        return null;
+    }
+
     document.addEventListener('submit', function (ev) {
         var form = ev.target;
         if (!(form instanceof HTMLFormElement)) {
@@ -192,6 +205,14 @@
             if (evRef.defaultPrevented) {
                 return;
             }
+            if (window.TncPurchaseLoading && typeof window.TncPurchaseLoading.setSubmitButtonLoading === 'function') {
+                window.TncPurchaseLoading.setSubmitButtonLoading(form);
+            }
+            var msg = overlayMessageForForm(form);
+            if (msg && typeof window.TncLoadingOverlay.showWithMessage === 'function') {
+                window.TncLoadingOverlay.showWithMessage(msg.title, msg.sub);
+                return;
+            }
             show();
         }, 0);
     }, false);
@@ -200,11 +221,18 @@
         forceHide();
     });
 
-    if (document.body && document.body.classList.contains('tnc-po-boot-lock')) {
+    function shouldBootLock() {
+        return document.body && (
+            document.body.classList.contains('tnc-po-boot-lock')
+            || document.body.classList.contains('tnc-purchase-boot-lock')
+        );
+    }
+
+    if (shouldBootLock()) {
         bootLock();
     } else {
         document.addEventListener('DOMContentLoaded', function () {
-            if (document.body && document.body.classList.contains('tnc-po-boot-lock')) {
+            if (shouldBootLock()) {
                 bootLock();
             }
         }, { once: true });

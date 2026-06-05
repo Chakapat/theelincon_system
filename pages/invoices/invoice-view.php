@@ -234,7 +234,7 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
         }
         .payment-info-box { border: 1px solid #eee; border-radius: 8px; padding: 10px; background: #fafafa; font-size: 11.5px; line-height: 1.4; }
         .inv-bank-display { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
-        .inv-bank-logo { width: 18px; height: 18px; object-fit: contain; vertical-align: middle; border-radius: 3px; }
+        .inv-bank-logo { width: 24px; height: 24px; object-fit: contain; vertical-align: middle; border-radius: 3px; }
         
         .summary-item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 13px; }
         .summary-divider { border-top: 1px dashed #ddd; margin: 4px 0; }

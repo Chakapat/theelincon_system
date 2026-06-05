@@ -525,19 +525,23 @@
         display: table-header-group !important;
     }
 
-    /* ---- Index modal fallback (Ctrl+P ขณะเปิด modal) ---- */
-    body.tnc-index-page.tnc-invoice-modal-open > *:not(#tncInvoiceModal) {
+    /* ---- Index popover fallback (Ctrl+P ขณะเปิด preview) ---- */
+    body.tnc-index-page.tnc-invoice-popover-open > *:not(#tncInvoicePopover):not(#tncInvoicePopoverBackdrop) {
         display: none !important;
     }
 
-    body.tnc-index-page.tnc-invoice-modal-open {
+    body.tnc-index-page.tnc-invoice-popover-open {
         visibility: visible !important;
         background: #fff !important;
     }
 
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal,
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal .modal-body,
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModalFrame {
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopoverBackdrop {
+        display: none !important;
+    }
+
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopover,
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopover .popover-body,
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopoverFrame {
         visibility: visible !important;
         display: block !important;
         position: absolute !important;
@@ -554,11 +558,13 @@
         opacity: 1 !important;
         clip: auto !important;
         clip-path: none !important;
+        transform: none !important;
     }
 
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal .modal-header,
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModal .modal-header *,
-    body.tnc-index-page.tnc-invoice-modal-open #tncInvoiceModalPrint {
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopover .popover-header,
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopover .popover-header *,
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopoverPrint,
+    body.tnc-index-page.tnc-invoice-popover-open #tncInvoicePopover .popover-arrow {
         display: none !important;
         visibility: hidden !important;
     }

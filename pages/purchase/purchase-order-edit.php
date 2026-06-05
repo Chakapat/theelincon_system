@@ -202,7 +202,7 @@ if ($isHirePo) {
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="<?= $isHirePo ? 'container-fluid px-3 px-lg-4' : 'container container-lg' ?> py-4 py-md-5 mb-5 po-create-wrap">
-    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_po_direct&id=<?= (int) $poId ?>" method="POST"<?= $isHirePo && $hireEditRoom > 0 ? ' data-hire-remaining="' . htmlspecialchars(number_format($hireEditRoom, 2, '.', ''), ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
+    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_po_direct&id=<?= (int) $poId ?>" method="POST" data-tnc-fullnav="1"<?= $isHirePo && $hireEditRoom > 0 ? ' data-hire-remaining="' . htmlspecialchars(number_format($hireEditRoom, 2, '.', ''), ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
         <input type="hidden" name="confirm_over_contract" id="confirm_over_contract" value="">
         <?php csrf_field(); ?>
 

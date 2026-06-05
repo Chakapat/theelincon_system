@@ -10,6 +10,7 @@ session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_po_payment_slips.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_table_skeleton.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_flash.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -280,124 +281,7 @@ $ignoredCountAll = count($ignoredPoList);
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-4 mb-5">
-    <?php if (!empty($_GET['success'])): ?>
-        <?php $createdPoNo = trim((string) ($_GET['po_number'] ?? '')); ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="create">
-            สร้างใบสั่งซื้อ (PO) สำเร็จแล้ว<?php if ($createdPoNo !== ''): ?> — เลขที่ <strong><?= htmlspecialchars($createdPoNo, ENT_QUOTES, 'UTF-8') ?></strong><?php endif; ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['updated'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="update">
-            แก้ไขใบสั่งซื้อ (PO) เรียบร้อยแล้ว
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['deleted'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="delete">
-            ลบใบสั่งซื้อเรียบร้อยแล้ว
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['cancelled'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="delete">
-            ยกเลิกใบสั่งซื้อ (PO) เรียบร้อยแล้ว
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <?php
-            $errorCode = trim((string) ($_GET['error'] ?? ''));
-            if ($errorCode === 'upload_type') {
-                echo 'ไฟล์แนบต้องเป็นรูปภาพหรือ PDF (JPG, PNG, WEBP, GIF, PDF)';
-            } elseif ($errorCode === 'upload_failed') {
-                echo 'อัปโหลดรูปหลักฐานไม่สำเร็จ กรุณาลองใหม่';
-            } elseif ($errorCode === 'payment_slip_required') {
-                echo 'ต้องแนบรูปหลักฐานก่อนเปลี่ยนสถานะเป็น จ่ายแล้ว';
-            } elseif ($errorCode === 'cash_paid_by_required') {
-                echo 'กรุณาระบุ «จ่ายโดย» เมื่อเลือกชำระด้วยเงินสด';
-            } elseif ($errorCode === 'invalid') {
-                echo 'ไม่พบใบสั่งซื้อ หรือข้อมูลไม่ถูกต้อง';
-            } elseif ($errorCode === 'not_found') {
-                echo 'ไม่พบใบสั่งซื้อ';
-            } elseif ($errorCode === 'po_cancelled') {
-                echo 'ใบสั่งซื้อนี้ถูกยกเลิกแล้ว ไม่สามารถดำเนินการนี้ได้';
-            } elseif ($errorCode === 'already_cancelled') {
-                echo 'ใบสั่งซื้อนี้ยกเลิกไปแล้ว';
-            } elseif ($errorCode === 'po_paid') {
-                echo 'ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถแก้ไข ยกเลิก หรือลบได้';
-            } elseif ($errorCode === 'contract_po_not_payable') {
-                echo 'WO สัญญาจ้างไม่ใช่ใบสั่งจ่าย — ใช้ «ออก PO สั่งจ่าย» สำหรับงวด/ครั้งที่ต้องโอนเงิน';
-            } elseif ($errorCode === 'billing_required') {
-                echo 'กรุณากรอกเลขที่บิลซื้อและวันที่บนบิลให้ครบถ้วน';
-            } elseif ($errorCode === 'billing_amount_invalid') {
-                echo 'ยอดเงินรวมและยอด VAT ต้องไม่เป็นค่าว่างหรือติดลบ';
-            } else {
-                echo 'เกิดข้อผิดพลาดในการจัดการใบสั่งซื้อ กรุณาลองใหม่';
-            }
-            ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['payment_slips_updated'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="update">
-            อัปเดตไฟล์หลักฐานการจ่ายเรียบร้อยแล้ว
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['payment_reverted'])): ?>
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            ไม่เหลือหลักฐานการจ่าย (โอนเงิน) ระบบจึงคืนสถานะใบสั่งซื้อนี้เป็น <strong>ยังไม่จ่าย</strong> โดยอัตโนมัติ
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['payment_saved'])): ?>
-        <?php
-        $printPoIdSaved = (int) ($_GET['print_po_id'] ?? 0);
-        $poAutoprintBase = $printPoIdSaved > 0
-            ? htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . $printPoIdSaved, ENT_QUOTES, 'UTF-8')
-            : '';
-        $poAutoprintPoUrl = $poAutoprintBase !== '' ? $poAutoprintBase . '&print_mode=po&autoprint=1' : '';
-        $poAutoprintSlipUrl = $poAutoprintBase !== '' ? $poAutoprintBase . '&print_mode=slip&autoprint=1' : '';
-        $poAutoprintBothUrl = $poAutoprintBase !== '' ? $poAutoprintBase . '&print_mode=both&autoprint=1' : '';
-        $poAutoprintAllUrl = $poAutoprintBase !== '' ? $poAutoprintBase . '&print_mode=all&autoprint=1' : '';
-        ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="complete">
-            บันทึกสถานะการจ่ายเงินเรียบร้อยแล้ว
-            <?php if ($printPoIdSaved > 0 && $poAutoprintPoUrl !== ''): ?>
-                <div class="mt-2 small">
-                    <span class="text-muted">พิมพ์อัตโนมัติ:</span>
-                    <a href="<?= $poAutoprintPoUrl ?>" class="alert-link fw-semibold">1. เฉพาะใบสั่งซื้อ</a>
-                    <span class="text-muted">·</span>
-                    <a href="<?= $poAutoprintSlipUrl ?>" class="alert-link fw-semibold">2. เฉพาะสลิป</a>
-                    <span class="text-muted">·</span>
-                    <a href="<?= $poAutoprintBothUrl ?>" class="alert-link fw-semibold">3. ใบสั่งซื้อ + สลิป</a>
-                    <span class="text-muted">·</span>
-                    <a href="<?= $poAutoprintAllUrl ?>" class="alert-link fw-semibold">4. PR + PO + สลิป/แนบ</a>
-                </div>
-            <?php endif; ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['billing_saved'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="complete">
-            บันทึกเลขที่บิลซื้อเรียบร้อยแล้ว และสร้างข้อมูลในตาราง bills แล้ว
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['po_ignored'])): ?>
-        <div class="alert alert-secondary alert-dismissible fade show" role="alert">
-            ปัดทิ้งใบสั่งซื้อเรียบร้อยแล้ว — จะไม่ถูกนับในกล่อง «ใบสั่งซื้อที่ไม่สมบูรณ์» อีก (คืนค่าได้จากในกล่อง)
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['po_unignored'])): ?>
-        <div class="alert alert-info alert-dismissible fade show" role="alert">
-            คืนค่าใบสั่งซื้อกลับมานับใหม่เรียบร้อยแล้ว
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
+    <?php tnc_purchase_render_flash(tnc_purchase_po_list_flash($_GET)); ?>
 
     <div class="purchase-page-head mb-4">
         <div>

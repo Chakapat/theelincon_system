@@ -231,7 +231,7 @@ $poFlatItems = [[
         <div class="alert alert-success py-2"><i class="bi bi-check-circle-fill me-1"></i>มูลค่าสัญญาจ้างออก PO ครบแล้ว (คงเหลือ 0 บาท)</div>
     <?php endif; ?>
 
-    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_direct" method="POST" data-hire-remaining="<?= htmlspecialchars(number_format($hireContractRemaining, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>" data-hire-advance="<?= $isAdvanceMode ? '1' : '0' ?>">
+    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_direct" method="POST" data-tnc-fullnav="1" data-hire-remaining="<?= htmlspecialchars(number_format($hireContractRemaining, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>" data-hire-advance="<?= $isAdvanceMode ? '1' : '0' ?>">
         <input type="hidden" name="confirm_over_contract" id="confirm_over_contract" value="">
         <?php csrf_field(); ?>
         <input type="hidden" name="hire_contract_id" value="<?= $hire_contract_id ?>">

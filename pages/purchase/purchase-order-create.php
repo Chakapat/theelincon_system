@@ -342,7 +342,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container container-lg py-4 py-md-5 mb-5 po-create-wrap">
-    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST">
+    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" data-tnc-fullnav="1">
         <?php csrf_field(); ?>
         <input type="hidden" name="pr_id" value="<?= $pr_id ?>">
         <input type="hidden" name="vat_enabled" id="vat_enabled" value="<?= $pr_vat_enabled ?>">

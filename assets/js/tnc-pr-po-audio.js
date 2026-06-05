@@ -5,7 +5,8 @@
 (function () {
     'use strict';
 
-    var STORAGE_KEY = 'tnc_pr_po_audio_muted';
+    var STORAGE_KEY = 'tnc_system_audio_muted';
+    var STORAGE_KEY_LEGACY = 'tnc_pr_po_audio_muted';
     var ctx = null;
     var masterGain = null;
     var trashAudio = null;
@@ -13,19 +14,21 @@
     var playedOnLoad = false;
 
     function isMuted() {
-        if (window.TncSoundSettings && typeof window.TncSoundSettings.isPrPoMuted === 'function') {
-            return window.TncSoundSettings.isPrPoMuted();
+        if (window.TncSoundSettings && typeof window.TncSoundSettings.isMuted === 'function') {
+            return window.TncSoundSettings.isMuted();
         }
         try {
-            return localStorage.getItem(STORAGE_KEY) === '1';
+            return localStorage.getItem(STORAGE_KEY) === '1'
+                || localStorage.getItem(STORAGE_KEY_LEGACY) === '1'
+                || localStorage.getItem('tnc_notif_audio_muted') === '1';
         } catch (e) {
             return false;
         }
     }
 
     function setMuted(muted) {
-        if (window.TncSoundSettings && typeof window.TncSoundSettings.setPrPoMuted === 'function') {
-            window.TncSoundSettings.setPrPoMuted(muted);
+        if (window.TncSoundSettings && typeof window.TncSoundSettings.setMuted === 'function') {
+            window.TncSoundSettings.setMuted(muted);
             return;
         }
         try {
@@ -34,6 +37,8 @@
             } else {
                 localStorage.removeItem(STORAGE_KEY);
             }
+            localStorage.removeItem(STORAGE_KEY_LEGACY);
+            localStorage.removeItem('tnc_notif_audio_muted');
         } catch (e) {}
     }
 
@@ -376,6 +381,9 @@
         if (!d.ok) {
             return;
         }
+        if (window.__tncPurchaseNavPending) {
+            return;
+        }
         var kind = mapAjaxAction(d.action);
         if (kind) {
             play(kind);
@@ -403,7 +411,7 @@
 
     window.addEventListener('tnc:sound-settings-changed', function (e) {
         var d = e.detail || {};
-        if (d.type === 'prPo' && !d.muted && pendingKind) {
+        if (!d.muted && pendingKind) {
             flushPending();
         }
     });

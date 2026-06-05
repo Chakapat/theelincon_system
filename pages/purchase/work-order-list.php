@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Purchase;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_flash.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_table_skeleton.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -164,36 +165,18 @@ usort($wo_rows, static function (array $a, array $b): int {
         .wo-empty-state i { font-size: 2rem; color: var(--tnc-muted); opacity: 0.65; }
     </style>
 </head>
-<body class="purchase-module tnc-app-body">
+<body class="purchase-module tnc-app-body tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ WO…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้จัดการ Work Order เมื่อโหลดเสร็จ">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-4 mb-5">
-    <?php if (!empty($_GET['success'])): ?>
-        <?php $createdWoNo = trim((string) ($_GET['wo_number'] ?? ($_GET['po_number'] ?? ''))); ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="create">
-            สร้าง Work Order (WO) สำเร็จแล้ว<?php if ($createdWoNo !== ''): ?> — เลขที่ <strong><?= htmlspecialchars($createdWoNo, ENT_QUOTES, 'UTF-8') ?></strong><?php endif; ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['cancelled'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert" data-tnc-audio="delete">
-            ยกเลิก Work Order เรียบร้อยแล้ว
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['error']) && (string) $_GET['error'] === 'not_found'): ?>
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            ไม่พบ Work Order ที่ต้องการ
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['error']) && (string) $_GET['error'] === 'no_wo'): ?>
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            ยังไม่มี Work Order (WO) — <a href="<?= htmlspecialchars($woCreateUrl, ENT_QUOTES, 'UTF-8') ?>" class="alert-link">ออก Work Order</a>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
+    <?php
+    $woListFlash = tnc_purchase_wo_list_flash($_GET);
+    if ($woListFlash !== null && ($woListFlash['message'] ?? '') === 'ยังไม่มี Work Order (WO)') {
+        $woListFlash['html'] = ' — <a href="' . htmlspecialchars($woCreateUrl, ENT_QUOTES, 'UTF-8') . '" class="alert-link">ออก Work Order</a>';
+    }
+    tnc_purchase_render_flash($woListFlash);
+    ?>
 
     <div class="purchase-page-head mb-4">
         <div>
@@ -330,23 +313,48 @@ usort($wo_rows, static function (array $a, array $b): int {
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
-<script src="<?= htmlspecialchars(app_path('assets/js/tnc-table-boot.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-table-skeleton.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function () {
     var batchPrintBase = <?= json_encode($batchPrintBase . '?kind=po&back=wo&ids=', JSON_UNESCAPED_UNICODE) ?>;
-    var tableEl = document.getElementById('woTable');
-    if (!tableEl || !tableEl.querySelector('tbody tr td[colspan]')) {
-        if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable) {
-            var dt = jQuery('#woTable').DataTable({
-                order: [[1, 'desc']],
-                pageLength: 25,
-                language: { url: '//cdn.datatables.net/plug-ins/1.13.8/i18n/th.json' },
-                columnDefs: [{ orderable: false, targets: [0, 6] }]
-            });
-            if (typeof window.tncPurchaseTableReveal === 'function') {
-                window.tncPurchaseTableReveal('#woTable');
+
+    function initWoDataTable() {
+        if (typeof jQuery === 'undefined' || !jQuery.fn.DataTable) {
+            if (window.TncPurchaseLoading) {
+                window.TncPurchaseLoading.markBootTableReady();
+                window.TncPurchaseLoading.markBootSyncReady();
             }
+            return;
         }
+        if (jQuery('#woTable tbody tr td[colspan]').length) {
+            if (window.TncPurchaseLoading) {
+                window.TncPurchaseLoading.markBootTableReady();
+                window.TncPurchaseLoading.markBootSyncReady();
+            }
+            return;
+        }
+        jQuery('#woTable').DataTable({
+            order: [[1, 'desc']],
+            pageLength: 25,
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.8/i18n/th.json' },
+            columnDefs: [{ orderable: false, targets: [0, 6] }],
+            initComplete: function () {
+                if (window.TncPurchaseLoading) {
+                    window.TncPurchaseLoading.markBootTableReady();
+                    window.TncPurchaseLoading.markBootSyncReady();
+                }
+            }
+        });
+    }
+
+    if (window.TncTableSkeleton && document.getElementById('woTableBody')?.classList.contains('tnc-table-is-loading')) {
+        window.TncTableSkeleton.bootListPage({
+            bodyId: 'woTableBody',
+            tableId: 'woTable',
+            onReady: initWoDataTable
+        });
+    } else {
+        initWoDataTable();
     }
 
     var selectAll = document.getElementById('woSelectAllPrint');

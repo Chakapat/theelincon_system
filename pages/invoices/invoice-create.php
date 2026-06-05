@@ -193,20 +193,42 @@ Db::sortRows($customer_data, 'name', false);
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            gap: .35rem;
             background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
             color: #fff;
             border: none;
             border-radius: .78rem;
             font-weight: 700;
             letter-spacing: .01em;
+            padding: .72rem 1.35rem;
             transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
             box-shadow: 0 .38rem .92rem rgba(234, 88, 12, .3);
         }
-        .btn-primary-save:hover {
+        .btn-primary-save:hover,
+        .btn-primary-save:focus {
             color: #fff;
             transform: translateY(-1px);
             filter: brightness(1.03);
             box-shadow: 0 .52rem 1.05rem rgba(234, 88, 12, .35);
+        }
+        .btn-back-home {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .55rem 1.15rem;
+            border-radius: 999px;
+            font-weight: 600;
+            color: #475569;
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
+            transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+        }
+        .btn-back-home:hover {
+            color: #0f172a;
+            background: #f8fafc;
+            border-color: #94a3b8;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, .08);
         }
         .invoice-table-wrap {
             overflow-x: auto;
@@ -321,7 +343,7 @@ Db::sortRows($customer_data, 'name', false);
             <p class="tnc-page-kicker">Invoices</p>
             <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-receipt"></i></span>สร้างใบแจ้งหนี้</h1>
         </div>
-        <a href="<?= htmlspecialchars(app_path('index.php')) ?>" class="btn btn-outline-secondary rounded-pill px-4">กลับหน้าหลัก</a>
+        <a href="<?= htmlspecialchars(app_path('index.php')) ?>" class="btn btn-back-home"><i class="bi bi-arrow-left-short"></i>กลับหน้าหลัก</a>
     </div>
 
     <form action="" method="POST" id="invoiceCreateForm">
@@ -438,8 +460,8 @@ Db::sortRows($customer_data, 'name', false);
                         <span class="grand-total-text" id="grand_total">0.00</span>
                     </div>
                 </div>
-                <button type="submit" name="save_invoice" class="btn btn-orange-save w-100 mt-4 shadow py-3 d-none d-md-flex">
-                    <i class="bi bi-save-fill me-2"></i>บันทึกและออกใบแจ้งหนี้
+                <button type="submit" name="save_invoice" class="btn btn-primary-save w-100 mt-4 d-none d-md-flex">
+                    <i class="bi bi-save-fill"></i>บันทึกและออกใบแจ้งหนี้
                 </button>
             </div>
         </div>
@@ -450,8 +472,8 @@ Db::sortRows($customer_data, 'name', false);
                     <div class="sticky-save-label">ยอดสุทธิ</div>
                     <div class="sticky-save-total" id="grand_total_sticky">0.00</div>
                 </div>
-                <button type="submit" name="save_invoice" class="btn btn-orange-save px-4">
-                    <i class="bi bi-save-fill me-1"></i>บันทึก
+                <button type="submit" name="save_invoice" class="btn btn-primary-save">
+                    <i class="bi bi-save-fill"></i>บันทึก
                 </button>
             </div>
         </div>

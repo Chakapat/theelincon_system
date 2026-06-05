@@ -48,15 +48,26 @@ $handlerUrl = app_path('actions/action-handler.php') . '?action=create_hire_cont
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/pr-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
-        .po-hire-shell { max-width: 960px; }
-        .section-card { border: 1px solid #e9ecef; border-radius: 12px; background: #fff; }
-        .section-title { font-size: 1rem; font-weight: 700; color: var(--tnc-orange); margin-bottom: 12px; }
-        .po-field-label { font-size: 0.8rem; font-weight: 600; color: var(--tnc-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
+        .po-hire-shell { max-width: 1080px; }
+        .po-hire-create-page .container-fluid { padding-top: 1rem !important; padding-bottom: 1.5rem !important; }
+        .po-hire-create-page .po-from-pr-head { padding: 1rem 1.15rem !important; }
+        .po-hire-create-page .po-from-pr-head h1 { font-size: 1.2rem !important; }
+        .po-hire-create-page .po-from-pr-head .sub { font-size: 0.82rem; }
+        .po-hire-create-page .po-from-pr-card > .p-4 { padding: 1.15rem !important; }
+        .po-hire-create-page .section-card { border: 1px solid #e9ecef; border-radius: 10px; background: #fff; padding: 0.85rem !important; }
+        .po-hire-create-page .section-title { font-size: 0.92rem; font-weight: 700; color: var(--tnc-orange); margin-bottom: 0.55rem; }
+        .po-hire-create-page .po-field-label { font-size: 0.75rem; font-weight: 600; color: var(--tnc-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.25rem; }
+        .po-hire-create-page .form-control,
+        .po-hire-create-page .form-select { font-size: 0.92rem; padding: 0.42rem 0.65rem; }
+        .po-hire-create-page .form-text { font-size: 0.78rem; margin-top: 0.2rem; }
+        .po-hire-create-page .row.g-3 { --bs-gutter-y: 0.75rem; }
+        .po-hire-create-page .btn-orange { padding: 0.55rem 1rem; font-size: 0.95rem; }
+        .po-hire-create-page .hire-lines-toolbar .btn { font-size: 0.82rem; padding: 0.28rem 0.55rem; }
     </style>
 </head>
-<body class="po-hire-mode purchase-module tnc-app-body">
+<body class="po-hire-mode po-hire-create-page purchase-module tnc-app-body">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
-<div class="container-fluid px-3 px-lg-4 py-4 py-md-5">
+<div class="container-fluid px-3 px-lg-4 py-3 py-md-4">
     <div class="row justify-content-center">
         <div class="col-12 po-hire-layout-inner">
             <div class="po-hire-shell mx-auto">
@@ -73,7 +84,7 @@ $handlerUrl = app_path('actions/action-handler.php') . '?action=create_hire_cont
                             <a href="<?= htmlspecialchars($listUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill">กลับรายการ PO</a>
                         </div>
                     </div>
-                    <div class="p-4 p-md-4">
+                    <div class="p-3 p-md-3">
                         <?php if ($errorCode === 'contractor_required'): ?>
                             <div class="alert alert-warning py-2">กรุณาเลือกผู้รับจ้าง</div>
                         <?php elseif ($errorCode === 'site_required'): ?>
@@ -86,19 +97,19 @@ $handlerUrl = app_path('actions/action-handler.php') . '?action=create_hire_cont
 
                         <form action="<?= htmlspecialchars($handlerUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" data-tnc-fullnav="1">
                             <?php csrf_field(); ?>
-                            <div class="row g-3 mb-4">
+                            <div class="row g-3 mb-3">
                                 <div class="col-md-6">
                                     <div class="po-field-label">เลขที่ WO (Work Order)</div>
-                                    <input type="text" class="form-control form-control-lg bg-light border-0" value="<?= htmlspecialchars($po_number, ENT_QUOTES, 'UTF-8') ?>" readonly>
+                                    <input type="text" class="form-control bg-light border-0" value="<?= htmlspecialchars($po_number, ENT_QUOTES, 'UTF-8') ?>" readonly>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="po-field-label" for="installment_total">จำนวนงวดจ่าย</label>
-                                    <input type="number" name="installment_total" id="installment_total" class="form-control form-control-lg" min="0" max="120" value="1">
+                                    <input type="number" name="installment_total" id="installment_total" class="form-control" min="0" max="120" value="1">
                                     <div class="form-text">ใส่ <strong>0</strong> = ไม่ระบุจำนวนงวด — การสั่งจ่ายแต่ละครั้งจะนับเป็น «ครั้ง» ไม่ใช่งวด</div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="po-field-label" for="site_id">ชื่อโครงการ <span class="text-danger">*</span></label>
-                                    <select name="site_id" id="site_id" class="form-select form-select-lg" required>
+                                    <select name="site_id" id="site_id" class="form-select" required>
                                         <option value="" disabled selected>— เลือกโครงการ —</option>
                                         <?php foreach ($sites as $site): ?>
                                             <?php $sid = (int) ($site['id'] ?? 0); if ($sid <= 0) { continue; } ?>
@@ -109,7 +120,7 @@ $handlerUrl = app_path('actions/action-handler.php') . '?action=create_hire_cont
                                 </div>
                                 <div class="col-md-6">
                                     <label class="po-field-label" for="contractor_search">ผู้รับจ้าง <span class="text-danger">*</span></label>
-                                    <input type="text" id="contractor_search" class="form-control form-control-lg" list="contractor_list" placeholder="เลือกผู้รับจ้าง" autocomplete="off" required>
+                                    <input type="text" id="contractor_search" class="form-control" list="contractor_list" placeholder="เลือกผู้รับจ้าง" autocomplete="off" required>
                                     <datalist id="contractor_list">
                                         <?php foreach ($contractorRows as $cr): ?>
                                             <option value="<?= htmlspecialchars(tnc_contractor_display_label($cr), ENT_QUOTES, 'UTF-8') ?>" data-id="<?= (int) ($cr['id'] ?? 0) ?>"></option>
@@ -119,11 +130,11 @@ $handlerUrl = app_path('actions/action-handler.php') . '?action=create_hire_cont
                                 </div>
                                 <div class="col-12">
                                     <label class="po-field-label" for="work_conditions">หมายเหตุ <span class="text-danger">*</span></label>
-                                    <textarea name="work_conditions" id="work_conditions" class="form-control" rows="4" required maxlength="2000" placeholder="ขอบเขตงาน เงื่อนไขการชำระ ข้อตกลงอื่น ๆ (แสดงบนเอกสารพิมพ์)"></textarea>
+                                    <textarea name="work_conditions" id="work_conditions" class="form-control" rows="3" required maxlength="2000" placeholder="ขอบเขตงาน เงื่อนไขการชำระ ข้อตกลงอื่น ๆ (แสดงบนเอกสารพิมพ์)"></textarea>
                                 </div>
                             </div>
 
-                            <div class="section-card p-3 mb-3 hire-lines-section" data-tnc-hire-root>
+                            <div class="section-card mb-3 hire-lines-section" data-tnc-hire-root>
                                 <div class="section-title"><i class="bi bi-table me-1"></i>รายละเอียดสัญญา / มูลค่างาน</div>
                                 <div class="hire-table-panel">
                                 <div class="table-responsive hire-table-scroll">
@@ -153,7 +164,7 @@ $handlerUrl = app_path('actions/action-handler.php') . '?action=create_hire_cont
                                 </div>
                             </div>
 
-                            <div class="section-card p-3 mb-4">
+                            <div class="section-card mb-3">
                                 <div class="section-title"><i class="bi bi-calculator me-1"></i>สรุปมูลค่าสัญญา</div>
                                 <div class="po-hire-summary-grid">
                                     <div class="po-hire-summary-settings">
@@ -176,8 +187,8 @@ $handlerUrl = app_path('actions/action-handler.php') . '?action=create_hire_cont
                                 </div>
                             </div>
 
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-orange btn-lg rounded-pill fw-semibold py-3">ยืนยันออก Work Order</button>
+                            <div class="d-flex justify-content-end pt-1">
+                                <button type="submit" class="btn btn-orange rounded-pill fw-semibold px-4">ยืนยันออก Work Order</button>
                             </div>
                         </form>
                     </div>

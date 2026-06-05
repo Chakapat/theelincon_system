@@ -609,45 +609,74 @@ if ($index_display_name === '') {
             padding-right: 1rem;
             padding-bottom: 0.75rem;
         }
-        /* Invoice: กว้างกว่า A4 เล็กน้อย — ให้เห็นแผ่น 210mm เต็มความกว้างโดยไม่เลื่อนซ้าย-ขวา (เลื่อนขึ้นลงใน iframe) */
-        #tncInvoiceModal .tnc-invoice-modal-dialog {
-            width: min(calc(210mm + 3rem), calc(100vw - 1rem));
-            max-width: min(calc(210mm + 3rem), calc(100vw - 1rem));
-            margin: 0.5rem auto;
+        /* Invoice preview — popover panel (เบากว่า modal) */
+        .tnc-invoice-popover-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 1040;
+            background: rgba(15, 23, 42, 0.28);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
         }
-        #tncInvoiceModal .modal-content {
-            border: none;
-            border-radius: 0.65rem;
-            box-shadow: 0 0.35rem 2rem rgba(15, 23, 42, 0.12);
-            overflow: hidden;
-            background: var(--tnc-surface, #f6f7f9);
+        .tnc-invoice-popover-backdrop.show {
+            opacity: 1;
+            pointer-events: auto;
         }
-        #tncInvoiceModal .modal-header {
-            flex-shrink: 0;
-            border-bottom: 1px solid var(--tnc-border, #e2e8f0);
+        #tncInvoicePopover.tnc-invoice-popover {
+            position: fixed;
+            z-index: 1050;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -48%) scale(0.97);
+            width: min(calc(210mm + 2.5rem), calc(100vw - 1rem));
+            max-width: min(calc(210mm + 2.5rem), calc(100vw - 1rem));
+            margin: 0;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            border-radius: 0.75rem;
+            box-shadow: 0 1rem 2.5rem rgba(15, 23, 42, 0.18);
+            opacity: 0;
+            transition: opacity 0.22s ease, transform 0.22s ease;
+            pointer-events: none;
+        }
+        #tncInvoicePopover.tnc-invoice-popover.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+        #tncInvoicePopover .popover-header {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
             background: #fff;
-            padding: 0.65rem 0.85rem;
-        }
-        #tncInvoiceModal .modal-title {
-            font-size: 0.95rem;
+            border-bottom: 1px solid var(--tnc-border, #e2e8f0);
+            padding: 0.6rem 0.85rem;
+            font-size: 0.92rem;
             font-weight: 800;
             color: #0f172a;
-            letter-spacing: -0.02em;
+            border-radius: 0.75rem 0.75rem 0 0;
         }
-        #tncInvoiceModal .modal-body {
+        #tncInvoicePopover .popover-body {
             padding: 0;
-            height: min(calc(297mm + 1.5rem), calc(100vh - 4.25rem));
-            max-height: calc(100vh - 4.25rem);
+            height: min(calc(297mm + 1rem), calc(100vh - 5rem));
+            max-height: calc(100vh - 5rem);
             overflow: auto;
             background: var(--tnc-surface, #f6f7f9);
+            border-radius: 0 0 0.75rem 0.75rem;
             scrollbar-gutter: stable;
         }
-        #tncInvoiceModal #tncInvoiceModalFrame {
+        #tncInvoicePopover #tncInvoicePopoverFrame {
             width: 100%;
             height: 100%;
             min-height: 240px;
             display: block;
+            border: 0;
         }
+        body.tnc-invoice-popover-open { overflow: hidden; }
+        #tncInvoicePopover .popover-arrow { display: none; }
 
         /* Skeleton loading rows */
         .index-skeleton-wrap {
@@ -829,14 +858,13 @@ if ($index_display_name === '') {
                 height: 1.9rem;
             }
 
-            #tncInvoiceModal .tnc-invoice-modal-dialog {
+            #tncInvoicePopover.tnc-invoice-popover {
                 width: calc(100vw - 0.5rem);
                 max-width: calc(100vw - 0.5rem);
-                margin: 0.25rem auto;
             }
-            #tncInvoiceModal .modal-body {
-                height: calc(100vh - 5.1rem);
-                max-height: calc(100vh - 5.1rem);
+            #tncInvoicePopover .popover-body {
+                height: calc(100vh - 5.5rem);
+                max-height: calc(100vh - 5.5rem);
             }
         }
 
@@ -966,7 +994,7 @@ if ($index_display_name === '') {
                 </button>
                 <div id="hub-collapse-docs" class="collapse home-hub-panel" aria-labelledby="hub-toggle-docs">
                     <div class="home-hub-panel-inner pb-1">
-                        <?php if (user_can('page.wo')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/work-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-ruled me-2 text-secondary"></i>Work Order (WO)</a><?php endif; ?>
+                        <?php if (user_can('page.wo')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/work-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-ruled me-2 text-secondary"></i>สั่งจ้างงาน (Work Order)</a><?php endif; ?>
                         <?php if (user_can('page.stock')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-box-seam me-2 text-secondary"></i>คลังสินค้า (Stock)</a><?php endif; ?>
                         <?php if (user_can('page.dsr')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/daily-site-reports/daily-site-report-calendar.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calendar3 me-2 text-secondary"></i>สมุดรายวันหน้างาน (DSR)</a><?php endif; ?>
                     </div>
@@ -1046,22 +1074,18 @@ if ($index_display_name === '') {
     </div>
     </div>
 
-    <div class="modal fade" id="tncInvoiceModal" tabindex="-1" aria-labelledby="tncInvoiceModalTitle" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered tnc-invoice-modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header py-2 px-3 align-items-center flex-wrap gap-2 no-print">
-                    <h6 class="modal-title fw-semibold mb-0 me-auto" id="tncInvoiceModalTitle">ใบแจ้งหนี้</h6>
-                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-semibold text-nowrap" id="tncInvoiceModalPrint" title="พิมพ์ต้นฉบับและสำเนา">
-                            <i class="bi bi-printer me-1"></i>พิมพ์
-                        </button>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
-                    </div>
-                </div>
-                <div class="modal-body p-0">
-                    <iframe id="tncInvoiceModalFrame" class="border-0" title="Invoice"></iframe>
-                </div>
-            </div>
+    <div id="tncInvoicePopoverBackdrop" class="tnc-invoice-popover-backdrop d-none" aria-hidden="true"></div>
+    <div id="tncInvoicePopover" class="popover tnc-invoice-popover fade d-none" role="dialog" aria-labelledby="tncInvoicePopoverTitle" aria-modal="true">
+        <div class="popover-arrow"></div>
+        <div class="popover-header no-print">
+            <span class="me-auto" id="tncInvoicePopoverTitle">ใบแจ้งหนี้</span>
+            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-semibold text-nowrap" id="tncInvoicePopoverPrint" title="พิมพ์ต้นฉบับและสำเนา">
+                <i class="bi bi-printer me-1"></i>พิมพ์
+            </button>
+            <button type="button" class="btn-close ms-1" id="tncInvoicePopoverClose" aria-label="ปิด"></button>
+        </div>
+        <div class="popover-body p-0">
+            <iframe id="tncInvoicePopoverFrame" title="Invoice"></iframe>
         </div>
     </div>
     </main>
@@ -1181,12 +1205,38 @@ if (searchInput) {
     });
 }
 
-let tncInvoiceModalInstance = null;
+function tncCloseInvoicePopover() {
+    const pop = document.getElementById('tncInvoicePopover');
+    const backdrop = document.getElementById('tncInvoicePopoverBackdrop');
+    const frame = document.getElementById('tncInvoicePopoverFrame');
+    if (pop) {
+        pop.classList.remove('show');
+        window.setTimeout(function () {
+            if (!pop.classList.contains('show')) {
+                pop.classList.add('d-none');
+            }
+        }, 200);
+    }
+    if (backdrop) {
+        backdrop.classList.remove('show');
+        window.setTimeout(function () {
+            if (!backdrop.classList.contains('show')) {
+                backdrop.classList.add('d-none');
+            }
+        }, 200);
+    }
+    document.body.classList.remove('tnc-invoice-popover-open');
+    if (frame) {
+        frame.src = 'about:blank';
+    }
+}
+
 function tncOpenInvoiceViewModal(id) {
-    const frame = document.getElementById('tncInvoiceModalFrame');
-    const titleEl = document.getElementById('tncInvoiceModalTitle');
-    const modalEl = document.getElementById('tncInvoiceModal');
-    if (!frame || !modalEl || !window.bootstrap || !window.bootstrap.Modal) {
+    const frame = document.getElementById('tncInvoicePopoverFrame');
+    const titleEl = document.getElementById('tncInvoicePopoverTitle');
+    const pop = document.getElementById('tncInvoicePopover');
+    const backdrop = document.getElementById('tncInvoicePopoverBackdrop');
+    if (!frame || !pop || !backdrop) {
         return;
     }
     const u = invoicePhpUrl + '?action=view&id=' + encodeURIComponent(String(id)) + '&embed=1&_=' + Date.now();
@@ -1194,23 +1244,17 @@ function tncOpenInvoiceViewModal(id) {
     if (titleEl) {
         titleEl.textContent = 'ดูใบแจ้งหนี้';
     }
-    if (!tncInvoiceModalInstance) {
-        tncInvoiceModalInstance = new bootstrap.Modal(modalEl);
-    }
-    document.body.classList.add('tnc-invoice-modal-open');
-    tncInvoiceModalInstance.show();
+    backdrop.classList.remove('d-none');
+    pop.classList.remove('d-none');
+    window.requestAnimationFrame(function () {
+        backdrop.classList.add('show');
+        pop.classList.add('show');
+    });
+    document.body.classList.add('tnc-invoice-popover-open');
 }
 
-document.getElementById('tncInvoiceModal')?.addEventListener('hidden.bs.modal', function () {
-    document.body.classList.remove('tnc-invoice-modal-open');
-    const frame = document.getElementById('tncInvoiceModalFrame');
-    if (frame) {
-        frame.src = 'about:blank';
-    }
-});
-
-function tncPrintInvoiceFromModal() {
-    const frame = document.getElementById('tncInvoiceModalFrame');
+function tncPrintInvoiceFromPopover() {
+    const frame = document.getElementById('tncInvoicePopoverFrame');
     if (!frame || !frame.contentWindow) {
         return;
     }
@@ -1224,18 +1268,27 @@ function tncPrintInvoiceFromModal() {
     } catch (e) {}
 }
 
-document.getElementById('tncInvoiceModalPrint')?.addEventListener('click', tncPrintInvoiceFromModal);
+document.getElementById('tncInvoicePopoverClose')?.addEventListener('click', tncCloseInvoicePopover);
+document.getElementById('tncInvoicePopoverBackdrop')?.addEventListener('click', tncCloseInvoicePopover);
+document.getElementById('tncInvoicePopoverPrint')?.addEventListener('click', tncPrintInvoiceFromPopover);
 
 document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        const pop = document.getElementById('tncInvoicePopover');
+        if (pop && pop.classList.contains('show')) {
+            tncCloseInvoicePopover();
+        }
+        return;
+    }
     if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'p') {
         return;
     }
-    const modalEl = document.getElementById('tncInvoiceModal');
-    if (!modalEl || !modalEl.classList.contains('show')) {
+    const pop = document.getElementById('tncInvoicePopover');
+    if (!pop || !pop.classList.contains('show')) {
         return;
     }
     e.preventDefault();
-    tncPrintInvoiceFromModal();
+    tncPrintInvoiceFromPopover();
 });
 
 document.getElementById('invoice_table_body')?.addEventListener('click', function (ev) {

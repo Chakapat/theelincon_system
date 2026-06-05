@@ -98,7 +98,12 @@
         return false;
     }
 
-    function showToast(ok, message, action) {
+    function isPurchasePage() {
+        return /\/pages\/purchase\//.test(window.location.pathname || '');
+    }
+
+    function showToast(ok, message, action, opts) {
+        opts = opts || {};
         if (typeof Swal === 'undefined') {
             if (ok) window.alert(message || 'สำเร็จ');
             else window.alert(message || 'ผิดพลาด');
@@ -106,7 +111,7 @@
         }
         ensureToastStyles();
         var variant = inferToastVariant(ok, message, action);
-        var timer = ok ? 2600 : 4500;
+        var timer = typeof opts.timer === 'number' ? opts.timer : (ok ? 2600 : 4500);
         var html = ''
             + '<div class="tnc-toast-body">'
             + toastSvg(variant)
@@ -182,15 +187,36 @@
                         if (j.action === 'po_created' && j.po_number) {
                             msg = 'สร้าง PO สำเร็จ หมายเลข ' + j.po_number;
                         }
-                        showToast(ok, msg, j.action || '');
+                        var modalEl = form.closest('.modal');
+                        if (ok && modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                            var mi = bootstrap.Modal.getInstance(modalEl);
+                            if (mi) {
+                                mi.hide();
+                            }
+                        }
+
+                        var poCreatedUrl = (j.action === 'po_created' && (j.redirect || j.url)) ? (j.redirect || j.url) : null;
+                        var purchaseNavUrl = null;
+                        if (isPurchasePage()) {
+                            purchaseNavUrl = poCreatedUrl || (j.url && String(j.url).trim() !== '' ? j.url : null);
+                        }
+
+                        if (purchaseNavUrl) {
+                            window.__tncPurchaseNavPending = true;
+                            window.dispatchEvent(new CustomEvent('tnc:form-ajax-success', { detail: j }));
+                            setTimeout(function () {
+                                window.location.href = purchaseNavUrl;
+                            }, ok ? 280 : 0);
+                            return;
+                        }
+
+                        if (!ok || !isPurchasePage()) {
+                            showToast(ok, msg, j.action || '');
+                        } else {
+                            showToast(ok, msg, j.action || '', { timer: 2200 });
+                        }
                         window.dispatchEvent(new CustomEvent('tnc:form-ajax-success', { detail: j }));
                         if (ok) {
-                            var modalEl = form.closest('.modal');
-                            if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                                var mi = bootstrap.Modal.getInstance(modalEl);
-                                if (mi) mi.hide();
-                            }
-                            var poCreatedUrl = (j.action === 'po_created' && (j.redirect || j.url)) ? (j.redirect || j.url) : null;
                             if (poCreatedUrl) {
                                 setTimeout(function () {
                                     window.location.href = poCreatedUrl;
