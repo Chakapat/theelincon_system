@@ -13,6 +13,7 @@
     var trashAudio = null;
     var pendingKind = null;
     var playedOnLoad = false;
+    var lastAjaxAudioAt = 0;
 
     function isMuted() {
         if (window.TncSoundSettings && typeof window.TncSoundSettings.isMuted === 'function') {
@@ -330,61 +331,142 @@
         return audioFromQuery(new URLSearchParams(window.location.search || ''));
     }
 
-    function mapAjaxAction(action, detail) {
+    function queryParamsFromDetail(detail) {
         detail = detail || {};
-        if (detail.audio) {
-            return normalizeKind(detail.audio);
+        if (detail.query && typeof detail.query === 'object') {
+            try {
+                return new URLSearchParams(detail.query);
+            } catch (e) {}
         }
-        if (!action) {
-            return null;
-        }
-        if (action === 'site_saved') {
-            return detail.mode === 'create' ? 'create' : 'update';
-        }
-        if (action === 'po_created' || action === 'save_pr') {
-            return 'create';
-        }
-        if (
-            action === 'update_pr'
-            || action === 'update_po_direct'
-            || action === 'update_po_direct_hire'
-        ) {
-            return 'update';
-        }
-        if (action === 'cancel_purchase_order' || action === 'delete_pr') {
-            return 'delete';
-        }
-        if (
-            action === 'update_po_payment_status'
-            || action === 'receive_po_bill'
-            || action === 'upload_po_payment_slip'
-            || action === 'add_po_payment_slips'
-            || action === 'replace_po_payment_slip'
-        ) {
-            return 'complete';
-        }
-        if (action.slice(-8) === '_created' || (action.slice(-6) === '_saved' && detail.mode === 'create')) {
-            return 'create';
-        }
-        if (action.slice(-8) === '_deleted' || action.slice(-11) === '_cancelled') {
-            return 'delete';
-        }
-        if (action.slice(-9) === '_approved') {
-            return 'approve';
-        }
-        if (action.slice(-8) === '_updated' || action.slice(-6) === '_saved') {
-            return 'update';
-        }
-        if (action.indexOf('payment') !== -1 || action.indexOf('billing') !== -1) {
-            return 'complete';
-        }
-        if (action.indexOf('po_payment') !== -1 || action.indexOf('pr_') === 0) {
-            return 'update';
-        }
-        if (detail.query) {
-            return audioFromQuery(new URLSearchParams(detail.query));
+        if (detail.url) {
+            try {
+                var u = new URL(String(detail.url), window.location.origin);
+                return u.searchParams;
+            } catch (e2) {}
         }
         return null;
+    }
+
+    function inferAudioFromMessage(message, action) {
+        var m = String(message || '');
+        var ml = m.toLowerCase();
+        var a = String(action || '').toLowerCase();
+        if (a.indexOf('delete') !== -1 || ml.indexOf('ลบ') !== -1 || ml.indexOf('ยกเลิก') !== -1) {
+            return 'delete';
+        }
+        if (a.indexOf('approv') !== -1 || ml.indexOf('อนุมัติ') !== -1) {
+            return 'approve';
+        }
+        if (
+            a.indexOf('payment') !== -1
+            || a.indexOf('billing') !== -1
+            || ml.indexOf('จ่าย') !== -1
+            || ml.indexOf('บิล') !== -1
+        ) {
+            return 'complete';
+        }
+        if (
+            a.indexOf('update') !== -1
+            || a.indexOf('edit') !== -1
+            || ml.indexOf('แก้ไข') !== -1
+            || ml.indexOf('อัปเดต') !== -1
+        ) {
+            return 'update';
+        }
+        if (ml.indexOf('เพิ่ม') !== -1 || ml.indexOf('สร้าง') !== -1 || a.indexOf('creat') !== -1) {
+            return 'create';
+        }
+        if (ml.indexOf('บันทึก') !== -1 || ml.indexOf('สำเร็จ') !== -1 || ml.indexOf('เรียบร้อย') !== -1) {
+            return 'update';
+        }
+        return null;
+    }
+
+    function mapAjaxAction(action, detail) {
+        detail = detail || {};
+        var normalizedAction = String(action || '').trim();
+        if (normalizedAction === 'site_saved') {
+            return detail.mode === 'create' ? 'create' : 'update';
+        }
+        if (normalizedAction === 'po_created' || normalizedAction === 'save_pr') {
+            return 'create';
+        }
+        if (
+            normalizedAction === 'update_pr'
+            || normalizedAction === 'update_po_direct'
+            || normalizedAction === 'update_po_direct_hire'
+        ) {
+            return 'update';
+        }
+        if (normalizedAction === 'cancel_purchase_order' || normalizedAction === 'delete_pr') {
+            return 'delete';
+        }
+        if (
+            normalizedAction === 'update_po_payment_status'
+            || normalizedAction === 'receive_po_bill'
+            || normalizedAction === 'upload_po_payment_slip'
+            || normalizedAction === 'add_po_payment_slips'
+            || normalizedAction === 'replace_po_payment_slip'
+        ) {
+            return 'complete';
+        }
+        if (
+            normalizedAction.slice(-8) === '_created'
+            || (normalizedAction.slice(-6) === '_saved' && detail.mode === 'create')
+        ) {
+            return 'create';
+        }
+        if (normalizedAction.slice(-8) === '_deleted' || normalizedAction.slice(-11) === '_cancelled') {
+            return 'delete';
+        }
+        if (normalizedAction.slice(-9) === '_approved') {
+            return 'approve';
+        }
+        if (normalizedAction.slice(-8) === '_updated' || normalizedAction.slice(-6) === '_saved') {
+            return 'update';
+        }
+        if (normalizedAction.indexOf('payment') !== -1 || normalizedAction.indexOf('billing') !== -1) {
+            return 'complete';
+        }
+        if (normalizedAction.indexOf('po_payment') !== -1 || normalizedAction.indexOf('pr_') === 0) {
+            return 'update';
+        }
+        return null;
+    }
+
+    function resolveAudioKind(detail) {
+        detail = detail || {};
+        var fromAudio = normalizeKind(detail.audio);
+        if (fromAudio) {
+            return fromAudio;
+        }
+        var fromAction = mapAjaxAction(detail.action, detail);
+        if (fromAction) {
+            return fromAction;
+        }
+        var params = queryParamsFromDetail(detail);
+        if (params) {
+            var fromQuery = audioFromQuery(params);
+            if (fromQuery) {
+                return fromQuery;
+            }
+        }
+        return inferAudioFromMessage(detail.message, detail.action);
+    }
+
+    function playFromDetail(detail) {
+        if (!detail || !detail.ok) {
+            return;
+        }
+        var kind = resolveAudioKind(detail);
+        if (kind) {
+            lastAjaxAudioAt = Date.now();
+            play(kind);
+        }
+    }
+
+    function recentlyPlayedAjaxAudio() {
+        return lastAjaxAudioAt > 0 && (Date.now() - lastAjaxAudioAt) < 2800;
     }
 
     function unlockAudio() {
@@ -400,7 +482,7 @@
     document.addEventListener('touchstart', unlockAudio);
 
     function onReady() {
-        if (playedOnLoad) {
+        if (playedOnLoad || recentlyPlayedAjaxAudio()) {
             return;
         }
         var kind = detectFromDom() || detectFromUrl();
@@ -415,21 +497,13 @@
     }
 
     window.addEventListener('tnc:form-ajax-success', function (e) {
-        var d = e.detail || {};
-        if (!d.ok) {
-            return;
-        }
-        if (window.__tncPurchaseNavPending) {
-            return;
-        }
-        var kind = mapAjaxAction(d.action, d);
-        if (kind) {
-            play(kind);
-        }
+        playFromDetail(e.detail || {});
     });
 
     var api = {
         play: play,
+        playFromDetail: playFromDetail,
+        resolveAudioKind: resolveAudioKind,
         mute: function () {
             setMuted(true);
         },

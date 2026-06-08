@@ -499,7 +499,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         <div class="mb-4 form-check">
                             <input type="checkbox" name="remember" value="1" id="rememberCreds" class="form-check-input border-warning">
-                            <label class="form-check-label small text-muted" for="rememberCreds">จดจำรหัสผู้ใช้ (ไม่เก็บรหัสผ่าน)</label>
+                            <label class="form-check-label small text-muted" for="rememberCreds">จดจำชื่อผู้ใช้</label>
                         </div>
 
                         <button type="submit" class="btn btn-signin btn-lg w-100 fw-bold shadow-sm rounded-3 mb-3">

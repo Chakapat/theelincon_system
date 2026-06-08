@@ -9,6 +9,8 @@ use Theelincon\Rtdb\Purchase;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/line_pr_approval.php';
+require_once dirname(__DIR__, 2) . '/includes/banks.php';
+require_once dirname(__DIR__, 2) . '/includes/suppliers.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -67,6 +69,24 @@ foreach ($pr_prefill_items as $prItemRow) {
 $po_number = Purchase::generatePONumber();
 $supplier_rows = Db::tableRows('suppliers');
 Db::sortRows($supplier_rows, 'name', false);
+
+/** @var array<string, array{name: string, bank: string, account_name: string, account_number: string, bank_logo: string, note_text: string}> $supplier_payment_map */
+$supplier_payment_map = [];
+foreach ($supplier_rows as $supplierRow) {
+    $sid = (int) ($supplierRow['id'] ?? 0);
+    if ($sid <= 0 || !tnc_supplier_has_payment_info($supplierRow)) {
+        continue;
+    }
+    $bankName = trim((string) ($supplierRow['bank_name'] ?? ''));
+    $supplier_payment_map[(string) $sid] = [
+        'name' => trim((string) ($supplierRow['name'] ?? '')),
+        'bank' => $bankName,
+        'account_name' => trim((string) ($supplierRow['bank_account_name'] ?? '')),
+        'account_number' => trim((string) ($supplierRow['bank_account_number'] ?? '')),
+        'bank_logo' => $bankName !== '' ? tnc_bank_logo_url($bankName) : '',
+        'note_text' => tnc_supplier_payment_note_text($supplierRow),
+    ];
+}
 
 $errorCode = trim((string) ($_GET['error'] ?? ''));
 
@@ -472,6 +492,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
         </div>
 
         <div class="card card-soft p-4 p-md-4 mb-2">
+            <label class="po-field-label" for="po_note">หมายเหตุใบสั่งซื้อ</label>
             <textarea name="po_note" id="po_note" class="form-control" rows="3" maxlength="500" placeholder="หมายเหตุใบสั่งซื้อ"></textarea>
         </div>
 
@@ -549,19 +570,25 @@ const poCreateErrorCode = <?= json_encode($errorCode, JSON_UNESCAPED_UNICODE | J
     });
 })();
 
+const SUPPLIER_PAYMENT_MAP = <?= json_encode($supplier_payment_map, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+
 (function () {
     const searchInput = document.getElementById('supplier_search');
     const supplierIdInput = document.getElementById('supplier_id');
+    const poNoteEl = document.getElementById('po_note');
     const datalist = document.getElementById('supplier_list');
     if (!searchInput || !supplierIdInput || !datalist) {
         return;
     }
 
+    let lastPromptedSupplierId = '';
+    let autoInsertedNote = '';
+
     function syncSupplierId() {
         const typed = (searchInput.value || '').trim();
         if (typed === '') {
             supplierIdInput.value = '';
-            return;
+            return '';
         }
         const options = datalist.querySelectorAll('option');
         let matchedId = '';
@@ -572,10 +599,97 @@ const poCreateErrorCode = <?= json_encode($errorCode, JSON_UNESCAPED_UNICODE | J
             }
         });
         supplierIdInput.value = matchedId;
+        return matchedId;
+    }
+
+    function escHtml(text) {
+        return String(text || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function buildPaymentInfoHtml(info) {
+        const rows = [];
+        if (info.bank) {
+            const logo = info.bank_logo
+                ? '<img src="' + escHtml(info.bank_logo) + '" alt="" style="width:22px;height:22px;object-fit:contain;border-radius:4px;vertical-align:middle;margin-right:6px;">'
+                : '';
+            rows.push('<div class="mb-1"><span class="text-muted small">ธนาคาร</span><div class="fw-semibold">' + logo + escHtml(info.bank) + '</div></div>');
+        }
+        if (info.account_name) {
+            rows.push('<div class="mb-1"><span class="text-muted small">ชื่อบัญชี</span><div class="fw-semibold">' + escHtml(info.account_name) + '</div></div>');
+        }
+        if (info.account_number) {
+            rows.push('<div class="mb-0"><span class="text-muted small">เลขที่บัญชี</span><div class="fw-semibold font-monospace">' + escHtml(info.account_number) + '</div></div>');
+        }
+        return '<div class="text-start small">' +
+            '<div class="mb-2 fw-bold text-dark">' + escHtml(info.name) + '</div>' +
+            '<div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">' + rows.join('') + '</div>' +
+            '</div>';
+    }
+
+    function stripAutoInsertedNote(note) {
+        let text = String(note || '');
+        if (autoInsertedNote && text.indexOf(autoInsertedNote) >= 0) {
+            text = text.replace(autoInsertedNote, '').replace(/^\s*\n+/, '').replace(/\n+\s*$/, '');
+        }
+        return text.trim();
+    }
+
+    function applyPaymentNote(noteText) {
+        if (!poNoteEl || !noteText) return;
+        const base = stripAutoInsertedNote(poNoteEl.value);
+        autoInsertedNote = noteText;
+        poNoteEl.value = base === '' ? noteText : (base + '\n\n' + noteText);
+        if (poNoteEl.value.length > 500) {
+            poNoteEl.value = poNoteEl.value.slice(0, 500);
+        }
+    }
+
+    function maybePromptSupplierPayment(supplierId) {
+        if (!supplierId || supplierId === lastPromptedSupplierId) {
+            return;
+        }
+        const info = SUPPLIER_PAYMENT_MAP[supplierId];
+        if (!info || !info.note_text) {
+            lastPromptedSupplierId = supplierId;
+            return;
+        }
+        lastPromptedSupplierId = supplierId;
+        if (typeof Swal === 'undefined') {
+            return;
+        }
+        Swal.fire({
+            icon: 'question',
+            title: 'ใส่ข้อมูลบัญชีในหมายเหตุ PO?',
+            html: '<p class="small text-muted mb-3">ผู้ขายรายนี้มีข้อมูลบัญชีรับโอน — ต้องการใส่ลงหมายเหตุใบสั่งซื้อหรือไม่</p>' + buildPaymentInfoHtml(info),
+            showCancelButton: true,
+            confirmButtonText: 'ใส่ในหมายเหตุ',
+            cancelButtonText: 'ไม่ใส่',
+            confirmButtonColor: '#ea580c',
+            reverseButtons: true,
+            focusCancel: true,
+            width: '28rem',
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                applyPaymentNote(info.note_text);
+            }
+        });
+    }
+
+    function onSupplierChange() {
+        const matchedId = syncSupplierId();
+        if (!matchedId) {
+            lastPromptedSupplierId = '';
+            return;
+        }
+        maybePromptSupplierPayment(matchedId);
     }
 
     searchInput.addEventListener('input', syncSupplierId);
-    searchInput.addEventListener('change', syncSupplierId);
+    searchInput.addEventListener('change', onSupplierChange);
 
     const form = searchInput.closest('form');
     if (form) {

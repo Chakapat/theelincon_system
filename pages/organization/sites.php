@@ -489,31 +489,36 @@ usort($list, static function (array $a, array $b): int {
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container pb-5 sites-page-wrap">
     <?php
-    require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
-    $sitesFlash = tnc_flash_from_query($_GET);
+    $sitesFlash = function_exists('tnc_flash_from_query') ? tnc_flash_from_query($_GET) : null;
     if ($sitesFlash !== null) {
-        $sitesMsg = match (true) {
-            isset($_GET['created']) => 'เพิ่มไซต์เรียบร้อยแล้ว',
-            isset($_GET['updated']) => 'แก้ไขไซต์เรียบร้อยแล้ว',
-            isset($_GET['deleted']) => 'ลบไซต์เรียบร้อยแล้ว',
-            isset($_GET['cat_saved']) => 'บันทึกหัวข้อย่อยเรียบร้อยแล้ว',
-            isset($_GET['cat_deleted']) => 'ลบหัวข้อย่อยเรียบร้อยแล้ว',
-            isset($_GET['error']) && $_GET['error'] === 'in_use' => 'ลบไม่ได้: ไซต์นี้ถูกใช้งานในรายการรายรับ/รายจ่ายแล้ว',
-            isset($_GET['error']) && $_GET['error'] === 'invalid_name' => 'กรุณาระบุชื่อไซต์ให้ถูกต้อง',
-            isset($_GET['error']) && $_GET['error'] === 'confirm_password_required' => 'กรุณากรอกรหัสผ่านของคุณเพื่อยืนยันการลบ',
-            isset($_GET['error']) && $_GET['error'] === 'confirm_password_invalid' => 'รหัสผ่านไม่ถูกต้อง',
-            default => $sitesFlash['message'],
-        };
-        $sitesFlash['message'] = $sitesMsg;
+        if (isset($_GET['created'])) {
+            $sitesFlash['message'] = 'เพิ่มไซต์เรียบร้อยแล้ว';
+        } elseif (isset($_GET['updated'])) {
+            $sitesFlash['message'] = 'แก้ไขไซต์เรียบร้อยแล้ว';
+        } elseif (isset($_GET['deleted'])) {
+            $sitesFlash['message'] = 'ลบไซต์เรียบร้อยแล้ว';
+        } elseif (isset($_GET['cat_saved'])) {
+            $sitesFlash['message'] = 'บันทึกหัวข้อย่อยเรียบร้อยแล้ว';
+        } elseif (isset($_GET['cat_deleted'])) {
+            $sitesFlash['message'] = 'ลบหัวข้อย่อยเรียบร้อยแล้ว';
+        } elseif (isset($_GET['error']) && $_GET['error'] === 'in_use') {
+            $sitesFlash['message'] = 'ลบไม่ได้: ไซต์นี้ถูกใช้งานในรายการรายรับ/รายจ่ายแล้ว';
+        } elseif (isset($_GET['error']) && $_GET['error'] === 'invalid_name') {
+            $sitesFlash['message'] = 'กรุณาระบุชื่อไซต์ให้ถูกต้อง';
+        } elseif (isset($_GET['error']) && $_GET['error'] === 'confirm_password_required') {
+            $sitesFlash['message'] = 'กรุณากรอกรหัสผ่านของคุณเพื่อยืนยันการลบ';
+        } elseif (isset($_GET['error']) && $_GET['error'] === 'confirm_password_invalid') {
+            $sitesFlash['message'] = 'รหัสผ่านไม่ถูกต้อง';
+        }
         if (isset($_GET['error'])) {
-            $sitesFlash['type'] = match ((string) ($_GET['error'] ?? '')) {
-                'invalid_name', 'confirm_password_required' => 'warning',
-                default => 'danger',
-            };
+            $errCode = (string) ($_GET['error'] ?? '');
+            $sitesFlash['type'] = ($errCode === 'invalid_name' || $errCode === 'confirm_password_required') ? 'warning' : 'danger';
             unset($sitesFlash['audio']);
         }
     }
-    tnc_render_flash($sitesFlash);
+    if (function_exists('tnc_render_flash')) {
+        tnc_render_flash($sitesFlash);
+    }
     ?>
 
     <div class="tnc-page-head mb-4">
@@ -801,6 +806,7 @@ usort($list, static function (array $a, array $b): int {
                     showInlineToast(false, j.message || 'ดำเนินการไม่สำเร็จ');
                     return;
                 }
+                window.dispatchEvent(new CustomEvent('tnc:form-ajax-success', { detail: j }));
                 if (typeof onSuccess === 'function') {
                     onSuccess(j);
                 }

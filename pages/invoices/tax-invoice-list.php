@@ -113,6 +113,10 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
             color: #868e96;
             line-height: 1.35;
         }
+        .tax-ref-invoice-arrow {
+            font-weight: 700;
+            opacity: 0.7;
+        }
         .tax-ref-invoice-no {
             font-weight: 800;
             color: #1e293b;
@@ -424,7 +428,7 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
                                 <td data-order="<?= htmlspecialchars($taxSortOrder, ENT_QUOTES, 'UTF-8') ?>">
                                     <div><span class="badge rounded-pill inv-badge-tax-issued px-3"><?= htmlspecialchars($row['tax_invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></div>
                                     <?php if ($row['invoice_number'] !== ''): ?>
-                                        <div class="tax-ref-invoice mt-1">อ้างอิง <span class="tax-ref-invoice-no"><?= htmlspecialchars($row['invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></div>
+                                        <div class="tax-ref-invoice mt-1" title="อ้างอิงจากใบแจ้งหนี้"><span class="tax-ref-invoice-arrow" aria-hidden="true">→</span> <span class="tax-ref-invoice-no"><?= htmlspecialchars($row['invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></div>
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-muted tabular-nums" data-order="<?= htmlspecialchars($taxDateOrder, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($taxDateDisplay, ENT_QUOTES, 'UTF-8') ?></td>

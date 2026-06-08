@@ -18,6 +18,13 @@ if (is_file($tncPageAccessFile)) {
     require_once $tncPageAccessFile;
 }
 
+$tncFlashFile = dirname(__DIR__) . '/includes/tnc_flash.php';
+if (is_file($tncFlashFile)) {
+    require_once $tncFlashFile;
+} elseif (!function_exists('tnc_flash_from_query')) {
+    require_once dirname(__DIR__) . '/includes/tnc_flash_stub.php';
+}
+
 /**
  * ฐานข้อมูลหลัก: Firebase Realtime Database (mirror theelincon_mirror/)
  * อ่าน/เขียนผ่าน Theelincon\Rtdb\Db

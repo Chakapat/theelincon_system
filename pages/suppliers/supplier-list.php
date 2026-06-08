@@ -8,6 +8,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
+require_once dirname(__DIR__, 2) . '/includes/banks.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -29,6 +30,7 @@ Db::sortRows($suppliers, 'name', false);
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
     <style>
         /* canvas + cards: tnc-app.css */
+        .bank-logo-chip { width: 22px; height: 22px; object-fit: contain; border-radius: 4px; flex-shrink: 0; }
     </style>
 </head>
 <body class="tnc-app-body">
@@ -62,20 +64,46 @@ Db::sortRows($suppliers, 'name', false);
                         <th>ชื่อบริษัท/ร้านค้า</th>
                         <th>ผู้ติดต่อ</th>
                         <th>เบอร์โทรศัพท์</th>
+                        <th>บัญชีรับโอน</th>
                         <th class="text-center">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (count($suppliers) === 0): ?>
-                        <tr><td colspan="4" class="text-center py-4 text-muted">ยังไม่มีข้อมูลผู้ขายในระบบ</td></tr>
+                        <tr><td colspan="5" class="text-center py-4 text-muted">ยังไม่มีข้อมูลผู้ขายในระบบ</td></tr>
                     <?php else: ?>
                     <?php foreach ($suppliers as $row): ?>
                     <tr>
                         <td class="fw-bold"><?= htmlspecialchars($row['name']) ?></td>
                         <td><?= htmlspecialchars($row['contact_person']) ?: '-' ?></td>
                         <td><?= $row['phone'] ?></td>
+                        <td class="small">
+                            <?php
+                            $rowBank = trim((string) ($row['bank_name'] ?? ''));
+                            $rowAccNo = trim((string) ($row['bank_account_number'] ?? ''));
+                            $rowAccName = trim((string) ($row['bank_account_name'] ?? ''));
+                            if ($rowBank === '' && $rowAccNo === '' && $rowAccName === ''):
+                            ?>
+                                <span class="text-muted">—</span>
+                            <?php else:
+                                $rowBankLogo = $rowBank !== '' ? tnc_bank_logo_url($rowBank) : '';
+                            ?>
+                                <?php if ($rowBank !== '' || $rowBankLogo !== ''): ?>
+                                <div class="d-flex align-items-center gap-1">
+                                    <?php if ($rowBankLogo !== ''): ?><img src="<?= htmlspecialchars($rowBankLogo, ENT_QUOTES, 'UTF-8') ?>" alt="" class="bank-logo-chip"><?php endif; ?>
+                                    <span><?= htmlspecialchars($rowBank !== '' ? $rowBank : '—', ENT_QUOTES, 'UTF-8') ?></span>
+                                </div>
+                                <?php endif; ?>
+                                <?php if ($rowAccName !== ''): ?>
+                                <div class="text-muted"><?= htmlspecialchars($rowAccName, ENT_QUOTES, 'UTF-8') ?></div>
+                                <?php endif; ?>
+                                <?php if ($rowAccNo !== ''): ?>
+                                <div class="text-muted font-monospace"><?= htmlspecialchars($rowAccNo, ENT_QUOTES, 'UTF-8') ?></div>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-center">
-                            <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-form.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-pencil"></i></a>
+                            <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-form.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-warning me-1"><i class="bi bi-pencil"></i></a>
                             <?php if($is_admin): ?>
                             <button onclick="deleteSup(<?= $row['id'] ?>)" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
                             <?php endif; ?>

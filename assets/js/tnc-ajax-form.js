@@ -215,7 +215,9 @@
                         } else {
                             showToast(ok, msg, j.action || '', { timer: 2200 });
                         }
-                        window.dispatchEvent(new CustomEvent('tnc:form-ajax-success', { detail: j }));
+                        if (ok) {
+                            window.dispatchEvent(new CustomEvent('tnc:form-ajax-success', { detail: j }));
+                        }
                         if (ok) {
                             if (poCreatedUrl) {
                                 setTimeout(function () {

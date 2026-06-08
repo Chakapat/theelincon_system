@@ -7,7 +7,14 @@ declare(strict_types=1);
  * แทน redirect จะตอบ JSON { ok, message, query, url, audio? }
  */
 
-require_once __DIR__ . '/tnc_flash.php';
+if (!function_exists('tnc_audio_from_query')) {
+    $tncFlashFile = __DIR__ . '/tnc_flash.php';
+    if (is_file($tncFlashFile)) {
+        require_once $tncFlashFile;
+    } elseif (!function_exists('tnc_flash_from_query')) {
+        require_once __DIR__ . '/tnc_flash_stub.php';
+    }
+}
 
 if (!function_exists('tnc_ajax_form_requested')) {
     function tnc_ajax_form_requested(): bool

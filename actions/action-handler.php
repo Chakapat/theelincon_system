@@ -523,6 +523,8 @@ if ($action === 'get_data') {
 
 // --- suppliers ---
 if ($action === 'save_supplier') {
+    require_once dirname(__DIR__) . '/includes/banks.php';
+
     $s_id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
     $name = trim((string) ($_POST['name'] ?? ''));
     $tax = trim((string) ($_POST['tax_id'] ?? ''));
@@ -531,14 +533,18 @@ if ($action === 'save_supplier') {
     $email = trim((string) ($_POST['email'] ?? ''));
     $addr = trim((string) ($_POST['address'] ?? ''));
 
-    $data = [
+    $data = array_merge([
         'name' => $name,
         'tax_id' => $tax,
         'contact_person' => $contact,
         'phone' => $phone,
         'email' => $email,
         'address' => $addr,
-    ];
+    ], tnc_normalize_company_bank_fields([
+        'bank_name' => $_POST['bank_name'] ?? '',
+        'bank_account_name' => $_POST['bank_account_name'] ?? '',
+        'bank_account_number' => $_POST['bank_account_number'] ?? '',
+    ]));
 
     if ($s_id > 0) {
         $cur = Db::row('suppliers', (string) $s_id) ?? [];
