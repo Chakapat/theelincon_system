@@ -406,8 +406,9 @@ $ignoredCountAll = count($ignoredPoList);
                         <td class="text-center">
                             <?php
                             $rowPaid = (($row['payment_status'] ?? 'unpaid') === 'paid');
-                            $poCanEditCancel = ($row['status'] ?? '') !== 'cancelled' && !$rowPaid;
-                            $poCanAdminDelete = $poCanDelete && !$rowPaid;
+                            $poPaidLocked = $rowPaid && !Purchase::adminCanModifyPaidPo();
+                            $poCanEditCancel = ($row['status'] ?? '') !== 'cancelled' && !$poPaidLocked;
+                            $poCanAdminDelete = $poCanDelete && !$poPaidLocked;
                             ?>
                             <?php if (($row['status'] ?? '') !== 'cancelled'): ?>
                             <div class="dropdown">

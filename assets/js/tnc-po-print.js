@@ -24,8 +24,35 @@
         });
     }
 
+    var savedPrintTitle = '';
+
+    function tncPoPrintHideBrowserHeaderTitle() {
+        try {
+            savedPrintTitle = document.title || '';
+            document.title = '\u00a0';
+        } catch (e0) {
+            /* ignore */
+        }
+    }
+
+    function tncPoPrintRestoreTitle() {
+        try {
+            if (savedPrintTitle !== '') {
+                document.title = savedPrintTitle;
+            }
+        } catch (e1) {
+            /* ignore */
+        }
+    }
+
+    function tncPoBeforePrint() {
+        tncPreparePoPrintImages();
+        tncPoPrintHideBrowserHeaderTitle();
+    }
+
     if (typeof w.addEventListener === 'function') {
-        w.addEventListener('beforeprint', tncPreparePoPrintImages);
+        w.addEventListener('beforeprint', tncPoBeforePrint);
+        w.addEventListener('afterprint', tncPoPrintRestoreTitle);
     }
 
     if (w.matchMedia) {

@@ -506,5 +506,11 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
 $tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
+<style media="print">
+    @page {
+        size: A4 portrait;
+        margin: 0;
+    }
+</style>
 </body>
 </html>

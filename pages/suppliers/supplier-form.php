@@ -36,7 +36,7 @@ $bankLogos = tnc_bank_logo_url_map();
 if ($id > 0) {
     $row = Db::rowByIdField('suppliers', $id);
     if ($row !== null) {
-        $supplier = $row;
+        $supplier = array_merge($supplier, $row);
         $title = 'แก้ไขข้อมูลผู้ขาย';
         $action_type = 'save_supplier';
     }

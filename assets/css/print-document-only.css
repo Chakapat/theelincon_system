@@ -3,9 +3,10 @@
  * ไม่พิมพ์ navbar / toolbar / ปุ่ม / modal
  */
 @media print {
+    /* margin ต้องเป็น 0 — ถ้ามี margin เบราว์เซอร์จะพิมพ์วันที่ / title / URL บนหัว–ท้ายกระดาษ */
     @page {
         size: A4 portrait;
-        margin: 0;
+        margin: 0 !important;
     }
 
     html,
@@ -83,11 +84,10 @@
     body.purchase-module .pr-view-canvas,
     body.purchase-module .po-view-canvas {
         visibility: visible !important;
-        display: flex !important;
-        justify-content: center !important;
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
+        display: block !important;
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
         width: 100% !important;
         max-width: none !important;
         height: auto !important;
@@ -146,11 +146,80 @@
         visibility: hidden !important;
     }
 
-    body.purchase-module .po-payment-slip-print-wrap.po-slip-a4-page {
+    body.purchase-module .po-payment-slip-print-wrap {
         visibility: visible !important;
         display: flex !important;
         position: static !important;
+        left: auto !important;
+        top: auto !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
         overflow: hidden !important;
+        page-break-before: always !important;
+        break-before: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        box-sizing: border-box !important;
+    }
+
+    body.purchase-module .po-payment-slip-print-wrap--first {
+        page-break-before: auto !important;
+        break-before: auto !important;
+    }
+
+    body.purchase-module .po-payment-slip-print-wrap.po-slip-a4-page {
+        width: 100% !important;
+        height: var(--po-slip-safe-height, 277mm) !important;
+        min-height: var(--po-slip-safe-height, 277mm) !important;
+        max-height: var(--po-slip-safe-height, 277mm) !important;
+        align-items: center !important;
+        justify-content: center !important;
+        page-break-after: always !important;
+        break-after: page !important;
+    }
+
+    body.purchase-module .po-payment-slip-print-wrap.po-slip-a4-page:last-child {
+        page-break-after: auto !important;
+        break-after: auto !important;
+    }
+
+    body.purchase-module .po-slip-a4-page .po-payment-slip-sheet--full {
+        width: 100% !important;
+        height: var(--po-slip-safe-height, 277mm) !important;
+        min-height: var(--po-slip-safe-height, 277mm) !important;
+        max-height: var(--po-slip-safe-height, 277mm) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        overflow: hidden !important;
+        box-shadow: none !important;
+        border: none !important;
+        background: #fff !important;
+    }
+
+    body.purchase-module .po-slip-a4-page .po-slip-img-wrap {
+        width: var(--po-slip-safe-width, 190mm) !important;
+        max-width: 100% !important;
+        height: var(--po-slip-safe-height, 277mm) !important;
+        max-height: var(--po-slip-safe-height, 277mm) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        overflow: hidden !important;
+        margin: 0 auto !important;
+        box-sizing: border-box !important;
+    }
+
+    body.purchase-module .po-slip-a4-page img.po-payment-slip-img,
+    body.purchase-module .po-slip-a4-page img.tnc-po-deferred-print-img {
+        max-width: 100% !important;
+        max-height: 100% !important;
+        width: auto !important;
+        height: auto !important;
+        object-fit: contain !important;
+        object-position: center center !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
     }

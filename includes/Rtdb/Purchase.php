@@ -210,6 +210,26 @@ final class Purchase
         return self::hirePoKind($po) === 'contract';
     }
 
+    /** CEO / ADMIN — แก้ไข ยกเลิก ลบ PO ที่จ่ายแล้ว (สมบูรณ์) ได้ */
+    public static function adminCanModifyPaidPo(): bool
+    {
+        return function_exists('user_is_admin_role') && user_is_admin_role();
+    }
+
+    /**
+     * PO จ่ายแล้วและผู้ใช้ไม่ใช่ admin → ห้ามแก้ไข/ยกเลิก/ลบ
+     *
+     * @param array<string, mixed> $po
+     */
+    public static function poPaidLocksMutation(array $po): bool
+    {
+        if (strtolower(trim((string) ($po['payment_status'] ?? 'unpaid'))) !== 'paid') {
+            return false;
+        }
+
+        return !self::adminCanModifyPaidPo();
+    }
+
     public static function isHireAdvancePo(array $po): bool
     {
         return trim((string) ($po['order_type'] ?? 'purchase')) === 'hire' && self::hirePoKind($po) === 'advance';

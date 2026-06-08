@@ -36,7 +36,7 @@ if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
     header('Location: ' . app_path('pages/purchase/purchase-order-view.php') . '?id=' . $poId);
     exit();
 }
-if (strtolower(trim((string) ($po['payment_status'] ?? 'unpaid'))) === 'paid') {
+if (Purchase::poPaidLocksMutation($po)) {
     header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?error=po_paid');
     exit();
 }

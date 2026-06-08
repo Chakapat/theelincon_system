@@ -2,6 +2,25 @@
 
 declare(strict_types=1);
 
+if (!function_exists('tnc_supplier_bank_fields_from_post')) {
+    /**
+     * @param array<string, mixed> $post
+     * @return array{bank_name: string, bank_account_name: string, bank_account_number: string}
+     */
+    function tnc_supplier_bank_fields_from_post(array $post): array
+    {
+        if (!function_exists('tnc_normalize_company_bank_fields')) {
+            require_once __DIR__ . '/banks.php';
+        }
+
+        return tnc_normalize_company_bank_fields([
+            'bank_name' => $post['bank_name'] ?? '',
+            'bank_account_name' => $post['bank_account_name'] ?? '',
+            'bank_account_number' => $post['bank_account_number'] ?? '',
+        ]);
+    }
+}
+
 if (!function_exists('tnc_supplier_has_payment_info')) {
     /**
      * @param array<string, mixed> $row

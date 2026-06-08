@@ -11,6 +11,7 @@ require_once __DIR__ . '/../includes/line_pr_approval.php';
 require_once __DIR__ . '/../includes/hire_line_items.php';
 require_once __DIR__ . '/../includes/site_cost_categories.php';
 require_once __DIR__ . '/../includes/contractors.php';
+require_once __DIR__ . '/../includes/suppliers.php';
 
 use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\Purchase;
@@ -505,7 +506,7 @@ if ($action === 'get_data') {
         $row = Db::row('users', (string) $id);
     } elseif ($type === 'supplier') {
         tnc_require_finance_role();
-        $row = Db::row('suppliers', (string) $id);
+        $row = Db::rowByIdField('suppliers', $id);
     } elseif ($type === 'contractor') {
         $row = Db::rowByIdField('contractors', $id);
     } elseif ($type === 'company' || $type === 'customer') {
@@ -523,8 +524,6 @@ if ($action === 'get_data') {
 
 // --- suppliers ---
 if ($action === 'save_supplier') {
-    require_once dirname(__DIR__) . '/includes/banks.php';
-
     $s_id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
     $name = trim((string) ($_POST['name'] ?? ''));
     $tax = trim((string) ($_POST['tax_id'] ?? ''));
@@ -540,27 +539,29 @@ if ($action === 'save_supplier') {
         'phone' => $phone,
         'email' => $email,
         'address' => $addr,
-    ], tnc_normalize_company_bank_fields([
-        'bank_name' => $_POST['bank_name'] ?? '',
-        'bank_account_name' => $_POST['bank_account_name'] ?? '',
-        'bank_account_number' => $_POST['bank_account_number'] ?? '',
-    ]));
+    ], tnc_supplier_bank_fields_from_post($_POST));
 
     if ($s_id > 0) {
-        $cur = Db::row('suppliers', (string) $s_id) ?? [];
-        Db::setRow('suppliers', (string) $s_id, array_merge($cur, $data));
-        $after = Db::row('suppliers', (string) $s_id) ?? [];
+        $existing = Db::rowByIdField('suppliers', $s_id);
+        if ($existing === null) {
+            tnc_action_redirect(app_path('pages/suppliers/supplier-list.php') . '?error=not_found');
+        }
+        $pk = Db::pkForLogicalId('suppliers', $s_id);
+        $data['id'] = $s_id;
+        Db::setRow('suppliers', $pk, array_merge($existing, $data));
+        $after = Db::row('suppliers', $pk) ?? [];
         tnc_audit_log('update', 'supplier', (string) $s_id, $name !== '' ? $name : ('#' . $s_id), [
             'source' => 'action-handler',
             'action' => 'save_supplier',
-            'before' => $cur,
+            'before' => $existing,
             'after' => $after,
         ]);
     } else {
         $nid = Db::nextNumericId('suppliers', 'id');
+        $pk = (string) $nid;
         $data['id'] = $nid;
-        Db::setRow('suppliers', (string) $nid, $data);
-        $after = Db::row('suppliers', (string) $nid) ?? [];
+        Db::setRow('suppliers', $pk, $data);
+        $after = Db::row('suppliers', $pk) ?? [];
         tnc_audit_log('create', 'supplier', (string) $nid, $name !== '' ? $name : ('#' . $nid), [
             'source' => 'action-handler',
             'action' => 'save_supplier',
@@ -714,9 +715,9 @@ if ($action === 'delete_supplier') {
     if ($po !== null) {
         tnc_action_redirect( app_path('pages/suppliers/supplier-list.php') . '?error=in_use');
     }
-    $sDel = Db::row('suppliers', (string) $id);
+    $sDel = Db::rowByIdField('suppliers', $id);
     $sDelName = $sDel !== null ? trim((string) ($sDel['name'] ?? '')) : '';
-    Db::deleteRow('suppliers', (string) $id);
+    Db::deleteRow('suppliers', Db::pkForLogicalId('suppliers', $id));
     tnc_audit_log('delete', 'supplier', (string) $id, $sDelName !== '' ? $sDelName : ('#' . $id), [
         'source' => 'action-handler',
         'action' => 'delete_supplier',
@@ -2337,7 +2338,7 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
     if (strtolower(trim((string) ($existing['status'] ?? ''))) === 'cancelled') {
         tnc_action_redirect($listUrl . '?error=po_cancelled');
     }
-    if (strtolower(trim((string) ($existing['payment_status'] ?? 'unpaid'))) === 'paid') {
+    if (Purchase::poPaidLocksMutation($existing)) {
         tnc_action_redirect($listUrl . '?error=po_paid');
     }
     $isHirePo = trim((string) ($existing['order_type'] ?? 'purchase')) === 'hire';
@@ -2562,7 +2563,7 @@ if ($action === 'cancel_purchase_order' && ($_SERVER['REQUEST_METHOD'] ?? '') ==
     if ($st === 'cancelled') {
         tnc_action_redirect($listUrl . '?error=already_cancelled');
     }
-    if (strtolower(trim((string) ($existing['payment_status'] ?? 'unpaid'))) === 'paid') {
+    if (Purchase::poPaidLocksMutation($existing)) {
         $returnToPaid = trim((string) ($_POST['return_to'] ?? ''));
         if ($returnToPaid === 'view') {
             tnc_action_redirect($viewUrl . '?id=' . $po_id . '&error=po_paid');
@@ -3422,7 +3423,7 @@ if ($action === 'delete' && $id > 0) {
         $poPk = Db::pkForLogicalId('purchase_orders', $id);
         $poSnap = Db::row('purchase_orders', $poPk);
         $poNo = $poSnap !== null ? trim((string) ($poSnap['po_number'] ?? '')) : '';
-        if ($poSnap !== null && strtolower(trim((string) ($poSnap['payment_status'] ?? 'unpaid'))) === 'paid') {
+        if ($poSnap !== null && Purchase::poPaidLocksMutation($poSnap)) {
             tnc_action_redirect(app_path('pages/purchase/purchase-order-list.php') . '?error=po_paid');
         }
         $poPayDel = [];

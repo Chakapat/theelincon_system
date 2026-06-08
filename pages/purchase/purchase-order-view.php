@@ -34,6 +34,7 @@ $poAdvanceFromHcUrl = $hireContractIdForPo > 0
 $woSummaryIncluded = false;
 $paymentStatusPo = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
 $isPoPaid = ($paymentStatusPo === 'paid');
+$poPaidLocksActions = Purchase::poPaidLocksMutation($po);
 $billingStatusPo = strtolower(trim((string) ($po['billing_status'] ?? 'pending')));
 if (!in_array($billingStatusPo, ['pending', 'billed'], true)) {
     $billingStatusPo = 'pending';
@@ -545,12 +546,12 @@ $hasAlerts = $poViewFlash !== null
                         <?php endforeach; ?>
                     <?php endif; ?>
                 <?php endif; ?>
-                <?php if (user_can('po.update') && !$isPoCancelled && !$isPoPaid): ?>
+                <?php if (user_can('po.update') && !$isPoCancelled && !$poPaidLocksActions): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm">
                         <i class="bi bi-pencil-square me-1"></i>แก้ไข
                     </a>
                 <?php endif; ?>
-                <?php if (user_can('po.cancel') && !$isPoCancelled && !$isPoPaid): ?>
+                <?php if (user_can('po.cancel') && !$isPoCancelled && !$poPaidLocksActions): ?>
                     <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=cancel_purchase_order" class="d-inline" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบสั่งซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และจะแสดงประทับบนใบพิมพ์');">
                         <?php csrf_field(); ?>
                         <input type="hidden" name="po_id" value="<?= (int) $id ?>">
@@ -973,5 +974,11 @@ fetch(window.tncPoLiveDatasetsUrl + '?dataset=po_action_row&po_id=' + encodeURIC
 $tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
+<style media="print">
+    @page {
+        size: A4 portrait;
+        margin: 0;
+    }
+</style>
 </body>
 </html>

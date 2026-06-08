@@ -345,9 +345,10 @@ body.tnc-app-body h5 .bi.text-warning {
 
 /* ---- Print: A4 เอกสารเท่านั้น — ซ่อน navbar / toolbar ทุกหน้า ---- */
 @media print {
+    /* margin 0 = ปิด header/footer ของเบราว์เซอร์ (วันที่, title, URL) ตอนพิมพ์ */
     @page {
         size: A4 portrait;
-        margin: 10mm;
+        margin: 0;
     }
 
     html,
