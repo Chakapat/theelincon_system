@@ -2017,20 +2017,8 @@ if ($action === 'create_po_direct') {
         if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $standaloneInvoiceDate, $invDm) === 1) {
             $standaloneInvoiceDate = sprintf('%04d-%02d-%02d', (int) $invDm[3], (int) $invDm[2], (int) $invDm[1]);
         }
-        if ($standaloneInvoiceNo === '' || preg_match('/^\d{4}-\d{2}-\d{2}$/', $standaloneInvoiceDate) !== 1) {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $standaloneInvoiceDate) !== 1) {
             tnc_action_redirect($poCreateDirectUrl . '?error=billing_required');
-        }
-        $hasSlipUpload = false;
-        if (!empty($_FILES['payment_slips']) && is_array($_FILES['payment_slips']['error'] ?? null)) {
-            foreach ($_FILES['payment_slips']['error'] as $uploadErr) {
-                if ((int) $uploadErr === UPLOAD_ERR_OK) {
-                    $hasSlipUpload = true;
-                    break;
-                }
-            }
-        }
-        if (!$hasSlipUpload) {
-            tnc_action_redirect($poCreateDirectUrl . '?error=payment_slip_required');
         }
         $postedBillTotal = trim((string) ($_POST['billed_total_amount'] ?? ''));
         $postedBillVat = trim((string) ($_POST['billed_vat_amount'] ?? ''));
@@ -2257,59 +2245,69 @@ if ($action === 'create_po_direct') {
     if (method_exists(Purchase::class, 'seedPoPayments')) {
         Purchase::seedPoPayments($po_id, $seedAmount, $hire_contract_id > 0 ? $hire_contract_id : null);
     }
+    $standalonePoExtrasSaved = false;
     if ($isStandalonePurchasePo) {
         $slipPaths = tnc_po_payment_slip_upload_many($po_id, 'payment_slips');
-        if ($slipPaths === []) {
-            tnc_delete_purchase_order_cascade($po_id);
-            tnc_action_redirect($poCreateDirectUrl . '?error=payment_slip_required');
+        $poExtras = [];
+        if ($slipPaths !== []) {
+            $poExtras = array_merge($poExtras, [
+                'payment_status' => 'paid',
+                'payment_slip_paths' => json_encode($slipPaths, JSON_UNESCAPED_UNICODE),
+                'payment_slip_path' => $slipPaths[0] ?? '',
+                'payment_marked_paid_at' => date('Y-m-d H:i:s'),
+                'payment_method' => 'transfer',
+            ]);
         }
-        Db::mergeRow('purchase_orders', (string) $po_id, [
-            'payment_status' => 'paid',
-            'payment_slip_paths' => json_encode($slipPaths, JSON_UNESCAPED_UNICODE),
-            'payment_slip_path' => $slipPaths[0] ?? '',
-            'payment_marked_paid_at' => date('Y-m-d H:i:s'),
-            'payment_method' => 'transfer',
-            'billing_status' => 'billed',
-            'supplier_invoice_no' => $standaloneInvoiceNo,
-            'supplier_invoice_date' => $standaloneInvoiceDate,
-            'billed_total_amount' => round($standaloneBilledTotal, 2),
-            'billed_vat_amount' => round($standaloneBilledVat, 2),
-            'billing_recorded_at' => date('Y-m-d H:i:s'),
-            'billing_recorded_by' => $created_by,
-        ]);
-        $supplierNameBill = '';
-        if ($supplier_id > 0) {
-            $supplierRowBill = Db::rowByIdField('suppliers', $supplier_id);
-            if (is_array($supplierRowBill)) {
-                $supplierNameBill = trim((string) ($supplierRowBill['name'] ?? ''));
+        if ($standaloneInvoiceNo !== '') {
+            $poExtras = array_merge($poExtras, [
+                'billing_status' => 'billed',
+                'supplier_invoice_no' => $standaloneInvoiceNo,
+                'supplier_invoice_date' => $standaloneInvoiceDate,
+                'billed_total_amount' => round($standaloneBilledTotal, 2),
+                'billed_vat_amount' => round($standaloneBilledVat, 2),
+                'billing_recorded_at' => date('Y-m-d H:i:s'),
+                'billing_recorded_by' => $created_by,
+            ]);
+            $supplierNameBill = '';
+            if ($supplier_id > 0) {
+                $supplierRowBill = Db::rowByIdField('suppliers', $supplier_id);
+                if (is_array($supplierRowBill)) {
+                    $supplierNameBill = trim((string) ($supplierRowBill['name'] ?? ''));
+                }
             }
+            $billId = Db::nextNumericId('bills', 'id');
+            Db::setRow('bills', (string) $billId, [
+                'id' => $billId,
+                'po_id' => $po_id,
+                'po_number' => $po_number,
+                'supplier_id' => $supplier_id,
+                'supplier_name' => $supplierNameBill,
+                'supplier_invoice_no' => $standaloneInvoiceNo,
+                'supplier_invoice_date' => $standaloneInvoiceDate,
+                'vat_amount' => round($standaloneBilledVat, 2),
+                'total_amount' => round($standaloneBilledTotal, 2),
+                'source' => 'po_receive_bill',
+                'created_by' => $created_by,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
         }
-        $billId = Db::nextNumericId('bills', 'id');
-        Db::setRow('bills', (string) $billId, [
-            'id' => $billId,
-            'po_id' => $po_id,
-            'po_number' => $po_number,
-            'supplier_id' => $supplier_id,
-            'supplier_name' => $supplierNameBill,
-            'supplier_invoice_no' => $standaloneInvoiceNo,
-            'supplier_invoice_date' => $standaloneInvoiceDate,
-            'vat_amount' => round($standaloneBilledVat, 2),
-            'total_amount' => round($standaloneBilledTotal, 2),
-            'source' => 'po_receive_bill',
-            'created_by' => $created_by,
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-        ]);
+        if ($poExtras !== []) {
+            Db::mergeRow('purchase_orders', (string) $po_id, $poExtras);
+            $standalonePoExtrasSaved = true;
+        }
     }
     tnc_audit_purchase_order_created($po_id, 'create_po_direct');
     if ($isStandalonePurchasePo) {
         $doneUrl = app_path('pages/purchase/purchase-order-list.php')
-            . '?success=1&payment_saved=1&po_number=' . rawurlencode($po_number);
+            . '?success=1&po_number=' . rawurlencode($po_number)
+            . ($standalonePoExtrasSaved ? '&payment_saved=1' : '');
         if (tnc_ajax_form_requested()) {
             header('Content-Type: application/json; charset=UTF-8');
             echo json_encode([
                 'ok' => true,
-                'message' => 'สร้าง PO สำเร็จ หมายเลข ' . $po_number . ' (บันทึกบิลและสลิปแล้ว)',
+                'message' => 'สร้าง PO สำเร็จ หมายเลข ' . $po_number
+                    . ($standalonePoExtrasSaved ? ' (บันทึกบิลและ/หรือสลิปแล้ว)' : ''),
                 'po_number' => $po_number,
                 'action' => 'po_created',
                 'redirect' => $doneUrl,

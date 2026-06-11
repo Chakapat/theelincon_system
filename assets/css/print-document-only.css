@@ -78,7 +78,8 @@
     /* ---- Purchase: PR / PO / batch ---- */
     body.purchase-module,
     body.tnc-batch-print-body {
-        visibility: hidden !important;
+        visibility: visible !important;
+        background: #fff !important;
     }
 
     body.purchase-module .pr-view-canvas,
@@ -99,6 +100,31 @@
         clip: auto !important;
         clip-path: none !important;
         opacity: 1 !important;
+    }
+
+    body.purchase-module .po-view-canvas > .tnc-po-print-page {
+        display: block !important;
+        position: relative !important;
+        float: none !important;
+        clear: both !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid-page !important;
+    }
+
+    body.purchase-module .po-view-canvas > .tnc-po-print-page + .tnc-po-print-page {
+        page-break-before: always !important;
+        break-before: page !important;
+    }
+
+    body.purchase-module .tnc-po-print-page--slip .po-payment-slip-print-wrap,
+    body.purchase-module .tnc-po-print-page--quotation .po-payment-slip-print-wrap {
+        page-break-before: auto !important;
+        break-before: auto !important;
     }
 
     body.purchase-module .tnc-batch-print-wrap,
@@ -148,13 +174,15 @@
 
     body.purchase-module .po-payment-slip-print-wrap {
         visibility: visible !important;
-        display: flex !important;
-        position: static !important;
+        display: block !important;
+        position: relative !important;
+        float: none !important;
+        clear: both !important;
         left: auto !important;
         top: auto !important;
         width: 100% !important;
         max-width: none !important;
-        margin: 0 !important;
+        margin: 0 auto !important;
         padding: 0 !important;
         overflow: hidden !important;
         page-break-before: always !important;
@@ -162,6 +190,11 @@
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         box-sizing: border-box !important;
+    }
+
+    body.purchase-module .po-view-canvas > .tnc-po-print-page .po-payment-slip-print-wrap {
+        page-break-before: auto !important;
+        break-before: auto !important;
     }
 
     body.purchase-module .po-payment-slip-print-wrap--first {

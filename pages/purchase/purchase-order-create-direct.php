@@ -123,18 +123,22 @@ $items = [[
 
         <div class="card card-soft p-4 p-md-4 mb-4 po-meta-card">
             <div class="row g-3 g-md-4">
-                <div class="col-md-4">
+                <div class="col-md-6 col-lg-3">
                     <label class="po-field-label" for="po_number_display">เลขที่ใบสั่งซื้อ (อัตโนมัติ)</label>
                     <input type="text" id="po_number_display" class="form-control po-po-number bg-light text-tnc-orange fw-bold" value="<?= htmlspecialchars($po_number, ENT_QUOTES, 'UTF-8') ?>" readonly>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6 col-lg-3">
                     <label class="po-field-label" for="issue_date">วันที่ออกใบสั่งซื้อ / วันที่ใบกำกับ <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text bg-white text-tnc-orange"><i class="bi bi-calendar3"></i></span>
                         <input type="text" name="issue_date" id="issue_date" class="form-control" value="<?= htmlspecialchars($issueDateDisplay, ENT_QUOTES, 'UTF-8') ?>" required autocomplete="off" placeholder="วัน/เดือน/ปี">
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6 col-lg-3">
+                    <label class="po-field-label" for="supplier_invoice_no">เลขที่บิล / ใบกำกับภาษี</label>
+                    <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" class="form-control" maxlength="120" placeholder="เลขที่จากใบกำกับภาษี/บิลซื้อ">
+                </div>
+                <div class="col-md-6 col-lg-3">
                     <label class="po-field-label" for="supplier_search">ผู้ขาย / แหล่งซื้อ <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text bg-white text-secondary"><i class="bi bi-shop"></i></span>
@@ -250,12 +254,8 @@ $items = [[
             </div>
             <div class="row g-3 align-items-end">
                 <div class="col-md-6">
-                    <label class="po-field-label" for="supplier_invoice_no">เลขที่บิล / ใบกำกับภาษี <span class="text-danger">*</span></label>
-                    <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" class="form-control" maxlength="120" required placeholder="เลขที่จากใบกำกับภาษี/บิลซื้อ">
-                </div>
-                <div class="col-md-6">
-                    <label class="po-field-label" for="payment_slips">แนบสลิป / หลักฐานการจ่าย <span class="text-danger">*</span></label>
-                    <input type="file" name="payment_slips[]" id="payment_slips" class="form-control" accept="image/*,.pdf" multiple required>
+                    <label class="po-field-label" for="payment_slips">แนบสลิป / หลักฐานการจ่าย</label>
+                    <input type="file" name="payment_slips[]" id="payment_slips" class="form-control" accept="image/*,.pdf" multiple>
                 </div>
             </div>
             <input type="hidden" name="billed_total_amount" id="billed_total_amount" value="0">
@@ -306,12 +306,6 @@ $items = [[
                 alert('กรุณากรอกวันที่เป็น วัน/เดือน/ปี');
                 issueDateEl && issueDateEl.focus();
                 return;
-            }
-            const slipEl = document.getElementById('payment_slips');
-            if (slipEl && (!slipEl.files || slipEl.files.length === 0)) {
-                e.preventDefault();
-                alert('กรุณาแนบสลิปหรือหลักฐานการจ่าย');
-                slipEl.focus();
             }
         });
     }

@@ -445,6 +445,42 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
         }
 
         @media print {
+            .po-view-canvas {
+                display: block !important;
+                position: static !important;
+                left: auto !important;
+                top: auto !important;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+
+            .tnc-po-print-page {
+                display: block !important;
+                position: relative !important;
+                float: none !important;
+                clear: both !important;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid-page !important;
+            }
+
+            .tnc-po-print-page + .tnc-po-print-page {
+                page-break-before: always !important;
+                break-before: page !important;
+            }
+
+            .tnc-po-print-page--slip .po-payment-slip-print-wrap {
+                page-break-before: auto !important;
+                break-before: auto !important;
+            }
+
             .invoice-box.po-purchase-order-doc,
             .invoice-box.pr-purchase-requisition-doc {
                 width: 210mm !important;
@@ -471,6 +507,32 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
                 margin-top: auto !important;
                 page-break-inside: avoid;
                 break-inside: avoid;
+            }
+
+            .po-payment-slip-print-wrap {
+                display: block !important;
+                position: relative !important;
+                float: none !important;
+                clear: both !important;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 auto !important;
+                overflow: hidden !important;
+            }
+
+            .po-payment-slip-print-wrap.po-slip-a4-page {
+                height: 277mm !important;
+                min-height: 277mm !important;
+                max-height: 277mm !important;
+            }
+
+            .po-slip-a4-page .po-payment-slip-sheet--full {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                height: 277mm !important;
+                min-height: 277mm !important;
+                max-height: 277mm !important;
             }
         }
 
@@ -710,18 +772,26 @@ $hasAlerts = $poViewFlash !== null
 
 <div class="po-view-canvas">
 <?php if ($printIncludePr && $prCtxForPo !== null): ?>
+<div class="tnc-po-print-page tnc-po-print-page--pr">
 <div class="pr-bundle-inline po-print-bundle-pr">
 <?php tnc_purchase_pr_print_render($prCtxForPo); ?>
 </div>
+</div>
 <?php endif; ?>
 <?php if ($printIncludePo): ?>
+<div class="tnc-po-print-page tnc-po-print-page--po">
 <?php tnc_purchase_po_print_render($poCtx); ?>
+</div>
 <?php endif; ?>
 <?php if ($printIncludeSlip): ?>
-<?php tnc_purchase_po_payment_slip_print_render($poCtx['po'], $printIncludePo || ($printIncludePr && $prCtxForPo !== null)); ?>
+<div class="tnc-po-print-page tnc-po-print-page--slip">
+<?php tnc_purchase_po_payment_slip_print_render($poCtx['po'], false); ?>
+</div>
 <?php endif; ?>
 <?php if ($printIncludeQuotation): ?>
-<?php tnc_purchase_po_quotation_attachment_print_render($poCtx['po'], true); ?>
+<div class="tnc-po-print-page tnc-po-print-page--quotation">
+<?php tnc_purchase_po_quotation_attachment_print_render($poCtx['po'], false); ?>
+</div>
 <?php endif; ?>
 <?php if ($poPrintMode === 'slip' && !$hasPaymentSlipPrint): ?>
 <div class="container-xl py-5 no-print">
@@ -971,7 +1041,9 @@ fetch(window.tncPoLiveDatasetsUrl + '?dataset=po_action_row&po_id=' + encodeURIC
 })();
 </script>
 <?php
-$tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
+$tncPrintOnlyCssPath = dirname(__DIR__, 2) . '/assets/css/print-document-only.css';
+$tncPrintOnlyCssVer = is_file($tncPrintOnlyCssPath) ? (string) filemtime($tncPrintOnlyCssPath) : (string) time();
+$tncPrintOnlyCss = app_path('assets/css/print-document-only.css') . '?v=' . rawurlencode($tncPrintOnlyCssVer);
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
 <style media="print">
