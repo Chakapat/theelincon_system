@@ -142,13 +142,13 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                 รายการใบขอซื้อ (PR)
             </h1>
         </div>
-        <div class="d-flex flex-wrap gap-2 no-print">
+        <div class="d-flex flex-wrap gap-2 no-print align-items-center">
+            <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm d-none" id="prBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก" aria-hidden="true">
+                <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
+            </button>
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4 shadow-sm">
                 <i class="bi bi-plus-lg"></i> สร้างใบขอซื้อใหม่
             </a>
-            <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm" id="prBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก">
-                <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
-            </button>
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-orange rounded-pill px-3 shadow-sm">
                 <i class="bi bi-arrow-right-circle me-1"></i>ไปหน้ารายการใบสั่งซื้อ
             </a>
@@ -296,6 +296,16 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
 <script>
 (function () {
     var batchBase = <?= json_encode(app_path('pages/purchase/purchase-batch-print.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var batchPrintBtn = document.getElementById('prBatchPrintBtn');
+    var selectAllPrint = document.getElementById('prSelectAllPrint');
+
+    function syncPrBatchPrintBtn() {
+        if (!batchPrintBtn) return;
+        var hasChecked = document.querySelectorAll('.js-pr-print-cb:checked').length > 0;
+        batchPrintBtn.classList.toggle('d-none', !hasChecked);
+        batchPrintBtn.setAttribute('aria-hidden', hasChecked ? 'false' : 'true');
+    }
+
     document.getElementById('prBatchPrintBtn')?.addEventListener('click', function () {
         var ids = [];
         document.querySelectorAll('.js-pr-print-cb:checked').forEach(function (cb) {
@@ -313,7 +323,19 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
         document.querySelectorAll('#prTable tbody .js-pr-print-cb').forEach(function (cb) {
             cb.checked = on;
         });
+        syncPrBatchPrintBtn();
     });
+    document.getElementById('prTable')?.addEventListener('change', function (e) {
+        if (!e.target.classList.contains('js-pr-print-cb')) return;
+        if (selectAllPrint) {
+            var boxes = document.querySelectorAll('#prTable tbody .js-pr-print-cb');
+            var checked = document.querySelectorAll('#prTable tbody .js-pr-print-cb:checked');
+            selectAllPrint.checked = boxes.length > 0 && checked.length === boxes.length;
+            selectAllPrint.indeterminate = checked.length > 0 && checked.length < boxes.length;
+        }
+        syncPrBatchPrintBtn();
+    });
+    syncPrBatchPrintBtn();
 })();
 </script>
 <script>
