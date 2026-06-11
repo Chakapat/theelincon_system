@@ -603,6 +603,12 @@
 
 .pr-purchase-requisition-doc .pr-footer-row,
 .po-purchase-order-doc .po-footer-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    margin-left: 0;
+    margin-right: 0;
+    --bs-gutter-x: 0.75rem;
     margin-bottom: 0.75rem !important;
 }
 
@@ -610,6 +616,22 @@
 .po-purchase-order-doc .po-footer-row:has(.po-notes-panel) {
     row-gap: 1.15rem;
     column-gap: 0.75rem;
+}
+
+.pr-purchase-requisition-doc .pr-footer-row:has(.pr-notes-panel) .pr-footer-notes-col,
+.po-purchase-order-doc .po-footer-row:has(.po-notes-panel) .po-footer-notes-col {
+    flex: 0 0 auto;
+    width: 58.33333333%;
+    max-width: 58.33333333%;
+    padding-right: 0.75rem;
+}
+
+.pr-purchase-requisition-doc .pr-footer-row:has(.pr-notes-panel) .pr-footer-totals-col,
+.po-purchase-order-doc .po-footer-row:has(.po-notes-panel) .po-footer-totals-col {
+    flex: 0 0 auto;
+    width: 41.66666667%;
+    max-width: 41.66666667%;
+    margin-left: auto;
 }
 
 .po-purchase-order-doc.po-hire-contract-doc .po-footer-row:has(.po-notes-panel) {
@@ -941,6 +963,30 @@
 .po-purchase-order-doc .doc-site-block {
     border-left-color: #ea580c;
     background: #fff9f0;
+}
+
+.po-purchase-order-doc .doc-site-block--po-split {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem 1rem;
+}
+
+.po-purchase-order-doc .doc-site-block--po-split .doc-site-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.po-purchase-order-doc .doc-site-block--po-split .doc-site-category {
+    flex: 0 0 auto;
+    margin-left: auto;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.po-purchase-order-doc .doc-site-block--po-split .doc-site-category .doc-site-value {
+    white-space: normal;
 }
 
 .doc-meta-row > [class*="col-"] {
@@ -1289,6 +1335,18 @@
     .po-purchase-order-doc .doc-site-block {
         background: #fff9f0 !important;
         border-left-color: #ea580c !important;
+    }
+
+    .po-purchase-order-doc .doc-site-block--po-split {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: baseline !important;
+        justify-content: space-between !important;
+    }
+
+    .po-purchase-order-doc .doc-site-block--po-split .doc-site-category {
+        margin-left: auto !important;
+        text-align: right !important;
     }
 
     .doc-site-label {

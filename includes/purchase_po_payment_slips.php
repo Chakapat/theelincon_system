@@ -192,7 +192,20 @@ function tnc_po_action_row_for_modal(int $poId): ?array
         return null;
     }
 
-    $amt = (float) ($po['total_amount'] ?? 0);
+    $poItems = [];
+    foreach (\Theelincon\Rtdb\Db::filter('purchase_order_items', static function (array $r) use ($poId): bool {
+        return (int) ($r['po_id'] ?? 0) === $poId || (int) ($r['purchase_order_id'] ?? 0) === $poId;
+    }) as $itemRow) {
+        if (is_array($itemRow)) {
+            $poItems[] = $itemRow;
+        }
+    }
+    if (!function_exists('tnc_purchase_po_resolved_totals')) {
+        require_once dirname(__DIR__) . '/includes/purchase_print/vat_print_summary.php';
+    }
+    $resolvedTotals = tnc_purchase_po_resolved_totals($po, $poItems);
+    $amt = $resolvedTotals['net'];
+    $resolvedVat = $resolvedTotals['vat'];
     $status = strtolower(trim((string) ($po['status'] ?? 'ordered')));
     if ($status === '') {
         $status = 'ordered';
@@ -216,7 +229,7 @@ function tnc_po_action_row_for_modal(int $poId): ?array
         'issue_date' => tnc_po_issue_date_ymd($po),
         'total_amount' => $amt,
         'billed_total_amount' => (float) ($po['billed_total_amount'] ?? $amt),
-        'billed_vat_amount' => (float) ($po['billed_vat_amount'] ?? ($po['vat_amount'] ?? 0)),
+        'billed_vat_amount' => (float) ($po['billed_vat_amount'] ?? $resolvedVat),
         'payment_method' => strtolower(trim((string) ($po['payment_method'] ?? 'transfer'))) === 'cash' ? 'cash' : 'transfer',
         'payment_cash_paid_by' => trim((string) ($po['payment_cash_paid_by'] ?? '')),
         'supplier_invoice_no' => trim((string) ($po['supplier_invoice_no'] ?? '')),

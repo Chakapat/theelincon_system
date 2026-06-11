@@ -6,6 +6,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -58,9 +59,15 @@ function tnc_site_csv_row(array $cells): string
     return implode(',', $out) . "\r\n";
 }
 
-/** @return float ยอดที่จ่ายแล้วของ PO */
-function tnc_site_spending_paid_amount(array $po): float
+/** @return float ยอดที่จ่ายแล้วของ PO — ใช้ยอดจากรายการ PO ปัจจุบัน */
+function tnc_site_spending_paid_amount(array $po, array $items = []): float
 {
+    $amounts = tnc_purchase_report_amounts_from_po($po, $items);
+    $net = round((float) ($amounts['net'] ?? 0), 2);
+    if ($net > 0) {
+        return $net;
+    }
+
     $orderTotal = round((float) ($po['total_amount'] ?? 0), 2);
     $billed = round((float) ($po['billed_total_amount'] ?? 0), 2);
     $paid = $billed > 0 ? $billed : $orderTotal;
@@ -82,14 +89,7 @@ function tnc_site_spending_paid_date(array $po): string
 /** PO สมบูรณ์ = ชำระแล้ว + มีเลขที่ใบกำกับ (ตามเกณฑ์หน้ารายการ PO) */
 function tnc_site_spending_po_is_complete(array $po): bool
 {
-    if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
-        return false;
-    }
-    if (strtolower(trim((string) ($po['payment_status'] ?? 'unpaid'))) !== 'paid') {
-        return false;
-    }
-
-    return trim((string) ($po['supplier_invoice_no'] ?? '')) !== '';
+    return tnc_purchase_po_is_complete_for_report($po);
 }
 
 /**
@@ -283,11 +283,14 @@ $ensureCat = static function (array &$site, string $catKey, string $catLabel): v
 };
 
 // PO สมบูรณ์ + จ่ายแล้วเท่านั้น — กรองตามวันที่จ่าย (payment_marked_paid_at)
+$poItemsByPoId = tnc_purchase_po_items_group_by_po_id();
 foreach (Db::tableRows('purchase_orders') as $po) {
     if (!tnc_site_spending_po_is_complete($po)) {
         continue;
     }
-    $paidAmount = tnc_site_spending_paid_amount($po);
+    $poId = (int) ($po['id'] ?? 0);
+    $poItems = $poItemsByPoId[$poId] ?? [];
+    $paidAmount = tnc_site_spending_paid_amount($po, $poItems);
     if ($paidAmount <= 0.0) {
         continue;
     }
@@ -298,7 +301,10 @@ foreach (Db::tableRows('purchase_orders') as $po) {
     [$key, $label] = $resolveSite($po);
     $ensureSite($key, $label);
 
-    $orderTotal = round((float) ($po['total_amount'] ?? 0), 2);
+    $orderTotal = round((float) (tnc_purchase_report_amounts_from_po($po, $poItems)['net'] ?? 0), 2);
+    if ($orderTotal <= 0.0) {
+        $orderTotal = $paidAmount;
+    }
     $sites[$key]['po_count']++;
     $sites[$key]['po_total'] += $orderTotal;
     $sites[$key]['paid_total'] += $paidAmount;

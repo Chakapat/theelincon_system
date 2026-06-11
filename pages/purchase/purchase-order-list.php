@@ -9,6 +9,7 @@ use Theelincon\Rtdb\Purchase;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_po_payment_slips.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_table_skeleton.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_flash.php';
 
@@ -81,18 +82,23 @@ $poListSortYmd = static function (array $row): string {
 
 $woListUrl = app_path('pages/purchase/work-order-list.php');
 
+$poItemsByPoId = tnc_purchase_po_items_group_by_po_id();
+
 $po_rows = [];
 foreach (Db::tableRows('purchase_orders') as $po) {
     if (Purchase::isWorkOrder($po)) {
         continue;
     }
+    $poId = (int) ($po['id'] ?? 0);
+    $resolvedTotals = tnc_purchase_po_resolved_totals($po, $poItemsByPoId[$poId] ?? []);
     $s = $suppliers[(string) ($po['supplier_id'] ?? '')] ?? null;
     $u = $users[(string) ($po['created_by'] ?? '')] ?? null;
     $status = strtolower(trim((string) ($po['status'] ?? 'ordered')));
     if ($status === '') {
         $status = 'ordered';
     }
-    $amt = (float) ($po['total_amount'] ?? 0);
+    $amt = $resolvedTotals['net'];
+    $resolvedVat = $resolvedTotals['vat'];
     $paymentStatus = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
     if (!in_array($paymentStatus, ['paid', 'unpaid'], true)) {
         $paymentStatus = 'unpaid';
@@ -117,10 +123,11 @@ foreach (Db::tableRows('purchase_orders') as $po) {
         'supplier_invoice_no' => trim((string) ($po['supplier_invoice_no'] ?? '')),
         'supplier_invoice_date' => trim((string) ($po['supplier_invoice_date'] ?? '')),
         'billed_total_amount' => (float) ($po['billed_total_amount'] ?? $amt),
-        'billed_vat_amount' => (float) ($po['billed_vat_amount'] ?? ($po['vat_amount'] ?? 0)),
+        'billed_vat_amount' => (float) ($po['billed_vat_amount'] ?? $resolvedVat),
         'payment_method' => strtolower(trim((string) ($po['payment_method'] ?? 'transfer'))) === 'cash' ? 'cash' : 'transfer',
         'payment_cash_paid_by' => trim((string) ($po['payment_cash_paid_by'] ?? '')),
         'total_amount' => $amt,
+        'vat_amount' => $resolvedVat,
         'order_type' => trim((string) ($po['order_type'] ?? 'purchase')),
         'installment_no' => (int) ($po['installment_no'] ?? 0),
         'installment_total' => (int) ($po['installment_total'] ?? 0),

@@ -369,6 +369,45 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
         }
 
 
+        .invoice-box.po-purchase-order-doc .po-footer-row {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: flex-start;
+            margin-left: 0;
+            margin-right: 0;
+            --bs-gutter-x: 0.75rem;
+        }
+
+        .invoice-box.po-purchase-order-doc .po-footer-row:has(.po-notes-panel) {
+            column-gap: 0.75rem;
+            row-gap: 1.15rem;
+        }
+
+        .invoice-box.po-purchase-order-doc .po-footer-row:has(.po-notes-panel) .po-footer-notes-col {
+            flex: 0 0 auto;
+            width: 58.33333333%;
+            max-width: 58.33333333%;
+            padding-right: 0.75rem;
+        }
+
+        .invoice-box.po-purchase-order-doc .po-footer-row:has(.po-notes-panel) .po-footer-totals-col {
+            flex: 0 0 auto;
+            width: 41.66666667%;
+            max-width: 41.66666667%;
+            margin-left: auto;
+        }
+
+        .invoice-box.po-purchase-order-doc .po-footer-notes-col:not(:has(.po-notes-panel)) {
+            display: none;
+        }
+
+        .invoice-box.po-purchase-order-doc .po-footer-row:not(:has(.po-notes-panel)) .po-footer-totals-col {
+            margin-left: auto;
+            flex: 0 0 auto;
+            width: min(100%, 15.5rem);
+            max-width: 15.5rem;
+        }
+
         .invoice-box .po-total-sheet .summary-item {
             display: flex;
             flex-wrap: nowrap;

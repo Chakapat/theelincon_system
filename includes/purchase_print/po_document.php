@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Purchase;
 
 require_once __DIR__ . '/../hire_line_items.php';
 require_once __DIR__ . '/../contractors.php';
+require_once __DIR__ . '/vat_print_summary.php';
 
 if (!function_exists('tnc_po_format_date_thai')) {
     function tnc_po_format_date_thai(mixed $date): string
@@ -173,7 +174,7 @@ function tnc_purchase_po_print_prepare(int $id): ?array
     $data['s_tax'] = $sup['tax_id'] ?? '';
     $data['s_phone'] = $sup['phone'] ?? '';
     $data['contact_person'] = $sup['contact_person'] ?? '';
-    $data['pr_number'] = $pr['pr_number'] ?? '';
+    $data['pr_number'] = is_array($pr) ? (string) ($pr['pr_number'] ?? '') : '';
     $orderType = trim((string) ($data['order_type'] ?? 'purchase'));
     if (!in_array($orderType, ['purchase', 'hire'], true)) {
         $orderType = 'purchase';
@@ -255,6 +256,21 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         }
     }
 
+    $poCostCategoryId = (int) ($data['cost_category_id'] ?? 0);
+    $poCostCategoryName = trim((string) ($data['cost_category_name'] ?? ''));
+    if ($poCostCategoryId <= 0 && is_array($pr)) {
+        $poCostCategoryId = (int) ($pr['cost_category_id'] ?? 0);
+        if ($poCostCategoryName === '') {
+            $poCostCategoryName = trim((string) ($pr['cost_category_name'] ?? ''));
+        }
+    }
+    if ($poCostCategoryName === '' && $poCostCategoryId > 0) {
+        if (!function_exists('tnc_site_category_name')) {
+            require_once dirname(__DIR__) . '/site_cost_categories.php';
+        }
+        $poCostCategoryName = tnc_site_category_name($poCostCategoryId);
+    }
+
     $poNumber = trim((string) ($po['po_number'] ?? ''));
     $items = Db::filter('purchase_order_items', static function (array $r) use ($id, $poNumber): bool {
         $poId = isset($r['po_id']) ? (int) $r['po_id'] : 0;
@@ -291,21 +307,35 @@ function tnc_purchase_po_print_prepare(int $id): ?array
             $poVatMode = 'exclusive';
         }
     }
+    $poDerivedFromItems = null;
+    if (
+        $orderType === 'purchase'
+        && function_exists('tnc_purchase_po_items_line_sum')
+        && function_exists('tnc_purchase_totals_from_line_sum')
+    ) {
+        $itemsLineSum = tnc_purchase_po_items_line_sum($items, $orderType);
+        if ($itemsLineSum > 0) {
+            $poDerivedFromItems = tnc_purchase_totals_from_line_sum($itemsLineSum, $po_vat_enabled === 1, $poVatMode);
+            $po_grand_total = $poDerivedFromItems['net'];
+            $po_vat_amount = $poDerivedFromItems['vat'];
+        }
+    }
     $issueDate = (string) ($data['issue_date'] ?? '');
     if (trim($issueDate) === '') {
         $issueDate = (string) ($data['created_at'] ?? '');
     }
-    if (trim($issueDate) === '' && isset($pr['created_at'])) {
+    if (trim($issueDate) === '' && is_array($pr) && trim((string) ($pr['created_at'] ?? '')) !== '') {
         $issueDate = (string) $pr['created_at'];
     }
-    if (isset($data['subtotal_amount']) && $data['subtotal_amount'] !== null && $data['subtotal_amount'] !== '') {
+    if ($poDerivedFromItems !== null) {
+        $po_subtotal = $poDerivedFromItems['subtotal'];
+        $po_gross_amount = $poDerivedFromItems['gross'];
+    } elseif (isset($data['subtotal_amount']) && $data['subtotal_amount'] !== null && $data['subtotal_amount'] !== '') {
         $po_subtotal = (float) $data['subtotal_amount'];
+        $po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_amount'] : ($po_subtotal + $po_vat_amount));
     } else {
         $po_subtotal = round($po_grand_total - $po_vat_amount, 2);
-    }
-    $po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_amount'] : ($po_subtotal + $po_vat_amount));
-    if (!function_exists('tnc_purchase_vat_print_summary')) {
-        require_once __DIR__ . '/vat_print_summary.php';
+        $po_gross_amount = (float) (($data['gross_amount'] ?? '') !== '' ? $data['gross_amount'] : ($po_subtotal + $po_vat_amount));
     }
     $poVatPrint = tnc_purchase_vat_print_summary(
         $po_vat_enabled === 1,
@@ -362,6 +392,7 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         'hireWorkConditions' => $hireWorkConditions,
         'hirePaymentSequenceLabel' => $hirePaymentSequenceLabel,
         'poSiteDisplay' => $poSiteDisplay,
+        'poCostCategoryName' => $poCostCategoryName,
         'po_vat_enabled' => $po_vat_enabled,
         'poVatMode' => $poVatMode,
         'poVatPrint' => $poVatPrint,

@@ -3,6 +3,144 @@
 declare(strict_types=1);
 
 /**
+ * รวมยอดจากคอลัมน์ total ของแต่ละแถว (หลังส่วนลด) — ไม่ใช้ qty × unit_price
+ */
+if (!function_exists('tnc_purchase_po_items_line_sum')) {
+    function tnc_purchase_po_items_line_sum(array $items, string $orderType = 'purchase'): float
+    {
+        $sum = 0.0;
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            if ($orderType === 'hire') {
+                if (function_exists('tnc_hire_line_is_group') && tnc_hire_line_is_group($item)) {
+                    continue;
+                }
+            }
+            $sum += (float) ($item['total'] ?? 0);
+        }
+
+        return round($sum, 2);
+    }
+}
+
+/**
+ * คำนวณ subtotal / VAT / gross / net จากผลรวมแถว (ตรงกับตอนบันทึก PO)
+ *
+ * @return array{subtotal: float, vat: float, gross: float, net: float, line_sum: float}
+ */
+if (!function_exists('tnc_purchase_totals_from_line_sum')) {
+    function tnc_purchase_totals_from_line_sum(float $lineSum, bool $vatOn, string $vatMode): array
+    {
+        $lineSum = round($lineSum, 2);
+        $vatMode = in_array($vatMode, ['exclusive', 'inclusive'], true) ? $vatMode : 'exclusive';
+        $subtotal = $lineSum;
+        $vat = 0.0;
+        $gross = $lineSum;
+        if ($vatOn && $lineSum > 0) {
+            if ($vatMode === 'inclusive') {
+                $vat = round($lineSum * 7 / 107, 2);
+                $subtotal = round($lineSum - $vat, 2);
+                $gross = $lineSum;
+            } else {
+                $vat = round($subtotal * 0.07, 2);
+                $gross = round($subtotal + $vat, 2);
+            }
+        }
+
+        return [
+            'subtotal' => $subtotal,
+            'vat' => $vat,
+            'gross' => $gross,
+            'net' => $gross,
+            'line_sum' => $lineSum,
+        ];
+    }
+}
+
+/**
+ * จัดกลุ่มรายการ PO ตาม po_id (โหลดครั้งเดียวสำหรับหน้ารายการ)
+ *
+ * @return array<int, list<array<string, mixed>>>
+ */
+if (!function_exists('tnc_purchase_po_items_group_by_po_id')) {
+    function tnc_purchase_po_items_group_by_po_id(): array
+    {
+        $byPo = [];
+        foreach (\Theelincon\Rtdb\Db::tableRows('purchase_order_items') as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $poId = (int) ($item['po_id'] ?? 0);
+            if ($poId <= 0) {
+                $poId = (int) ($item['purchase_order_id'] ?? 0);
+            }
+            if ($poId <= 0) {
+                continue;
+            }
+            $byPo[$poId][] = $item;
+        }
+
+        return $byPo;
+    }
+}
+
+/**
+ * ยอด PO ที่แสดงในรายการ — ใช้ผลรวมคอลัมน์ total ของแต่ละแถว (หลังส่วนลด) แทนค่า header ที่อาจคลาดเคลื่อน
+ *
+ * @return array{subtotal: float, vat: float, net: float, gross: float}
+ */
+if (!function_exists('tnc_purchase_po_resolved_totals')) {
+    function tnc_purchase_po_resolved_totals(array $po, array $items): array
+    {
+        $storedNet = (float) ($po['total_amount'] ?? 0);
+        $storedVat = (float) ($po['vat_amount'] ?? 0);
+        $storedSub = isset($po['subtotal_amount']) && $po['subtotal_amount'] !== '' && $po['subtotal_amount'] !== null
+            ? (float) $po['subtotal_amount']
+            : 0.0;
+        $storedGross = (float) (($po['gross_amount'] ?? '') !== '' && ($po['gross_amount'] ?? null) !== null
+            ? $po['gross_amount']
+            : $storedNet);
+
+        $orderType = trim((string) ($po['order_type'] ?? 'purchase'));
+        if ($orderType !== 'purchase') {
+            return [
+                'subtotal' => $storedSub > 0 ? $storedSub : round($storedNet - $storedVat, 2),
+                'vat' => $storedVat,
+                'net' => $storedNet,
+                'gross' => $storedGross > 0 ? $storedGross : $storedNet,
+            ];
+        }
+
+        $lineSum = tnc_purchase_po_items_line_sum($items, $orderType);
+        if ($lineSum <= 0) {
+            return [
+                'subtotal' => $storedSub > 0 ? $storedSub : round($storedNet - $storedVat, 2),
+                'vat' => $storedVat,
+                'net' => $storedNet,
+                'gross' => $storedGross > 0 ? $storedGross : $storedNet,
+            ];
+        }
+
+        $vatOn = (int) ($po['vat_enabled'] ?? 0) === 1;
+        $vatMode = trim((string) ($po['vat_mode'] ?? 'exclusive'));
+        if (!in_array($vatMode, ['exclusive', 'inclusive'], true)) {
+            $vatMode = 'exclusive';
+        }
+
+        $derived = tnc_purchase_totals_from_line_sum($lineSum, $vatOn, $vatMode);
+
+        return [
+            'subtotal' => $derived['subtotal'],
+            'vat' => $derived['vat'],
+            'net' => $derived['net'],
+            'gross' => $derived['gross'],
+        ];
+    }
+}
+
+/**
  * สรุปยอด VAT สำหรับพิมพ์ PR/PO ตาม vat_mode ที่บันทึก
  *
  * @return array{
@@ -38,17 +176,17 @@ function tnc_purchase_vat_print_summary(
     }
 
     if ($vatMode === 'inclusive') {
-        $lineAmount = round($subtotalStored + $vatAmount, 2);
-        if ($grandTotal > 0 && abs($lineAmount - $grandTotal) > 0.02) {
-            $lineAmount = $grandTotal;
-        }
+        // รวม VAT แล้ว: ยอดรายการ = ยอดสุทธิ = ผลรวมแถว (ราคารวมภาษี) ไม่ใช่ฐานก่อน VAT + VAT แยก
+        $lineAmount = $grandTotal > 0
+            ? $grandTotal
+            : round($subtotalStored + $vatAmount, 2);
 
         return [
             'vat_mode' => 'inclusive',
             'line_amount' => $lineAmount,
             'vat_label' => 'ภาษีมูลค่าเพิ่มในราคาสินค้า',
             'vat_amount' => $vatAmount,
-            'net_amount' => $grandTotal > 0 ? $grandTotal : $lineAmount,
+            'net_amount' => $lineAmount,
         ];
     }
 
@@ -61,4 +199,72 @@ function tnc_purchase_vat_print_summary(
         'vat_amount' => $vatAmount,
         'net_amount' => $grandTotal > 0 ? $grandTotal : round($lineAmount + $vatAmount, 2),
     ];
+}
+
+/** PO สมบูรณ์สำหรับรายงาน = ไม่ยกเลิก + จ่ายแล้ว + มีเลขที่ใบกำกับ */
+if (!function_exists('tnc_purchase_po_is_complete_for_report')) {
+    function tnc_purchase_po_is_complete_for_report(array $po): bool
+    {
+        if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+            return false;
+        }
+        if (strtolower(trim((string) ($po['payment_status'] ?? 'unpaid'))) !== 'paid') {
+            return false;
+        }
+
+        return trim((string) ($po['supplier_invoice_no'] ?? '')) !== '';
+    }
+}
+
+/**
+ * ยอด PO สำหรับรายงาน — คำนวณจากรายการปัจจุบัน (fallback ค่า header ถ้าไม่มีแถว)
+ *
+ * @return array{subtotal: float, vat: float, net: float, gross: float}
+ */
+if (!function_exists('tnc_purchase_report_amounts_from_po')) {
+    function tnc_purchase_report_amounts_from_po(array $po, array $items = []): array
+    {
+        if (function_exists('tnc_purchase_po_resolved_totals')) {
+            return tnc_purchase_po_resolved_totals($po, $items);
+        }
+
+        $net = round((float) ($po['total_amount'] ?? 0), 2);
+        $vat = round((float) ($po['vat_amount'] ?? 0), 2);
+        $sub = isset($po['subtotal_amount']) && $po['subtotal_amount'] !== '' && $po['subtotal_amount'] !== null
+            ? round((float) $po['subtotal_amount'], 2)
+            : round($net - $vat, 2);
+
+        return [
+            'subtotal' => $sub,
+            'vat' => $vat,
+            'net' => $net,
+            'gross' => round((float) (($po['gross_amount'] ?? '') !== '' && ($po['gross_amount'] ?? null) !== null
+                ? $po['gross_amount']
+                : $net), 2),
+        ];
+    }
+}
+
+/** ชื่อผู้ขายจาก PO */
+if (!function_exists('tnc_purchase_report_supplier_name')) {
+    function tnc_purchase_report_supplier_name(array $po): string
+    {
+        $supplierId = (int) ($po['supplier_id'] ?? 0);
+        if ($supplierId > 0) {
+            $supplierRow = \Theelincon\Rtdb\Db::rowByIdField('suppliers', $supplierId);
+            if (is_array($supplierRow)) {
+                $name = trim((string) ($supplierRow['name'] ?? ''));
+                if ($name !== '') {
+                    return $name;
+                }
+            }
+        }
+
+        $name = trim((string) ($po['supplier_name'] ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        return trim((string) ($po['contractor_name'] ?? ''));
+    }
 }

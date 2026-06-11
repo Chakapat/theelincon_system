@@ -20,6 +20,7 @@ declare(strict_types=1);
  * @var string $poNotePo
  * @var string $poNoteQt
  * @var string $poSiteDisplay
+ * @var string $poCostCategoryName
  * @var int $po_vat_enabled
  * @var string $poVatMode
  * @var array{vat_mode: string, line_amount: float, vat_label: string, vat_amount: float, net_amount: float} $poVatPrint
@@ -114,9 +115,17 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
     <?php if ($poSiteDisplay !== ''): ?>
     <div class="row mb-2 doc-site-row">
         <div class="col-12">
-            <div class="doc-site-block">
-                <span class="doc-site-label"><?= $orderType === 'hire' ? 'ชื่อโครงการ:' : 'ไซต์งาน:' ?></span>
-                <span class="doc-site-value"><?= htmlspecialchars($poSiteDisplay, ENT_QUOTES, 'UTF-8'); ?></span>
+            <div class="doc-site-block doc-site-block--po-split">
+                <span class="doc-site-main">
+                    <span class="doc-site-label"><?= $orderType === 'hire' ? 'ชื่อโครงการ:' : 'ไซต์งาน:' ?></span>
+                    <span class="doc-site-value"><?= htmlspecialchars($poSiteDisplay, ENT_QUOTES, 'UTF-8'); ?></span>
+                </span>
+                <?php if (trim((string) ($poCostCategoryName ?? '')) !== ''): ?>
+                <span class="doc-site-category">
+                    <span class="doc-site-label">หมวดหมู่:</span>
+                    <span class="doc-site-value"><?= htmlspecialchars(trim((string) $poCostCategoryName), ENT_QUOTES, 'UTF-8'); ?></span>
+                </span>
+                <?php endif; ?>
             </div>
         </div>
     </div>

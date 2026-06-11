@@ -135,14 +135,10 @@ $items = [[
                     </div>
                 </div>
                 <div class="col-md-6 col-lg-3">
-                    <label class="po-field-label" for="supplier_invoice_no">เลขที่บิล / ใบกำกับภาษี</label>
-                    <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" class="form-control" maxlength="120" placeholder="เลขที่จากใบกำกับภาษี/บิลซื้อ">
-                </div>
-                <div class="col-md-6 col-lg-3">
                     <label class="po-field-label" for="supplier_search">ผู้ขาย / แหล่งซื้อ <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text bg-white text-secondary"><i class="bi bi-shop"></i></span>
-                        <input type="text" id="supplier_search" class="form-control" list="supplier_list" required placeholder="พิมพ์ชื่อแล้วเลือกจากรายการ">
+                        <input type="text" id="supplier_search" class="form-control" list="supplier_list" required autocomplete="off">
                     </div>
                     <datalist id="supplier_list">
                         <?php foreach ($supplierRows as $s): ?>
@@ -150,6 +146,10 @@ $items = [[
                         <?php endforeach; ?>
                     </datalist>
                     <input type="hidden" name="supplier_id" id="supplier_id" value="">
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <label class="po-field-label" for="supplier_invoice_no">เลขที่บิล / ใบกำกับภาษี</label>
+                    <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" class="form-control" maxlength="120">
                 </div>
             </div>
             <?php if (count($sites) > 0): ?>
@@ -180,7 +180,17 @@ $items = [[
             <label class="po-field-label" for="po_note">หมายเหตุใบสั่งซื้อ</label>
             <textarea name="po_note" id="po_note" class="form-control" rows="2" maxlength="500" placeholder="หมายเหตุ (ถ้ามี)"></textarea>
         </div>
-
+        <div class="card card-soft p-4 p-md-4 mb-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="po-field-label" for="payment_slips">แนบสลิป / หลักฐานการจ่าย</label>
+                    <input type="file" name="payment_slips[]" id="payment_slips" class="form-control" accept="image/*,.pdf" multiple>
+                </div>
+            </div>
+            <input type="hidden" name="billed_total_amount" id="billed_total_amount" value="0">
+            <input type="hidden" name="billed_vat_amount" id="billed_vat_amount" value="0">
+            <input type="hidden" name="payment_method" value="transfer">
+        </div>
         <div class="card card-soft p-4 p-md-4 mb-4">
             <div class="table-responsive po-table-wrap">
                 <table class="table align-middle table-hover mb-0" id="poTable">
@@ -200,11 +210,11 @@ $items = [[
                         <?php foreach ($items as $index => $item): ?>
                             <tr>
                                 <td class="row-number text-secondary small fw-semibold"><?= $index + 1 ?></td>
-                                <td><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ระบุรายการ"></td>
-                                <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.01" min="0" required value="<?= htmlspecialchars((string) ($item['quantity'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
-                                <td><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ชิ้น"></td>
+                                <td><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.001" min="0" required value="<?= htmlspecialchars((string) ($item['quantity'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" required value="<?= htmlspecialchars((string) ($item['unit_price'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
-                                <td><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" value="<?= htmlspecialchars((string) ($item['discount_input'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="บาท/10%" oninput="calculateTotal()"></td>
+                                <td><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" value="<?= htmlspecialchars((string) ($item['discount_input'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
                                 <td><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
                                 <td><?php if ($index > 0): ?><button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)" title="ลบแถว"><i class="bi bi-trash-fill"></i></button><?php endif; ?></td>
                             </tr>
@@ -244,23 +254,6 @@ $items = [[
                     <input type="hidden" name="withholding_type" id="withholding_type" value="none">
                 </div>
             </div>
-        </div>
-
-        <div class="card card-soft p-4 p-md-4 mb-4">
-            <div class="po-section-head">
-                <div>
-                    <h2 class="section-title">บิลซื้อและหลักฐานการจ่าย</h2>
-                </div>
-            </div>
-            <div class="row g-3 align-items-end">
-                <div class="col-md-6">
-                    <label class="po-field-label" for="payment_slips">แนบสลิป / หลักฐานการจ่าย</label>
-                    <input type="file" name="payment_slips[]" id="payment_slips" class="form-control" accept="image/*,.pdf" multiple>
-                </div>
-            </div>
-            <input type="hidden" name="billed_total_amount" id="billed_total_amount" value="0">
-            <input type="hidden" name="billed_vat_amount" id="billed_vat_amount" value="0">
-            <input type="hidden" name="payment_method" value="transfer">
         </div>
     </form>
 </div>
@@ -381,11 +374,11 @@ function addRow() {
     const newRow = table.insertRow();
     const rowCount = table.rows.length;
     newRow.innerHTML = '<td class="row-number text-secondary small fw-semibold">' + rowCount + '</td>' +
-        '<td><input type="text" name="item_description[]" class="form-control form-control-sm" required placeholder="ระบุรายการ"></td>' +
-        '<td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.01" min="0" required oninput="calculateTotal()"></td>' +
-        '<td><input type="text" name="item_unit[]" class="form-control form-control-sm" placeholder="ชิ้น"></td>' +
+        '<td><input type="text" name="item_description[]" class="form-control form-control-sm" required></td>' +
+        '<td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.001" min="0" required oninput="calculateTotal()"></td>' +
+        '<td><input type="text" name="item_unit[]" class="form-control form-control-sm" ></td>' +
         '<td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" required oninput="calculateTotal()"></td>' +
-        '<td><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" placeholder="บาท/10%" oninput="calculateTotal()"></td>' +
+        '<td><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" oninput="calculateTotal()"></td>' +
         '<td><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>' +
         '<td><button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)" title="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>';
 }

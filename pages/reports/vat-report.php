@@ -6,6 +6,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -158,8 +159,61 @@ foreach (Db::tableRows('tax_invoices') as $taxInvoice) {
     $sumSalesNet += $netAmount;
 }
 
-// ภาษีซื้อ: ใช้ตาราง bills เป็นแหล่งข้อมูลเดียว (สร้างตอนรับบิลซื้อจาก PO)
+// ภาษีซื้อจาก PO สมบูรณ์ — ดึงยอดจากรายการ PO ปัจจุบัน (ไม่ใช้ snapshot ใน bills)
+$poItemsByPoId = tnc_purchase_po_items_group_by_po_id();
+foreach (Db::tableRows('purchase_orders') as $po) {
+    if (!tnc_purchase_po_is_complete_for_report($po)) {
+        continue;
+    }
+    $docDate = trim((string) ($po['supplier_invoice_date'] ?? ''));
+    if ($docDate === '' || $docDate < $fromDate || $docDate > $toDate) {
+        continue;
+    }
+    if ((int) ($po['vat_enabled'] ?? 0) !== 1) {
+        continue;
+    }
+    $poId = (int) ($po['id'] ?? 0);
+    $poItems = $poItemsByPoId[$poId] ?? [];
+    $amounts = tnc_purchase_report_amounts_from_po($po, $poItems);
+    $subtotal = round((float) ($amounts['subtotal'] ?? 0), 2);
+    $vatAmount = round((float) ($amounts['vat'] ?? 0), 2);
+    if ($subtotal < 0) {
+        $subtotal = 0.0;
+    }
+    if (!tnc_vat_is_7_percent($subtotal, $vatAmount)) {
+        continue;
+    }
+    $netAmount = round($subtotal + $vatAmount, 2);
+    $supplierName = tnc_purchase_report_supplier_name($po);
+    $billNo = trim((string) ($po['supplier_invoice_no'] ?? ''));
+    $seenKey = 'po:' . $poId;
+    if (isset($purchaseSeen[$seenKey])) {
+        continue;
+    }
+    $purchaseSeen[$seenKey] = true;
+    $linkUrl = $poId > 0
+        ? app_path('pages/purchase/purchase-order-view.php') . '?id=' . $poId
+        : '';
+    $purchaseRows[] = [
+        'doc_date' => $docDate,
+        'bill_no' => $billNo,
+        'link_url' => $linkUrl,
+        'supplier_name' => $supplierName,
+        'base' => $subtotal,
+        'vat' => $vatAmount,
+        'net' => $netAmount,
+    ];
+    $sumPurchaseBase += $subtotal;
+    $sumPurchaseVat += $vatAmount;
+    $sumPurchaseNet += $netAmount;
+}
+
+// ภาษีซื้ออื่น (ไม่ผูก PO) — ใช้ตาราง bills เป็นแหล่งข้อมูล
 foreach (Db::tableRows('bills') as $bill) {
+    $billPoId = (int) ($bill['po_id'] ?? 0);
+    if ($billPoId > 0 && trim((string) ($bill['source'] ?? '')) === 'po_receive_bill') {
+        continue;
+    }
     $docDate = trim((string) ($bill['supplier_invoice_date'] ?? $bill['bill_date'] ?? ''));
     if ($docDate === '' || $docDate < $fromDate || $docDate > $toDate) {
         continue;

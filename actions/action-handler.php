@@ -2653,12 +2653,6 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
     if (Purchase::isHireContractPo($po)) {
         tnc_action_redirect($listUrl . '?error=contract_po_not_payable');
     }
-    $isStandalonePurchasePo = (int) ($po['pr_id'] ?? 0) <= 0
-        && (int) ($po['hire_contract_id'] ?? 0) <= 0
-        && trim((string) ($po['order_type'] ?? 'purchase')) === 'purchase';
-    if ($isStandalonePurchasePo && trim((string) ($po['supplier_invoice_no'] ?? '')) === '') {
-        tnc_action_redirect($listUrl . '?error=billing_required');
-    }
     if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
         tnc_action_redirect($listUrl . '?error=po_cancelled');
     }
