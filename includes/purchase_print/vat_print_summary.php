@@ -26,12 +26,15 @@ if (!function_exists('tnc_purchase_po_items_line_sum')) {
 }
 
 /**
- * คำนวณ subtotal / VAT / gross / net จากผลรวมแถว (ตรงกับตอนบันทึก PO)
+ * แยกยอด VAT 7% จากผลรวมแถว (ใช้ร่วมกัน PR/PO บันทึก + รายงาน)
+ *
+ * รวม VAT: ยอดรายการ = round(lineSum × 100 ÷ 107, 2), ยอดสุทธิ = round(ยอดรายการ × 1.07, 2)
+ * แยก VAT: ยอดรายการ = lineSum, VAT = round(ยอด × 7%, 2), ยอดสุทธิ = round(ยอด × 1.07, 2)
  *
  * @return array{subtotal: float, vat: float, gross: float, net: float, line_sum: float}
  */
-if (!function_exists('tnc_purchase_totals_from_line_sum')) {
-    function tnc_purchase_totals_from_line_sum(float $lineSum, bool $vatOn, string $vatMode): array
+if (!function_exists('tnc_purchase_vat_split_from_line_sum')) {
+    function tnc_purchase_vat_split_from_line_sum(float $lineSum, bool $vatOn, string $vatMode): array
     {
         $lineSum = round($lineSum, 2);
         $vatMode = in_array($vatMode, ['exclusive', 'inclusive'], true) ? $vatMode : 'exclusive';
@@ -40,12 +43,13 @@ if (!function_exists('tnc_purchase_totals_from_line_sum')) {
         $gross = $lineSum;
         if ($vatOn && $lineSum > 0) {
             if ($vatMode === 'inclusive') {
-                $vat = round($lineSum * 7 / 107, 2);
-                $subtotal = round($lineSum - $vat, 2);
-                $gross = $lineSum;
+                $subtotal = round($lineSum * 100 / 107, 2);
+                $gross = round($subtotal * 1.07, 2);
+                $vat = round($gross - $subtotal, 2);
             } else {
+                $subtotal = $lineSum;
                 $vat = round($subtotal * 0.07, 2);
-                $gross = round($subtotal + $vat, 2);
+                $gross = round($subtotal * 1.07, 2);
             }
         }
 
@@ -56,6 +60,18 @@ if (!function_exists('tnc_purchase_totals_from_line_sum')) {
             'net' => $gross,
             'line_sum' => $lineSum,
         ];
+    }
+}
+
+/**
+ * คำนวณ subtotal / VAT / gross / net จากผลรวมแถว (ตรงกับตอนบันทึก PO)
+ *
+ * @return array{subtotal: float, vat: float, gross: float, net: float, line_sum: float}
+ */
+if (!function_exists('tnc_purchase_totals_from_line_sum')) {
+    function tnc_purchase_totals_from_line_sum(float $lineSum, bool $vatOn, string $vatMode): array
+    {
+        return tnc_purchase_vat_split_from_line_sum($lineSum, $vatOn, $vatMode);
     }
 }
 
@@ -176,17 +192,19 @@ function tnc_purchase_vat_print_summary(
     }
 
     if ($vatMode === 'inclusive') {
-        // รวม VAT แล้ว: ยอดรายการ = ยอดสุทธิ = ผลรวมแถว (ราคารวมภาษี) ไม่ใช่ฐานก่อน VAT + VAT แยก
-        $lineAmount = $grandTotal > 0
+        $netAmount = $grandTotal > 0
             ? $grandTotal
-            : round($subtotalStored + $vatAmount, 2);
+            : round($subtotalStored * 1.07, 2);
+        $lineAmount = $subtotalStored > 0
+            ? $subtotalStored
+            : round($netAmount - $vatAmount, 2);
 
         return [
             'vat_mode' => 'inclusive',
             'line_amount' => $lineAmount,
             'vat_label' => 'ภาษีมูลค่าเพิ่มในราคาสินค้า',
             'vat_amount' => $vatAmount,
-            'net_amount' => $lineAmount,
+            'net_amount' => $netAmount,
         ];
     }
 

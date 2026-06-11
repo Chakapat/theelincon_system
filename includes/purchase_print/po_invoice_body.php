@@ -60,7 +60,7 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
             <div class="fw-bold mt-2 po-company-name"><?= $data['name']; ?></div>
             <div class="small text-muted po-company-detail">
                 <?= $data['address']; ?><br>
-                โทร: <?= $data['phone']; ?> | เลขประจำตัวผู้เสียภาษีอากร: <?= $data['tax_id']; ?>
+                โทร: <?= $data['phone']; ?> | เลขผู้เสียภาษี: <?= $data['tax_id']; ?>
             </div>
         </div>
         <div class="col-6 text-end">
@@ -117,7 +117,7 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
         <div class="col-12">
             <div class="doc-site-block doc-site-block--po-split">
                 <span class="doc-site-main">
-                    <span class="doc-site-label"><?= $orderType === 'hire' ? 'ชื่อโครงการ:' : 'ไซต์งาน:' ?></span>
+                    <span class="doc-site-label"><?= $orderType === 'hire' ? 'ชื่อโครงการ:' : 'สถานที่:' ?></span>
                     <span class="doc-site-value"><?= htmlspecialchars($poSiteDisplay, ENT_QUOTES, 'UTF-8'); ?></span>
                 </span>
                 <?php if (trim((string) ($poCostCategoryName ?? '')) !== ''): ?>
@@ -148,7 +148,7 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
                 </div>
             <?php else: ?>
                 <div class="doc-site-block">
-                    <span class="doc-site-label">Vendor / ผู้ขาย:</span>
+                    <span class="doc-site-label">ผู้ขาย:</span>
                     <span class="doc-site-value"><?= htmlspecialchars((string) ($data['s_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
                 <?php if (trim((string) ($data['s_address'] ?? '')) !== '' || trim((string) ($data['s_tax'] ?? '')) !== '' || trim((string) ($data['s_phone'] ?? '')) !== ''): ?>
@@ -157,7 +157,7 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
                     <span class="doc-site-value">
                         <?= htmlspecialchars((string) ($data['s_address'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
                         <?php if (trim((string) ($data['s_tax'] ?? '')) !== ''): ?>
-                        | เลขประจำตัวผู้เสียภาษีอากร: <?= htmlspecialchars((string) ($data['s_tax'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                        | เลขผู้เสียภาษี: <?= htmlspecialchars((string) ($data['s_tax'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
                         <?php endif; ?>
                         <?php if (trim((string) ($data['s_phone'] ?? '')) !== ''): ?>
                         | โทร: <?= htmlspecialchars((string) ($data['s_phone'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
@@ -292,8 +292,20 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
                         <span><?= number_format((float) ($poVatPrint['line_amount'] ?? $po_subtotal), 2); ?></span>
                     </div>
                     <?php if ($orderType === 'hire' || ($po_vat_enabled && (float) ($poVatPrint['vat_amount'] ?? 0) > 0)): ?>
+                    <?php
+                    if ($orderType === 'hire') {
+                        $poVatDisplayLabel = 'ภาษีมูลค่าเพิ่ม';
+                    } else {
+                        $poVatModePrint = (string) ($poVatPrint['vat_mode'] ?? '');
+                        $poVatDisplayLabel = match ($poVatModePrint) {
+                            'inclusive' => 'VAT รวม',
+                            'exclusive' => 'VAT แยก',
+                            default => (string) ($poVatPrint['vat_label'] ?? 'ภาษีมูลค่าเพิ่ม'),
+                        };
+                    }
+                    ?>
                     <div class="summary-item po-vat-line vat-print-line<?= $orderType === 'hire' ? ' text-primary' : '' ?>">
-                        <span><?= $orderType === 'hire' ? 'ภาษีมูลค่าเพิ่ม' : htmlspecialchars((string) ($poVatPrint['vat_label'] ?? 'ภาษีมูลค่าเพิ่ม'), ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span><?= htmlspecialchars($poVatDisplayLabel, ENT_QUOTES, 'UTF-8'); ?></span>
                         <span><?= number_format((float) ($poVatPrint['vat_amount'] ?? 0), 2); ?></span>
                     </div>
                     <?php endif; ?>

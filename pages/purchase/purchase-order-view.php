@@ -354,6 +354,27 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
             color: #9a3412;
             margin-bottom: 0.35rem;
         }
+
+        .invoice-box.po-purchase-order-doc .doc-site-block.doc-site-block--po-split {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: baseline;
+            column-gap: 1rem;
+            width: 100%;
+        }
+
+        .invoice-box.po-purchase-order-doc .doc-site-block--po-split .doc-site-main {
+            justify-self: start;
+            min-width: 0;
+            text-align: left;
+        }
+
+        .invoice-box.po-purchase-order-doc .doc-site-block--po-split .doc-site-category {
+            justify-self: end;
+            text-align: right;
+            white-space: nowrap;
+        }
+
         .invoice-box.po-purchase-order-doc .table-custom thead th,
         .invoice-box.po-purchase-order-doc .po-items-table thead th {
             background: #fafafa;

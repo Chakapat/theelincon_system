@@ -149,13 +149,13 @@ usort($po_rows, static function (array $a, array $b): int {
     return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
 });
 
-// ---- PO ไม่สมบูรณ์: ยังไม่ชำระ หรือ ยังไม่มีเลขที่ใบกำกับ (ไม่นับใบที่ยกเลิก) ----
+// ---- PO ไม่สมบูรณ์: ยังไม่มีหลักฐานชำระ หรือ ยังไม่มีเลขที่ใบกำกับ (ไม่นับใบที่ยกเลิก) ----
 $poMissingReasons = static function (array $r): array {
     if (($r['status'] ?? '') === 'cancelled') {
         return [];
     }
     $out = [];
-    if (($r['payment_status'] ?? 'unpaid') !== 'paid') {
+    if (!tnc_purchase_po_has_payment_proof($r)) {
         $out[] = 'ขาดการชำระ';
     }
     if (trim((string) ($r['supplier_invoice_no'] ?? '')) === '') {
@@ -277,6 +277,12 @@ $ignoredCountAll = count($ignoredPoList);
         .po-empty-state i { font-size: 2rem; color: var(--tnc-muted); opacity: 0.65; }
         .dropdown-menu .dropdown-item { font-size: 0.92rem; }
         .dropdown-menu .dropdown-item:focus-visible { outline: 2px solid rgba(253, 126, 20, 0.45); outline-offset: -2px; }
+        #poTable .po-actions-col { width: 3rem; }
+        #poTable .po-actions-btn.dropdown-toggle::after { display: none; }
+        #poTable .po-actions-btn {
+            line-height: 1;
+            padding: 0.28rem 0.5rem;
+        }
         @media (prefers-reduced-motion: reduce) {
             .po-incomplete-box:hover { transform: none; }
             #poTable tbody tr { transition: none; }
@@ -299,17 +305,14 @@ $ignoredCountAll = count($ignoredPoList);
             </h1>
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
-            <?php if (user_can('po.create')): ?>
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-3 shadow-sm">
-                <i class="bi bi-plus-lg me-1"></i>ออก PO สั่งซื้อ
-            </a>
-            <?php endif; ?>
-            <a href="<?= htmlspecialchars($woListUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-primary rounded-pill px-3 shadow-sm">
-                <i class="bi bi-file-earmark-ruled me-1"></i>รายการสั่งจ้างงาน
-            </a>
-            <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm no-print" id="poBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก">
+            <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm no-print d-none" id="poBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก" aria-hidden="true">
                 <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
             </button>
+            <?php if (user_can('po.create')): ?>
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-3 shadow-sm">
+                <i class="bi bi-plus-lg me-1"></i>สร้างใบสั่งซื้อ
+            </a>
+            <?php endif; ?>
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3 shadow-sm">
                 <i class="bi bi-arrow-left-circle me-1"></i>รายการใบขอซื้อ
             </a>
@@ -351,7 +354,7 @@ $ignoredCountAll = count($ignoredPoList);
                         <th>ไซต์งาน</th>
                         <th>ผู้ขาย / ผู้รับจ้าง</th>
                         <th class="text-end">ยอดเงินรวม</th>
-                        <th class="text-center">จัดการ</th>
+                        <th class="text-center po-actions-col"><span class="visually-hidden">จัดการ</span></th>
                     </tr>
                 </thead>
                 <tbody id="poTableBody"<?= count($po_rows) > 0 ? ' class="tnc-table-is-loading"' : '' ?>>
@@ -366,9 +369,7 @@ $ignoredCountAll = count($ignoredPoList);
                         <?php foreach ($po_rows as $row): ?>
                     <?php
                     $poCancelled = ($row['status'] ?? '') === 'cancelled';
-                    $hasBillRef = trim((string) ($row['supplier_invoice_no'] ?? '')) !== '';
-                    $hasSlip = (int) ($row['payment_slip_count'] ?? 0) > 0;
-                    $isDocComplete = $hasSlip && $hasBillRef;
+                    $isDocComplete = tnc_purchase_po_is_doc_complete($row);
                     ?>
                     <tr<?= $poCancelled ? ' class="po-row-cancelled"' : '' ?>>
                         <td class="text-center align-middle no-print">
@@ -419,8 +420,8 @@ $ignoredCountAll = count($ignoredPoList);
                             ?>
                             <?php if (($row['status'] ?? '') !== 'cancelled'): ?>
                             <div class="dropdown">
-                                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    จัดการ
+                                <button class="btn btn-outline-secondary btn-sm dropdown-toggle po-actions-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="จัดการ PO <?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" title="จัดการ">
+                                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow-sm">
                                     <?php if (($row['payment_status'] ?? 'unpaid') === 'paid'): ?>
@@ -501,7 +502,7 @@ $ignoredCountAll = count($ignoredPoList);
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
             </div>
             <div class="modal-body">
-                <p class="small text-muted mb-3">รายการด้านล่างยังขาดข้อมูล — กดปุ่มเพื่อแนบสลิปหรือกรอกเลขที่ใบกำกับ เมื่อครบทั้งสองอย่างใบสั่งซื้อจะถือว่าสมบูรณ์</p>
+                <p class="small text-muted mb-3">รายการด้านล่างยังขาดข้อมูล — กดปุ่มเพื่อบันทึกการชำระ (แนบสลิปหรือระบุเงินสด) และกรอกเลขที่ใบกำกับ เมื่อครบทั้งสองส่วนใบสั่งซื้อจะถือว่าสมบูรณ์</p>
                 <div id="incompleteActiveList">
                     <div class="text-center text-muted py-4 <?= $incompleteCountAll === 0 ? '' : 'd-none' ?>" id="incompleteEmptyMsg">ไม่มีใบสั่งซื้อที่ไม่สมบูรณ์</div>
                     <?php foreach ($incompletePoList as $ip): ?>
@@ -862,6 +863,15 @@ window.tncPoReloadWithWait = function (title, sub) {
     var pendingBatchIds = '';
     var batchModalEl = document.getElementById('poBatchPrintChoiceModal');
     var batchModal = batchModalEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(batchModalEl) : null;
+    var batchPrintBtn = document.getElementById('poBatchPrintBtn');
+    var selectAllPrint = document.getElementById('poSelectAllPrint');
+
+    function syncPoBatchPrintBtn() {
+        if (!batchPrintBtn) return;
+        var hasChecked = document.querySelectorAll('.js-po-print-cb:checked').length > 0;
+        batchPrintBtn.classList.toggle('d-none', !hasChecked);
+        batchPrintBtn.setAttribute('aria-hidden', hasChecked ? 'false' : 'true');
+    }
 
     function openBatchPrint(mode) {
         var m = mode === 'po' || mode === 'slip' || mode === 'both' || mode === 'all' ? mode : 'both';
@@ -906,7 +916,19 @@ window.tncPoReloadWithWait = function (title, sub) {
         document.querySelectorAll('#poTable tbody .js-po-print-cb').forEach(function (cb) {
             cb.checked = on;
         });
+        syncPoBatchPrintBtn();
     });
+    document.getElementById('poTable')?.addEventListener('change', function (e) {
+        if (!e.target.classList.contains('js-po-print-cb')) return;
+        if (selectAllPrint) {
+            var boxes = document.querySelectorAll('#poTable tbody .js-po-print-cb');
+            var checked = document.querySelectorAll('#poTable tbody .js-po-print-cb:checked');
+            selectAllPrint.checked = boxes.length > 0 && checked.length === boxes.length;
+            selectAllPrint.indeterminate = checked.length > 0 && checked.length < boxes.length;
+        }
+        syncPoBatchPrintBtn();
+    });
+    syncPoBatchPrintBtn();
     document.querySelector('.po-incomplete-box')?.addEventListener('keydown', function (e) {
         if (e.key !== 'Enter' && e.key !== ' ') return;
         e.preventDefault();

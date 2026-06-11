@@ -260,6 +260,7 @@ $items = [[
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function () {
     const issueDateEl = document.getElementById('issue_date');
@@ -432,18 +433,11 @@ function calculateTotal() {
         lineAmount += total;
     }
     lineAmount = Math.round(lineAmount * 100) / 100;
-    let subtotal = lineAmount, vat = 0, gross = lineAmount;
-    if (vatOn) {
-        if (vatMode === 'exclusive') {
-            vat = Math.round(subtotal * 7 / 100 * 100) / 100;
-            gross = Math.round((subtotal + vat) * 100) / 100;
-        } else {
-            subtotal = Math.round((lineAmount / 1.07) * 100) / 100;
-            vat = Math.round((lineAmount - subtotal) * 100) / 100;
-            gross = lineAmount;
-        }
-    }
-    document.getElementById('subtotal_display').innerText = lineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const split = tncPurchaseVatFromLineSum(lineAmount, vatOn, vatMode);
+    const subtotal = split.subtotal;
+    const vat = split.vat;
+    const gross = split.gross;
+    document.getElementById('subtotal_display').innerText = subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const vatRow = document.getElementById('vat_row');
     if (vatOn) { vatRow.style.display = 'grid'; document.getElementById('vat_display').innerText = vat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     else { vatRow.style.display = 'none'; }

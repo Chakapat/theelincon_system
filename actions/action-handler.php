@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/tnc_audit_log.php';
 require_once __DIR__ . '/../includes/purchase_po_payment_slips.php';
 require_once __DIR__ . '/../includes/line_pr_approval.php';
 require_once __DIR__ . '/../includes/hire_line_items.php';
+require_once __DIR__ . '/../includes/purchase_print/vat_print_summary.php';
 require_once __DIR__ . '/../includes/site_cost_categories.php';
 require_once __DIR__ . '/../includes/contractors.php';
 require_once __DIR__ . '/../includes/suppliers.php';
@@ -220,25 +221,14 @@ function tnc_audit_purchase_order_created(int $poId, string $sourceAction): void
  */
 function tnc_po_compute_totals(float $lineSum, int $vatEnabled, string $vatMode, string $withholdingType): array
 {
-    $lineSum = round($lineSum, 2);
-    $vatMode = in_array($vatMode, ['exclusive', 'inclusive'], true) ? $vatMode : 'exclusive';
-    $subtotal = $lineSum;
-    $vat = 0.0;
-    $gross = $lineSum;
-    if ($vatEnabled) {
-        if ($vatMode === 'inclusive') {
-            $vat = round($lineSum * 7 / 107, 2);
-            $subtotal = round($lineSum - $vat, 2);
-            $gross = $lineSum;
-        } else {
-            $vat = round($subtotal * 0.07, 2);
-            $gross = round($subtotal + $vat, 2);
-        }
-    }
+    $split = tnc_purchase_vat_split_from_line_sum($lineSum, $vatEnabled === 1, $vatMode);
+    $subtotal = $split['subtotal'];
+    $vat = $split['vat'];
+    $gross = $split['gross'];
     $whtType = ($withholdingType === 'wht3') ? 'wht3' : 'none';
     $wht = $whtType === 'wht3' ? round($subtotal * 0.03, 2) : 0.0;
     $net = round($gross - $wht, 2);
-    $storedVatMode = $vatEnabled ? $vatMode : 'exclusive';
+    $storedVatMode = $vatEnabled ? (in_array($vatMode, ['exclusive', 'inclusive'], true) ? $vatMode : 'exclusive') : 'exclusive';
 
     return [
         'subtotal' => $subtotal,

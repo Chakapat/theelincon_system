@@ -454,6 +454,7 @@ $poFlatItems = [[
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 function addPoRow() {
     const table = document.getElementById('poTable').getElementsByTagName('tbody')[0];
@@ -517,17 +518,10 @@ function calculatePoTotal() {
     }
     lineAmount = Math.round(lineAmount * 100) / 100;
 
-    let subtotal = lineAmount, vat = 0, gross = lineAmount;
-    if (vatOn) {
-        if (vatMode === 'exclusive') {
-            vat = Math.round(subtotal * 7 / 100 * 100) / 100;
-            gross = Math.round((subtotal + vat) * 100) / 100;
-        } else {
-            subtotal = Math.round((lineAmount / 1.07) * 100) / 100;
-            vat = Math.round((lineAmount - subtotal) * 100) / 100;
-            gross = lineAmount;
-        }
-    }
+    const split = tncPurchaseVatFromLineSum(lineAmount, vatOn, vatMode);
+    const subtotal = split.subtotal;
+    const vat = split.vat;
+    const gross = split.gross;
 
     let retentionRaw = (retentionValueEl?.value || '').toString().trim().replace('%', '');
     let retention = Math.max(0, Math.round((parseFloat(retentionRaw) || 0) * 100) / 100);
@@ -544,7 +538,7 @@ function calculatePoTotal() {
     const hireRemainingDisplay = document.getElementById('hire_remaining_display');
     const poForm = document.querySelector('form[data-hire-remaining]');
 
-    if (subtotalDisplay) subtotalDisplay.innerText = lineAmount.toLocaleString(undefined, fmt);
+    if (subtotalDisplay) subtotalDisplay.innerText = subtotal.toLocaleString(undefined, fmt);
     if (vatOn && vatRow && vatDisplay) {
         vatRow.style.display = 'grid';
         vatDisplay.innerText = vat.toLocaleString(undefined, fmt);

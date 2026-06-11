@@ -525,6 +525,7 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/hire-line-table.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 let hirePrTableApi = null;
 // ฟังก์ชันเพิ่มแถวใหม่
@@ -632,8 +633,9 @@ function calculateTotal(hireDirectSubtotal) {
         let vat = 0;
         let grand = excludedVat;
         if (vatOn) {
-            vat = Math.round(excludedVat * 0.07 * 100) / 100;
-            grand = Math.round((excludedVat + vat) * 100) / 100;
+            const split = tncPurchaseVatFromLineSum(excludedVat, true, 'exclusive');
+            vat = split.vat;
+            grand = split.gross;
         }
 
         const cvEl = document.getElementById('contract_value');
@@ -718,20 +720,10 @@ function calculateTotal(hireDirectSubtotal) {
         }
 
         lineAmount = Math.round(lineAmount * 100) / 100;
-        let subtotal = lineAmount;
-        let vat = 0;
-        let grand = lineAmount;
-        if (vatOn) {
-            if (vatMode === 'inclusive') {
-                vat = Math.round((lineAmount * 7 / 107) * 100) / 100;
-                subtotal = Math.round((lineAmount - vat) * 100) / 100;
-                grand = lineAmount;
-            } else {
-                subtotal = lineAmount;
-                vat = Math.round(subtotal * 0.07 * 100) / 100;
-                grand = Math.round((subtotal + vat) * 100) / 100;
-            }
-        }
+        const split = tncPurchaseVatFromLineSum(lineAmount, vatOn, vatMode);
+        const subtotal = split.subtotal;
+        const vat = split.vat;
+        const grand = split.gross;
 
         document.getElementById('subtotal_label').textContent = 'ยอดรายการ';
         document.getElementById('subtotal_display').textContent = fmtNum(subtotal);

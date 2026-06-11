@@ -501,6 +501,7 @@ if ($isHirePo) {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function () {
     const searchInput = document.getElementById('supplier_search');
@@ -632,21 +633,10 @@ function calculateTotal() {
     }
 
     lineAmount = Math.round(lineAmount * 100) / 100;
-    let subtotal = lineAmount;
-    let vat = 0;
-    let gross = lineAmount;
-    const rate = FIXED_VAT_RATE;
-    if (vatOn) {
-        if (vatMode === 'exclusive') {
-            vat = Math.round(subtotal * rate / 100 * 100) / 100;
-            gross = Math.round((subtotal + vat) * 100) / 100;
-        } else if (rate > 0) {
-            const base = Math.round((lineAmount / (1 + rate / 100)) * 100) / 100;
-            vat = Math.round((lineAmount - base) * 100) / 100;
-            subtotal = base;
-            gross = lineAmount;
-        }
-    }
+    const split = tncPurchaseVatFromLineSum(lineAmount, vatOn, vatMode);
+    const subtotal = split.subtotal;
+    const vat = split.vat;
+    const gross = split.gross;
     const grand = gross;
     const withholdingTypeInput = document.getElementById('withholding_type');
     if (withholdingTypeInput) {
@@ -657,7 +647,7 @@ function calculateTotal() {
     }
     const subtotalLabel = document.getElementById('subtotal_label');
     const vatLabel = document.getElementById('vat_label');
-    const lineDisplay = lineAmount;
+    const lineDisplay = subtotal;
     if (subtotalLabel) {
         subtotalLabel.textContent = 'ยอดรายการ';
     }

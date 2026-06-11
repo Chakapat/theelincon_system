@@ -734,6 +734,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/hire-line-table.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function ($) {
     if (typeof window.TncLiveDT === 'undefined' || !$ || !$.fn.DataTable) return;
@@ -1005,20 +1006,10 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
             lineAmount += total;
         }
         lineAmount = Math.round(lineAmount * 100) / 100;
-        let subtotal = lineAmount;
-        let vat = 0;
-        let grand = lineAmount;
-        if (vatOn) {
-            if (vatMode === 'inclusive') {
-                vat = Math.round((lineAmount * 7 / 107) * 100) / 100;
-                subtotal = Math.round((lineAmount - vat) * 100) / 100;
-                grand = lineAmount;
-            } else {
-                subtotal = lineAmount;
-                vat = Math.round(subtotal * 0.07 * 100) / 100;
-                grand = Math.round((subtotal + vat) * 100) / 100;
-            }
-        }
+        const split = tncPurchaseVatFromLineSum(lineAmount, vatOn, vatMode);
+        const subtotal = split.subtotal;
+        const vat = split.vat;
+        const grand = split.gross;
         if (subtotalLabel) {
             subtotalLabel.textContent = 'ยอดรายการ:';
         }
@@ -1032,7 +1023,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
             }
         }
         if (subtotalDisplay) {
-            subtotalDisplay.textContent = lineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            subtotalDisplay.textContent = subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
         if (vatRow) {
             vatRow.classList.toggle('d-none', !vatOn);

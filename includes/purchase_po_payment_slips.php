@@ -158,6 +158,33 @@ function tnc_po_payment_slip_delete_file(string $rel): void
     }
 }
 
+/** หลักฐานการชำระครบ — โอน/อื่น = มีสลิป, เงินสด = จ่ายแล้ว + ระบุจ่ายโดย (ไม่ต้องแนบสลิป) */
+function tnc_purchase_po_has_payment_proof(array $po): bool
+{
+    if (strtolower(trim((string) ($po['payment_status'] ?? 'unpaid'))) !== 'paid') {
+        return false;
+    }
+    $method = strtolower(trim((string) ($po['payment_method'] ?? 'transfer')));
+    if ($method === 'cash') {
+        return trim((string) ($po['payment_cash_paid_by'] ?? '')) !== '';
+    }
+
+    return count(tnc_po_payment_slip_items($po)) > 0;
+}
+
+/** PO สมบูรณ์ในรายการ = หลักฐานชำระครบ + มีเลขที่ใบกำกับ (ไม่นับใบที่ยกเลิก) */
+function tnc_purchase_po_is_doc_complete(array $po): bool
+{
+    if (($po['status'] ?? '') === 'cancelled') {
+        return false;
+    }
+    if (trim((string) ($po['supplier_invoice_no'] ?? '')) === '') {
+        return false;
+    }
+
+    return tnc_purchase_po_has_payment_proof($po);
+}
+
 function tnc_po_issue_date_ymd(array $po): string
 {
     $issue = trim((string) ($po['issue_date'] ?? ''));
