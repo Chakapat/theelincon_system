@@ -224,12 +224,13 @@ $net = $sumIncome - $sumExpense;
             box-shadow: 0 .22rem .62rem rgba(0,0,0,.08);
         }
         .ledger-cta-secondary:hover { color:#111827; border-color: rgba(0,0,0,.22); }
-        .ledger-filter-bar {
-            border: 1px solid rgba(0,0,0,.08);
-            border-radius: 12px;
-            background: #fff;
-            box-shadow: 0 .18rem .6rem rgba(0,0,0,.05);
-            padding: .7rem .8rem;
+        .ledger-filter-input { width: 100%; }
+        #ledgerFilterModal .modal-content { border: 0; box-shadow: 0 1rem 2.5rem rgba(15, 23, 42, 0.14); }
+        #ledgerForm .ledger-form-actions {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 0.5rem;
         }
         .table-cash-report { table-layout: fixed; width: 100%; }
         .table-cash-report th,
@@ -252,102 +253,192 @@ $net = $sumIncome - $sumExpense;
             border-radius: .55rem;
         }
 
-        /* Mobile-first improvements */
+        /* Mobile: card list instead of stacked label/value rows */
         @media (max-width: 767.98px) {
             .container.pb-5 {
-                padding-left: 0.7rem;
-                padding-right: 0.7rem;
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
             }
-            .ledger-cta-btn { width: 100%; }
-            .no-print.d-flex.flex-wrap.justify-content-between.align-items-center.gap-3.mb-4 {
-                margin-bottom: 0.9rem !important;
+            .tnc-page-head.no-print {
+                flex-direction: column;
+                align-items: stretch !important;
             }
-            .ledger-hero-title { font-size: 1.08rem; }
-            .ledger-subtitle { font-size: .84rem; }
+            .tnc-page-head.no-print .d-flex.flex-wrap.gap-2 {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem !important;
+            }
+            .ledger-cta-btn { width: 100%; min-height: 2.75rem; }
+            .ledger-hero-title { font-size: 1.05rem; line-height: 1.35; }
             #ledger-form-card .card-body {
                 padding: 1rem !important;
             }
             #ledgerForm .col-md-2,
             #ledgerForm .col-md-3,
-            #ledgerForm .col-md-5 {
+            #ledgerForm .col-md-4,
+            #ledgerForm .col-md-5,
+            #ledgerForm .col-lg-2,
+            #ledgerForm .col-lg-3,
+            #ledgerForm .col-lg-5 {
                 width: 100%;
             }
-            form.no-print.d-flex.align-items-center.gap-2.mb-4.flex-wrap {
+            #ledgerForm .ledger-form-actions {
+                display: flex !important;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+            }
+            #ledgerForm .ledger-form-submit,
+            #ledgerForm .ledger-form-actions .btn {
+                width: 100%;
+                min-height: 2.75rem;
+            }
+            .tnc-page-head.no-print .d-flex.flex-wrap.gap-2 {
                 display: grid !important;
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr 1fr;
                 gap: 0.5rem !important;
-                align-items: stretch !important;
-                position: sticky;
-                top: .25rem;
-                z-index: 12;
-                background: #fffaf5;
-                padding-top: .2rem;
             }
-            form.no-print.d-flex.align-items-center.gap-2.mb-4.flex-wrap .form-control,
-            form.no-print.d-flex.align-items-center.gap-2.mb-4.flex-wrap .btn {
-                width: 100% !important;
+            .tnc-page-head.no-print .ledger-filter-open-btn {
+                grid-column: 1 / -1;
             }
-            form.no-print.d-flex.align-items-center.gap-2.mb-4.flex-wrap label {
-                margin-top: 0.25rem;
+            .no-print.row.g-4.mb-4 {
+                --bs-gutter-x: 0.65rem;
+            }
+            .no-print.row.g-4.mb-4 > .col-md-4 {
+                flex: 0 0 auto;
+                width: 50%;
+            }
+            .no-print.row.g-4.mb-4 > .col-md-4:last-child {
+                width: 100%;
             }
             .no-print.row.g-4.mb-4 > [class*="col-"] .card-stats {
                 padding: 0.85rem !important;
             }
-
+            .card-dash > .card-header {
+                padding: 0.85rem 1rem !important;
+            }
             .table-wrap-screen {
-                padding: 0.25rem 0.5rem 0.65rem !important;
+                padding: 0.35rem 0.55rem 0.75rem !important;
             }
             .table-cash-report thead {
                 display: none;
             }
-            .table-cash-report tbody tr {
-                display: block;
-                margin: 0.65rem 0;
-                border: 1px solid rgba(0, 0, 0, 0.1);
-                border-radius: 0.75rem;
+            .table-cash-report tbody tr.ledger-entry-row {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                grid-template-areas:
+                    "date amount"
+                    "desc desc"
+                    "balance actions";
+                gap: 0.15rem 0.65rem;
+                margin: 0.55rem 0;
+                padding: 0.75rem 0.85rem;
+                border: 1px solid rgba(0, 0, 0, 0.09);
+                border-radius: 0.85rem;
                 background: #fff;
-                box-shadow: 0 0.1rem 0.7rem rgba(0, 0, 0, 0.04);
+                box-shadow: 0 0.12rem 0.55rem rgba(0, 0, 0, 0.05);
+            }
+            .table-cash-report tbody tr.ledger-entry-row:hover {
+                background: #fffbf7;
+                box-shadow: 0 0.18rem 0.65rem rgba(234, 88, 12, 0.12);
             }
             .table-cash-report tbody td {
-                display: flex;
-                justify-content: space-between;
-                align-items: flex-start;
-                gap: 0.7rem;
+                display: block;
                 border: 0;
-                border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
-                padding: 0.6rem 0.75rem !important;
-                text-align: right !important;
+                padding: 0 !important;
+                text-align: left !important;
+                min-width: 0;
             }
             .table-cash-report tbody td::before {
+                content: none;
+                display: none;
+            }
+            .table-cash-report .ledger-cell-date {
+                grid-area: date;
+                align-self: center;
+                font-size: 0.82rem;
+                font-weight: 700;
+                color: #64748b;
+                padding-left: 0 !important;
+            }
+            .table-cash-report .ledger-cell-desc {
+                grid-area: desc;
+                grid-column: 1 / -1;
+                width: 100%;
+                font-size: 1.05rem;
+                font-weight: 600;
+                color: #1e293b;
+                line-height: 1.55;
+                white-space: normal !important;
+                word-break: normal !important;
+                overflow-wrap: break-word !important;
+                padding: 0.85rem 0.95rem !important;
+                margin: 0.4rem 0 0.15rem;
+                min-height: 3.75rem;
+                background: #f8fafc;
+                border: 1px solid rgba(148, 163, 184, 0.32);
+                border-radius: 0.7rem;
+                box-sizing: border-box;
+            }
+            .table-cash-report .ledger-cell-in.ledger-cell-empty,
+            .table-cash-report .ledger-cell-out.ledger-cell-empty {
+                display: none;
+            }
+            .table-cash-report .ledger-cell-in:not(.ledger-cell-empty),
+            .table-cash-report .ledger-cell-out:not(.ledger-cell-empty) {
+                grid-area: amount;
+                justify-self: end;
+                align-self: start;
+                font-size: 1.02rem;
+                font-weight: 800;
+                padding: 0.2rem 0.55rem !important;
+                border-radius: 999px;
+                line-height: 1.2;
+            }
+            .table-cash-report .ledger-cell-in:not(.ledger-cell-empty) {
+                color: #15803d;
+                background: rgba(25, 135, 84, 0.12);
+            }
+            .table-cash-report .ledger-cell-out:not(.ledger-cell-empty) {
+                color: #b42318;
+                background: rgba(220, 53, 69, 0.1);
+            }
+            .table-cash-report .ledger-cell-balance {
+                grid-area: balance;
+                align-self: center;
+                margin-top: 0.45rem;
+                padding-top: 0.55rem !important;
+                border-top: 1px dashed rgba(0, 0, 0, 0.08);
+                font-size: 0.92rem;
+            }
+            .table-cash-report .ledger-cell-balance::before {
+                content: "คงเหลือ ";
+                display: inline;
                 font-size: 0.74rem;
                 font-weight: 700;
-                color: #6c757d;
-                letter-spacing: 0.03em;
-                text-transform: uppercase;
-                text-align: left;
-                flex: 0 0 5.9rem;
+                color: #94a3b8;
+                letter-spacing: 0.02em;
             }
-            .table-cash-report tbody td:nth-child(1)::before { content: "วันที่"; }
-            .table-cash-report tbody td:nth-child(2)::before { content: "รายละเอียด"; }
-            .table-cash-report tbody td:nth-child(3)::before { content: "รับ"; }
-            .table-cash-report tbody td:nth-child(4)::before { content: "จ่าย"; }
-            .table-cash-report tbody td:nth-child(5)::before { content: "คงเหลือ"; }
-            .table-cash-report tbody td:nth-child(6)::before { content: "จัดการ"; }
-            .table-cash-report tbody td:last-child {
-                border-bottom: 0;
+            .table-cash-report .ledger-cell-actions {
+                grid-area: actions;
+                justify-self: end;
+                align-self: center;
+                margin-top: 0.45rem;
+                padding-top: 0.55rem !important;
+                border-top: 1px dashed rgba(0, 0, 0, 0.08);
+                text-align: right !important;
             }
-            .table-cash-report tbody td.no-print a.btn {
-                min-width: 2.1rem;
+            .table-cash-report .ledger-cell-actions .btn {
+                min-width: 2.5rem;
+                min-height: 2.5rem;
+                border-radius: 0.65rem;
             }
             .table-cash-report tbody td[colspan] {
                 display: block;
+                grid-column: 1 / -1;
                 text-align: center !important;
+                padding: 1.25rem 0.5rem !important;
             }
-            .table-cash-report tbody td[colspan]::before {
-                content: "";
-                flex: 0 0 0;
-            }
-
             .no-print.d-flex.justify-content-between.align-items-center.px-3.py-3.border-top.bg-white {
                 flex-direction: column;
                 align-items: stretch !important;
@@ -360,6 +451,10 @@ $net = $sumIncome - $sumExpense;
             }
             .no-print.d-flex.justify-content-between.align-items-center.px-3.py-3.border-top.bg-white .d-flex.gap-2 .btn {
                 width: 100%;
+                min-height: 2.65rem;
+            }
+            .cash-report-final-summary table td {
+                font-size: 0.88rem;
             }
         }
 
@@ -382,12 +477,9 @@ $net = $sumIncome - $sumExpense;
                 display: none !important;
                 visibility: hidden !important;
             }
-            /* Force-hide filter/search controls in print */
-            .ledger-filter-bar,
-            form.ledger-filter-bar,
-            .ledger-filter-bar.no-print,
-            .ledger-filter-bar.d-flex,
-            .ledger-filter-bar.d-grid {
+            /* Force-hide filter modal in print */
+            .ledger-filter-modal,
+            #ledgerFilterModal {
                 display: none !important;
                 visibility: hidden !important;
                 height: 0 !important;
@@ -478,17 +570,20 @@ $net = $sumIncome - $sumExpense;
             <h1 class="tnc-list-title ledger-hero-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-speedometer2"></i></span>รายการบันทึกสดย่อย (Petty Cash Ledger)</h1>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn ledger-cta-btn ledger-cta-secondary px-3 ledger-filter-open-btn" data-bs-toggle="modal" data-bs-target="#ledgerFilterModal">
+                <i class="bi bi-funnel me-1"></i>Filter<?php if ($searchDate !== ''): ?><span class="badge rounded-pill text-bg-warning ms-1">1</span><?php endif; ?>
+            </button>
             <button type="button" class="btn ledger-cta-btn ledger-cta-secondary px-3" onclick="window.print()">
                 <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
             </button>
-            <button type="button" class="btn ledger-cta-btn ledger-cta-primary px-3" data-bs-toggle="collapse" data-bs-target="#ledgerFormCollapse" aria-expanded="<?= $editRow ? 'true' : 'false' ?>" aria-controls="ledgerFormCollapse" id="toggleLedgerFormBtn">
-                <i class="bi bi-cash-stack me-1"></i><?= $editRow ? 'แก้ไขรายการ' : 'เพิ่มรายการ' ?> <i class="bi <?= $editRow ? 'bi-chevron-up' : 'bi-chevron-down' ?> ms-1" id="toggleLedgerFormIcon"></i>
+            <button type="button" class="btn ledger-cta-btn ledger-cta-primary px-3" data-bs-toggle="collapse" data-bs-target="#ledgerFormCollapse" aria-expanded="true" aria-controls="ledgerFormCollapse" id="toggleLedgerFormBtn">
+                <i class="bi bi-cash-stack me-1"></i><?= $editRow ? 'แก้ไขรายการ' : 'เพิ่มรายการ' ?> <i class="bi bi-chevron-up ms-1" id="toggleLedgerFormIcon"></i>
             </button>
         </div>
     </div>
 
     <div class="no-print card card-dash mb-4" id="ledger-form-card">
-        <div class="collapse<?= $editRow ? ' show' : '' ?>" id="ledgerFormCollapse">
+        <div class="collapse show" id="ledgerFormCollapse">
         <div class="card-body p-4">
             <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
                 <h5 class="fw-bold mb-0"><?= $editRow ? 'แก้ไขรายการ' : 'เพิ่มรายการ' ?></h5>
@@ -500,49 +595,69 @@ $net = $sumIncome - $sumExpense;
                     <input type="hidden" name="id" value="<?= (int) $editRow['id'] ?>">
                 <?php endif; ?>
 
-                <div class="col-md-2">
+                <div class="col-md-5 col-lg-5">
+                    <label class="form-label fw-bold small">รายละเอียดการจ่าย/รับ</label>
+                    <input type="text" name="description" class="form-control rounded-3" maxlength="1000" required value="<?= htmlspecialchars($editRow['description'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                </div>
+                <div class="col-md-2 col-lg-2">
                     <label class="form-label fw-bold small">ประเภท</label>
                     <select name="entry_type" id="entry_type" class="form-select rounded-3" required>
                         <option value="income" <?= ($editRow['entry_type'] ?? '') === 'income' ? 'selected' : '' ?>>รายรับ</option>
                         <option value="expense" <?= ($editRow['entry_type'] ?? '') === 'expense' ? 'selected' : '' ?>>รายจ่าย</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-2 col-lg-2">
                     <label class="form-label fw-bold small">วันที่</label>
                     <input type="date" name="entry_date" class="form-control rounded-3" required value="<?= htmlspecialchars($editRow['entry_date'] ?? date('Y-m-d'), ENT_QUOTES, 'UTF-8') ?>">
                 </div>
-                <div class="col-md-5">
-                    <label class="form-label fw-bold small">รายละเอียดการจ่าย/รับ</label>
-                    <input type="text" name="description" class="form-control rounded-3" maxlength="1000" required value="<?= htmlspecialchars($editRow['description'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
-                </div>
-                <div class="col-md-3">
+                <div class="col-md-3 col-lg-3">
                     <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
                     <input type="number" name="amount" class="form-control rounded-3" required step="0.01" min="0.01" value="<?= htmlspecialchars(number_format((float) ($editRow['amount'] ?? 0), 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
                 </div>
 
-                <div class="col-12 d-flex gap-2 flex-wrap">
-                    <button type="submit" class="btn rounded-pill px-4 text-white" style="background-color:#ea580c;">
-                        <i class="bi bi-check-lg me-1"></i><?= $editRow ? 'บันทึกการแก้ไข' : 'บันทึกรายการ' ?>
-                    </button>
+                <div class="col-12 ledger-form-actions">
                     <?php if ($editRow): ?>
                         <a href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php') . '?month=' . urlencode($month), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill">ยกเลิก</a>
                     <?php endif; ?>
+                    <button type="submit" class="btn btn-orange rounded-pill px-4 fw-bold ledger-form-submit">
+                        <i class="bi bi-check-lg me-1"></i><?= $editRow ? 'บันทึกการแก้ไข' : 'บันทึกรายการ' ?>
+                    </button>
                 </div>
             </form>
         </div>
         </div>
     </div>
 
-    <form method="get" class="no-print d-flex align-items-center gap-2 mb-4 flex-wrap ledger-filter-bar">
-        <label class="fw-bold small mb-0">เดือนที่ดู</label>
-        <input type="month" name="month" class="form-control form-control-sm rounded-3" style="width: auto;" value="<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>">
-        <label class="fw-bold small mb-0">ค้นหาวันที่</label>
-        <input type="date" name="entry_date" class="form-control form-control-sm rounded-3" style="width: auto;" value="<?= htmlspecialchars($searchDate, ENT_QUOTES, 'UTF-8') ?>">
-        <button type="submit" class="btn btn-sm btn-outline-secondary rounded-3">แสดง</button>
-        <?php if ($searchDate !== ''): ?>
-            <a href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php') . '?month=' . urlencode($month), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger rounded-3">ล้างวันที่</a>
-        <?php endif; ?>
-    </form>
+    <div class="modal fade ledger-filter-modal no-print" id="ledgerFilterModal" tabindex="-1" aria-labelledby="ledgerFilterModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="ledgerFilterModalLabel"><i class="bi bi-funnel text-tnc-orange me-2"></i>กรองรายการ</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                </div>
+                <form method="get" action="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger-dashboard.php'), ENT_QUOTES, 'UTF-8') ?>">
+                    <div class="modal-body pt-2">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small mb-1" for="filter_month">เดือนที่ดู</label>
+                            <input type="month" name="month" id="filter_month" class="form-control rounded-3 ledger-filter-input" value="<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>" required>
+                        </div>
+                        <div class="mb-1">
+                            <label class="form-label fw-bold small mb-1" for="filter_entry_date">ค้นหาวันที่</label>
+                            <input type="date" name="entry_date" id="filter_entry_date" class="form-control rounded-3 ledger-filter-input" value="<?= htmlspecialchars($searchDate, ENT_QUOTES, 'UTF-8') ?>">
+                            <div class="form-text">เว้นว่างเพื่อดูทั้งเดือน</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0 flex-column flex-sm-row gap-2">
+                        <?php if ($searchDate !== ''): ?>
+                            <a href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger-dashboard.php') . '?month=' . urlencode($month), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-danger rounded-pill w-100 w-sm-auto order-sm-1">ล้างวันที่</a>
+                        <?php endif; ?>
+                        <button type="button" class="btn btn-light rounded-pill w-100 w-sm-auto" data-bs-dismiss="modal">ยกเลิก</button>
+                        <button type="submit" class="btn btn-orange rounded-pill w-100 w-sm-auto ledger-filter-submit">แสดงผล</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <div class="d-none d-print-block report-print-header text-center border-bottom border-2 border-dark pb-3 mb-3">
         <h1 class="h4 fw-bold mb-1">THEELIN CON CO.,LTD.</h1>
@@ -584,19 +699,13 @@ $net = $sumIncome - $sumExpense;
         </div>
         <div class="col-md-4">
             <div class="card card-stats border-0 shadow-sm p-3 rounded-4" style="border-left-color: #ea580c;">
-                <h6 class="text-muted mb-1 small">คงเหลือล่าสุด <span class="fw-normal">(สะสมทุกรายการ)</span></h6>
+                <h6 class="text-muted mb-1 small">คงเหลือล่าสุด</h6>
                 <h3 class="fw-bold mb-0 <?= $latestBalanceAllTime >= 0 ? 'text-dark' : 'text-danger' ?>">฿<?= number_format($latestBalanceAllTime, 2) ?></h3>
             </div>
         </div>
     </div>
 
     <div class="card card-dash">
-        <div class="card-header bg-white border-0 py-3 px-4">
-            <h5 class="fw-bold mb-0">รายละเอียดทั้งหมดในเดือน <span class="text-secondary fw-semibold">(<?= number_format($rowCount) ?> รายการบันทึก)</span></h5>
-            <?php if ($rowCount > 0): ?>
-                <div class="text-muted small mt-1">แสดง <?= number_format($showFrom) ?>-<?= number_format($showTo) ?> จาก <?= number_format($rowCount) ?> รายการ</div>
-            <?php endif; ?>
-        </div>
         <div class="card-body p-0">
             <div class="table-wrap-screen px-0">
                 <table class="table table-hover align-middle mb-0 table-cash-report">
@@ -620,19 +729,15 @@ $net = $sumIncome - $sumExpense;
                                 $canManage = $isAdmin || (int) ($row['created_by'] ?? 0) === $me;
                                 $memo = trim((string) ($row['description'] ?? ''));
                                 ?>
-                                <tr<?= $isInCurrentPage ? '' : ' class="d-none d-print-table-row"' ?>>
-                                    <td class="text-secondary small text-nowrap ps-3"><?= date('d/m/Y', strtotime($row['entry_date'])) ?></td>
-                                    <td class="small text-break col-desc" style="white-space:pre-wrap;"><?= nl2br(htmlspecialchars($memo !== '' ? $memo : '—', ENT_QUOTES, 'UTF-8')) ?></td>
-                                    <td class="small text-end fw-bold text-success text-nowrap">
-                                        <?= $row['entry_type'] === 'income' ? number_format((float) $row['amount'], 2) : '' ?>
-                                    </td>
-                                    <td class="small text-end fw-bold text-danger text-nowrap">
-                                        <?= $row['entry_type'] === 'expense' ? number_format((float) $row['amount'], 2) : '' ?>
-                                    </td>
-                                    <td class="small text-end fw-semibold text-nowrap <?= ((float) ($row['running_balance'] ?? 0)) < 0 ? 'text-danger' : 'text-dark' ?>">
+                                <tr class="ledger-entry-row"<?= $isInCurrentPage ? '' : ' d-none d-print-table-row"' ?>>
+                                    <td class="ledger-cell-date text-secondary small text-nowrap ps-3"><?= date('d/m/Y', strtotime($row['entry_date'])) ?></td>
+                                    <td class="ledger-cell-desc col-desc"><?= nl2br(htmlspecialchars($memo !== '' ? $memo : '—', ENT_QUOTES, 'UTF-8')) ?></td>
+                                    <td class="ledger-cell-in small text-end fw-bold text-success text-nowrap<?= $row['entry_type'] === 'income' ? '' : ' ledger-cell-empty' ?>"><?= $row['entry_type'] === 'income' ? number_format((float) $row['amount'], 2) : '' ?></td>
+                                    <td class="ledger-cell-out small text-end fw-bold text-danger text-nowrap<?= $row['entry_type'] === 'expense' ? '' : ' ledger-cell-empty' ?>"><?= $row['entry_type'] === 'expense' ? number_format((float) $row['amount'], 2) : '' ?></td>
+                                    <td class="ledger-cell-balance small text-end fw-semibold text-nowrap <?= ((float) ($row['running_balance'] ?? 0)) < 0 ? 'text-danger' : 'text-dark' ?>">
                                         <?= number_format((float) ($row['running_balance'] ?? 0), 2) ?>
                                     </td>
-                                    <td class="pe-3 text-center no-print">
+                                    <td class="ledger-cell-actions pe-3 text-center no-print">
                                         <?php if ($canManage): ?>
                                             <a href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php') . '?' . http_build_query(['month' => $month, 'page' => $page, 'edit' => $lid]), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-warning" title="แก้ไข">
                                                 <i class="bi bi-pencil-square"></i>
@@ -681,30 +786,6 @@ $net = $sumIncome - $sumExpense;
                         <?php endif; ?>
                     </div>
                 </div>
-            <?php endif; ?>
-            <?php if ($rowCount > 0): ?>
-            <div class="cash-report-final-summary px-3 py-3 border-top bg-light">
-                <h6 class="fw-bold text-secondary small mb-2">ผลรวมสุดท้าย</h6>
-                <table class="table table-sm table-bordered mb-0 bg-white align-middle">
-                    <tbody>
-                        <tr>
-                            <td class="ps-3 py-2 text-end fw-bold" style="width:40%;">รวมรายรับทั้งเดือน</td>
-                            <td class="py-2 text-end fw-bold text-success text-nowrap">฿<?= number_format($sumIncome, 2) ?></td>
-                        </tr>
-                        <tr>
-                            <td class="ps-3 py-2 text-end fw-bold">รวมรายจ่ายทั้งเดือน</td>
-                            <td class="py-2 text-end fw-bold text-danger text-nowrap">฿<?= number_format($sumExpense, 2) ?></td>
-                        </tr>
-                        <tr>
-                            <td class="ps-3 py-2 text-end fw-bold">คงเหลือ (รายรับ − รายจ่าย)</td>
-                            <td class="py-2 text-end fw-bold text-nowrap <?= $net >= 0 ? '' : 'text-danger' ?>">฿<?= number_format($net, 2) ?></td>
-                        </tr>
-                        <tr>
-                            <td class="ps-3 py-2 small text-muted" colspan="2">สรุปจาก <?= number_format($rowCount) ?> รายการบันทึก</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
             <?php endif; ?>
         </div>
     </div>

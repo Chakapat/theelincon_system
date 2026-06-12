@@ -66,7 +66,6 @@ $allowedMirror = [
     'contractors',
     'invoices',
     'tax_invoices',
-    'employee_payslip_requests',
 ];
 
 if ($dataset === 'mirror_table') {

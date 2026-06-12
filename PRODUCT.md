@@ -12,7 +12,7 @@ product
 
 ## Product Purpose
 
-ระบบ ERP/operations ภายในสำหรับจัดการงานเอกสารและการเงินของธุรกิจก่อสร้าง/บริการ — รวม invoice, purchase order, hire contract, daily site report, stock, payslip, leave และรายงานภาษี
+ระบบ ERP/operations ภายในสำหรับจัดการงานเอกสารและการเงินของธุรกิจก่อสร้าง/บริการ — รวม invoice, purchase order, hire contract, stock และรายงานภาษี
 
 ความสำเร็จ = ผู้ใช้ทำงานเสร็จเร็วขึ้น ลดคลิกและการสับสน อ่านข้อมูลในตารางและฟอร์มได้ทันที โดยไม่เสียความน่าเชื่อถือของข้อมูล — **และรู้สึกว่าระบบมีเอกลักษณ์ Theelincon (อบอุ่น มั่นใจ) ไม่ใช่ template เทาๆ**
 

@@ -996,7 +996,6 @@ if ($index_display_name === '') {
                     <div class="home-hub-panel-inner pb-1">
                         <?php if (user_can('page.wo')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/work-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-ruled me-2 text-secondary"></i>สั่งจ้างงาน (Work Order)</a><?php endif; ?>
                         <?php if (user_can('page.stock')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-box-seam me-2 text-secondary"></i>คลังสินค้า (Stock)</a><?php endif; ?>
-                        <?php if (user_can('page.dsr')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/daily-site-reports/daily-site-report-calendar.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-calendar3 me-2 text-secondary"></i>สมุดรายวันหน้างาน (DSR)</a><?php endif; ?>
                     </div>
                 </div>
             </div>

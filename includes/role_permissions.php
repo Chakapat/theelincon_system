@@ -91,11 +91,8 @@ function tnc_role_permission_defaults(): array
         'page.wo' => true,
         'page.hire' => true,
         'page.stock' => true,
-        'page.dsr' => true,
         'page.report.vat' => true,
         'page.report.site' => true,
-        'page.payslip' => true,
-        'page.leave' => true,
         'page.account.profile' => true,
         'page.tools.po_payment' => true,
         'page.org.members' => false,
@@ -117,9 +114,6 @@ function tnc_role_permission_defaults(): array
         'page.index' => true,
         'page.invoice.view' => true,
         'page.pr' => true,
-        'page.dsr' => true,
-        'page.leave' => true,
-        'page.payslip' => true,
         'page.account.profile' => true,
     ];
     if (function_exists('tnc_role_page_registry_flat')) {

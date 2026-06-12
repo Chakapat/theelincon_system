@@ -166,19 +166,6 @@ function tnc_role_permission_menu_tree(): array
                     ],
                     'actions' => [],
                 ],
-                'page.dsr' => [
-                    'label' => 'สมุดรายวันหน้างาน (DSR)',
-                    'path' => 'pages/daily-site-reports/daily-site-report-calendar.php',
-                    'paths' => [
-                        'pages/daily-site-reports/daily-site-report-calendar.php',
-                        'pages/daily-site-reports/daily-site-report-form.php',
-                        'pages/daily-site-reports/daily-site-report-view.php',
-                        'pages/daily-site-reports/daily-site-report-list.php',
-                        'pages/daily-site-reports/daily-site-report-monthly-report.php',
-                        'pages/daily-site-reports/daily-site-report.php',
-                    ],
-                    'actions' => [],
-                ],
             ],
         ],
         'hub_cash' => [
@@ -213,29 +200,6 @@ function tnc_role_permission_menu_tree(): array
         'hub_hr' => [
             'label' => 'HR / สวัสดิการ',
             'pages' => [
-                'page.payslip' => [
-                    'label' => 'สลิปเงินเดือน (Payslip)',
-                    'path' => 'pages/payslips/employee-payslip.php',
-                    'paths' => [
-                        'pages/payslips/employee-payslip.php',
-                        'pages/payslips/employee-payslip-my.php',
-                        'pages/payslips/employee-payslip-form.php',
-                        'pages/payslips/employee-payslip-view.php',
-                        'pages/payslips/employee-payslip-request-list.php',
-                        'pages/payslips/employee-payslip-requset-list.php',
-                    ],
-                    'actions' => [],
-                ],
-                'page.leave' => [
-                    'label' => 'ใบลา (Leave Request)',
-                    'path' => 'pages/leave-requests/leave-request-list.php',
-                    'paths' => [
-                        'pages/leave-requests/leave-request-list.php',
-                        'pages/leave-requests/leave-request-create.php',
-                        'pages/leave-requests/leave-request-view.php',
-                    ],
-                    'actions' => [],
-                ],
                 'page.account.profile' => [
                     'label' => 'ข้อมูลส่วนตัว (My Profile)',
                     'path' => 'pages/account/my-profile.php',

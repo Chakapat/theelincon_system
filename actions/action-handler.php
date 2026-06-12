@@ -57,12 +57,12 @@ $type = (string) ($_POST['type'] ?? $_GET['type'] ?? '');
 $id = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
 
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
-$tncDeletePwdActions = ['delete', 'delete_supplier', 'delete_contractor', 'delete_pr', 'delete_leave_request'];
+$tncDeletePwdActions = ['delete', 'delete_supplier', 'delete_contractor', 'delete_pr'];
 if (in_array($action, $tncDeletePwdActions, true)) {
     tnc_require_post_confirm_password();
 }
 
-$admin_only_actions = ['add_member', 'edit_member', 'delete_supplier', 'delete_contractor', 'delete_leave_request', 'add_company', 'edit_company', 'add_customer', 'edit_customer'];
+$admin_only_actions = ['add_member', 'edit_member', 'delete_supplier', 'delete_contractor', 'add_company', 'edit_company', 'add_customer', 'edit_customer'];
 if (in_array($action, $admin_only_actions, true) && !user_is_admin_role()) {
     exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
 }
@@ -3282,23 +3282,6 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
         }
         tnc_action_redirect( app_path($page) . '?success=1');
     }
-}
-
-// --- ลบใบลา (admin + POST + รหัสผ่านยืนยัน) ---
-if ($action === 'delete_leave_request' && $id > 0) {
-    $leave = Db::rowByIdField('leave_requests', $id);
-    if ($leave === null) {
-        tnc_action_redirect(app_path('pages/leave-requests/leave-request-list.php') . '?scope=all&error=not_found');
-    }
-    $leaveNo = trim((string) ($leave['leave_number'] ?? ''));
-    Db::deleteRow('leave_requests', Db::pkForLogicalId('leave_requests', $id));
-    tnc_audit_log('delete', 'leave_request', (string) $id, $leaveNo !== '' ? $leaveNo : ('#' . $id), [
-        'source' => 'action-handler',
-        'action' => 'delete_leave_request',
-        'before' => $leave,
-    ]);
-    $scopeQ = isset($_GET['scope']) && (string) $_GET['scope'] === 'all' ? '&scope=all' : '';
-    tnc_action_redirect(app_path('pages/leave-requests/leave-request-list.php') . '?scope=all&deleted=1');
 }
 
 // --- delete ---

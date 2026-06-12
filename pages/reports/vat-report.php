@@ -72,6 +72,89 @@ function tnc_vat_is_7_percent(float $base, float $vat, float $declaredRate = 0.0
     return abs($effective - 7.0) <= 0.15;
 }
 
+function tnc_vat_is_cash_bill_purchase(string $billNo, string $supplierName): bool
+{
+    $cashLabel = mb_strtolower(trim('บิลเงินสด'));
+    if ($cashLabel === '') {
+        return false;
+    }
+    $billNorm = mb_strtolower(trim($billNo));
+    $supplierNorm = mb_strtolower(trim($supplierName));
+
+    return $billNorm === $cashLabel || $supplierNorm === $cashLabel;
+}
+
+/**
+ * @param list<array<string, mixed>> $rows
+ */
+function tnc_vat_render_table_html(
+    bool $isSales,
+    array $rows,
+    float $sumBase,
+    float $sumVat,
+    float $sumNet,
+    bool $withDocLinks = false
+): string {
+    ob_start();
+    ?>
+    <div class="vat-print-table-wrap">
+        <table class="table table-bordered table-sm vat-print-table mb-0">
+            <colgroup>
+                <col class="col-date">
+                <col class="col-doc">
+                <col class="col-name">
+                <col class="col-amt">
+                <col class="col-amt">
+                <col class="col-amt">
+            </colgroup>
+            <thead>
+            <tr>
+                <?php if ($isSales): ?>
+                    <th>วันที่เอกสาร</th>
+                    <th>เลขที่ใบกำกับภาษี</th>
+                    <th>ชื่อลูกค้า</th>
+                <?php else: ?>
+                    <th>วันที่บิล</th>
+                    <th>เลขที่บิล/ใบกำกับภาษี</th>
+                    <th>ชื่อซัพพลายเออร์</th>
+                <?php endif; ?>
+                <th class="text-end">มูลค่าสินค้า/บริการ</th>
+                <th class="text-end">จำนวน VAT (7%)</th>
+                <th class="text-end">ยอดรวมสุทธิ</th>
+            </tr>
+            </thead>
+            <tbody>
+            <?php if ($rows === []): ?>
+                <tr><td colspan="6" class="text-center text-muted py-4">ไม่พบข้อมูลตามเงื่อนไข</td></tr>
+            <?php else: ?>
+                <?php foreach ($rows as $row): ?>
+                    <?php
+                    $docNo = (string) ($isSales ? ($row['invoice_no'] ?? '') : ($row['bill_no'] ?? ''));
+                    $nameCol = (string) ($isSales ? ($row['customer_name'] ?? '') : ($row['supplier_name'] ?? ''));
+                    ?>
+                    <tr>
+                        <td><?= h((string) ($row['doc_date'] ?? '')) ?></td>
+                        <td><?= $withDocLinks ? tnc_vat_render_doc_no($docNo, (string) ($row['link_url'] ?? '')) : h($docNo) ?></td>
+                        <td><?= h($nameCol) ?></td>
+                        <td class="text-end"><?= number_format((float) ($row['base'] ?? 0), 2) ?></td>
+                        <td class="text-end"><?= number_format((float) ($row['vat'] ?? 0), 2) ?></td>
+                        <td class="text-end"><?= number_format((float) ($row['net'] ?? 0), 2) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+            <tr class="vat-print-total-row">
+                <th colspan="3" class="text-end">รวมเงินสุทธิ</th>
+                <th class="text-end"><?= number_format($sumBase, 2) ?></th>
+                <th class="text-end"><?= number_format($sumVat, 2) ?></th>
+                <th class="text-end"><?= number_format($sumNet, 2) ?></th>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
 $month = isset($_GET['month']) ? max(1, min(12, (int) $_GET['month'])) : (int) date('n');
 $year = isset($_GET['year']) ? max(2000, min(2100, (int) $_GET['year'])) : (int) date('Y');
 $startDate = trim((string) ($_GET['start_date'] ?? ''));
@@ -186,6 +269,9 @@ foreach (Db::tableRows('purchase_orders') as $po) {
     $netAmount = round($subtotal + $vatAmount, 2);
     $supplierName = tnc_purchase_report_supplier_name($po);
     $billNo = trim((string) ($po['supplier_invoice_no'] ?? ''));
+    if (tnc_vat_is_cash_bill_purchase($billNo, $supplierName)) {
+        continue;
+    }
     $seenKey = 'po:' . $poId;
     if (isset($purchaseSeen[$seenKey])) {
         continue;
@@ -234,6 +320,9 @@ foreach (Db::tableRows('bills') as $bill) {
     $netAmount = round($subtotal + $vatAmount, 2);
     $supplierName = trim((string) ($bill['supplier_name'] ?? $bill['vendor_name'] ?? ''));
     $billNo = trim((string) ($bill['supplier_invoice_no'] ?? $bill['bill_number'] ?? ''));
+    if (tnc_vat_is_cash_bill_purchase($billNo, $supplierName)) {
+        continue;
+    }
     $seenKey = mb_strtolower($billNo . '|' . $docDate . '|' . number_format($netAmount, 2, '.', '') . '|' . $supplierName);
     if (isset($purchaseSeen[$seenKey])) {
         continue;
@@ -551,56 +640,7 @@ if ($printType === 'sales' || $printType === 'purchase') {
             <div>จำนวนรายการ: <?= count($printRows) ?> รายการ</div>
         </div>
     </div>
-    <div class="vat-print-table-wrap">
-    <table class="table table-bordered table-sm vat-print-table mb-0">
-        <colgroup>
-            <col class="col-date">
-            <col class="col-doc">
-            <col class="col-name">
-            <col class="col-amt">
-            <col class="col-amt">
-            <col class="col-amt">
-        </colgroup>
-        <thead>
-        <tr>
-            <?php if ($isSalesPrint): ?>
-                <th>วันที่เอกสาร</th>
-                <th>เลขที่ใบกำกับภาษี</th>
-                <th>ชื่อลูกค้า</th>
-            <?php else: ?>
-                <th>วันที่บิล</th>
-                <th>เลขที่บิล/ใบกำกับภาษี</th>
-                <th>ชื่อซัพพลายเออร์</th>
-            <?php endif; ?>
-            <th class="text-end">มูลค่าสินค้า/บริการ</th>
-            <th class="text-end">จำนวน VAT (7%)</th>
-            <th class="text-end">ยอดรวมสุทธิ</th>
-        </tr>
-        </thead>
-        <tbody>
-        <?php if ($printRows === []): ?>
-            <tr><td colspan="6" class="text-center text-muted py-4">ไม่พบข้อมูลตามเงื่อนไข</td></tr>
-        <?php else: ?>
-            <?php foreach ($printRows as $row): ?>
-                <tr>
-                    <td><?= h((string) ($row['doc_date'] ?? '')) ?></td>
-                    <td><?= h((string) ($isSalesPrint ? ($row['invoice_no'] ?? '') : ($row['bill_no'] ?? ''))) ?></td>
-                    <td><?= h((string) ($isSalesPrint ? ($row['customer_name'] ?? '') : ($row['supplier_name'] ?? ''))) ?></td>
-                    <td class="text-end"><?= number_format((float) ($row['base'] ?? 0), 2) ?></td>
-                    <td class="text-end"><?= number_format((float) ($row['vat'] ?? 0), 2) ?></td>
-                    <td class="text-end"><?= number_format((float) ($row['net'] ?? 0), 2) ?></td>
-                </tr>
-            <?php endforeach; ?>
-        <?php endif; ?>
-        <tr class="vat-print-total-row">
-            <th colspan="3" class="text-end">รวมเงินสุทธิ</th>
-            <th class="text-end"><?= number_format($sumBase, 2) ?></th>
-            <th class="text-end"><?= number_format($sumVat, 2) ?></th>
-            <th class="text-end"><?= number_format($sumNet, 2) ?></th>
-        </tr>
-        </tbody>
-    </table>
-    </div>
+    <?= tnc_vat_render_table_html($isSalesPrint, $printRows, $sumBase, $sumVat, $sumNet, false) ?>
 </div>
 </body>
 </html>
@@ -616,7 +656,6 @@ if ($printType === 'sales' || $printType === 'purchase') {
     <title>รายงานภาษีซื้อ-ภาษีขาย (VAT Report)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         .card-soft {
@@ -639,45 +678,53 @@ if ($printType === 'sales' || $printType === 'purchase') {
         .report-badge--purchase { background: #e6f4ea; color: #1e7e34; border-color: #b7dfc4; }
         .report-badge--diff { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
         .report-badge--refund { background: #e0f2fe; color: #0369a1; border-color: #7dd3fc; }
-        .table thead th { white-space: nowrap; font-size: 0.8125rem; }
-        #vatSalesTable thead th,
-        #vatPurchaseTable thead th {
+        .vat-print-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .vat-print-table {
+            width: 100%;
+            min-width: 520px;
+            font-size: 0.8125rem;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        .vat-print-table th,
+        .vat-print-table td {
+            border: 1px solid #d1d5db;
+            padding: 0.35rem 0.45rem;
+            vertical-align: top;
+            word-break: break-word;
+        }
+        .vat-print-table thead th {
             background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
             border-bottom: 2px solid var(--tnc-orange-border, #fdba74);
             font-weight: 700;
+            font-size: 0.8125rem;
         }
-        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
-            background: var(--tnc-orange, #ea580c) !important;
-            border-color: var(--tnc-orange, #ea580c) !important;
-            color: #fff !important;
+        .vat-print-table tr.vat-print-total-row th,
+        .vat-print-table tr.vat-print-total-row td {
+            background: #e5e7eb !important;
+            font-weight: 700;
         }
-        .dataTables_wrapper .dataTables_paginate {
-            float: none !important;
-            text-align: center !important;
-            padding-top: 0.5rem;
-        }
-        .dataTables_wrapper .dataTables_info {
-            float: none !important;
-            text-align: center;
-            padding-top: 0.5rem;
-        }
-        .dataTables_wrapper .dataTables_length,
-        .dataTables_wrapper .dataTables_filter {
-            display: none;
-        }
-        .vat-table-wrap .table { margin-bottom: 0; }
+        .vat-print-table col.col-date { width: 12%; }
+        .vat-print-table col.col-doc { width: 15%; }
+        .vat-print-table col.col-name { width: 28%; }
+        .vat-print-table col.col-amt { width: 15%; }
+        .vat-print-table td.text-end,
+        .vat-print-table th.text-end { font-variant-numeric: tabular-nums; }
         .vat-doc-link { font-weight: 600; text-decoration: none; color: var(--tnc-orange, #ea580c); }
         .vat-doc-link:hover { text-decoration: underline; color: var(--tnc-orange-dark, #9a3412); }
-        .vat-table-wrap .table td.text-end,
-        .vat-table-wrap .table th.text-end { font-variant-numeric: tabular-nums; }
+        .vat-tab-meta { font-size: 0.82rem; color: #64748b; margin-bottom: 0.75rem; }
         @media (max-width: 575.98px) {
             .card-soft .card-body { padding: 1rem; }
             .report-actions .btn { width: 100%; justify-content: center; }
             .nav-tabs .nav-link { font-size: 0.85rem; padding: 0.45rem 0.65rem; }
         }
         @media (max-width: 767.98px) {
-            .vat-table-wrap { margin: 0 -0.25rem; }
-            .table { font-size: 0.8125rem; }
+            .vat-print-table-wrap { margin: 0 -0.25rem; }
+            .vat-print-table { font-size: 0.8125rem; }
         }
         @media (min-width: 1200px) {
             .container { max-width: 1140px; }
@@ -757,88 +804,17 @@ if ($printType === 'sales' || $printType === 'purchase') {
             </ul>
             <div class="tab-content">
                 <div class="tab-pane fade show active" id="tab-sales" role="tabpanel" aria-labelledby="vat-tab-sales" tabindex="0">
-                    <div class="table-responsive vat-table-wrap">
-                        <table class="table table-sm table-bordered align-middle" id="vatSalesTable">
-                            <thead class="table-light">
-                            <tr>
-                                <th>วันที่เอกสาร</th><th>เลขที่ใบกำกับภาษี</th><th>ชื่อลูกค้า</th><th class="text-end">มูลค่าสินค้า/บริการ</th><th class="text-end">จำนวน VAT (7%)</th><th class="text-end">ยอดรวมสุทธิ</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach ($salesRows as $row): ?>
-                                <tr>
-                                    <td><?= h($row['doc_date']) ?></td><td><?= tnc_vat_render_doc_no((string) ($row['invoice_no'] ?? ''), (string) ($row['link_url'] ?? '')) ?></td><td><?= h($row['customer_name']) ?></td>
-                                    <td class="text-end"><?= number_format((float) $row['base'], 2) ?></td><td class="text-end"><?= number_format((float) $row['vat'], 2) ?></td><td class="text-end"><?= number_format((float) $row['net'], 2) ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                    <div class="vat-tab-meta">จำนวนรายการ: <?= count($salesRows) ?> รายการ · ช่วงข้อมูล: <?= h($periodText) ?></div>
+                    <?= tnc_vat_render_table_html(true, $salesRows, $sumSalesBase, $sumSalesVat, $sumSalesNet, true) ?>
                 </div>
                 <div class="tab-pane fade" id="tab-purchase" role="tabpanel" aria-labelledby="vat-tab-purchase" tabindex="0">
-                    <div class="table-responsive vat-table-wrap">
-                        <table class="table table-sm table-bordered align-middle" id="vatPurchaseTable">
-                            <thead class="table-light">
-                            <tr>
-                                <th>วันที่บิล</th><th>เลขที่บิล/ใบกำกับภาษี</th><th>ชื่อซัพพลายเออร์</th><th class="text-end">มูลค่าสินค้า/บริการ</th><th class="text-end">จำนวน VAT (7%)</th><th class="text-end">ยอดรวมสุทธิ</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach ($purchaseRows as $row): ?>
-                                <tr>
-                                    <td><?= h($row['doc_date']) ?></td><td><?= tnc_vat_render_doc_no((string) ($row['bill_no'] ?? ''), (string) ($row['link_url'] ?? '')) ?></td><td><?= h($row['supplier_name']) ?></td>
-                                    <td class="text-end"><?= number_format((float) $row['base'], 2) ?></td><td class="text-end"><?= number_format((float) $row['vat'], 2) ?></td><td class="text-end"><?= number_format((float) $row['net'], 2) ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                    <div class="vat-tab-meta">จำนวนรายการ: <?= count($purchaseRows) ?> รายการ · ช่วงข้อมูล: <?= h($periodText) ?></div>
+                    <?= tnc_vat_render_table_html(false, $purchaseRows, $sumPurchaseBase, $sumPurchaseVat, $sumPurchaseNet, true) ?>
                 </div>
             </div>
         </div>
     </div>
 </div>
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script>
-    $(function () {
-        $.fn.dataTable.ext.errMode = 'none';
-        const dtOptions = {
-            pageLength: 10,
-            pagingType: 'simple_numbers',
-            lengthChange: false,
-            info: false,
-            searching: false,
-            ordering: false,
-            autoWidth: false,
-            dom: 't<"mt-2 d-flex justify-content-center"p>',
-            language: {
-                paginate: { previous: 'ก่อนหน้า', next: 'ถัดไป' },
-                zeroRecords: 'ไม่พบข้อมูลภาษีตามเงื่อนไข',
-                emptyTable: 'ไม่พบข้อมูลภาษีตามเงื่อนไข',
-                search: 'ค้นหา:'
-            }
-        };
-        const salesTable = $('#vatSalesTable').DataTable(dtOptions);
-        let purchaseTable = null;
-        $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
-            salesTable.columns.adjust();
-            const target = $(e.target).attr('data-bs-target');
-            if (target === '#tab-purchase') {
-                if (!purchaseTable) {
-                    purchaseTable = $('#vatPurchaseTable').DataTable(dtOptions);
-                } else {
-                    purchaseTable.columns.adjust();
-                }
-            }
-        });
-        $('#vatTabs button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
-            $('#vatTabs button[role="tab"]').attr('aria-selected', 'false');
-            $(e.target).attr('aria-selected', 'true');
-        });
-    });
-</script>
 </body>
 </html>

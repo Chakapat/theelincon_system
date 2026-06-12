@@ -193,19 +193,6 @@ if (!function_exists('app_path')) {
         .tnc-nav-popover { width: auto; }
     }
 
-    /* Print-sheet style pages: adapt A4 mm layouts to phone screens */
-    @media (max-width: 575.98px) {
-        .dsr-print-sheet {
-            width: auto !important;
-            min-height: auto !important;
-            margin: 0.75rem auto 1.25rem !important;
-            padding: 1rem !important;
-            box-shadow: none !important;
-        }
-        .dsr-photo-grid { grid-template-columns: 1fr !important; }
-        .dsr-photo-wrap img { height: auto !important; max-height: 46vh; object-fit: contain !important; }
-    }
-
 </style>
 <nav class="navbar navbar-expand-lg navbar-dark shadow-sm py-2 mb-3 mb-md-3 tnc-navbar-compact tnc-navbar" style="min-height: 3.25rem;">
     <div class="container py-0">
