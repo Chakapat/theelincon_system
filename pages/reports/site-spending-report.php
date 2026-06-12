@@ -75,15 +75,20 @@ function tnc_site_spending_paid_amount(array $po, array $items = []): float
     return $paid > 0 ? $paid : 0.0;
 }
 
-/** วันที่ใช้กรองยอดจ่ายแล้ว — ใช้วันที่ทำเครื่องหมายจ่ายก่อน */
+/** วันที่ใช้จัดเข้าเดือนรายงาน — ใช้วันที่ออก PO ก่อน (รองรับ PO ย้อนหลัง) แล้ว fallback วันที่จ่าย */
 function tnc_site_spending_paid_date(array $po): string
 {
+    $issueDate = tnc_site_doc_date($po, ['issue_date']);
+    if ($issueDate !== '') {
+        return $issueDate;
+    }
+
     $paidAt = tnc_site_doc_date($po, ['payment_marked_paid_at']);
     if ($paidAt !== '') {
         return $paidAt;
     }
 
-    return tnc_site_doc_date($po, ['issue_date', 'created_at']);
+    return tnc_site_doc_date($po, ['created_at']);
 }
 
 /** PO สมบูรณ์ = ชำระแล้ว + มีเลขที่ใบกำกับ (ตามเกณฑ์หน้ารายการ PO) */
@@ -282,7 +287,7 @@ $ensureCat = static function (array &$site, string $catKey, string $catLabel): v
     }
 };
 
-// PO สมบูรณ์ + จ่ายแล้วเท่านั้น — กรองตามวันที่จ่าย (payment_marked_paid_at)
+// PO สมบูรณ์ + จ่ายแล้วเท่านั้น — กรองตามวันที่ออก PO (issue_date)
 $poItemsByPoId = tnc_purchase_po_items_group_by_po_id();
 foreach (Db::tableRows('purchase_orders') as $po) {
     if (!tnc_site_spending_po_is_complete($po)) {

@@ -23,6 +23,7 @@ declare(strict_types=1);
  * @var string $vatMode
  * @var array{vat_mode: string, line_amount: float, vat_label: string, vat_amount: float, net_amount: float} $vatPrint
  * @var string $siteDisplay
+ * @var string $prCostCategoryName
  * @var string $createdRaw
  * @var array|null $existing_po
  * @var string $quotationAttach
@@ -51,6 +52,7 @@ if ($isHireDoc) {
     $contractorPaymentLine = trim((string) ($contractorPrint['transfer_line'] ?? ''));
 }
 $showHireInfoStack = $isHireDoc && ($siteDisplay !== '' || $contractorIdentityLine !== '' || $contractorPaymentLine !== '');
+$prFooterHasNotes = ($isHireDoc && $hireScope !== '' && !$hireTableNote) || $detailsText !== '';
 ?>
 <div class="invoice-box pr-purchase-requisition-doc">
     <?php if (!empty($isPoCancelled)): ?>
@@ -83,23 +85,22 @@ $showHireInfoStack = $isHireDoc && ($siteDisplay !== '' || $contractorIdentityLi
             </div>
         </div>
 
-        <?php if (!$isHireDoc && $siteDisplay !== ''): ?>
-        <div class="row mb-2 doc-site-row">
-            <div class="col-12">
-                <div class="doc-site-block">
-                    <span class="doc-site-label">ไซต์งาน:</span>
-                    <span class="doc-site-value"><?= htmlspecialchars($siteDisplay, ENT_QUOTES, 'UTF-8') ?></span>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-
         <?php if (!$isHireDoc): ?>
         <div class="row mb-2 doc-site-row">
             <div class="col-12">
-                <div class="doc-site-block">
-                    <span class="doc-site-label">ผู้ขอซื้อ / ผู้รับผิดชอบ:</span>
-                    <span class="doc-site-value"><?= htmlspecialchars($requesterLine, ENT_QUOTES, 'UTF-8') ?></span>
+                <div class="doc-site-block doc-site-block--pr-triple">
+                    <div class="doc-site-seg doc-site-seg--place">
+                        <span class="doc-site-label">สถานที่:</span>
+                        <span class="doc-site-value"><?= htmlspecialchars($siteDisplay !== '' ? $siteDisplay : '—', ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
+                    <div class="doc-site-seg doc-site-seg--cat">
+                        <span class="doc-site-label">หมวดหมู่:</span>
+                        <span class="doc-site-value"><?= htmlspecialchars(trim((string) ($prCostCategoryName ?? '')) !== '' ? trim((string) $prCostCategoryName) : '—', ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
+                    <div class="doc-site-seg doc-site-seg--requester">
+                        <span class="doc-site-label">ผู้ขอ:</span>
+                        <span class="doc-site-value"><?= htmlspecialchars($requesterLine, ENT_QUOTES, 'UTF-8') ?></span>
+                    </div>
                 </div>
                 <?php if ($creatorDisplay !== '' && $creatorDisplay !== $requesterDisplay): ?>
                 <div class="doc-site-block mt-2">
@@ -133,17 +134,6 @@ $showHireInfoStack = $isHireDoc && ($siteDisplay !== '' || $contractorIdentityLi
                         <span class="pr-hire-info-value"><?= htmlspecialchars($contractorPaymentLine, ENT_QUOTES, 'UTF-8') ?></span>
                     </div>
                     <?php endif; ?>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-
-        <?php if ($detailsText !== '' && !$isHireDoc): ?>
-        <div class="row mb-2">
-            <div class="col-12">
-                <div class="pr-notes-panel">
-                    <div class="pr-note-heading">รายละเอียด / วัตถุประสงค์</div>
-                    <div class="pr-note-body"><?= htmlspecialchars($detailsText, ENT_QUOTES, 'UTF-8') ?></div>
                 </div>
             </div>
         </div>
@@ -263,7 +253,7 @@ $showHireInfoStack = $isHireDoc && ($siteDisplay !== '' || $contractorIdentityLi
         </div><!-- /.pr-doc-content -->
 
     <div class="footer-sticky doc-footer">
-        <div class="row pr-footer-row align-items-start mb-3">
+        <div class="row pr-footer-row align-items-start mb-3<?= $prFooterHasNotes ? ' pr-footer-row--has-notes' : '' ?>">
             <div class="col-7 pr-footer-notes-col">
                 <div class="pr-notes-wrap">
                     <?php if ($isHireDoc && $hireScope !== '' && !$hireTableNote): ?>
@@ -271,7 +261,7 @@ $showHireInfoStack = $isHireDoc && ($siteDisplay !== '' || $contractorIdentityLi
                         <div class="pr-note-heading">เงื่อนไขการชำระเงิน / ขอบเขตการทำงาน</div>
                         <div class="pr-note-body"><?= htmlspecialchars($hireScope, ENT_QUOTES, 'UTF-8') ?></div>
                     </div>
-                    <?php elseif ($isHireDoc && $detailsText !== ''): ?>
+                    <?php elseif ($detailsText !== ''): ?>
                     <div class="pr-notes-panel">
                         <div class="pr-note-heading">รายละเอียด / วัตถุประสงค์</div>
                         <div class="pr-note-body"><?= htmlspecialchars($detailsText, ENT_QUOTES, 'UTF-8') ?></div>
@@ -334,7 +324,7 @@ $showHireInfoStack = $isHireDoc && ($siteDisplay !== '' || $contractorIdentityLi
                     <?php endif; ?>
                     <?php if ($vatOn && (float) ($vatPrint['vat_amount'] ?? 0) > 0): ?>
                     <div class="summary-item pr-vat-line vat-print-line<?= $isHireDoc ? ' text-success' : '' ?>">
-                        <span><?= $isHireDoc ? 'VAT 7%' : htmlspecialchars((string) ($vatPrint['vat_label'] ?? 'ภาษีมูลค่าเพิ่ม'), ENT_QUOTES, 'UTF-8') ?></span>
+                        <span><?= $isHireDoc ? 'VAT 7%' : htmlspecialchars((string) ($vatPrint['vat_label'] ?? 'แยก VAT'), ENT_QUOTES, 'UTF-8') ?></span>
                         <span><?= $isHireDoc ? '+ ' : '' ?><?= number_format((float) $vatPrint['vat_amount'], 2) ?></span>
                     </div>
                     <?php endif; ?>

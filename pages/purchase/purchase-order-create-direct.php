@@ -479,6 +479,10 @@ function calculateTotal() {
     const vat = split.vat;
     const gross = split.gross;
     document.getElementById('subtotal_display').innerText = subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const vatLabelEl = document.getElementById('vat_label');
+    if (vatLabelEl) {
+        vatLabelEl.textContent = vatOn ? (vatMode === 'inclusive' ? 'รวม VAT' : 'แยก VAT') : 'แยก VAT';
+    }
     const vatRow = document.getElementById('vat_row');
     if (vatOn) { vatRow.style.display = 'grid'; document.getElementById('vat_display').innerText = vat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     else { vatRow.style.display = 'none'; }

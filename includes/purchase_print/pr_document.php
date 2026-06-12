@@ -109,6 +109,15 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         }
     }
 
+    $prCostCategoryId = (int) ($pr['cost_category_id'] ?? 0);
+    $prCostCategoryName = trim((string) ($pr['cost_category_name'] ?? ''));
+    if ($prCostCategoryName === '' && $prCostCategoryId > 0) {
+        if (!function_exists('tnc_site_category_name')) {
+            require_once dirname(__DIR__) . '/site_cost_categories.php';
+        }
+        $prCostCategoryName = tnc_site_category_name($prCostCategoryId);
+    }
+
     $createdRaw = trim((string) ($pr['created_at'] ?? ''));
     $quotationAttach = trim((string) ($pr['quotation_attachment_path'] ?? ''));
     $quotationName = trim((string) ($pr['quotation_attachment_name'] ?? ''));
@@ -166,6 +175,7 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         'vatMode' => $vatMode,
         'vatPrint' => $vatPrint,
         'siteDisplay' => $siteDisplay,
+        'prCostCategoryName' => $prCostCategoryName,
         'createdRaw' => $createdRaw,
         'quotationAttach' => $quotationAttach,
         'quotationName' => $quotationName,

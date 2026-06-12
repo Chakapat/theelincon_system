@@ -658,8 +658,8 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                                 <div class="mt-2<?= $pr_fix_vat_on ? '' : ' d-none' ?>" id="pr_fix_vat_mode_wrap">
                                                     <label class="form-label small text-secondary mb-1" for="pr_fix_vat_mode">รูปแบบภาษีมูลค่าเพิ่ม</label>
                                                     <select class="form-select form-select-sm" name="vat_mode" id="pr_fix_vat_mode">
-                                                        <option value="exclusive"<?= $pr_fix_vat_mode === 'exclusive' ? ' selected' : '' ?>>แยกภาษีมูลค่าเพิ่ม</option>
-                                                        <option value="inclusive"<?= $pr_fix_vat_mode === 'inclusive' ? ' selected' : '' ?>>รวมภาษีมูลค่าเพิ่มในราคาสินค้า</option>
+                                                        <option value="exclusive"<?= $pr_fix_vat_mode === 'exclusive' ? ' selected' : '' ?>>แยก VAT</option>
+                                                        <option value="inclusive"<?= $pr_fix_vat_mode === 'inclusive' ? ' selected' : '' ?>>รวม VAT</option>
                                                     </select>
                                                 </div>
                                             </div>
@@ -1015,11 +1015,11 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
         }
         if (vatLabel) {
             if (!vatOn) {
-                vatLabel.textContent = 'ภาษีมูลค่าเพิ่ม:';
+                vatLabel.textContent = 'แยก VAT:';
             } else if (vatMode === 'inclusive') {
-                vatLabel.textContent = 'ภาษีมูลค่าเพิ่มในราคาสินค้า:';
+                vatLabel.textContent = 'รวม VAT:';
             } else {
-                vatLabel.textContent = 'ภาษีมูลค่าเพิ่มแยกจากราคาสินค้า:';
+                vatLabel.textContent = 'แยก VAT:';
             }
         }
         if (subtotalDisplay) {

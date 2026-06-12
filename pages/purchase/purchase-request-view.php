@@ -336,6 +336,99 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
             .invoice-box.pr-purchase-requisition-doc .footer-sticky { margin-top: 1.25rem; }
             .signature-grid { grid-template-columns: 1fr; gap: 18px; }
         }
+
+        .invoice-box.pr-purchase-requisition-doc .pr-notes-panel {
+            border: 1px solid #e2e8f0;
+            border-left: 3px solid var(--brand-color);
+            background: #f8fafc;
+            border-radius: 0.35rem;
+            padding: 0.45rem 0.55rem 0.5rem;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .pr-note-heading {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--brand-color-deep);
+            margin-bottom: 0.35rem;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .pr-note-body {
+            font-size: 0.72rem;
+            line-height: 1.45;
+            color: #334155;
+            white-space: pre-line;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .pr-footer-row {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: flex-start;
+            margin-left: 0;
+            margin-right: 0;
+            --bs-gutter-x: 0.75rem;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .pr-footer-row.pr-footer-row--has-notes {
+            column-gap: 0.75rem;
+            row-gap: 1.15rem;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .pr-footer-row.pr-footer-row--has-notes .pr-footer-notes-col {
+            flex: 0 0 auto;
+            width: 58.33333333%;
+            max-width: 58.33333333%;
+            padding-right: 0.75rem;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .pr-footer-row.pr-footer-row--has-notes .pr-footer-totals-col {
+            flex: 0 0 auto;
+            width: 41.66666667%;
+            max-width: 41.66666667%;
+            margin-left: auto;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .pr-footer-notes-col:not(:has(.pr-notes-panel)) {
+            display: none;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .pr-footer-row:not(.pr-footer-row--has-notes) .pr-footer-totals-col {
+            margin-left: auto;
+            flex: 0 0 auto;
+            width: min(100%, 15.5rem);
+            max-width: 15.5rem;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .pr-vat-line {
+            color: var(--brand-color-deep) !important;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .doc-site-block.doc-site-block--pr-triple {
+            display: flex !important;
+            flex-direction: row;
+            align-items: baseline;
+            width: 100%;
+            column-gap: 0.75rem;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg {
+            flex: 1 1 0;
+            min-width: 0;
+            display: block;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--place {
+            text-align: left;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--cat {
+            text-align: center;
+        }
+
+        .invoice-box.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--requester {
+            text-align: right;
+        }
     </style>
 </head>
 <body class="purchase-module tnc-app-body tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดใบขอซื้อ…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้ดำเนินการต่อเมื่อโหลดเสร็จ">
@@ -367,7 +460,7 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                 <?php endif; ?>
                 <?php if ($requestType !== 'hire' && $existing_po): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $existing_po['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
-                        <i class="bi bi-eye me-1"></i>ดู PO
+                        <i class="bi bi-eye me-1"></i>ดูใบสั่งซื้อ
                     </a>
                 <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo) && user_can('po.create')): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">

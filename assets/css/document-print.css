@@ -613,12 +613,14 @@
 }
 
 .pr-purchase-requisition-doc .pr-footer-row:has(.pr-notes-panel),
+.pr-purchase-requisition-doc .pr-footer-row.pr-footer-row--has-notes,
 .po-purchase-order-doc .po-footer-row:has(.po-notes-panel) {
     row-gap: 1.15rem;
     column-gap: 0.75rem;
 }
 
 .pr-purchase-requisition-doc .pr-footer-row:has(.pr-notes-panel) .pr-footer-notes-col,
+.pr-purchase-requisition-doc .pr-footer-row.pr-footer-row--has-notes .pr-footer-notes-col,
 .po-purchase-order-doc .po-footer-row:has(.po-notes-panel) .po-footer-notes-col {
     flex: 0 0 auto;
     width: 58.33333333%;
@@ -627,6 +629,7 @@
 }
 
 .pr-purchase-requisition-doc .pr-footer-row:has(.pr-notes-panel) .pr-footer-totals-col,
+.pr-purchase-requisition-doc .pr-footer-row.pr-footer-row--has-notes .pr-footer-totals-col,
 .po-purchase-order-doc .po-footer-row:has(.po-notes-panel) .po-footer-totals-col {
     flex: 0 0 auto;
     width: 41.66666667%;
@@ -648,7 +651,7 @@
     display: none;
 }
 
-.pr-purchase-requisition-doc .pr-footer-row:not(:has(.pr-notes-panel)) .pr-footer-totals-col,
+.pr-purchase-requisition-doc .pr-footer-row:not(:has(.pr-notes-panel)):not(.pr-footer-row--has-notes) .pr-footer-totals-col,
 .po-purchase-order-doc .po-footer-row:not(:has(.po-notes-panel)) .po-footer-totals-col {
     margin-left: auto;
     flex: 0 0 auto;
@@ -965,6 +968,43 @@
     background: #fff9f0;
 }
 
+.pr-purchase-requisition-doc .doc-site-block.doc-site-block--pr-triple,
+.invoice-box.pr-purchase-requisition-doc .doc-site-block.doc-site-block--pr-triple {
+    display: flex !important;
+    flex-direction: row;
+    align-items: baseline;
+    width: 100%;
+    box-sizing: border-box;
+    column-gap: 0.75rem;
+}
+
+.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg,
+.invoice-box.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg {
+    flex: 1 1 0;
+    min-width: 0;
+    display: block;
+}
+
+.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--place,
+.invoice-box.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--place {
+    text-align: left;
+}
+
+.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--cat,
+.invoice-box.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--cat {
+    text-align: center;
+}
+
+.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--requester,
+.invoice-box.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--requester {
+    text-align: right;
+}
+
+.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-value {
+    word-break: break-word;
+}
+
+.pr-purchase-requisition-doc .doc-site-block.doc-site-block--po-split,
 .po-purchase-order-doc .doc-site-block.doc-site-block--po-split {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -973,18 +1013,21 @@
     width: 100%;
 }
 
+.pr-purchase-requisition-doc .doc-site-block--po-split .doc-site-main,
 .po-purchase-order-doc .doc-site-block--po-split .doc-site-main {
     justify-self: start;
     min-width: 0;
     text-align: left;
 }
 
+.pr-purchase-requisition-doc .doc-site-block--po-split .doc-site-category,
 .po-purchase-order-doc .doc-site-block--po-split .doc-site-category {
     justify-self: end;
     text-align: right;
     white-space: nowrap;
 }
 
+.pr-purchase-requisition-doc .doc-site-block--po-split .doc-site-category .doc-site-value,
 .po-purchase-order-doc .doc-site-block--po-split .doc-site-category .doc-site-value {
     white-space: normal;
 }
@@ -1337,6 +1380,38 @@
         border-left-color: #ea580c !important;
     }
 
+    .pr-purchase-requisition-doc .doc-site-block.doc-site-block--pr-triple,
+    .invoice-box.pr-purchase-requisition-doc .doc-site-block.doc-site-block--pr-triple {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: baseline !important;
+        width: 100% !important;
+        column-gap: 0.75rem !important;
+    }
+
+    .pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg,
+    .invoice-box.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        display: block !important;
+    }
+
+    .pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--place,
+    .invoice-box.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--place {
+        text-align: left !important;
+    }
+
+    .pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--cat,
+    .invoice-box.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--cat {
+        text-align: center !important;
+    }
+
+    .pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--requester,
+    .invoice-box.pr-purchase-requisition-doc .doc-site-block--pr-triple .doc-site-seg--requester {
+        text-align: right !important;
+    }
+
+    .pr-purchase-requisition-doc .doc-site-block.doc-site-block--po-split,
     .po-purchase-order-doc .doc-site-block.doc-site-block--po-split {
         display: grid !important;
         grid-template-columns: minmax(0, 1fr) auto !important;
@@ -1345,11 +1420,13 @@
         width: 100% !important;
     }
 
+    .pr-purchase-requisition-doc .doc-site-block--po-split .doc-site-main,
     .po-purchase-order-doc .doc-site-block--po-split .doc-site-main {
         justify-self: start !important;
         text-align: left !important;
     }
 
+    .pr-purchase-requisition-doc .doc-site-block--po-split .doc-site-category,
     .po-purchase-order-doc .doc-site-block--po-split .doc-site-category {
         justify-self: end !important;
         text-align: right !important;

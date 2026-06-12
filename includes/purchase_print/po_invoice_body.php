@@ -298,9 +298,9 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
                     } else {
                         $poVatModePrint = (string) ($poVatPrint['vat_mode'] ?? '');
                         $poVatDisplayLabel = match ($poVatModePrint) {
-                            'inclusive' => 'VAT รวม',
-                            'exclusive' => 'VAT แยก',
-                            default => (string) ($poVatPrint['vat_label'] ?? 'ภาษีมูลค่าเพิ่ม'),
+                            'inclusive' => 'รวม VAT',
+                            'exclusive' => 'แยก VAT',
+                            default => (string) ($poVatPrint['vat_label'] ?? 'แยก VAT'),
                         };
                     }
                     ?>

@@ -727,7 +727,10 @@ function calculateTotal(hireDirectSubtotal) {
 
         document.getElementById('subtotal_label').textContent = 'ยอดรายการ';
         document.getElementById('subtotal_display').textContent = fmtNum(subtotal);
-        document.getElementById('vat_label').textContent = 'ภาษีมูลค่าเพิ่ม';
+        const vatLabelEl = document.getElementById('vat_label');
+        if (vatLabelEl) {
+            vatLabelEl.textContent = vatOn ? (vatMode === 'inclusive' ? 'รวม VAT' : 'แยก VAT') : 'แยก VAT';
+        }
         document.getElementById('vat_prefix').textContent = '';
         document.getElementById('vat_display').textContent = fmtNum(vat);
         document.getElementById('grand_total_label').textContent = 'ยอดสุทธิ';

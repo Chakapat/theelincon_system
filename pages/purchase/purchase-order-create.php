@@ -472,7 +472,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                         <?php if ($pr_vat_enabled): ?>
                         <div class="small mb-2">
                             <span class="badge bg-success-subtle text-success border border-success-subtle">
-                                <?= $pr_vat_mode === 'inclusive' ? 'รวมภาษีมูลค่าเพิ่มในราคาสินค้า' : 'แยกภาษีมูลค่าเพิ่มจากราคาสินค้า' ?>
+                                <?= $pr_vat_mode === 'inclusive' ? 'รวม VAT' : 'แยก VAT' ?>
                             </span>
                         </div>
                         <?php else: ?>

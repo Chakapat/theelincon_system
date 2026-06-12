@@ -156,8 +156,17 @@ if (!function_exists('tnc_purchase_po_resolved_totals')) {
     }
 }
 
+/** ป้ายโหมด VAT สำหรับแสดงใน PR/PO */
+if (!function_exists('tnc_purchase_vat_mode_label')) {
+    function tnc_purchase_vat_mode_label(string $vatMode, bool $suffixColon = false): string
+    {
+        $text = $vatMode === 'inclusive' ? 'รวม VAT' : 'แยก VAT';
+
+        return $suffixColon ? $text . ':' : $text;
+    }
+}
+
 /**
- * สรุปยอด VAT สำหรับพิมพ์ PR/PO ตาม vat_mode ที่บันทึก
  *
  * @return array{
  *     vat_mode: string,
@@ -202,7 +211,7 @@ function tnc_purchase_vat_print_summary(
         return [
             'vat_mode' => 'inclusive',
             'line_amount' => $lineAmount,
-            'vat_label' => 'ภาษีมูลค่าเพิ่มในราคาสินค้า',
+            'vat_label' => tnc_purchase_vat_mode_label('inclusive'),
             'vat_amount' => $vatAmount,
             'net_amount' => $netAmount,
         ];
@@ -213,7 +222,7 @@ function tnc_purchase_vat_print_summary(
     return [
         'vat_mode' => 'exclusive',
         'line_amount' => $lineAmount,
-        'vat_label' => 'ภาษีมูลค่าเพิ่มแยกจากราคาสินค้า',
+        'vat_label' => tnc_purchase_vat_mode_label('exclusive'),
         'vat_amount' => $vatAmount,
         'net_amount' => $grandTotal > 0 ? $grandTotal : round($lineAmount + $vatAmount, 2),
     ];

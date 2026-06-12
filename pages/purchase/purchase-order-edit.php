@@ -427,7 +427,7 @@ if ($isHirePo) {
                         <?php if ($poVatEnabledStored): ?>
                         <div class="small mb-2">
                             <span class="badge bg-success-subtle text-success border border-success-subtle">
-                                <?= $poVatModeStored === 'inclusive' ? 'รวมภาษีมูลค่าเพิ่มในราคาสินค้า' : 'แยกภาษีมูลค่าเพิ่มจากราคาสินค้า' ?>
+                                <?= $poVatModeStored === 'inclusive' ? 'รวม VAT' : 'แยก VAT' ?>
                             </span>
                         </div>
                         <?php else: ?>
@@ -653,11 +653,11 @@ function calculateTotal() {
     }
     if (vatLabel) {
         if (!vatOn) {
-            vatLabel.textContent = 'ภาษีมูลค่าเพิ่ม';
+            vatLabel.textContent = 'แยก VAT';
         } else if (vatMode === 'inclusive') {
-            vatLabel.textContent = 'ภาษีมูลค่าเพิ่มในราคาสินค้า';
+            vatLabel.textContent = 'รวม VAT';
         } else {
-            vatLabel.textContent = 'ภาษีมูลค่าเพิ่มแยกจากราคาสินค้า';
+            vatLabel.textContent = 'แยก VAT';
         }
     }
 
