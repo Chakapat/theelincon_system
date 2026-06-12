@@ -482,6 +482,14 @@ $po_submit_disabled = $pr_prefill_items_display === [];
         }
         .po-lock-banner i { color: #64748b; }
     </style>
+    <?php
+    $poLineMobileCss = dirname(__DIR__, 2) . '/assets/css/po-line-table-mobile.css';
+    $poLineMobileVer = @filemtime($poLineMobileCss);
+    if (!is_int($poLineMobileVer) || $poLineMobileVer <= 0) {
+        $poLineMobileVer = time();
+    }
+    ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-line-table-mobile.css') . '?v=' . $poLineMobileVer, ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body class="purchase-module tnc-app-body">
 
@@ -508,7 +516,6 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                     </div>
                 </div>
                 <div class="col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
-                    <button type="submit" class="btn btn-orange rounded-pill px-4 shadow"<?= $po_submit_disabled ? ' disabled' : '' ?>><i class="bi bi-check2-circle me-1"></i>ยืนยันสร้างใบสั่งซื้อ</button>
                     <a href="<?= htmlspecialchars($pr_view_url, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับใบขอซื้อ</a>
                 </div>
             </div>
@@ -608,8 +615,8 @@ $po_submit_disabled = $pr_prefill_items_display === [];
 
         <div class="card card-soft p-0 mb-4 overflow-hidden po-items-readonly">
             <div class="p-3 p-md-4">
-                <div class="table-responsive po-table-wrap">
-                    <table class="table align-middle mb-0" id="poTable">
+                <div class="table-responsive po-table-wrap po-line-table-mobile">
+                    <table class="table align-middle mb-0 po-line-table" id="poTable">
                         <thead>
                             <tr>
                                 <th style="width:3rem;" class="text-center">#</th>
@@ -623,7 +630,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                         </thead>
                         <tbody>
                             <?php if ($pr_prefill_items_display === []): ?>
-                            <tr>
+                            <tr class="po-line-empty">
                                 <td colspan="7" class="text-center text-muted py-4">ไม่มีรายการในใบขอซื้อ — <a href="<?= htmlspecialchars($pr_edit_url, ENT_QUOTES, 'UTF-8') ?>">เพิ่มรายการที่ PR</a></td>
                             </tr>
                             <?php else: ?>
@@ -636,13 +643,18 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                             $unitCell = trim((string) ($prItem['unit'] ?? ''));
                             ?>
                             <tr data-pr-total="<?= htmlspecialchars(number_format($prefillLineTotal, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
-                                <td class="text-center text-secondary small fw-semibold"><?= $idx + 1 ?></td>
-                                <td class="cell-desc"><?= htmlspecialchars((string) ($prItem['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                <td class="cell-num"><?= number_format($prefillQty, 2) ?></td>
-                                <td class="text-center text-muted"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—' ?></td>
-                                <td class="cell-num"><?= number_format($prefillPrice, 2) ?></td>
-                                <td class="cell-num<?= $discDisplay !== '' ? ' fw-semibold' : ' text-muted' ?>"><?= $discDisplay !== '' ? htmlspecialchars($discDisplay, ENT_QUOTES, 'UTF-8') : '—' ?></td>
-                                <td class="cell-num fw-bold"><?= number_format($prefillLineTotal, 2) ?></td>
+                                <td class="po-cell-idx text-center text-secondary small fw-semibold">
+                                    <div class="po-mobile-item-head">
+                                        <span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no"><?= $idx + 1 ?></span></span>
+                                    </div>
+                                    <span class="d-none d-lg-inline po-mobile-item-no"><?= $idx + 1 ?></span>
+                                </td>
+                                <td class="po-cell-desc cell-desc" data-label="รายการ"><?= htmlspecialchars((string) ($prItem['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="po-cell-qty cell-num" data-label="จำนวน"><?= number_format($prefillQty, 2) ?></td>
+                                <td class="po-cell-unit text-center text-muted" data-label="หน่วย"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—' ?></td>
+                                <td class="po-cell-price cell-num" data-label="ราคา/หน่วย"><?= number_format($prefillPrice, 2) ?></td>
+                                <td class="po-cell-disc cell-num<?= $discDisplay !== '' ? ' fw-semibold' : ' text-muted' ?>" data-label="ส่วนลด"><?= $discDisplay !== '' ? htmlspecialchars($discDisplay, ENT_QUOTES, 'UTF-8') : '—' ?></td>
+                                <td class="po-cell-total cell-num fw-bold" data-label="ยอดรวม"><?= number_format($prefillLineTotal, 2) ?></td>
                             </tr>
                             <?php endforeach; ?>
                             <?php endif; ?>
@@ -681,9 +693,12 @@ $po_submit_disabled = $pr_prefill_items_display === [];
             <textarea name="po_note" id="po_note" class="form-control" rows="3" maxlength="500" placeholder="หมายเหตุใบสั่งซื้อ"></textarea>
         </div>
 
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-2 d-md-none">
-            <a href="<?= htmlspecialchars($pr_view_url, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill">ย้อนกลับ</a>
-            <button type="submit" class="btn btn-orange rounded-pill px-4 fw-bold"<?= $po_submit_disabled ? ' disabled' : '' ?>><i class="bi bi-check2-circle me-1"></i>ยืนยันสร้าง PO</button>
+        <div class="card card-soft po-submit-panel mb-2">
+            <div class="d-flex flex-wrap align-items-center justify-content-end gap-3">
+                <button type="submit" class="btn btn-orange btn-lg po-submit-btn rounded-pill"<?= $po_submit_disabled ? ' disabled' : '' ?>>
+                    <i class="bi bi-check2-circle me-2"></i>ยืนยันสร้างใบสั่งซื้อ
+                </button>
+            </div>
         </div>
     </form>
 </div>

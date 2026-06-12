@@ -1,0 +1,190 @@
+/* PO line items — mobile card layout */
+
+@media (max-width: 991.98px) {
+    .po-table-wrap.po-line-table-mobile {
+        overflow: visible;
+        border-radius: 0.75rem;
+    }
+
+    .po-table-wrap.po-line-table-mobile .table-responsive,
+    .po-table-wrap.po-line-table-mobile {
+        overflow-x: visible;
+    }
+
+    .po-line-table thead {
+        display: none;
+    }
+
+    .po-line-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.55rem 0.65rem;
+        padding: 0.85rem 0.8rem;
+        border-bottom: 1px solid #e8ecf1;
+        background: #fff;
+        position: relative;
+    }
+
+    .po-line-table tbody tr:last-child {
+        border-bottom: 0;
+    }
+
+    .po-line-table tbody td {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+        padding: 0 !important;
+        border: 0 !important;
+        min-width: 0;
+    }
+
+    .po-line-table tbody td::before {
+        content: attr(data-label);
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        line-height: 1.2;
+    }
+
+    /* Header: รายการที่ + ปุ่มลบ */
+    .po-line-table .po-cell-idx {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        flex-direction: column;
+        gap: 0;
+        padding-bottom: 0.45rem !important;
+        margin-bottom: 0.05rem;
+        border-bottom: 1px dashed #e2e8f0 !important;
+    }
+
+    .po-line-table .po-cell-idx::before {
+        display: none;
+    }
+
+    .po-line-table .po-mobile-item-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.65rem;
+        width: 100%;
+    }
+
+    .po-line-table .po-mobile-item-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+    }
+
+    .po-line-table .po-mobile-item-no {
+        font-size: 0.82rem;
+        font-weight: 800;
+        color: #334155;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .po-line-table .po-row-delete-mobile {
+        flex-shrink: 0;
+        position: relative;
+        z-index: 2;
+        pointer-events: auto;
+        min-width: 2.25rem;
+        min-height: 2.25rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .po-line-table .po-cell-action-desktop {
+        display: none !important;
+    }
+
+    /* แถว 1: รายการ (เต็มความกว้าง) */
+    .po-line-table .po-cell-desc {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    .po-line-table .po-cell-desc::before {
+        content: 'รายการ';
+    }
+
+    .po-line-table .po-cell-desc .form-control,
+    .po-line-table .po-cell-desc.cell-desc {
+        font-weight: 600;
+    }
+
+    /* แถว 2: จำนวน | หน่วย */
+    .po-line-table .po-cell-qty {
+        grid-column: 1;
+        grid-row: 3;
+    }
+
+    .po-line-table .po-cell-unit {
+        grid-column: 2;
+        grid-row: 3;
+    }
+
+    /* แถว 3: ราคา/หน่วย | ส่วนลด */
+    .po-line-table .po-cell-price {
+        grid-column: 1;
+        grid-row: 4;
+    }
+
+    .po-line-table .po-cell-disc {
+        grid-column: 2;
+        grid-row: 4;
+    }
+
+    /* แถว 4: ยอดรวม (เต็มความกว้าง) */
+    .po-line-table .po-cell-total {
+        grid-column: 1 / -1;
+        grid-row: 5;
+        text-align: end;
+    }
+
+    .po-line-table .po-cell-qty .form-control,
+    .po-line-table .po-cell-price .form-control,
+    .po-line-table .po-cell-disc .form-control,
+    .po-line-table .po-cell-total .form-control {
+        text-align: end;
+    }
+
+    .po-line-table .po-cell-total .form-control,
+    .po-line-table .po-cell-total.fw-bold {
+        color: var(--tnc-orange, #ea580c);
+        font-size: 1.02rem;
+    }
+
+    .po-line-table tbody tr.po-line-empty {
+        display: block;
+        padding: 1.25rem 0.75rem;
+        text-align: center;
+    }
+
+    .po-line-table tbody tr.po-line-empty td {
+        display: block;
+    }
+
+    .po-line-table tbody tr.po-line-empty td::before {
+        display: none;
+    }
+}
+
+@media (min-width: 992px) {
+    .po-line-table .po-row-delete-mobile {
+        display: none !important;
+    }
+
+    .po-line-table .po-mobile-item-head {
+        display: none;
+    }
+
+    .po-line-table .po-cell-idx::before {
+        display: none;
+    }
+}

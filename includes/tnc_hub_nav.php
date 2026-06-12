@@ -62,11 +62,11 @@ function tnc_hub_nav_section_page_keys(): array
 function tnc_hub_nav_hub_meta(): array
 {
     return [
-        'hub_master' => ['icon' => 'bi-folder2', 'ico_class' => 'home-hub-ico--master'],
-        'hub_purchase' => ['icon' => 'bi-cart3', 'ico_class' => 'home-hub-ico--purchase', 'sidebar_label' => 'ระบบจัดซื้อ (Purchase)'],
-        'hub_docs' => ['icon' => 'bi-file-earmark-text', 'ico_class' => 'home-hub-ico--docs', 'sidebar_label' => 'ระบบเอกสาร (Documents)'],
-        'hub_cash' => ['icon' => 'bi-cash-stack', 'ico_class' => 'home-hub-ico--cash', 'sidebar_label' => 'ระบบการเงิน (Cash)'],
-        'hub_home' => ['icon' => 'bi-house-door', 'ico_class' => 'home-hub-ico--master'],
+        'hub_master' => ['icon' => 'bi-folder2', 'ico_class' => 'home-hub-ico--master', 'short_label' => 'ข้อมูลหลัก'],
+        'hub_purchase' => ['icon' => 'bi-cart3', 'ico_class' => 'home-hub-ico--purchase', 'sidebar_label' => 'ระบบจัดซื้อ (Purchase)', 'short_label' => 'ระบบจัดซื้อ'],
+        'hub_docs' => ['icon' => 'bi-file-earmark-text', 'ico_class' => 'home-hub-ico--docs', 'sidebar_label' => 'ระบบเอกสาร (Documents)', 'short_label' => 'ระบบเอกสาร'],
+        'hub_cash' => ['icon' => 'bi-cash-stack', 'ico_class' => 'home-hub-ico--cash', 'sidebar_label' => 'ระบบการเงิน (Cash)', 'short_label' => 'ระบบการเงิน'],
+        'hub_home' => ['icon' => 'bi-house-door', 'ico_class' => 'home-hub-ico--master', 'short_label' => 'หน้าแรก'],
         'hub_hr' => ['icon' => 'bi-person-badge', 'ico_class' => 'home-hub-ico--docs'],
         'hub_internal' => ['icon' => 'bi-shield-lock', 'ico_class' => 'home-hub-ico--docs'],
         'hub_tools' => ['icon' => 'bi-tools', 'ico_class' => 'home-hub-ico--docs'],
@@ -82,12 +82,12 @@ function tnc_hub_nav_page_meta(): array
         'page.index' => ['icon' => 'bi-house-door', 'short_label' => 'หน้าแรก', 'pin' => true, 'pin_order' => 1],
         'page.invoice.create' => ['icon' => 'bi-file-earmark-plus', 'short_label' => 'Invoice', 'pin' => true, 'pin_order' => 2],
         'page.invoice.tax_list' => ['icon' => 'bi-receipt', 'short_label' => 'ใบกำกับ'],
-        'page.org.customer' => ['icon' => 'bi-people'],
-        'page.org.company' => ['icon' => 'bi-building'],
-        'page.org.sites' => ['icon' => 'bi-geo-alt'],
-        'page.org.members' => ['icon' => 'bi-person-gear', 'link_class' => 'js-hub-member-manage'],
-        'page.org.suppliers' => ['icon' => 'bi-truck'],
-        'page.org.contractors' => ['icon' => 'bi-person-badge'],
+        'page.org.customer' => ['icon' => 'bi-people', 'short_label' => 'ลูกค้า'],
+        'page.org.company' => ['icon' => 'bi-building', 'short_label' => 'บริษัท'],
+        'page.org.sites' => ['icon' => 'bi-geo-alt', 'short_label' => 'ไซต์งาน'],
+        'page.org.members' => ['icon' => 'bi-person-gear', 'link_class' => 'js-hub-member-manage', 'short_label' => 'สมาชิก'],
+        'page.org.suppliers' => ['icon' => 'bi-truck', 'short_label' => 'ผู้ขาย'],
+        'page.org.contractors' => ['icon' => 'bi-person-badge', 'short_label' => 'ผู้รับจ้าง'],
         'page.pr' => ['icon' => 'bi-cart-plus', 'short_label' => 'PR', 'pin' => true, 'pin_order' => 3],
         'page.po' => ['icon' => 'bi-bag-check', 'short_label' => 'PO', 'pin' => true, 'pin_order' => 4],
         'page.wo' => ['icon' => 'bi-file-earmark-ruled', 'short_label' => 'WO'],
@@ -109,18 +109,14 @@ function tnc_hub_nav_sidebar_hub_keys(): array
     return ['hub_master', 'hub_purchase', 'hub_docs', 'hub_cash'];
 }
 
-/** หมวดที่แสดงใน FAB sheet (รวม home / internal / tools ถ้ามีสิทธิ์) */
+/** หมวดที่แสดงใน FAB (เรียงตาม sidebar หน้า index) */
 function tnc_hub_nav_fab_hub_keys(): array
 {
     return [
-        'hub_home',
         'hub_master',
         'hub_purchase',
         'hub_docs',
         'hub_cash',
-        'hub_hr',
-        'hub_internal',
-        'hub_tools',
     ];
 }
 
@@ -191,10 +187,12 @@ function tnc_hub_nav_build_for_user(): array
         $hubs[] = [
             'key' => $hubKey,
             'label' => $hubLabel,
+            'short_label' => (string) ($meta['short_label'] ?? preg_replace('/\s*\([^)]*\)\s*$/u', '', $hubLabel)),
             'tree_label' => (string) $tree[$hubKey]['label'],
             'icon' => (string) $meta['icon'],
             'ico_class' => (string) $meta['ico_class'],
             'pages' => $pages,
+            'active' => array_reduce($pages, static fn (bool $carry, array $p): bool => $carry || !empty($p['active']), false),
         ];
     }
 

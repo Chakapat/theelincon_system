@@ -142,7 +142,7 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css') . '?v=' . (@filemtime(dirname(__DIR__, 2) . '/assets/css/purchase-ui.css') ?: time()), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/hire-line-table.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/pr-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
@@ -198,7 +198,33 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
             .pr-vat-toolbar { flex-direction: column; align-items: stretch; }
             .pr-vat-dropdown-wrap { max-width: none; }
         }
+        .pr-create-wrap .po-submit-panel--end {
+            display: flex !important;
+            justify-content: flex-end !important;
+            align-items: center;
+            width: 100%;
+        }
+        .pr-create-wrap .po-submit-panel--end .po-submit-btn {
+            margin-left: auto;
+        }
+        @media (max-width: 991.98px) {
+            .pr-create-wrap .po-submit-panel--end {
+                justify-content: center !important;
+            }
+            .pr-create-wrap .po-submit-panel--end .po-submit-btn {
+                margin-left: 0;
+                width: 100%;
+            }
+        }
     </style>
+    <?php
+    $poLineMobileCss = dirname(__DIR__, 2) . '/assets/css/po-line-table-mobile.css';
+    $poLineMobileVer = @filemtime($poLineMobileCss);
+    if (!is_int($poLineMobileVer) || $poLineMobileVer <= 0) {
+        $poLineMobileVer = time();
+    }
+    ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-line-table-mobile.css') . '?v=' . $poLineMobileVer, ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body class="purchase-module tnc-app-body">
 
@@ -251,7 +277,6 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                     </h1>
                 </div>
                 <div class="col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
-                    <button type="button" class="btn btn-orange rounded-pill px-4 shadow" id="btnPrSaveOpenModal" <?= count($sites) === 0 ? 'disabled' : '' ?>><i class="bi bi-check2-circle me-1"></i><?= $requestTypeVal === 'hire' ? 'บันทึกใบขอจัดจ้าง' : 'บันทึกใบขอซื้อ' ?></button>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับรายการ PR</a>
                 </div>
             </div>
@@ -328,8 +353,8 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                 <div class="po-section-head">
                     <h2 class="section-title mb-0">รายการสินค้า</h2>
                 </div>
-                <div class="table-responsive po-table-wrap">
-            <table class="table align-middle table-hover mb-0" id="prTable">
+                <div class="table-responsive po-table-wrap po-line-table-mobile">
+            <table class="table align-middle table-hover mb-0 po-line-table" id="prTable">
                 <thead>
                     <tr>
                         <th style="width:3rem;" class="text-center">#</th>
@@ -338,7 +363,7 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                         <th style="width:6rem;" class="text-end">หน่วย</th>
                         <th style="width:8rem;" class="text-end">ราคา/หน่วย</th>
                         <th style="width:7rem;" class="text-end">ส่วนลด</th>
-                        <th style="width:7rem;" class="text-end">รวม</th>
+                        <th style="width:7rem;" class="text-end">ยอดรวม</th>
                         <th style="width:3rem;"></th>
                     </tr>
                 </thead>
@@ -360,26 +385,39 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                             }
                             ?>
                             <tr>
-                                <td class="row-number"><?= $rn ?></td>
-                                <td><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($it['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" required oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['quantity'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($it['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['unit_price'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="text" name="item_discount[]" class="form-control form-control-sm line-discount text-end" maxlength="20" oninput="calculateTotal()" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="text" class="form-control form-control-sm row-total text-end bg-light fw-semibold" value="<?= number_format((float) ($it['total'] ?? 0), 2, '.', '') ?>" readonly tabindex="-1"></td>
-                                <td><button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)"><i class="bi bi-trash-fill"></i></button></td>
+                                <td class="po-cell-idx row-number text-secondary small fw-semibold">
+                                    <div class="po-mobile-item-head">
+                                        <span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no"><?= $rn ?></span></span>
+                                        <?php if ($rn > 1): ?>
+                                        <button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn po-row-delete-mobile" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button>
+                                        <?php endif; ?>
+                                    </div>
+                                    <span class="d-none d-lg-inline po-mobile-item-no"><?= $rn ?></span>
+                                </td>
+                                <td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($it['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" required oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['quantity'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td class="po-cell-unit" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($it['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['unit_price'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm line-discount text-end" maxlength="20" oninput="calculateTotal()" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td class="po-cell-total" data-label="รวม"><input type="text" class="form-control form-control-sm row-total text-end bg-light fw-semibold" value="<?= number_format((float) ($it['total'] ?? 0), 2, '.', '') ?>" readonly tabindex="-1"></td>
+                                <td class="po-cell-action po-cell-action-desktop"><?php if ($rn > 1): ?><button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button><?php endif; ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
                     <tr>
-                        <td class="row-number">1</td>
-                        <td><input type="text" name="item_description[]" class="form-control form-control-sm" required></td>
-                        <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" required oninput="calculateTotal()"></td>
-                        <td><input type="text" name="item_unit[]" class="form-control form-control-sm text-end"></td>
-                        <td><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" oninput="calculateTotal()"></td>
-                        <td><input type="text" name="item_discount[]" class="form-control form-control-sm line-discount text-end" maxlength="20" oninput="calculateTotal()"></td>
-                        <td><input type="text" class="form-control form-control-sm row-total text-end bg-light fw-semibold" value="0.00" readonly tabindex="-1"></td>
-                        <td></td>
+                        <td class="po-cell-idx row-number text-secondary small fw-semibold">
+                            <div class="po-mobile-item-head">
+                                <span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no">1</span></span>
+                            </div>
+                            <span class="d-none d-lg-inline po-mobile-item-no">1</span>
+                        </td>
+                        <td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required></td>
+                        <td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" required oninput="calculateTotal()"></td>
+                        <td class="po-cell-unit" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm text-end"></td>
+                        <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" oninput="calculateTotal()"></td>
+                        <td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm line-discount text-end" maxlength="20" oninput="calculateTotal()"></td>
+                        <td class="po-cell-total" data-label="รวม"><input type="text" class="form-control form-control-sm row-total text-end bg-light fw-semibold" value="0.00" readonly tabindex="-1"></td>
+                        <td class="po-cell-action po-cell-action-desktop"></td>
                     </tr>
                     <?php endif; ?>
                 </tbody>
@@ -485,6 +523,12 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
             </div>
         </div>
 
+        <div class="po-submit-panel po-submit-panel--end mb-2 d-flex w-100 justify-content-center justify-content-lg-end">
+            <button type="button" class="btn btn-orange btn-lg po-submit-btn rounded-pill w-100 w-lg-auto" id="btnPrSaveOpenModal"<?= count($sites) === 0 ? ' disabled' : '' ?>>
+                <i class="bi bi-check2-circle me-2"></i><?= $requestTypeVal === 'hire' ? 'บันทึกใบขอจัดจ้าง' : 'บันทึกใบขอซื้อ' ?>
+            </button>
+        </div>
+
     </form>
 
     <div class="modal fade" id="prSaveConfirmModal" tabindex="-1" aria-labelledby="prSaveConfirmModalLabel" aria-hidden="true">
@@ -533,23 +577,37 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
 <script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 let hirePrTableApi = null;
+
+function buildPrPurchaseRowHtml(rowCount, withDelete) {
+    var deleteMobile = withDelete
+        ? '<button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn po-row-delete-mobile" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button>'
+        : '';
+    var deleteDesktop = withDelete
+        ? '<button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button>'
+        : '';
+    return '<td class="po-cell-idx row-number text-secondary small fw-semibold">' +
+        '<div class="po-mobile-item-head">' +
+        '<span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no">' + rowCount + '</span></span>' +
+        deleteMobile +
+        '</div>' +
+        '<span class="d-none d-lg-inline po-mobile-item-no">' + rowCount + '</span>' +
+        '</td>' +
+        '<td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required></td>' +
+        '<td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" required oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-unit" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm text-end"></td>' +
+        '<td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm line-discount text-end" maxlength="20" oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-total" data-label="รวม"><input type="text" class="form-control form-control-sm row-total text-end bg-light fw-semibold" value="0.00" readonly tabindex="-1"></td>' +
+        '<td class="po-cell-action po-cell-action-desktop">' + deleteDesktop + '</td>';
+}
+
 // ฟังก์ชันเพิ่มแถวใหม่
 function addRow() {
     const table = document.getElementById('prTable').getElementsByTagName('tbody')[0];
     const newRow = table.insertRow();
     const rowCount = table.rows.length;
-
-    newRow.innerHTML = `
-        <td class="row-number">${rowCount}</td>
-        <td><input type="text" name="item_description[]" class="form-control form-control-sm" required></td>
-        <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" required oninput="calculateTotal()"></td>
-        <td><input type="text" name="item_unit[]" class="form-control form-control-sm text-end"></td>
-        <td><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" oninput="calculateTotal()"></td>
-        <td><input type="text" name="item_discount[]" class="form-control form-control-sm line-discount text-end" maxlength="20" oninput="calculateTotal()"></td>
-        <td><input type="text" class="form-control form-control-sm row-total text-end bg-light fw-semibold" value="0.00" readonly tabindex="-1"></td>
-        <td><button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)"><i class="bi bi-trash-fill"></i></button></td>
-    `;
-}   
+    newRow.innerHTML = buildPrPurchaseRowHtml(rowCount, true);
+}
 
 function prLineAmountAfterDiscount(qty, price, discRaw) {
     const q = parseFloat(String(qty || '').replace(/,/g, '')) || 0;
@@ -575,17 +633,21 @@ function prLineAmountAfterDiscount(qty, price, discRaw) {
 
 // ฟังก์ชันลบแถว
 function removeRow(btn) {
-    const row = btn.parentNode.parentNode;
-    row.parentNode.removeChild(row);
+    const row = btn.closest('tr');
+    if (!row || !row.parentNode) {
+        return;
+    }
+    row.remove();
     updateRowNumbers();
     calculateTotal();
 }
 
 // ฟังก์ชันอัปเดตเลขลำดับข้อ (#)
 function updateRowNumbers() {
-    const rows = document.querySelectorAll('.row-number');
-    rows.forEach((td, index) => {
-        td.innerText = index + 1;
+    document.querySelectorAll('#prTable tbody tr').forEach(function (row, index) {
+        row.querySelectorAll('.po-mobile-item-no').forEach(function (el) {
+            el.innerText = index + 1;
+        });
     });
 }
 
@@ -758,6 +820,12 @@ function calculateTotal(hireDirectSubtotal) {
     if (vatModeEl) {
         vatModeEl.tabIndex = vatOn && !isHire ? 0 : -1;
     }
+
+    const submitGrandEl = document.getElementById('pr_submit_grand_total');
+    const grandTotalEl = document.getElementById('grand_total');
+    if (submitGrandEl && grandTotalEl) {
+        submitGrandEl.textContent = grandTotalEl.textContent;
+    }
 }
 
 function getPrRequestType() {
@@ -797,8 +865,14 @@ function toggleRequestTypeFields() {
     }
     if (saveBtn) {
         saveBtn.innerHTML = isHire
-            ? '<i class="bi bi-check2-circle me-1"></i>บันทึกใบขอจัดจ้าง'
-            : '<i class="bi bi-check2-circle me-1"></i>บันทึกใบขอซื้อ';
+            ? '<i class="bi bi-check2-circle me-2"></i>บันทึกใบขอจัดจ้าง'
+            : '<i class="bi bi-check2-circle me-2"></i>บันทึกใบขอซื้อ';
+    }
+    const submitHint = document.getElementById('pr_submit_hint');
+    if (submitHint) {
+        submitHint.textContent = isHire
+            ? 'ตรวจสอบรายการงานและยอดสัญญาก่อนบันทึก'
+            : 'ตรวจสอบรายการและยอดเงินก่อนบันทึก';
     }
 
     if (hireFieldContractor) {
@@ -1010,6 +1084,18 @@ document.addEventListener('DOMContentLoaded', function () {
     toggleRequestTypeFields();
     initHirePrTable();
     calculateTotal();
+    const prTable = document.getElementById('prTable');
+    if (prTable) {
+        prTable.addEventListener('click', function (e) {
+            const btn = e.target.closest('.po-row-delete-btn');
+            if (!btn) {
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            removeRow(btn);
+        });
+    }
 });
 
 // เติมตัวเลือก "หมวดค่าใช้จ่าย" ตามไซต์ที่เลือก (หมวดกลาง + หมวดเฉพาะไซต์)

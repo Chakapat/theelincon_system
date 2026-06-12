@@ -1,96 +1,141 @@
-/* TNC Hub FAB — speed dial + full menu sheet */
+/* TNC Hub FAB — hub categories + left flyout tree */
 
 .tnc-hub-fab-root {
     --tnc-fab-size: 3.35rem;
-    --tnc-fab-pin-size: 2.75rem;
+    --tnc-fab-hub-size: 2.75rem;
     --tnc-fab-gap: 0.6rem;
+    --tnc-fab-orange: var(--tnc-orange, #ea580c);
+    --tnc-fab-orange-dark: var(--tnc-orange-dark, #c2410c);
+    --tnc-fab-orange-soft: var(--tnc-orange-soft, #ffedd5);
+    --tnc-fab-green: #16a34a;
+    --tnc-fab-green-dark: #15803d;
+    --tnc-fab-green-soft: #dcfce7;
     position: fixed;
     z-index: 1040;
     right: max(1.1rem, env(safe-area-inset-right, 0px));
     bottom: max(1.1rem, env(safe-area-inset-bottom, 0px));
-    width: var(--tnc-fab-size);
-    height: var(--tnc-fab-size);
     pointer-events: none;
 }
 
-.tnc-hub-fab-root > * {
+.tnc-hub-fab-stack {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--tnc-fab-gap);
     pointer-events: auto;
 }
 
-/* ---------- Speed dial (icons explode upward) ---------- */
-.tnc-hub-fab-pins {
-    position: absolute;
-    right: 0;
-    bottom: calc(100% + var(--tnc-fab-gap));
+/* ---------- Hub buttons (stack upward) ---------- */
+.tnc-hub-fab-hubs {
     display: flex;
     flex-direction: column-reverse;
     align-items: flex-end;
     gap: 0.55rem;
     width: max-content;
-    min-width: calc(var(--tnc-fab-pin-size) + 8rem);
-    padding-bottom: 0.15rem;
+    min-width: calc(var(--tnc-fab-hub-size) + 8rem);
 }
 
-.tnc-hub-fab-pin {
+.tnc-hub-fab-hub {
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
     gap: 0.55rem;
-    text-decoration: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: inherit;
+    cursor: pointer;
     opacity: 0;
     transform: scale(0.35) translateY(1.25rem);
-    transform-origin: calc(100% - var(--tnc-fab-pin-size) / 2) bottom;
+    transform-origin: calc(100% - var(--tnc-fab-hub-size) / 2) bottom;
     pointer-events: none;
     transition:
         opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
         transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
-.tnc-hub-fab-root.is-open .tnc-hub-fab-pin {
+.tnc-hub-fab-root.is-open .tnc-hub-fab-hub {
     opacity: 1;
     transform: scale(1) translateY(0) translateX(var(--fab-arc, 0));
     pointer-events: auto;
 }
 
-.tnc-hub-fab-root.is-open .tnc-hub-fab-pin:nth-child(1) { transition-delay: 0ms; }
-.tnc-hub-fab-root.is-open .tnc-hub-fab-pin:nth-child(2) { transition-delay: 45ms; }
-.tnc-hub-fab-root.is-open .tnc-hub-fab-pin:nth-child(3) { transition-delay: 90ms; }
-.tnc-hub-fab-root.is-open .tnc-hub-fab-pin:nth-child(4) { transition-delay: 135ms; }
-.tnc-hub-fab-root.is-open .tnc-hub-fab-pin:nth-child(5) { transition-delay: 180ms; }
-.tnc-hub-fab-root.is-open .tnc-hub-fab-pin:nth-child(6) { transition-delay: 225ms; }
-.tnc-hub-fab-root.is-open .tnc-hub-fab-pin:nth-child(7) { transition-delay: 270ms; }
+.tnc-hub-fab-root.is-open .tnc-hub-fab-hub:nth-child(1) { transition-delay: 0ms; }
+.tnc-hub-fab-root.is-open .tnc-hub-fab-hub:nth-child(2) { transition-delay: 45ms; }
+.tnc-hub-fab-root.is-open .tnc-hub-fab-hub:nth-child(3) { transition-delay: 90ms; }
+.tnc-hub-fab-root.is-open .tnc-hub-fab-hub:nth-child(4) { transition-delay: 135ms; }
+.tnc-hub-fab-root.is-open .tnc-hub-fab-hub:nth-child(5) { transition-delay: 180ms; }
+.tnc-hub-fab-root.is-open .tnc-hub-fab-hub:nth-child(6) { transition-delay: 225ms; }
+.tnc-hub-fab-root.is-open .tnc-hub-fab-hub:nth-child(7) { transition-delay: 270ms; }
+.tnc-hub-fab-root.is-open .tnc-hub-fab-hub:nth-child(8) { transition-delay: 315ms; }
 
-.tnc-hub-fab-pin-btn {
-    width: var(--tnc-fab-pin-size);
-    height: var(--tnc-fab-pin-size);
+.tnc-hub-fab-hub-btn {
+    position: relative;
+    z-index: 2;
+    width: var(--tnc-fab-hub-size);
+    height: var(--tnc-fab-hub-size);
     flex-shrink: 0;
     border-radius: 999px;
     border: 2px solid #fff;
     background: #fff;
-    color: var(--tnc-orange-dark, #c2410c);
+    color: var(--tnc-fab-orange-dark);
     box-shadow: 0 4px 20px rgba(15, 23, 42, 0.16);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     font-size: 1.1rem;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.tnc-hub-fab-pin:hover .tnc-hub-fab-pin-btn,
-.tnc-hub-fab-pin:focus-visible .tnc-hub-fab-pin-btn {
+.tnc-hub-fab-hub-btn i {
+    display: inline-flex;
+    line-height: 1;
+    transition: transform 0.15s ease;
+}
+
+.tnc-hub-fab-hub:hover .tnc-hub-fab-hub-btn,
+.tnc-hub-fab-hub:focus-visible .tnc-hub-fab-hub-btn {
     transform: scale(1.08);
     box-shadow: 0 6px 24px rgba(253, 126, 20, 0.28);
-    background: var(--tnc-orange-soft, #ffedd5);
+    background: var(--tnc-fab-orange-soft);
 }
 
-.tnc-hub-fab-pin.is-active .tnc-hub-fab-pin-btn {
-    background: var(--tnc-orange, #ea580c);
+/* หน้าปัจจุบัน = เขียว + pulse */
+.tnc-hub-fab-hub.is-current:not(.is-expanded) .tnc-hub-fab-hub-btn {
+    background: var(--tnc-fab-green);
     color: #fff;
-    border-color: var(--tnc-orange, #ea580c);
+    border-color: var(--tnc-fab-green);
+    box-shadow: 0 4px 20px rgba(22, 163, 74, 0.35);
 }
 
-.tnc-hub-fab-pin-label {
+.tnc-hub-fab-hub.is-current:not(.is-expanded) .tnc-hub-fab-hub-btn i {
+    animation: tnc-hub-fab-icon-pulse 1.7s ease-in-out infinite;
+}
+
+.tnc-hub-fab-hub.is-current:not(.is-expanded):hover .tnc-hub-fab-hub-btn,
+.tnc-hub-fab-hub.is-current:not(.is-expanded):focus-visible .tnc-hub-fab-hub-btn {
+    background: var(--tnc-fab-green-dark);
+    border-color: var(--tnc-fab-green-dark);
+    box-shadow: 0 6px 24px rgba(22, 163, 74, 0.4);
+}
+
+/* เลือกเมนู = ส้ม */
+.tnc-hub-fab-hub.is-expanded .tnc-hub-fab-hub-btn {
+    background: var(--tnc-fab-orange);
+    color: #fff;
+    border-color: var(--tnc-fab-orange);
+    box-shadow: 0 6px 24px rgba(234, 88, 12, 0.35);
+}
+
+.tnc-hub-fab-hub.is-expanded .tnc-hub-fab-hub-btn i {
+    animation: none;
+    transform: scale(1);
+}
+
+.tnc-hub-fab-hub-label {
+    position: relative;
+    z-index: 1;
     font-size: 0.78rem;
     font-weight: 700;
     line-height: 1.25;
@@ -109,10 +154,156 @@
     box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2);
 }
 
-.tnc-hub-fab-pin:hover .tnc-hub-fab-pin-label,
-.tnc-hub-fab-pin:focus-visible .tnc-hub-fab-pin-label {
+.tnc-hub-fab-hub:hover .tnc-hub-fab-hub-label,
+.tnc-hub-fab-hub:focus-visible .tnc-hub-fab-hub-label {
     opacity: 1;
     transform: translateX(0);
+}
+
+.tnc-hub-fab-root.has-flyout .tnc-hub-fab-hub.is-expanded .tnc-hub-fab-hub-label {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ---------- Left flyout tree ---------- */
+.tnc-hub-fab-flyout {
+    position: absolute;
+    right: calc(var(--tnc-fab-hub-size) + 0.35rem);
+    top: var(--flyout-anchor-y, 50%);
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 1;
+}
+
+.tnc-hub-fab-flyout.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(-50%) translateX(0);
+}
+
+.tnc-hub-fab-root:not(.has-flyout) .tnc-hub-fab-flyout.is-visible {
+    transform: translateY(-50%);
+}
+
+.tnc-hub-fab-flyout-panel {
+    position: relative;
+    min-width: min(11rem, 58vw);
+    max-width: min(16rem, 72vw);
+    max-height: calc(100dvh - 1.5rem);
+    padding: 0.35rem 0.55rem 0.35rem 0.65rem;
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.2);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    box-shadow: none;
+    border: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.tnc-hub-fab-flyout-panel::before {
+    content: '';
+    position: absolute;
+    top: 0.35rem;
+    right: 0;
+    bottom: 0.35rem;
+    width: 2px;
+    border-radius: 2px;
+    background: rgba(234, 88, 12, 0.75);
+    pointer-events: none;
+}
+
+.tnc-hub-fab-flyout-head {
+    display: block;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--tnc-fab-orange-dark);
+    padding: 0.1rem 0.85rem 0.35rem 0.25rem;
+    white-space: nowrap;
+    border-bottom: 0;
+    margin-bottom: 0.05rem;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.85);
+}
+
+.tnc-hub-fab-flyout-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.02rem;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tnc-hub-fab-flyout-link {
+    position: relative;
+    display: block;
+    text-align: right;
+    padding: 0.34rem 0.85rem 0.34rem 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1e293b;
+    text-decoration: none;
+    white-space: nowrap;
+    border-radius: 0.35rem;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.75);
+    transition: color 0.12s ease, background 0.12s ease;
+}
+
+.tnc-hub-fab-flyout-link:hover,
+.tnc-hub-fab-flyout-link:focus-visible {
+    color: var(--tnc-fab-orange-dark);
+    background: rgba(255, 237, 213, 0.55);
+}
+
+/* หน้าปัจจุบันใน flyout = เขียว + pulse */
+.tnc-hub-fab-flyout-link.is-current {
+    color: var(--tnc-fab-green-dark);
+    font-weight: 800;
+    background: rgba(220, 252, 231, 0.45);
+    animation: tnc-hub-fab-link-pulse 1.7s ease-in-out infinite;
+}
+
+.tnc-hub-fab-flyout-link.is-current:hover,
+.tnc-hub-fab-flyout-link.is-current:focus-visible {
+    color: var(--tnc-fab-green-dark);
+    background: rgba(220, 252, 231, 0.65);
+}
+
+.tnc-hub-fab-flyout-bridge {
+    flex-shrink: 0;
+    width: calc(var(--tnc-fab-hub-size) * 0.55 + 0.5rem);
+    height: 2px;
+    background: var(--tnc-fab-orange);
+    pointer-events: none;
+}
+
+@keyframes tnc-hub-fab-icon-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.22);
+    }
+}
+
+@keyframes tnc-hub-fab-link-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.04);
+    }
 }
 
 /* ---------- Main FAB button ---------- */
@@ -123,7 +314,7 @@
     height: var(--tnc-fab-size);
     border: 0;
     border-radius: 999px;
-    background: linear-gradient(145deg, var(--tnc-orange, #ea580c), #f97316);
+    background: linear-gradient(145deg, var(--tnc-fab-orange), #f97316);
     color: #fff;
     box-shadow: 0 8px 28px rgba(234, 88, 12, 0.38);
     display: inline-flex;
@@ -183,8 +374,26 @@ body.tnc-has-hub-fab {
     padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
 }
 
-body.tnc-has-hub-fab.tnc-index-desktop-sidebar {
-    padding-bottom: 0;
+@media (min-width: 992px) {
+    body.tnc-has-hub-fab.tnc-index-desktop-sidebar {
+        padding-bottom: 0;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .tnc-hub-fab-flyout {
+        right: calc(var(--tnc-fab-hub-size) + 0.55rem);
+        max-width: calc(100vw - var(--tnc-fab-hub-size) - 2.5rem);
+    }
+
+    .tnc-hub-fab-flyout-panel {
+        min-width: 0;
+        max-width: none;
+    }
+
+    .tnc-hub-fab-hubs {
+        min-width: calc(var(--tnc-fab-hub-size) + 4rem);
+    }
 }
 
 @media print {
@@ -195,15 +404,21 @@ body.tnc-has-hub-fab.tnc-index-desktop-sidebar {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .tnc-hub-fab-pin,
+    .tnc-hub-fab-hub,
     .tnc-hub-fab-main,
     .tnc-hub-fab-main-icon,
     .tnc-hub-fab-backdrop,
-    .tnc-hub-fab-pin-label {
+    .tnc-hub-fab-hub-label,
+    .tnc-hub-fab-flyout {
         transition: none !important;
     }
 
-    .tnc-hub-fab-root.is-open .tnc-hub-fab-pin {
+    .tnc-hub-fab-root.is-open .tnc-hub-fab-hub {
         transition-delay: 0ms !important;
+    }
+
+    .tnc-hub-fab-hub.is-current:not(.is-expanded) .tnc-hub-fab-hub-btn i,
+    .tnc-hub-fab-flyout-link.is-current {
+        animation: none !important;
     }
 }

@@ -77,40 +77,15 @@ $items = [[
         .summary-grand { padding-top: 0.35rem; margin-top: 0.25rem; border-top: 2px dashed rgba(253, 126, 20, 0.25); }
         .po-vat-panel { background: #fffbf5; border: 1px solid var(--tnc-orange-border); border-radius: 0.75rem; }
         .po-actions-bar { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eef2f7; }
-        .po-submit-panel {
-            margin-top: 0.5rem;
-            padding: 1.25rem 1.35rem;
-            background: linear-gradient(180deg, #fffbf5 0%, #fff 55%);
-            border: 1px solid var(--tnc-orange-border);
-            box-shadow: 0 10px 36px rgba(234, 88, 12, 0.1);
-        }
-        .po-submit-hint { font-size: 0.82rem; color: #64748b; margin: 0; }
-        .po-submit-amount { font-size: 1.35rem; font-weight: 800; color: var(--tnc-orange); letter-spacing: -0.02em; line-height: 1.2; }
-        .po-submit-amount-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 0.15rem; }
-        .po-submit-btn {
-            min-width: min(100%, 280px);
-            padding: 0.9rem 2rem;
-            font-size: 1.05rem;
-            font-weight: 700;
-            letter-spacing: 0.01em;
-            box-shadow: 0 6px 20px rgba(234, 88, 12, 0.28);
-            transition: transform 0.18s ease, box-shadow 0.18s ease;
-        }
-        .po-submit-btn:not(:disabled):hover,
-        .po-submit-btn:not(:disabled):focus-visible {
-            transform: translateY(-1px);
-            box-shadow: 0 10px 28px rgba(234, 88, 12, 0.38);
-        }
-        @media (prefers-reduced-motion: reduce) {
-            .po-submit-btn { transition: none; }
-            .po-submit-btn:not(:disabled):hover,
-            .po-submit-btn:not(:disabled):focus-visible { transform: none; }
-        }
-        @media (max-width: 575.98px) {
-            .po-submit-panel { text-align: center; }
-            .po-submit-btn { width: 100%; }
-        }
     </style>
+    <?php
+    $poLineMobileCss = dirname(__DIR__, 2) . '/assets/css/po-line-table-mobile.css';
+    $poLineMobileVer = @filemtime($poLineMobileCss);
+    if (!is_int($poLineMobileVer) || $poLineMobileVer <= 0) {
+        $poLineMobileVer = time();
+    }
+    ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-line-table-mobile.css') . '?v=' . $poLineMobileVer, ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body class="purchase-module tnc-app-body">
 
@@ -225,8 +200,8 @@ $items = [[
             <textarea name="po_note" id="po_note" class="form-control" rows="2" maxlength="500" placeholder="หมายเหตุ (ถ้ามี)"></textarea>
         </div>
         <div class="card card-soft p-4 p-md-4 mb-4">
-            <div class="table-responsive po-table-wrap">
-                <table class="table align-middle table-hover mb-0" id="poTable">
+            <div class="table-responsive po-table-wrap po-line-table-mobile">
+                <table class="table align-middle table-hover mb-0 po-line-table" id="poTable">
                     <thead>
                         <tr>
                             <th style="width:3rem;">#</th>
@@ -242,14 +217,22 @@ $items = [[
                     <tbody>
                         <?php foreach ($items as $index => $item): ?>
                             <tr>
-                                <td class="row-number text-secondary small fw-semibold"><?= $index + 1 ?></td>
-                                <td><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.001" min="0" required value="<?= htmlspecialchars((string) ($item['quantity'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
-                                <td><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" required value="<?= htmlspecialchars((string) ($item['unit_price'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
-                                <td><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" value="<?= htmlspecialchars((string) ($item['discount_input'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
-                                <td><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
-                                <td><?php if ($index > 0): ?><button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)" title="ลบแถว"><i class="bi bi-trash-fill"></i></button><?php endif; ?></td>
+                                <td class="po-cell-idx row-number text-secondary small fw-semibold">
+                                    <div class="po-mobile-item-head">
+                                        <span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no"><?= $index + 1 ?></span></span>
+                                        <?php if ($index > 0): ?>
+                                        <button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn po-row-delete-mobile" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button>
+                                        <?php endif; ?>
+                                    </div>
+                                    <span class="d-none d-lg-inline po-mobile-item-no"><?= $index + 1 ?></span>
+                                </td>
+                                <td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.001" min="0" required value="<?= htmlspecialchars((string) ($item['quantity'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td class="po-cell-unit" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" required value="<?= htmlspecialchars((string) ($item['unit_price'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" value="<?= htmlspecialchars((string) ($item['discount_input'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td class="po-cell-total" data-label="ยอดรวม"><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
+                                <td class="po-cell-action po-cell-action-desktop"><?php if ($index > 0): ?><button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button><?php endif; ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -415,17 +398,37 @@ function addRow() {
     const table = document.getElementById('poTable').getElementsByTagName('tbody')[0];
     const newRow = table.insertRow();
     const rowCount = table.rows.length;
-    newRow.innerHTML = '<td class="row-number text-secondary small fw-semibold">' + rowCount + '</td>' +
-        '<td><input type="text" name="item_description[]" class="form-control form-control-sm" required></td>' +
-        '<td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.001" min="0" required oninput="calculateTotal()"></td>' +
-        '<td><input type="text" name="item_unit[]" class="form-control form-control-sm" ></td>' +
-        '<td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" required oninput="calculateTotal()"></td>' +
-        '<td><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" oninput="calculateTotal()"></td>' +
-        '<td><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>' +
-        '<td><button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)" title="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>';
+    newRow.innerHTML = '<td class="po-cell-idx row-number text-secondary small fw-semibold">' +
+        '<div class="po-mobile-item-head">' +
+        '<span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no">' + rowCount + '</span></span>' +
+        '<button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn po-row-delete-mobile" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button>' +
+        '</div>' +
+        '<span class="d-none d-lg-inline po-mobile-item-no">' + rowCount + '</span>' +
+        '</td>' +
+        '<td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required></td>' +
+        '<td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.001" min="0" required oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-unit" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm"></td>' +
+        '<td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" required oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-total" data-label="ยอดรวม"><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>' +
+        '<td class="po-cell-action po-cell-action-desktop"><button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>';
 }
-function removeRow(btn) { btn.closest('tr').remove(); updateRowNumbers(); calculateTotal(); }
-function updateRowNumbers() { document.querySelectorAll('.row-number').forEach(function (td, i) { td.innerText = i + 1; }); }
+function removeRow(btn) {
+    const row = btn.closest('tr');
+    if (!row) {
+        return;
+    }
+    row.remove();
+    updateRowNumbers();
+    calculateTotal();
+}
+function updateRowNumbers() {
+    document.querySelectorAll('#poTable tbody tr').forEach(function (row, i) {
+        row.querySelectorAll('.po-mobile-item-no').forEach(function (el) {
+            el.innerText = i + 1;
+        });
+    });
+}
 function poLineAmountAfterDiscount(qty, price, discRaw) {
     const q = parseFloat(String(qty || '').replace(/,/g, '')) || 0;
     const p = parseFloat(String(price || '').replace(/,/g, '')) || 0;
@@ -498,6 +501,18 @@ function calculateTotal() {
 document.addEventListener('DOMContentLoaded', function () {
     updatePoVatBasisUi();
     calculateTotal();
+    const poTable = document.getElementById('poTable');
+    if (poTable) {
+        poTable.addEventListener('click', function (e) {
+            const btn = e.target.closest('.po-row-delete-btn');
+            if (!btn) {
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            removeRow(btn);
+        });
+    }
 });
 </script>
 </body>

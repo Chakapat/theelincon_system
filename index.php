@@ -719,10 +719,14 @@ if ($index_display_name === '') {
             100% { background-position: -200% 0; }
         }
 
-        /* ---------- Index mobile optimization ---------- */
+        /* ---------- Index mobile: ใช้ FAB แทน sidebar ---------- */
         @media (max-width: 991.98px) {
-            body.tnc-index-page.tnc-has-hub-fab .index-sidebar-wrap {
-                display: none;
+            body.tnc-index-page .index-sidebar-wrap {
+                display: none !important;
+            }
+            body.tnc-index-page .index-main-col {
+                flex: 0 0 100%;
+                max-width: 100%;
             }
             .index-sidebar-wrap {
                 margin-top: 0.25rem;
@@ -937,7 +941,7 @@ if ($index_display_name === '') {
         }
     </style>
 </head>
-<body class="tnc-app-body tnc-index-page">
+<body class="tnc-app-body tnc-index-page tnc-has-hub-fab tnc-index-desktop-sidebar">
 
 <?php include __DIR__ . '/components/navbar.php'; ?>
 
