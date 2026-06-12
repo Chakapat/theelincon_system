@@ -255,14 +255,19 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                             <td class="text-center no-print">
                                 <div class="btn-group shadow-sm rounded">
                                     <?php
-                                    $prCanEdit = user_can('pr.update') && !$prHasPo && line_pr_normalize_status($row) !== 'approved';
+                                    $prCanEdit = line_pr_user_can_edit($row, $prHasPo);
+                                    $prEditLockTitle = $prHasPo
+                                        ? 'มีใบสั่งซื้อ (PO) แล้ว — แก้ไขไม่ได้'
+                                        : (in_array(line_pr_normalize_status($row), ['approved', 'ready'], true)
+                                            ? 'อนุมัติแล้ว — เฉพาะ Admin แก้ไขได้'
+                                            : 'แก้ไขไม่ได้');
                                     ?>
                                     <?php if ($prCanEdit): ?>
                                         <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['id'] ?>" class="btn btn-sm btn-white text-warning border" title="แก้ไขใบขอซื้อ">
                                             <i class="bi bi-pencil-fill"></i>
                                         </a>
                                     <?php else: ?>
-                                        <span class="btn btn-sm btn-white text-secondary border disabled opacity-75" style="cursor: not-allowed;" title="มีใบสั่งซื้อ (PO) แล้ว — แก้ไขไม่ได้">
+                                        <span class="btn btn-sm btn-white text-secondary border disabled opacity-75" style="cursor: not-allowed;" title="<?= htmlspecialchars($prEditLockTitle, ENT_QUOTES, 'UTF-8') ?>">
                                             <i class="bi bi-pencil-fill"></i>
                                         </span>
                                     <?php endif; ?>
@@ -345,6 +350,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
             $('#prTable').DataTable({
                 order: [[1, 'desc']],
                 pageLength: 10,
+                info: false,
                 language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
                 columnDefs: [{ targets: [0, 6], orderable: false, searchable: false }],
                 initComplete: function () {

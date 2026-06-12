@@ -295,7 +295,7 @@ function tnc_page_key_for_script(string $scriptName): ?string
     }
 
     if (str_ends_with($script, '/index.php') && !str_contains($script, '/pages/')) {
-        return $map['index.php'] ?? null;
+        return 'page.index';
     }
 
     return null;

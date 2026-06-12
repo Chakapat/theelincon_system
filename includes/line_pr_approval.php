@@ -50,6 +50,26 @@ function line_pr_status_badge_class(string $status): string
     };
 }
 
+/**
+ * แก้ไข PR ได้เมื่อมี pr.update, ยังไม่มี PO และยังไม่อนุมัติ
+ * PR อนุมัติแล้ว — เฉพาะ ADMIN เท่านั้น
+ */
+function line_pr_user_can_edit(array $pr, bool $hasPo = false): bool
+{
+    if (!function_exists('user_can') || !user_can('pr.update')) {
+        return false;
+    }
+    if ($hasPo) {
+        return false;
+    }
+    $st = line_pr_normalize_status($pr);
+    if (in_array($st, ['approved', 'ready'], true)) {
+        return function_exists('user_is_admin_only_role') && user_is_admin_only_role();
+    }
+
+    return true;
+}
+
 function line_pr_new_approval_token(): string
 {
     return bin2hex(random_bytes(16));

@@ -234,6 +234,13 @@ if (!function_exists('tnc_purchase_pr_view_flash')) {
             ];
         }
 
+        if (!empty($get['error']) && (string) $get['error'] === 'pr_approved_locked') {
+            return [
+                'type' => 'warning',
+                'message' => 'ใบขอซื้ออนุมัติแล้ว — เฉพาะ Admin เท่านั้นที่แก้ไขได้',
+            ];
+        }
+
         if (!empty($get['created'])) {
             $lineNotify = trim((string) ($get['line_notify'] ?? ''));
             $message = 'บันทึกใบขอซื้อ (PR) เรียบร้อยแล้ว';

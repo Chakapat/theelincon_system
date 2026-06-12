@@ -8,6 +8,7 @@ use Theelincon\Rtdb\Purchase;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/line_pr_approval.php';
 require_once dirname(__DIR__, 2) . '/includes/line_notify_runtime.php';
 require_once dirname(__DIR__, 2) . '/includes/hire_line_items.php';
 require_once dirname(__DIR__, 2) . '/includes/hire_form_rows.php';
@@ -46,6 +47,10 @@ if ($editId > 0) {
     });
     if ($poForPr !== null) {
         header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?error=pr_has_po');
+        exit();
+    }
+    if (!line_pr_user_can_edit($editPr, false)) {
+        header('Location: ' . app_path('pages/purchase/purchase-request-view.php') . '?id=' . $editId . '&error=pr_approved_locked');
         exit();
     }
     $editItems = Db::filter('purchase_request_items', static function (array $r) use ($editId): bool {

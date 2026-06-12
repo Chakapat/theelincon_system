@@ -194,6 +194,22 @@ if (!function_exists('tnc_purchase_vat_print_summary')) {
     require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.php';
 }
 $prVatPrintCreate = tnc_purchase_vat_print_summary($pr_vat_enabled === 1, $pr_vat_mode, $pr_sub_amt, $pr_vat_amt, $pr_grand);
+
+$prSiteId = (int) ($pr['site_id'] ?? 0);
+$prSiteName = trim((string) ($pr['site_name'] ?? ''));
+if ($prSiteName === '' && $prSiteId > 0) {
+    $prSiteRow = Db::row('sites', (string) $prSiteId);
+    if (is_array($prSiteRow)) {
+        $prSiteName = trim((string) ($prSiteRow['name'] ?? ''));
+    }
+}
+$prCostCategoryId = (int) ($pr['cost_category_id'] ?? 0);
+$prCostCategoryName = trim((string) ($pr['cost_category_name'] ?? ''));
+if ($prCostCategoryName === '' && $prCostCategoryId > 0) {
+    require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
+    $prCostCategoryName = tnc_site_category_name($prCostCategoryId);
+}
+
 $po_submit_disabled = $pr_prefill_items_display === [];
 ?>
 
@@ -227,8 +243,118 @@ $po_submit_disabled = $pr_prefill_items_display === [];
         .section-title { font-size: 1.05rem; font-weight: 800; color: var(--tnc-ink); margin: 0; letter-spacing: -0.02em; }
         .section-sub { font-size: 0.8rem; color: var(--tnc-muted); margin: 0.2rem 0 0; line-height: 1.4; }
         .po-field-label { font-size: 0.78rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
+        .po-field-label--thai { text-transform: none; letter-spacing: 0; font-size: 0.84rem; color: #334155; }
         .form-control, .form-select, .input-group-text { border-radius: 0.5rem; }
         .po-meta-card .form-control:focus { box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.12); }
+        .po-meta-card .input-group > .input-group-text { border-color: var(--tnc-border); background: #fff; }
+        .po-meta-card .input-group > .form-control { border-color: var(--tnc-border); }
+        .po-meta-card .input-group:focus-within > .input-group-text,
+        .po-meta-card .input-group:focus-within > .form-control { border-color: var(--tnc-orange-border); }
+        .po-meta-card .input-group:focus-within > .input-group-text { color: var(--tnc-orange); }
+        .po-meta-section {
+            padding-top: 1.15rem;
+            margin-top: 1.15rem;
+            border-top: 1px solid #eef2f7;
+        }
+        .po-meta-section__head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.45rem 0.65rem;
+            margin-bottom: 0.85rem;
+        }
+        .po-meta-section__title {
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #64748b;
+            margin: 0;
+        }
+        .po-meta-section__title i { color: var(--tnc-orange); margin-right: 0.15rem; }
+        .po-meta-badge {
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 0.18rem 0.5rem;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+        .po-pr-context {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 0.75rem;
+        }
+        .po-pr-context__item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.7rem;
+            min-height: 3.25rem;
+            padding: 0.8rem 0.95rem;
+            border-radius: 0.65rem;
+            border: 1px solid #e8ecf1;
+            background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
+        }
+        .po-pr-context__icon {
+            width: 2.1rem;
+            height: 2.1rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            color: var(--tnc-orange);
+            flex-shrink: 0;
+            font-size: 1rem;
+        }
+        .po-pr-context__body { min-width: 0; flex: 1; }
+        .po-pr-context__label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            margin-bottom: 0.12rem;
+        }
+        .po-pr-context__value {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: #0f172a;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        .po-pr-context__value.is-empty { color: #94a3b8; font-weight: 500; }
+        .po-pr-context__link {
+            display: inline-block;
+            margin-top: 0.25rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+        .po-meta-optional {
+            background: #fafbfc;
+            border: 1px dashed #dbe3ec;
+            border-radius: 0.75rem;
+            padding: 1rem 1.1rem;
+        }
+        .po-meta-optional .row { --bs-gutter-y: 0.85rem; }
+        .po-field-hint {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.35rem;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            margin-top: 0.35rem;
+            line-height: 1.35;
+        }
+        .po-field-hint i { flex-shrink: 0; margin-top: 0.1rem; }
+        @media (min-width: 992px) {
+            .po-meta-primary .col-lg-6:first-child { padding-right: 0.75rem; }
+            .po-meta-primary .col-lg-6:last-child { padding-left: 0.75rem; }
+        }
         .po-po-number { font-size: 1.05rem; letter-spacing: 0.02em; }
         .po-qt-toggle {
             border: 1px solid #e2e8f0;
@@ -362,11 +488,15 @@ $po_submit_disabled = $pr_prefill_items_display === [];
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container container-lg py-4 py-md-5 mb-5 po-create-wrap">
-    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" data-tnc-fullnav="1">
+    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1">
         <?php csrf_field(); ?>
         <input type="hidden" name="pr_id" value="<?= $pr_id ?>">
         <input type="hidden" name="vat_enabled" id="vat_enabled" value="<?= $pr_vat_enabled ?>">
         <input type="hidden" name="vat_mode" id="vat_mode" value="<?= htmlspecialchars($pr_vat_mode, ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="site_id" value="<?= $prSiteId ?>">
+        <input type="hidden" name="site_name" value="<?= htmlspecialchars($prSiteName, ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="cost_category_id" value="<?= $prCostCategoryId ?>">
+        <input type="hidden" name="cost_category_name" value="<?= htmlspecialchars($prCostCategoryName, ENT_QUOTES, 'UTF-8') ?>">
 
         <header class="po-create-hero p-4 p-md-4 mb-4">
             <div class="row align-items-center g-3">
@@ -385,27 +515,19 @@ $po_submit_disabled = $pr_prefill_items_display === [];
         </header>
         
         <div class="card card-soft p-4 p-md-4 mb-4 po-meta-card">
-            <div class="row g-3 g-md-4">
-                <div class="col-md-4">
-                    <label class="po-field-label" for="supplier_search">ผู้ขาย / แหล่งซื้อ <span class="text-danger">*</span></label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-white text-secondary"><i class="bi bi-shop"></i></span>
-                        <input type="text" id="supplier_search" class="form-control" list="supplier_list" required>
-                    </div>
-                    <datalist id="supplier_list">
-                        <?php foreach ($supplier_rows as $s): ?>
-                            <option
-                                value="<?= htmlspecialchars((string) ($s['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                data-id="<?= (int) ($s['id'] ?? 0) ?>"
-                            ></option>
-                        <?php endforeach; ?>
-                    </datalist>
-                    <input type="hidden" name="supplier_id" id="supplier_id">
+            <div class="po-section-head mb-0 pb-3 border-bottom-0">
+                <div class="po-section-icon"><i class="bi bi-card-checklist"></i></div>
+                <div>
+                    <h2 class="section-title">ข้อมูลใบสั่งซื้อ</h2>
+                    <p class="section-sub">กรอกวันที่และผู้ขาย — สถานที่และหมวดหมู่ดึงจาก PR อัตโนมัติ</p>
                 </div>
-                <div class="col-md-4">
-                    <label class="po-field-label" for="issue_date">วันที่ออกใบสั่งซื้อ</label>
+            </div>
+
+            <div class="row g-3 g-md-4 po-meta-primary align-items-end">
+                <div class="col-lg-6">
+                    <label class="po-field-label po-field-label--thai" for="issue_date">วันที่ออกใบสั่งซื้อ <span class="text-danger">*</span></label>
                     <div class="input-group">
-                        <span class="input-group-text bg-white text-tnc-orange" title="ปฏิทิน"><i class="bi bi-calendar3"></i></span>
+                        <span class="input-group-text text-tnc-orange" title="ปฏิทิน"><i class="bi bi-calendar3"></i></span>
                         <input
                             type="text"
                             class="form-control"
@@ -418,7 +540,70 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                         >
                     </div>
                 </div>
+                <div class="col-lg-6">
+                    <label class="po-field-label po-field-label--thai" for="supplier_search">ผู้ขาย / แหล่งซื้อ <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text text-secondary"><i class="bi bi-shop"></i></span>
+                        <input type="text" id="supplier_search" class="form-control" list="supplier_list" required autocomplete="off" placeholder="พิมพ์ชื่อผู้ขายเพื่อเลือก">
+                    </div>
+                    <datalist id="supplier_list">
+                        <?php foreach ($supplier_rows as $s): ?>
+                            <option
+                                value="<?= htmlspecialchars((string) ($s['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                data-id="<?= (int) ($s['id'] ?? 0) ?>"
+                            ></option>
+                        <?php endforeach; ?>
+                    </datalist>
+                    <input type="hidden" name="supplier_id" id="supplier_id">
+                </div>
             </div>
+
+            <div class="po-meta-section">
+                <div class="po-pr-context">
+                    <div class="po-pr-context__item">
+                        <span class="po-pr-context__icon" aria-hidden="true"><i class="bi bi-geo-alt"></i></span>
+                        <div class="po-pr-context__body">
+                            <div class="po-pr-context__label">สถานที่</div>
+                            <div class="po-pr-context__value<?= $prSiteName === '' ? ' is-empty' : '' ?>"><?= htmlspecialchars($prSiteName !== '' ? $prSiteName : 'ยังไม่ระบุใน PR', ENT_QUOTES, 'UTF-8') ?></div>
+                            <?php if ($prSiteName === '' && $prSiteId <= 0): ?>
+                            <a class="po-pr-context__link text-tnc-orange" href="<?= htmlspecialchars($pr_edit_url, ENT_QUOTES, 'UTF-8') ?>">แก้ไข PR เพื่อระบุสถานที่</a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="po-pr-context__item">
+                        <span class="po-pr-context__icon" aria-hidden="true"><i class="bi bi-tags"></i></span>
+                        <div class="po-pr-context__body">
+                            <div class="po-pr-context__label">หมวดหมู่</div>
+                            <div class="po-pr-context__value<?= $prCostCategoryName === '' ? ' is-empty' : '' ?>"><?= htmlspecialchars($prCostCategoryName !== '' ? $prCostCategoryName : 'ยังไม่ระบุใน PR', ENT_QUOTES, 'UTF-8') ?></div>
+                            <?php if ($prCostCategoryName === '' && $prCostCategoryId <= 0): ?>
+                            <a class="po-pr-context__link text-tnc-orange" href="<?= htmlspecialchars($pr_edit_url, ENT_QUOTES, 'UTF-8') ?>">แก้ไข PR เพื่อระบุหมวดหมู่</a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="po-meta-section">
+                <div class="po-meta-optional">
+                    <div class="row g-3 align-items-start">
+                        <div class="col-md-6">
+                            <label class="po-field-label po-field-label--thai" for="supplier_invoice_no">เลขที่บิล / ใบกำกับภาษี</label>
+                            <div class="input-group">
+                                <span class="input-group-text text-secondary"><i class="bi bi-hash"></i></span>
+                                <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" class="form-control" maxlength="120">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="po-field-label po-field-label--thai" for="payment_slips">แนบสลิป / หลักฐานการจ่าย</label>
+                            <input type="file" name="payment_slips[]" id="payment_slips" class="form-control" accept="image/*,.pdf" multiple>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <input type="hidden" name="billed_total_amount" id="billed_total_amount" value="<?= htmlspecialchars(number_format((float) $prVatPrintCreate['net_amount'], 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="billed_vat_amount" id="billed_vat_amount" value="<?= htmlspecialchars(number_format((float) $prVatPrintCreate['vat_amount'], 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="payment_method" value="transfer">
         </div>
 
         <div class="card card-soft p-0 mb-4 overflow-hidden po-items-readonly">

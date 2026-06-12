@@ -295,10 +295,12 @@ if (!function_exists('app_path')) {
                 </li>
             </ul>
             <?php endif; ?>
-            <div id="tnc-mobile-index-menu-slot" class="d-lg-none w-100 mt-2"></div>
         </div>
     </div>
 </nav>
+<?php if (isset($_SESSION['user_id'])): ?>
+<?php include __DIR__ . '/hub-fab.php'; ?>
+<?php endif; ?>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <?php if (isset($_SESSION['user_id'])): ?>
 <?php

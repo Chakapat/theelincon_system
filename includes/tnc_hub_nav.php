@@ -1,0 +1,299 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * เมนู Hub กลาง — sidebar หน้าแรก + FAB ทุกหน้า (กรองตาม user_can)
+ */
+
+require_once __DIR__ . '/tnc_page_access.php';
+
+/**
+ * ลำดับหมวด + หน้าย่อยที่แสดง (WO อยู่ใต้ Documents ตาม UX เดิมของ index)
+ *
+ * @return array<string, list<string>>
+ */
+function tnc_hub_nav_section_page_keys(): array
+{
+    return [
+        'hub_master' => [
+            'page.org.customer',
+            'page.org.company',
+            'page.org.sites',
+            'page.org.members',
+            'page.org.suppliers',
+            'page.org.contractors',
+        ],
+        'hub_purchase' => [
+            'page.pr',
+            'page.po',
+        ],
+        'hub_docs' => [
+            'page.wo',
+            'page.stock',
+        ],
+        'hub_cash' => [
+            'page.report.vat',
+            'page.report.site',
+            'page.cash',
+        ],
+        'hub_home' => [
+            'page.index',
+            'page.invoice.create',
+            'page.invoice.tax_list',
+        ],
+        'hub_hr' => [
+            'page.account.profile',
+        ],
+        'hub_internal' => [
+            'page.internal.roles',
+            'page.internal.audit',
+            'page.internal.line',
+        ],
+        'hub_tools' => [
+            'page.tools.po_payment',
+        ],
+    ];
+}
+
+/**
+ * @return array<string, array{icon: string, ico_class: string, sidebar_label?: string}>
+ */
+function tnc_hub_nav_hub_meta(): array
+{
+    return [
+        'hub_master' => ['icon' => 'bi-folder2', 'ico_class' => 'home-hub-ico--master'],
+        'hub_purchase' => ['icon' => 'bi-cart3', 'ico_class' => 'home-hub-ico--purchase', 'sidebar_label' => 'ระบบจัดซื้อ (Purchase)'],
+        'hub_docs' => ['icon' => 'bi-file-earmark-text', 'ico_class' => 'home-hub-ico--docs', 'sidebar_label' => 'ระบบเอกสาร (Documents)'],
+        'hub_cash' => ['icon' => 'bi-cash-stack', 'ico_class' => 'home-hub-ico--cash', 'sidebar_label' => 'ระบบการเงิน (Cash)'],
+        'hub_home' => ['icon' => 'bi-house-door', 'ico_class' => 'home-hub-ico--master'],
+        'hub_hr' => ['icon' => 'bi-person-badge', 'ico_class' => 'home-hub-ico--docs'],
+        'hub_internal' => ['icon' => 'bi-shield-lock', 'ico_class' => 'home-hub-ico--docs'],
+        'hub_tools' => ['icon' => 'bi-tools', 'ico_class' => 'home-hub-ico--docs'],
+    ];
+}
+
+/**
+ * @return array<string, array{icon: string, short_label?: string, pin?: bool, pin_order?: int}>
+ */
+function tnc_hub_nav_page_meta(): array
+{
+    return [
+        'page.index' => ['icon' => 'bi-house-door', 'short_label' => 'หน้าแรก', 'pin' => true, 'pin_order' => 1],
+        'page.invoice.create' => ['icon' => 'bi-file-earmark-plus', 'short_label' => 'Invoice', 'pin' => true, 'pin_order' => 2],
+        'page.invoice.tax_list' => ['icon' => 'bi-receipt', 'short_label' => 'ใบกำกับ'],
+        'page.org.customer' => ['icon' => 'bi-people'],
+        'page.org.company' => ['icon' => 'bi-building'],
+        'page.org.sites' => ['icon' => 'bi-geo-alt'],
+        'page.org.members' => ['icon' => 'bi-person-gear', 'link_class' => 'js-hub-member-manage'],
+        'page.org.suppliers' => ['icon' => 'bi-truck'],
+        'page.org.contractors' => ['icon' => 'bi-person-badge'],
+        'page.pr' => ['icon' => 'bi-cart-plus', 'short_label' => 'PR', 'pin' => true, 'pin_order' => 3],
+        'page.po' => ['icon' => 'bi-bag-check', 'short_label' => 'PO', 'pin' => true, 'pin_order' => 4],
+        'page.wo' => ['icon' => 'bi-file-earmark-ruled', 'short_label' => 'WO'],
+        'page.stock' => ['icon' => 'bi-box-seam'],
+        'page.report.vat' => ['icon' => 'bi-file-earmark-bar-graph', 'short_label' => 'VAT', 'pin' => true, 'pin_order' => 6],
+        'page.report.site' => ['icon' => 'bi-geo-alt'],
+        'page.cash' => ['icon' => 'bi-speedometer2', 'short_label' => 'สดย่อย', 'pin' => true, 'pin_order' => 5],
+        'page.account.profile' => ['icon' => 'bi-person-circle'],
+        'page.internal.roles' => ['icon' => 'bi-sliders'],
+        'page.internal.audit' => ['icon' => 'bi-journal-text'],
+        'page.internal.line' => ['icon' => 'bi-line'],
+        'page.tools.po_payment' => ['icon' => 'bi-paperclip'],
+    ];
+}
+
+/** หมวดที่แสดงใน sidebar หน้า index */
+function tnc_hub_nav_sidebar_hub_keys(): array
+{
+    return ['hub_master', 'hub_purchase', 'hub_docs', 'hub_cash'];
+}
+
+/** หมวดที่แสดงใน FAB sheet (รวม home / internal / tools ถ้ามีสิทธิ์) */
+function tnc_hub_nav_fab_hub_keys(): array
+{
+    return [
+        'hub_home',
+        'hub_master',
+        'hub_purchase',
+        'hub_docs',
+        'hub_cash',
+        'hub_hr',
+        'hub_internal',
+        'hub_tools',
+    ];
+}
+
+function tnc_hub_nav_current_page_key(): ?string
+{
+    $script = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
+    if ($script === '') {
+        return null;
+    }
+
+    return tnc_page_key_for_script($script);
+}
+
+function tnc_hub_nav_page_is_active(string $pageKey, ?string $currentKey): bool
+{
+    return $currentKey !== null && $currentKey !== '' && $pageKey === $currentKey;
+}
+
+/**
+ * @return array{hubs: list<array<string, mixed>>, pins: list<array<string, mixed>>, current_page_key: ?string, is_index: bool}
+ */
+function tnc_hub_nav_build_for_user(): array
+{
+    $tree = tnc_role_permission_menu_tree();
+    $flat = tnc_role_page_registry_flat();
+    $hubMeta = tnc_hub_nav_hub_meta();
+    $pageMeta = tnc_hub_nav_page_meta();
+    $currentKey = tnc_hub_nav_current_page_key();
+    $script = strtolower(str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '')));
+    $isIndex = str_ends_with($script, '/index.php') && !str_contains($script, '/pages/');
+
+    $buildPages = static function (array $pageKeys) use ($flat, $pageMeta, $currentKey): array {
+        $pages = [];
+        foreach ($pageKeys as $pageKey) {
+            if (!isset($flat[$pageKey]) || !user_can_access_page($pageKey)) {
+                continue;
+            }
+            $page = $flat[$pageKey];
+            $meta = $pageMeta[$pageKey] ?? ['icon' => 'bi-link-45deg'];
+            $pages[] = [
+                'key' => $pageKey,
+                'label' => (string) $page['label'],
+                'short_label' => (string) ($meta['short_label'] ?? $page['label']),
+                'url' => app_path((string) $page['path']),
+                'icon' => (string) ($meta['icon'] ?? 'bi-link-45deg'),
+                'link_class' => (string) ($meta['link_class'] ?? ''),
+                'active' => tnc_hub_nav_page_is_active($pageKey, $currentKey),
+                'pin' => !empty($meta['pin']),
+                'pin_order' => (int) ($meta['pin_order'] ?? 99),
+            ];
+        }
+
+        return $pages;
+    };
+
+    $sections = tnc_hub_nav_section_page_keys();
+    $hubs = [];
+    foreach (tnc_hub_nav_fab_hub_keys() as $hubKey) {
+        if (!isset($tree[$hubKey], $sections[$hubKey])) {
+            continue;
+        }
+        $pages = $buildPages($sections[$hubKey]);
+        if ($pages === []) {
+            continue;
+        }
+        $meta = $hubMeta[$hubKey] ?? ['icon' => 'bi-grid', 'ico_class' => 'home-hub-ico--docs'];
+        $hubLabel = (string) ($meta['sidebar_label'] ?? $tree[$hubKey]['label']);
+        $hubs[] = [
+            'key' => $hubKey,
+            'label' => $hubLabel,
+            'tree_label' => (string) $tree[$hubKey]['label'],
+            'icon' => (string) $meta['icon'],
+            'ico_class' => (string) $meta['ico_class'],
+            'pages' => $pages,
+        ];
+    }
+
+    $pins = [];
+    foreach ($flat as $pageKey => $page) {
+        if (!user_can_access_page($pageKey)) {
+            continue;
+        }
+        $meta = $pageMeta[$pageKey] ?? null;
+        if ($meta === null || empty($meta['pin'])) {
+            continue;
+        }
+        $pins[] = [
+            'key' => $pageKey,
+            'label' => (string) ($meta['short_label'] ?? $page['label']),
+            'url' => app_path((string) $page['path']),
+            'icon' => (string) ($meta['icon'] ?? 'bi-link-45deg'),
+            'pin_order' => (int) ($meta['pin_order'] ?? 99),
+            'active' => tnc_hub_nav_page_is_active($pageKey, $currentKey),
+        ];
+    }
+    usort($pins, static fn (array $a, array $b): int => ($a['pin_order'] <=> $b['pin_order']) ?: strcmp($a['label'], $b['label']));
+
+    return [
+        'hubs' => $hubs,
+        'pins' => $pins,
+        'current_page_key' => $currentKey,
+        'is_index' => $isIndex,
+    ];
+}
+
+/**
+ * @param array<string, mixed> $opts sidebar_start_collapsed
+ */
+function tnc_hub_nav_render_sidebar(array $opts = []): void
+{
+    $startCollapsed = !empty($opts['start_collapsed']);
+    $nav = tnc_hub_nav_build_for_user();
+    $tree = tnc_role_permission_menu_tree();
+    $hubMeta = tnc_hub_nav_hub_meta();
+    $sections = tnc_hub_nav_section_page_keys();
+    $flat = tnc_role_page_registry_flat();
+    $pageMeta = tnc_hub_nav_page_meta();
+    $currentKey = $nav['current_page_key'];
+
+    $renderLink = static function (string $pageKey) use ($flat, $pageMeta, $currentKey): void {
+        if (!isset($flat[$pageKey]) || !user_can_access_page($pageKey)) {
+            return;
+        }
+        $page = $flat[$pageKey];
+        $meta = $pageMeta[$pageKey] ?? ['icon' => 'bi-link-45deg'];
+        $active = tnc_hub_nav_page_is_active($pageKey, $currentKey) ? ' active' : '';
+        $extraClass = trim((string) ($meta['link_class'] ?? ''));
+        $href = app_path((string) $page['path']);
+        $icon = (string) ($meta['icon'] ?? 'bi-link-45deg');
+        $label = (string) $page['label'];
+        ?>
+        <a class="home-hub-link d-flex align-items-center<?= $active ?><?= $extraClass !== '' ? ' ' . htmlspecialchars($extraClass, ENT_QUOTES, 'UTF-8') : '' ?>" href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>">
+            <i class="bi <?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?> me-2 text-secondary"></i><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>
+        </a>
+        <?php
+    };
+
+    foreach (tnc_hub_nav_sidebar_hub_keys() as $hubKey) {
+        if (!isset($tree[$hubKey], $sections[$hubKey])) {
+            continue;
+        }
+        $visible = false;
+        foreach ($sections[$hubKey] as $pk) {
+            if (isset($flat[$pk]) && user_can_access_page($pk)) {
+                $visible = true;
+                break;
+            }
+        }
+        if (!$visible) {
+            continue;
+        }
+
+        $meta = $hubMeta[$hubKey] ?? ['icon' => 'bi-grid', 'ico_class' => 'home-hub-ico--docs'];
+        $hubLabel = (string) ($meta['sidebar_label'] ?? $tree[$hubKey]['label']);
+        $collapseId = 'hub-collapse-' . preg_replace('/[^a-z0-9_-]/i', '', $hubKey);
+        $toggleId = 'hub-toggle-' . preg_replace('/[^a-z0-9_-]/i', '', $hubKey);
+        $isFirst = $hubKey === 'hub_master';
+        $expanded = $isFirst && !$startCollapsed;
+        ?>
+        <div class="home-hub-section">
+            <button type="button" class="home-hub-toggle<?= $expanded ? '' : ' collapsed' ?>" data-bs-toggle="collapse" data-bs-target="#<?= htmlspecialchars($collapseId, ENT_QUOTES, 'UTF-8') ?>" aria-expanded="<?= $expanded ? 'true' : 'false' ?>" aria-controls="<?= htmlspecialchars($collapseId, ENT_QUOTES, 'UTF-8') ?>" id="<?= htmlspecialchars($toggleId, ENT_QUOTES, 'UTF-8') ?>">
+                <span class="home-hub-ico <?= htmlspecialchars((string) $meta['ico_class'], ENT_QUOTES, 'UTF-8') ?> flex-shrink-0"><i class="<?= htmlspecialchars((string) $meta['icon'], ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"></i></span>
+                <span class="fw-semibold text-dark"><?= htmlspecialchars($hubLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
+            </button>
+            <div id="<?= htmlspecialchars($collapseId, ENT_QUOTES, 'UTF-8') ?>" class="collapse<?= $expanded ? ' show' : '' ?> home-hub-panel" aria-labelledby="<?= htmlspecialchars($toggleId, ENT_QUOTES, 'UTF-8') ?>">
+                <div class="home-hub-panel-inner pb-1">
+                    <?php foreach ($sections[$hubKey] as $pageKey) {
+                        $renderLink($pageKey);
+                    } ?>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+}

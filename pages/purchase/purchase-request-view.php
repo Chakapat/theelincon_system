@@ -24,6 +24,7 @@ extract($prCtx, EXTR_OVERWRITE);
 
 $prCanSendLineAdmin = user_can('pr.send_line') && in_array($prApprovalStatus, ['pending', 'rejected'], true);
 $prCanWebDecide = user_can('pr.approve') && $prApprovalStatus === 'pending';
+$prCanEdit = line_pr_user_can_edit($pr, !empty($existing_po));
 $prHandlerUrl = app_path('actions/action-handler.php');
 
 $prToolbarPoNumber = '';
@@ -500,6 +501,11 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                         <i class="bi bi-file-earmark-ruled me-1"></i>ดู Work Order
                     </a>
                     <?php endif; ?>
+                <?php endif; ?>
+                <?php if ($prCanEdit): ?>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $pr['id'] ?>" class="btn btn-outline-warning btn-sm rounded-pill px-3" title="<?= in_array($prApprovalStatus, ['approved', 'ready'], true) ? 'แก้ไข PR ที่อนุมัติแล้ว (Admin)' : 'แก้ไขใบขอซื้อ' ?>">
+                        <i class="bi bi-pencil-square me-1"></i>แก้ไข PR
+                    </a>
                 <?php endif; ?>
                 <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                     <i class="bi bi-arrow-left me-1"></i>รายการ PR

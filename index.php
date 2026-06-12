@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 session_start();
 require_once __DIR__ . '/config/connect_database.php';
+require_once __DIR__ . '/includes/tnc_hub_nav.php';
 
 use Theelincon\Rtdb\Portal;
 
@@ -720,6 +721,9 @@ if ($index_display_name === '') {
 
         /* ---------- Index mobile optimization ---------- */
         @media (max-width: 991.98px) {
+            body.tnc-index-page.tnc-has-hub-fab .index-sidebar-wrap {
+                display: none;
+            }
             .index-sidebar-wrap {
                 margin-top: 0.25rem;
             }
@@ -732,17 +736,6 @@ if ($index_display_name === '') {
             .home-menu-hub.index-sidebar .home-hub-section + .home-hub-section {
                 margin-top: 0.5rem;
                 padding-top: 0.5rem;
-            }
-            body.index-menu-in-navbar .index-sidebar-wrap {
-                display: none;
-            }
-            #tnc-mobile-index-menu-slot .index-sidebar-card {
-                border-radius: 0.65rem !important;
-                box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.12) !important;
-            }
-            #tnc-mobile-index-menu-slot .index-sidebar-scroll {
-                max-height: 58vh;
-                overflow-y: auto;
             }
         }
 
@@ -956,62 +949,10 @@ if ($index_display_name === '') {
                 <section class="home-menu-hub index-sidebar mb-0" aria-label="เมนูระบบ">
                     <div class="index-sidebar-scroll">
                     <div class="card home-menu-hub-single home-hub-card border-0 shadow-none rounded-0 overflow-hidden">
-            <div class="home-hub-section">
-                <button type="button" class="home-hub-toggle<?= $index_hub_start_all_collapsed ? ' collapsed' : '' ?>" data-bs-toggle="collapse" data-bs-target="#hub-collapse-master" aria-expanded="<?= $index_hub_start_all_collapsed ? 'false' : 'true' ?>" aria-controls="hub-collapse-master" id="hub-toggle-master">
-                    <span class="home-hub-ico home-hub-ico--master flex-shrink-0"><i class="bi bi-folder2" aria-hidden="true"></i></span>
-                    <span class="fw-semibold text-dark">ข้อมูลหลัก (Information Data)</span>
-                    <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
-                </button>
-                <div id="hub-collapse-master" class="collapse<?= $index_hub_start_all_collapsed ? '' : ' show' ?> home-hub-panel" aria-labelledby="hub-toggle-master">
-                    <div class="home-hub-panel-inner pb-1">
-                        <?php if (user_can('page.org.customer')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/customer-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-people me-2 text-secondary"></i>ลูกค้า (Customer)</a><?php endif; ?>
-                        <?php if (user_can('page.org.company')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/company-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-building me-2 text-secondary"></i>บริษัท (Company)</a><?php endif; ?>
-                        <?php if (user_can('page.org.sites')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-geo-alt me-2 text-secondary"></i>ไซต์งาน (Sites)</a><?php endif; ?>
-                        <?php if (user_can('page.org.members')): ?><a class="home-hub-link d-flex align-items-center js-hub-member-manage" href="<?= htmlspecialchars(app_path('pages/organization/member-manage.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-person-gear me-2 text-secondary"></i>จัดการสมาชิก (Members)</a><?php endif; ?>
-                        <?php if (user_can('page.org.suppliers')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-truck me-2 text-secondary"></i>ผู้ขาย (Suppliers)</a><?php endif; ?>
-                        <?php if (user_can('page.org.contractors')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/contractors/contractor-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-person-badge me-2 text-secondary"></i>ผู้รับจ้าง (Contractors)</a><?php endif; ?>
+                        <?php tnc_hub_nav_render_sidebar(['start_collapsed' => $index_hub_start_all_collapsed]); ?>
                     </div>
-                </div>
-            </div>
-            <div class="home-hub-section">
-                <button type="button" class="home-hub-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#hub-collapse-purchase" aria-expanded="false" aria-controls="hub-collapse-purchase" id="hub-toggle-purchase">
-                    <span class="home-hub-ico home-hub-ico--purchase flex-shrink-0"><i class="bi bi-cart3" aria-hidden="true"></i></span>
-                    <span class="fw-semibold text-dark">ระบบจัดซื้อ (Purchase)</span>
-                    <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
-                </button>
-                <div id="hub-collapse-purchase" class="collapse home-hub-panel" aria-labelledby="hub-toggle-purchase">
-                    <div class="home-hub-panel-inner pb-1">
-                        <?php if (user_can('page.pr')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-cart-plus me-2 text-secondary"></i>ใบขอซื้อ (Purchase Request)</a><?php endif; ?>
-                        <?php if (user_can('page.po')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-bag-check me-2 text-secondary"></i>ใบสั่งซื้อ (Purchase Order)</a><?php endif; ?>
                     </div>
-                </div>
-            </div>
-            <div class="home-hub-section">
-                <button type="button" class="home-hub-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#hub-collapse-docs" aria-expanded="false" aria-controls="hub-collapse-docs" id="hub-toggle-docs">
-                    <span class="home-hub-ico home-hub-ico--docs flex-shrink-0"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
-                    <span class="fw-semibold text-dark">ระบบเอกสาร (Documents)</span>
-                    <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
-                </button>
-                <div id="hub-collapse-docs" class="collapse home-hub-panel" aria-labelledby="hub-toggle-docs">
-                    <div class="home-hub-panel-inner pb-1">
-                        <?php if (user_can('page.wo')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/purchase/work-order-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-ruled me-2 text-secondary"></i>สั่งจ้างงาน (Work Order)</a><?php endif; ?>
-                        <?php if (user_can('page.stock')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-box-seam me-2 text-secondary"></i>คลังสินค้า (Stock)</a><?php endif; ?>
-                    </div>
-                </div>
-            </div>
-            <div class="home-hub-section">
-                <button type="button" class="home-hub-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#hub-collapse-cash" aria-expanded="false" aria-controls="hub-collapse-cash" id="hub-toggle-cash">
-                    <span class="home-hub-ico home-hub-ico--cash flex-shrink-0"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
-                    <span class="fw-semibold text-dark">ระบบการเงิน (Cash)</span>
-                    <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
-                </button>
-                <div id="hub-collapse-cash" class="collapse home-hub-panel" aria-labelledby="hub-toggle-cash">
-                    <div class="home-hub-panel-inner pb-1">
-                        <?php if (user_can('page.report.vat')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/reports/vat-report.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-file-earmark-bar-graph me-2 text-secondary"></i>รายงานภาษีซื้อ/ขาย (VAT Report)</a><?php endif; ?>
-                        <?php if (user_can('page.report.site')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/reports/site-spending-report.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-geo-alt me-2 text-secondary"></i>รายงานใช้จ่ายตามไซต์ (Site Spending)</a><?php endif; ?>
-                        <?php if (user_can('page.cash')): ?><a class="home-hub-link d-flex align-items-center" href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php'), ENT_QUOTES, 'UTF-8') ?>"><i class="bi bi-speedometer2 me-2 text-secondary"></i>สดย่อย (Petty Cash)</a><?php endif; ?>
-                    </div>
-                </div>
+                </section>
             </div>
         </div>
     </aside>
@@ -1432,28 +1373,7 @@ function indexMarkSidebarActive() {
     });
 }
 
-function indexMoveMenuToNavbarOnMobile() {
-    var slot = document.getElementById('tnc-mobile-index-menu-slot');
-    var mount = document.getElementById('indexSidebarMenuMount');
-    var card = document.getElementById('indexSidebarMenuCard');
-    if (!slot || !mount || !card) {
-        return;
-    }
-    var isMobile = window.matchMedia('(max-width: 991.98px)').matches;
-    var shouldInNavbar = isMobile;
-    if (shouldInNavbar && card.parentElement !== slot) {
-        slot.appendChild(card);
-        document.body.classList.add('index-menu-in-navbar');
-    } else if (!shouldInNavbar && card.parentElement !== mount) {
-        mount.appendChild(card);
-        document.body.classList.remove('index-menu-in-navbar');
-    } else if (!shouldInNavbar) {
-        document.body.classList.remove('index-menu-in-navbar');
-    }
-}
-
 window.onload = () => {
-    indexMoveMenuToNavbarOnMobile();
     indexMarkSidebarActive();
     var si = document.getElementById('search_invoice');
     loadTable(si ? si.value : '');
@@ -1473,9 +1393,6 @@ window.onload = () => {
         });
     }
 };
-window.addEventListener('resize', function () {
-    indexMoveMenuToNavbarOnMobile();
-});
 </script>
 <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/print-document-only.css'), ENT_QUOTES, 'UTF-8') ?>" media="print">
 </body>

@@ -452,7 +452,7 @@ function tnc_delete_pr_cascade(int $prId): array
     return $nested;
 }
 
-function renderPoCreatedPopupAndRedirect(string $poNumber, ?string $redirectBase = null)
+function renderPoCreatedPopupAndRedirect(string $poNumber, ?string $redirectBase = null, bool $paymentExtrasSaved = false)
 {
     if ($redirectBase === 'wo') {
         $listUrl = app_path('pages/purchase/work-order-list.php')
@@ -461,8 +461,10 @@ function renderPoCreatedPopupAndRedirect(string $poNumber, ?string $redirectBase
         $actionKey = 'wo_created';
     } else {
         $listUrl = app_path('pages/purchase/purchase-order-list.php')
-            . '?success=1&po_number=' . rawurlencode($poNumber);
-        $message = 'สร้าง PO สำเร็จ หมายเลข ' . $poNumber;
+            . '?success=1&po_number=' . rawurlencode($poNumber)
+            . ($paymentExtrasSaved ? '&payment_saved=1' : '');
+        $message = 'สร้าง PO สำเร็จ หมายเลข ' . $poNumber
+            . ($paymentExtrasSaved ? ' (บันทึกบิลและ/หรือสลิปแล้ว)' : '');
         $actionKey = 'po_created';
     }
     if (tnc_ajax_form_requested()) {
@@ -1051,8 +1053,8 @@ if ($action === 'update_pr') {
     if ($hasPo !== null) {
         tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?error=pr_has_po');
     }
-    if (line_pr_normalize_status($existing) === 'approved') {
-        tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?error=pr_approved_locked');
+    if (!line_pr_user_can_edit($existing, false)) {
+        tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=pr_approved_locked');
     }
 
     $sitesForPr = Db::tableRows('sites');
@@ -1751,8 +1753,14 @@ if ($action === 'create_po_from_pr') {
         $issue_date = date('Y-m-d');
     }
 
-    $prSiteId = (int) ($pr_row['site_id'] ?? 0);
-    $prSiteName = trim((string) ($pr_row['site_name'] ?? ''));
+    $prSiteId = (int) ($_POST['site_id'] ?? 0);
+    if ($prSiteId <= 0) {
+        $prSiteId = (int) ($pr_row['site_id'] ?? 0);
+    }
+    $prSiteName = trim((string) ($_POST['site_name'] ?? ''));
+    if ($prSiteName === '') {
+        $prSiteName = trim((string) ($pr_row['site_name'] ?? ''));
+    }
     if ($prSiteName === '' && $prSiteId > 0) {
         $siteRowPo = Db::row('sites', (string) $prSiteId);
         if (is_array($siteRowPo)) {
@@ -1760,8 +1768,32 @@ if ($action === 'create_po_from_pr') {
         }
     }
 
+    $prCostCategoryId = (int) ($_POST['cost_category_id'] ?? 0);
+    if ($prCostCategoryId <= 0) {
+        $prCostCategoryId = (int) ($pr_row['cost_category_id'] ?? 0);
+    }
+    $prCostCategoryName = trim((string) ($_POST['cost_category_name'] ?? ''));
+    if ($prCostCategoryName === '') {
+        $prCostCategoryName = trim((string) ($pr_row['cost_category_name'] ?? ''));
+    }
+    if ($prCostCategoryName === '' && $prCostCategoryId > 0) {
+        if (!function_exists('tnc_site_category_name')) {
+            require_once dirname(__DIR__) . '/includes/site_cost_categories.php';
+        }
+        $prCostCategoryName = tnc_site_category_name($prCostCategoryId);
+    }
+
     $po_id = Db::nextNumericId('purchase_orders', 'id');
-    Db::setRow('purchase_orders', (string) $po_id, [
+    $optionalExtras = tnc_po_optional_create_extras(
+        $po_id,
+        $po_number,
+        $supplier_id,
+        $created_by,
+        $issue_date,
+        $total_amount,
+        $vat_amt
+    );
+    Db::setRow('purchase_orders', (string) $po_id, array_merge([
         'id' => $po_id,
         'po_number' => $po_number,
         'pr_id' => $pr_id,
@@ -1788,9 +1820,9 @@ if ($action === 'create_po_from_pr') {
         'order_type' => 'purchase',
         'site_id' => $prSiteId,
         'site_name' => $prSiteName,
-        'cost_category_id' => (int) ($pr_row['cost_category_id'] ?? 0),
-        'cost_category_name' => trim((string) ($pr_row['cost_category_name'] ?? '')),
-    ]);
+        'cost_category_id' => $prCostCategoryId,
+        'cost_category_name' => $prCostCategoryName,
+    ], $optionalExtras['po_fields']));
 
     foreach (Db::filter('purchase_request_items', static fn (array $r): bool => isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id) as $item) {
         $iid = Db::nextNumericId('purchase_order_items', 'id');
@@ -1811,8 +1843,9 @@ if ($action === 'create_po_from_pr') {
     if (method_exists(Purchase::class, 'seedPoPayments')) {
         Purchase::seedPoPayments($po_id, $total_amount, $hire_contract_id > 0 ? $hire_contract_id : null);
     }
+
     tnc_audit_purchase_order_created($po_id, 'create_po_from_pr_purchase');
-    renderPoCreatedPopupAndRedirect((string) $po_number);
+    renderPoCreatedPopupAndRedirect((string) $po_number, null, $optionalExtras['extras_saved']);
 }
 
 // --- PO โดยตรง (ไม่อิง PR) ---
@@ -2237,54 +2270,18 @@ if ($action === 'create_po_direct') {
     }
     $standalonePoExtrasSaved = false;
     if ($isStandalonePurchasePo) {
-        $slipPaths = tnc_po_payment_slip_upload_many($po_id, 'payment_slips');
-        $poExtras = [];
-        if ($slipPaths !== []) {
-            $poExtras = array_merge($poExtras, [
-                'payment_status' => 'paid',
-                'payment_slip_paths' => json_encode($slipPaths, JSON_UNESCAPED_UNICODE),
-                'payment_slip_path' => $slipPaths[0] ?? '',
-                'payment_marked_paid_at' => date('Y-m-d H:i:s'),
-                'payment_method' => 'transfer',
-            ]);
-        }
-        if ($standaloneInvoiceNo !== '') {
-            $poExtras = array_merge($poExtras, [
-                'billing_status' => 'billed',
-                'supplier_invoice_no' => $standaloneInvoiceNo,
-                'supplier_invoice_date' => $standaloneInvoiceDate,
-                'billed_total_amount' => round($standaloneBilledTotal, 2),
-                'billed_vat_amount' => round($standaloneBilledVat, 2),
-                'billing_recorded_at' => date('Y-m-d H:i:s'),
-                'billing_recorded_by' => $created_by,
-            ]);
-            $supplierNameBill = '';
-            if ($supplier_id > 0) {
-                $supplierRowBill = Db::rowByIdField('suppliers', $supplier_id);
-                if (is_array($supplierRowBill)) {
-                    $supplierNameBill = trim((string) ($supplierRowBill['name'] ?? ''));
-                }
-            }
-            $billId = Db::nextNumericId('bills', 'id');
-            Db::setRow('bills', (string) $billId, [
-                'id' => $billId,
-                'po_id' => $po_id,
-                'po_number' => $po_number,
-                'supplier_id' => $supplier_id,
-                'supplier_name' => $supplierNameBill,
-                'supplier_invoice_no' => $standaloneInvoiceNo,
-                'supplier_invoice_date' => $standaloneInvoiceDate,
-                'vat_amount' => round($standaloneBilledVat, 2),
-                'total_amount' => round($standaloneBilledTotal, 2),
-                'source' => 'po_receive_bill',
-                'created_by' => $created_by,
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s'),
-            ]);
-        }
-        if ($poExtras !== []) {
-            Db::mergeRow('purchase_orders', (string) $po_id, $poExtras);
-            $standalonePoExtrasSaved = true;
+        $standaloneExtras = tnc_po_optional_create_extras(
+            $po_id,
+            $po_number,
+            $supplier_id,
+            $created_by,
+            $issue_date,
+            $standaloneBilledTotal,
+            $standaloneBilledVat
+        );
+        if ($standaloneExtras['po_fields'] !== []) {
+            tnc_po_merge_optional_fields($po_id, $standaloneExtras['po_fields']);
+            $standalonePoExtrasSaved = $standaloneExtras['extras_saved'];
         }
     }
     tnc_audit_purchase_order_created($po_id, 'create_po_direct');

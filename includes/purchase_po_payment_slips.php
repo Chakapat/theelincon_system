@@ -9,14 +9,24 @@ declare(strict_types=1);
 function tnc_po_payment_slip_paths(array $po): array
 {
     $paths = [];
-    $json = trim((string) ($po['payment_slip_paths'] ?? ''));
-    if ($json !== '') {
-        $decoded = json_decode($json, true);
-        if (is_array($decoded)) {
-            foreach ($decoded as $p) {
-                $p = trim((string) $p);
-                if ($p !== '' && !in_array($p, $paths, true)) {
-                    $paths[] = $p;
+    $rawPaths = $po['payment_slip_paths'] ?? '';
+    if (is_array($rawPaths)) {
+        foreach ($rawPaths as $p) {
+            $p = trim((string) $p);
+            if ($p !== '' && !in_array($p, $paths, true)) {
+                $paths[] = $p;
+            }
+        }
+    } else {
+        $json = trim((string) $rawPaths);
+        if ($json !== '') {
+            $decoded = json_decode($json, true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $p) {
+                    $p = trim((string) $p);
+                    if ($p !== '' && !in_array($p, $paths, true)) {
+                        $paths[] = $p;
+                    }
                 }
             }
         }
@@ -141,6 +151,123 @@ function tnc_po_payment_slip_upload_many(int $po_id, string $fieldName): array
     }
 
     return $uploaded;
+}
+
+/**
+ * เลขบิล/สลิปตอนสร้าง PO (จาก PR หรือ PO โดยตรง) — คืนฟิลด์สำหรับ merge เข้า purchase_orders
+ *
+ * @return array{po_fields: array<string, mixed>, extras_saved: bool}
+ */
+function tnc_po_optional_create_extras(
+    int $poId,
+    string $poNumber,
+    int $supplierId,
+    int $createdBy,
+    string $issueDate,
+    float $defaultNetTotal,
+    float $defaultVatAmount
+): array {
+    if ($poId <= 0) {
+        return ['po_fields' => [], 'extras_saved' => false];
+    }
+
+    $poFields = [];
+    $extrasSaved = false;
+
+    $optionalInvoiceNo = mb_substr(trim((string) ($_POST['supplier_invoice_no'] ?? '')), 0, 120);
+    $optionalBilledTotal = $defaultNetTotal;
+    $optionalBilledVat = $defaultVatAmount;
+    $postedBillTotal = trim((string) ($_POST['billed_total_amount'] ?? ''));
+    $postedBillVat = trim((string) ($_POST['billed_vat_amount'] ?? ''));
+    if ($postedBillTotal !== '') {
+        $optionalBilledTotal = (float) str_replace([',', ' '], '', $postedBillTotal);
+    }
+    if ($postedBillVat !== '') {
+        $optionalBilledVat = (float) str_replace([',', ' '], '', $postedBillVat);
+    }
+    if ($optionalBilledTotal <= 0) {
+        $optionalBilledTotal = $defaultNetTotal;
+    }
+    if ($optionalBilledVat < 0) {
+        $optionalBilledVat = $defaultVatAmount;
+    }
+
+    $invoiceDate = $issueDate;
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $invoiceDate) !== 1) {
+        $invoiceDate = date('Y-m-d');
+    }
+
+    $slipPaths = tnc_po_payment_slip_upload_many($poId, 'payment_slips');
+    if ($slipPaths !== []) {
+        $poFields = array_merge($poFields, [
+            'payment_status' => 'paid',
+            'payment_slip_paths' => json_encode($slipPaths, JSON_UNESCAPED_UNICODE),
+            'payment_slip_path' => $slipPaths[0] ?? '',
+            'payment_marked_paid_at' => date('Y-m-d H:i:s'),
+            'payment_method' => trim((string) ($_POST['payment_method'] ?? 'transfer')) ?: 'transfer',
+        ]);
+        $extrasSaved = true;
+    }
+
+    if ($optionalInvoiceNo !== '') {
+        $poFields = array_merge($poFields, [
+            'billing_status' => 'billed',
+            'supplier_invoice_no' => $optionalInvoiceNo,
+            'supplier_invoice_date' => $invoiceDate,
+            'billed_total_amount' => round($optionalBilledTotal, 2),
+            'billed_vat_amount' => round($optionalBilledVat, 2),
+            'billing_recorded_at' => date('Y-m-d H:i:s'),
+            'billing_recorded_by' => $createdBy,
+        ]);
+        $extrasSaved = true;
+
+        $supplierNameBill = '';
+        if ($supplierId > 0) {
+            $supplierRowBill = \Theelincon\Rtdb\Db::rowByIdField('suppliers', $supplierId);
+            if (is_array($supplierRowBill)) {
+                $supplierNameBill = trim((string) ($supplierRowBill['name'] ?? ''));
+            }
+        }
+
+        $billPayload = [
+            'po_id' => $poId,
+            'po_number' => $poNumber,
+            'supplier_id' => $supplierId,
+            'supplier_name' => $supplierNameBill,
+            'supplier_invoice_no' => $optionalInvoiceNo,
+            'supplier_invoice_date' => $invoiceDate,
+            'vat_amount' => round($optionalBilledVat, 2),
+            'total_amount' => round($optionalBilledTotal, 2),
+            'source' => 'po_receive_bill',
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+        $existingBill = \Theelincon\Rtdb\Db::findFirst('bills', static function (array $r) use ($poId): bool {
+            return (int) ($r['po_id'] ?? 0) === $poId;
+        });
+        if ($existingBill !== null) {
+            $billPk = \Theelincon\Rtdb\Db::pkForLogicalId('bills', (int) ($existingBill['id'] ?? 0));
+            \Theelincon\Rtdb\Db::mergeRow('bills', $billPk, $billPayload);
+        } else {
+            $billId = \Theelincon\Rtdb\Db::nextNumericId('bills', 'id');
+            \Theelincon\Rtdb\Db::setRow('bills', (string) $billId, array_merge($billPayload, [
+                'id' => $billId,
+                'created_by' => $createdBy,
+                'created_at' => date('Y-m-d H:i:s'),
+            ]));
+        }
+    }
+
+    return ['po_fields' => $poFields, 'extras_saved' => $extrasSaved];
+}
+
+/** @param array<string, mixed> $poFields */
+function tnc_po_merge_optional_fields(int $poId, array $poFields): void
+{
+    if ($poId <= 0 || $poFields === []) {
+        return;
+    }
+    $poPk = \Theelincon\Rtdb\Db::pkForLogicalId('purchase_orders', $poId);
+    \Theelincon\Rtdb\Db::mergeRow('purchase_orders', $poPk, $poFields);
 }
 
 function tnc_po_payment_slip_delete_file(string $rel): void
