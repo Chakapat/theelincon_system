@@ -77,6 +77,39 @@ $items = [[
         .summary-grand { padding-top: 0.35rem; margin-top: 0.25rem; border-top: 2px dashed rgba(253, 126, 20, 0.25); }
         .po-vat-panel { background: #fffbf5; border: 1px solid var(--tnc-orange-border); border-radius: 0.75rem; }
         .po-actions-bar { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eef2f7; }
+        .po-submit-panel {
+            margin-top: 0.5rem;
+            padding: 1.25rem 1.35rem;
+            background: linear-gradient(180deg, #fffbf5 0%, #fff 55%);
+            border: 1px solid var(--tnc-orange-border);
+            box-shadow: 0 10px 36px rgba(234, 88, 12, 0.1);
+        }
+        .po-submit-hint { font-size: 0.82rem; color: #64748b; margin: 0; }
+        .po-submit-amount { font-size: 1.35rem; font-weight: 800; color: var(--tnc-orange); letter-spacing: -0.02em; line-height: 1.2; }
+        .po-submit-amount-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 0.15rem; }
+        .po-submit-btn {
+            min-width: min(100%, 280px);
+            padding: 0.9rem 2rem;
+            font-size: 1.05rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            box-shadow: 0 6px 20px rgba(234, 88, 12, 0.28);
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+        .po-submit-btn:not(:disabled):hover,
+        .po-submit-btn:not(:disabled):focus-visible {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 28px rgba(234, 88, 12, 0.38);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .po-submit-btn { transition: none; }
+            .po-submit-btn:not(:disabled):hover,
+            .po-submit-btn:not(:disabled):focus-visible { transform: none; }
+        }
+        @media (max-width: 575.98px) {
+            .po-submit-panel { text-align: center; }
+            .po-submit-btn { width: 100%; }
+        }
     </style>
 </head>
 <body class="purchase-module tnc-app-body">
@@ -115,7 +148,6 @@ $items = [[
                     <h1 class="h3 mb-1 fw-bold">ออกใบสั่งซื้อโดยตรง</h1>
                 </div>
                 <div class="col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
-                    <button type="submit" class="btn btn-orange rounded-pill px-4 shadow"<?= count($sites) === 0 ? ' disabled' : '' ?>><i class="bi bi-check2-circle me-1"></i>ยืนยันสร้าง PO</button>
                     <a href="<?= htmlspecialchars($poListUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับรายการ PO</a>
                 </div>
             </div>
@@ -177,10 +209,6 @@ $items = [[
         </div>
 
         <div class="card card-soft p-4 p-md-4 mb-4">
-            <label class="po-field-label" for="po_note">หมายเหตุใบสั่งซื้อ</label>
-            <textarea name="po_note" id="po_note" class="form-control" rows="2" maxlength="500" placeholder="หมายเหตุ (ถ้ามี)"></textarea>
-        </div>
-        <div class="card card-soft p-4 p-md-4 mb-4">
             <div class="row g-3 align-items-end">
                 <div class="col-md-6">
                     <label class="po-field-label" for="payment_slips">แนบสลิป / หลักฐานการจ่าย</label>
@@ -190,6 +218,11 @@ $items = [[
             <input type="hidden" name="billed_total_amount" id="billed_total_amount" value="0">
             <input type="hidden" name="billed_vat_amount" id="billed_vat_amount" value="0">
             <input type="hidden" name="payment_method" value="transfer">
+        </div>
+
+        <div class="card card-soft p-4 p-md-4 mb-4">
+            <label class="po-field-label" for="po_note">หมายเหตุใบสั่งซื้อ</label>
+            <textarea name="po_note" id="po_note" class="form-control" rows="2" maxlength="500" placeholder="หมายเหตุ (ถ้ามี)"></textarea>
         </div>
         <div class="card card-soft p-4 p-md-4 mb-4">
             <div class="table-responsive po-table-wrap">
@@ -253,6 +286,14 @@ $items = [[
                     </div>
                     <input type="hidden" name="withholding_type" id="withholding_type" value="none">
                 </div>
+            </div>
+        </div>
+
+        <div class="card card-soft po-submit-panel">
+            <div class="d-flex flex-wrap align-items-center justify-content-end gap-3">
+                <button type="submit" class="btn btn-orange btn-lg po-submit-btn rounded-pill"<?= count($sites) === 0 ? ' disabled' : '' ?>>
+                    <i class="bi bi-check2-circle me-2"></i>ยืนยันสร้างใบสั่งซื้อ
+                </button>
             </div>
         </div>
     </form>
@@ -442,6 +483,8 @@ function calculateTotal() {
     if (vatOn) { vatRow.style.display = 'grid'; document.getElementById('vat_display').innerText = vat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     else { vatRow.style.display = 'none'; }
     document.getElementById('grand_total').innerText = gross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const submitGrandEl = document.getElementById('submit_grand_total');
+    if (submitGrandEl) submitGrandEl.innerText = gross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const billedTotalEl = document.getElementById('billed_total_amount');
     const billedVatEl = document.getElementById('billed_vat_amount');
     if (billedTotalEl) billedTotalEl.value = gross.toFixed(2);
