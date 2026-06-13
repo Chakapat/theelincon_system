@@ -90,6 +90,20 @@ if ($issueDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDateVal))
         : date('Y-m-d');
 }
 
+$supplierInvoiceNoVal = trim((string) ($po['supplier_invoice_no'] ?? ''));
+$supplierInvoiceDateVal = trim((string) ($po['supplier_invoice_date'] ?? ''));
+if ($supplierInvoiceDateVal === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $supplierInvoiceDateVal)) {
+    $supplierInvoiceDateVal = $issueDateVal;
+}
+$billedTotalStored = (float) ($po['billed_total_amount'] ?? 0);
+if ($billedTotalStored <= 0) {
+    $billedTotalStored = (float) ($po['total_amount'] ?? 0);
+}
+$billedVatStored = (float) ($po['billed_vat_amount'] ?? 0);
+if ($billedVatStored < 0) {
+    $billedVatStored = (float) ($po['vat_amount'] ?? 0);
+}
+
 $hireContractId = (int) ($po['hire_contract_id'] ?? 0);
 $hireContract = $hireContractId > 0 ? Db::row('hire_contracts', (string) $hireContractId) : null;
 $contractorName = trim((string) ($po['contractor_name'] ?? ''));
@@ -240,7 +254,7 @@ if ($isHirePo) {
                 <div class="po-section-icon" aria-hidden="true"><i class="bi bi-info-lg"></i></div>
                 <div>
                     <h2 class="section-title">ข้อมูลเอกสาร</h2>
-                    <p class="section-sub">เลขที่ PO อ่านอย่างเดียว · แก้วันที่ออกใบ / ผู้ขายได้ตามจริง</p>
+                    <p class="section-sub">เลขที่ PO อ่านอย่างเดียว · แก้วันที่ออกใบ / ผู้ขาย / เลขบิลได้ตามจริง</p>
                 </div>
             </div>
             <div class="row g-3 g-md-4">
@@ -283,6 +297,38 @@ if ($isHirePo) {
                     </datalist>
                     <input type="hidden" name="supplier_id" id="supplier_id" value="<?= (int) $supplierId ?>">
                 </div>
+                <?php if (!$isHirePo): ?>
+                <div class="col-md-4">
+                    <label class="po-field-label" for="supplier_invoice_no">เลขที่บิล / ใบกำกับภาษี</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white text-secondary"><i class="bi bi-receipt"></i></span>
+                        <input
+                            type="text"
+                            name="supplier_invoice_no"
+                            id="supplier_invoice_no"
+                            class="form-control"
+                            maxlength="120"
+                            value="<?= htmlspecialchars($supplierInvoiceNoVal, ENT_QUOTES, 'UTF-8') ?>"
+                            placeholder="ระบุเมื่อมีบิลจากผู้ขาย"
+                        >
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="po-field-label" for="supplier_invoice_date">วันที่บิล</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white text-secondary"><i class="bi bi-calendar3"></i></span>
+                        <input
+                            type="date"
+                            name="supplier_invoice_date"
+                            id="supplier_invoice_date"
+                            class="form-control"
+                            value="<?= htmlspecialchars($supplierInvoiceDateVal, ENT_QUOTES, 'UTF-8') ?>"
+                            lang="th"
+                            autocomplete="off"
+                        >
+                    </div>
+                </div>
+                <?php endif; ?>
                 <?php if ($isHirePo): ?>
                 <div class="col-md-4">
                     <label class="po-field-label">ผู้รับจ้าง</label>
@@ -397,9 +443,9 @@ if ($isHirePo) {
                             <tr>
                                 <td class="row-number text-secondary small fw-semibold"><?= $index + 1 ?></td>
                                 <td><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ระบุรายการ"></td>
-                                <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.01" min="0" required value="<?= htmlspecialchars((string) ($item['quantity'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.001" min="0" required value="<?= htmlspecialchars((string) ($item['quantity'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
                                 <td><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ชิ้น"></td>
-                                <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" required value="<?= htmlspecialchars((string) ($item['unit_price'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.001" required value="<?= htmlspecialchars((string) ($item['unit_price'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
                                 <td><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>" placeholder="บาท/10%" oninput="calculateTotal()"></td>
                                 <td><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
                                 <td>
@@ -463,6 +509,8 @@ if ($isHirePo) {
                         <div class="summary-line summary-grand fw-bold"><span class="summary-label">ยอดสุทธิ</span><strong class="summary-value text-end text-tnc-orange"><span id="grand_total">0.00</span> บาท</strong></div>
                     </div>
                     <input type="hidden" name="total_amount" id="total_amount_input" value="0">
+                    <input type="hidden" name="billed_total_amount" id="billed_total_amount" value="<?= htmlspecialchars(number_format($billedTotalStored, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="billed_vat_amount" id="billed_vat_amount" value="<?= htmlspecialchars(number_format($billedVatStored, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="withholding_type" id="withholding_type" value="none">
                     <input type="hidden" name="retention_type" value="none">
                     <input type="hidden" name="retention_value" value="0">
@@ -548,9 +596,9 @@ function addRow() {
     newRow.innerHTML = `
         <td class="row-number text-secondary small fw-semibold">${rowCount}</td>
         <td><input type="text" name="item_description[]" class="form-control form-control-sm" required placeholder="ระบุรายการ"></td>
-        <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.01" min="0" required oninput="calculateTotal()"></td>
+        <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.001" min="0" required oninput="calculateTotal()"></td>
         <td><input type="text" name="item_unit[]" class="form-control form-control-sm" placeholder="ชิ้น"></td>
-        <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.01" required oninput="calculateTotal()"></td>
+        <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.001" required oninput="calculateTotal()"></td>
         <td><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" placeholder="บาท/10%" oninput="calculateTotal()"></td>
         <td><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
         <td><button type="button" class="btn btn-outline-danger btn-sm border-0 rounded-3" onclick="removeRow(this)" title="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>
@@ -671,6 +719,14 @@ function calculateTotal() {
     }
     document.getElementById('grand_total').innerText = grand.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     document.getElementById('total_amount_input').value = grand.toFixed(2);
+    const billedTotalEl = document.getElementById('billed_total_amount');
+    const billedVatEl = document.getElementById('billed_vat_amount');
+    if (billedTotalEl) {
+        billedTotalEl.value = grand.toFixed(2);
+    }
+    if (billedVatEl) {
+        billedVatEl.value = vat.toFixed(2);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', calculateTotal);

@@ -27,20 +27,37 @@
             .replace(/"/g, '&quot;');
     }
 
-    function arcOffset(index, total) {
-        if (total <= 1) {
-            return '0';
-        }
-        var mid = (total - 1) / 2;
-        var dist = Math.abs(index - mid) / mid;
-        return (-0.15 - dist * 0.85).toFixed(2) + 'rem';
+    function fanPosition(index, total) {
+        var startAngle = 18;
+        var endAngle = 56;
+        var t = total <= 1 ? 0.5 : index / (total - 1);
+        var angleDeg = startAngle + (endAngle - startAngle) * t;
+        var rad = angleDeg * Math.PI / 180;
+        var radiusRem = 4.85 + index * 0.42;
+        var xRem = Math.sin(rad) * radiusRem;
+        var yRem = Math.cos(rad) * radiusRem;
+        var spinStart = -32 + index * 10;
+
+        return {
+            x: (-xRem).toFixed(2) + 'rem',
+            y: (-yRem).toFixed(2) + 'rem',
+            spin: spinStart.toFixed(1) + 'deg',
+            delay: String(index * 45) + 'ms'
+        };
+    }
+
+    function applyFanPosition(el, index, total) {
+        var pos = fanPosition(index, total);
+        el.style.setProperty('--fab-x', pos.x);
+        el.style.setProperty('--fab-y', pos.y);
+        el.style.setProperty('--fab-spin-start', pos.spin);
+        el.style.setProperty('--fab-delay', pos.delay);
     }
 
     function closeFlyout() {
         activeHubKey = null;
-        flyout.hidden = true;
-        flyout.setAttribute('aria-hidden', 'true');
         flyout.classList.remove('is-visible');
+        flyout.setAttribute('aria-hidden', 'true');
         root.classList.remove('has-flyout');
         var panel = document.getElementById('tncHubFabFlyoutPanel');
         if (panel) {
@@ -50,6 +67,11 @@
             hubButtons[key].classList.remove('is-expanded');
             hubButtons[key].setAttribute('aria-expanded', 'false');
         });
+        window.setTimeout(function () {
+            if (!flyout.classList.contains('is-visible')) {
+                flyout.hidden = true;
+            }
+        }, 280);
     }
 
     function positionFlyout(hubBtn) {
@@ -119,8 +141,11 @@
 
         flyout.hidden = false;
         flyout.setAttribute('aria-hidden', 'false');
-        flyout.classList.add('is-visible');
+        flyout.classList.remove('is-visible');
         root.classList.add('has-flyout');
+        window.requestAnimationFrame(function () {
+            flyout.classList.add('is-visible');
+        });
     }
 
     function toggleHub(hub) {
@@ -158,7 +183,7 @@
             el.setAttribute('aria-expanded', 'false');
             el.setAttribute('aria-label', hub.label);
             el.title = hub.short_label || hub.label;
-            el.style.setProperty('--fab-arc', arcOffset(index, total));
+            applyFanPosition(el, index, total);
             el.innerHTML =
                 '<span class="tnc-hub-fab-hub-label">' + escapeHtml(hub.short_label || hub.label) + '</span>' +
                 '<span class="tnc-hub-fab-hub-btn"><i class="bi ' + escapeHtml(hub.icon) + '" aria-hidden="true"></i></span>';

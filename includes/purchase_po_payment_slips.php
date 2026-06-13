@@ -260,6 +260,95 @@ function tnc_po_optional_create_extras(
     return ['po_fields' => $poFields, 'extras_saved' => $extrasSaved];
 }
 
+/**
+ * บันทึก/แก้ไขเลขบิลจากหน้า purchase-order-edit.php
+ *
+ * @param array<string, mixed> $poRow แถว PO หลังอัปเดตยอด/รายการแล้ว
+ */
+function tnc_po_sync_billing_on_edit(
+    int $poId,
+    array $poRow,
+    string $supplierInvoiceNo,
+    string $supplierInvoiceDate,
+    float $billedTotal,
+    float $billedVat,
+    int $userId
+): void {
+    if ($poId <= 0) {
+        return;
+    }
+
+    $supplierInvoiceNo = mb_substr(trim($supplierInvoiceNo), 0, 120);
+    if ($supplierInvoiceNo === '') {
+        return;
+    }
+
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($supplierInvoiceDate)) !== 1) {
+        $supplierInvoiceDate = trim((string) ($poRow['issue_date'] ?? ''));
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $supplierInvoiceDate) !== 1) {
+            $supplierInvoiceDate = date('Y-m-d');
+        }
+    }
+
+    if ($billedTotal <= 0) {
+        $billedTotal = (float) ($poRow['total_amount'] ?? 0);
+    }
+    if ($billedVat < 0) {
+        $billedVat = (float) ($poRow['vat_amount'] ?? 0);
+    }
+
+    $supplierId = (int) ($poRow['supplier_id'] ?? 0);
+    $supplierName = '';
+    if ($supplierId > 0) {
+        $supplierRow = \Theelincon\Rtdb\Db::rowByIdField('suppliers', $supplierId);
+        if (is_array($supplierRow)) {
+            $supplierName = trim((string) ($supplierRow['name'] ?? ''));
+        }
+    }
+    if ($supplierName === '') {
+        $supplierName = trim((string) ($poRow['supplier_name'] ?? ''));
+    }
+
+    $poPk = \Theelincon\Rtdb\Db::pkForLogicalId('purchase_orders', $poId);
+    \Theelincon\Rtdb\Db::mergeRow('purchase_orders', $poPk, [
+        'billing_status' => 'billed',
+        'supplier_invoice_no' => $supplierInvoiceNo,
+        'supplier_invoice_date' => $supplierInvoiceDate,
+        'billed_total_amount' => round($billedTotal, 2),
+        'billed_vat_amount' => round($billedVat, 2),
+        'billing_recorded_at' => date('Y-m-d H:i:s'),
+        'billing_recorded_by' => $userId > 0 ? $userId : (int) ($poRow['billing_recorded_by'] ?? 0),
+    ]);
+
+    $billPayload = [
+        'po_id' => $poId,
+        'po_number' => trim((string) ($poRow['po_number'] ?? '')),
+        'supplier_id' => $supplierId,
+        'supplier_name' => $supplierName,
+        'supplier_invoice_no' => $supplierInvoiceNo,
+        'supplier_invoice_date' => $supplierInvoiceDate,
+        'vat_amount' => round($billedVat, 2),
+        'total_amount' => round($billedTotal, 2),
+        'source' => 'po_receive_bill',
+        'updated_at' => date('Y-m-d H:i:s'),
+    ];
+    $existingBill = \Theelincon\Rtdb\Db::findFirst('bills', static function (array $r) use ($poId): bool {
+        return (int) ($r['po_id'] ?? 0) === $poId;
+    });
+    if ($existingBill !== null && (int) ($existingBill['id'] ?? 0) > 0) {
+        $billPk = \Theelincon\Rtdb\Db::pkForLogicalId('bills', (int) $existingBill['id']);
+        \Theelincon\Rtdb\Db::mergeRow('bills', $billPk, $billPayload);
+        return;
+    }
+
+    $billId = \Theelincon\Rtdb\Db::nextNumericId('bills', 'id');
+    \Theelincon\Rtdb\Db::setRow('bills', (string) $billId, array_merge($billPayload, [
+        'id' => $billId,
+        'created_by' => $userId,
+        'created_at' => date('Y-m-d H:i:s'),
+    ]));
+}
+
 /** @param array<string, mixed> $poFields */
 function tnc_po_merge_optional_fields(int $poId, array $poFields): void
 {

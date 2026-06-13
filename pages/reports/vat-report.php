@@ -85,6 +85,101 @@ function tnc_vat_is_cash_bill_purchase(string $billNo, string $supplierName): bo
 }
 
 /**
+ * หาเลขที่บิล/ใบกำกับภาษี (ภาษีซื้อ) ที่ซ้ำกันในรายงาน
+ *
+ * @param list<array<string, mixed>> $purchaseRows
+ * @return list<array{bill_no: string, count: int, indexes: list<int>}>
+ */
+function tnc_vat_find_duplicate_purchase_bills(array $purchaseRows): array
+{
+    /** @var array<string, list<int>> $grouped */
+    $grouped = [];
+    foreach ($purchaseRows as $idx => $row) {
+        $billNo = trim((string) ($row['bill_no'] ?? ''));
+        if ($billNo === '') {
+            continue;
+        }
+        if (tnc_vat_is_cash_bill_purchase($billNo, (string) ($row['supplier_name'] ?? ''))) {
+            continue;
+        }
+        $key = mb_strtolower($billNo);
+        if (!isset($grouped[$key])) {
+            $grouped[$key] = [];
+        }
+        $grouped[$key][] = (int) $idx;
+    }
+
+    $dupes = [];
+    foreach ($grouped as $indexes) {
+        if (count($indexes) < 2) {
+            continue;
+        }
+        $first = $purchaseRows[$indexes[0]] ?? [];
+        $dupes[] = [
+            'bill_no' => trim((string) ($first['bill_no'] ?? '')),
+            'count' => count($indexes),
+            'indexes' => $indexes,
+        ];
+    }
+
+    usort($dupes, static function (array $a, array $b): int {
+        return strcmp($a['bill_no'], $b['bill_no']);
+    });
+
+    return $dupes;
+}
+
+/**
+ * @param list<array<string, mixed>> $purchaseRows
+ * @param list<array{bill_no: string, count: int, indexes: list<int>}> $duplicateBills
+ */
+function tnc_vat_mark_duplicate_purchase_bills(array &$purchaseRows, array $duplicateBills): void
+{
+    $duplicateIndexes = [];
+    foreach ($duplicateBills as $group) {
+        foreach ($group['indexes'] as $idx) {
+            $duplicateIndexes[(int) $idx] = true;
+        }
+    }
+    foreach ($purchaseRows as $idx => &$row) {
+        $row['is_duplicate_bill'] = isset($duplicateIndexes[$idx]);
+    }
+    unset($row);
+}
+
+/**
+ * @param list<array{bill_no: string, count: int, indexes: list<int>}> $duplicateBills
+ */
+function tnc_vat_render_duplicate_bill_alert(array $duplicateBills): string
+{
+    if ($duplicateBills === []) {
+        return '';
+    }
+
+    ob_start();
+    ?>
+    <div class="alert alert-warning border-warning py-3 mb-3 vat-duplicate-bill-alert" role="alert">
+        <div class="d-flex gap-2 align-items-start">
+            <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1" aria-hidden="true"></i>
+            <div>
+                <div class="fw-bold mb-1">พบเลขที่บิล / ใบกำกับภาษีซ้ำกัน <?= count($duplicateBills) ?> รายการ</div>
+                <p class="small mb-2 text-secondary">กรุณาตรวจสอบและแก้ไขข้อมูล PO หรือบิลที่ซ้ำก่อนยื่น VAT</p>
+                <ul class="small mb-0 ps-3">
+                    <?php foreach ($duplicateBills as $group): ?>
+                        <li>
+                            <strong><?= h($group['bill_no']) ?></strong>
+                            — ปรากฏ <?= (int) $group['count'] ?> ครั้ง
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+/**
  * @param list<array<string, mixed>> $rows
  */
 function tnc_vat_render_table_html(
@@ -132,7 +227,7 @@ function tnc_vat_render_table_html(
                     $docNo = (string) ($isSales ? ($row['invoice_no'] ?? '') : ($row['bill_no'] ?? ''));
                     $nameCol = (string) ($isSales ? ($row['customer_name'] ?? '') : ($row['supplier_name'] ?? ''));
                     ?>
-                    <tr>
+                    <tr<?= !$isSales && !empty($row['is_duplicate_bill']) ? ' class="vat-row-duplicate"' : '' ?>>
                         <td><?= h((string) ($row['doc_date'] ?? '')) ?></td>
                         <td><?= $withDocLinks ? tnc_vat_render_doc_no($docNo, (string) ($row['link_url'] ?? '')) : h($docNo) ?></td>
                         <td><?= h($nameCol) ?></td>
@@ -360,6 +455,9 @@ usort($purchaseRows, static function (array $a, array $b): int {
     }
     return strcmp($b['bill_no'], $a['bill_no']);
 });
+
+$duplicatePurchaseBills = tnc_vat_find_duplicate_purchase_bills($purchaseRows);
+tnc_vat_mark_duplicate_purchase_bills($purchaseRows, $duplicatePurchaseBills);
 
 $vatDiff = round($sumSalesVat - $sumPurchaseVat, 2);
 $vatSummaryLabel = $vatDiff >= 0 ? 'ต้องชำระภาษีเพิ่ม' : 'ขอคืนภาษี';
@@ -716,6 +814,9 @@ if ($printType === 'sales' || $printType === 'purchase') {
         .vat-print-table th.text-end { font-variant-numeric: tabular-nums; }
         .vat-doc-link { font-weight: 600; text-decoration: none; color: var(--tnc-orange, #ea580c); }
         .vat-doc-link:hover { text-decoration: underline; color: var(--tnc-orange-dark, #9a3412); }
+        .vat-row-duplicate td { background: #fff7ed !important; }
+        .vat-row-duplicate td:nth-child(2) { box-shadow: inset 3px 0 0 #ea580c; font-weight: 700; color: #c2410c; }
+        .vat-duplicate-bill-alert ul { margin-bottom: 0; }
         .vat-tab-meta { font-size: 0.82rem; color: #64748b; margin-bottom: 0.75rem; }
         @media (max-width: 575.98px) {
             .card-soft .card-body { padding: 1rem; }
@@ -788,9 +889,16 @@ if ($printType === 'sales' || $printType === 'purchase') {
                 <span class="report-badge report-badge--sales">ภาษีขายรวม: <?= number_format($sumSalesVat, 2) ?></span>
                 <span class="report-badge report-badge--purchase">ภาษีซื้อรวม: <?= number_format($sumPurchaseVat, 2) ?></span>
                 <span class="report-badge <?= $vatDiff >= 0 ? 'report-badge--diff' : 'report-badge--refund' ?>"><?= h($vatSummaryLabel) ?>: <?= number_format(abs($vatDiff), 2) ?></span>
+                <?php if ($duplicatePurchaseBills !== []): ?>
+                    <span class="report-badge bg-warning-subtle text-warning-emphasis border-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>เลขบิลซ้ำ <?= count($duplicatePurchaseBills) ?> รายการ</span>
+                <?php endif; ?>
             </div>
         </div>
     </div>
+
+    <?php if ($duplicatePurchaseBills !== []): ?>
+        <?= tnc_vat_render_duplicate_bill_alert($duplicatePurchaseBills) ?>
+    <?php endif; ?>
 
     <div class="card card-soft mb-3">
         <div class="card-body">
@@ -808,7 +916,12 @@ if ($printType === 'sales' || $printType === 'purchase') {
                     <?= tnc_vat_render_table_html(true, $salesRows, $sumSalesBase, $sumSalesVat, $sumSalesNet, true) ?>
                 </div>
                 <div class="tab-pane fade" id="tab-purchase" role="tabpanel" aria-labelledby="vat-tab-purchase" tabindex="0">
-                    <div class="vat-tab-meta">จำนวนรายการ: <?= count($purchaseRows) ?> รายการ · ช่วงข้อมูล: <?= h($periodText) ?></div>
+                    <div class="vat-tab-meta">
+                        จำนวนรายการ: <?= count($purchaseRows) ?> รายการ · ช่วงข้อมูล: <?= h($periodText) ?>
+                        <?php if ($duplicatePurchaseBills !== []): ?>
+                            · <span class="text-warning-emphasis fw-semibold">มีเลขบิลซ้ำ <?= count($duplicatePurchaseBills) ?> รายการ</span>
+                        <?php endif; ?>
+                    </div>
                     <?= tnc_vat_render_table_html(false, $purchaseRows, $sumPurchaseBase, $sumPurchaseVat, $sumPurchaseNet, true) ?>
                 </div>
             </div>

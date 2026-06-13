@@ -238,23 +238,7 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         }
     }
 
-    $poSiteDisplay = trim((string) ($data['site_name'] ?? ''));
-    $poSiteId = (int) ($data['site_id'] ?? 0);
-    if ($poSiteDisplay === '' && $poSiteId > 0) {
-        $siteRowPo = Db::row('sites', (string) $poSiteId);
-        if (is_array($siteRowPo)) {
-            $poSiteDisplay = trim((string) ($siteRowPo['name'] ?? ''));
-        }
-    }
-    if ($poSiteDisplay === '' && is_array($pr)) {
-        $poSiteDisplay = trim((string) ($pr['site_name'] ?? ''));
-        if ($poSiteDisplay === '' && (int) ($pr['site_id'] ?? 0) > 0) {
-            $sr2 = Db::row('sites', (string) (int) ($pr['site_id'] ?? 0));
-            if (is_array($sr2)) {
-                $poSiteDisplay = trim((string) ($sr2['name'] ?? ''));
-            }
-        }
-    }
+    $poSiteDisplay = tnc_purchase_po_resolve_site_name($data, is_array($pr) ? $pr : null);
 
     $poCostCategoryId = (int) ($data['cost_category_id'] ?? 0);
     $poCostCategoryName = trim((string) ($data['cost_category_name'] ?? ''));
@@ -272,26 +256,7 @@ function tnc_purchase_po_print_prepare(int $id): ?array
     }
 
     $poNumber = trim((string) ($po['po_number'] ?? ''));
-    $items = Db::filter('purchase_order_items', static function (array $r) use ($id, $poNumber): bool {
-        $poId = isset($r['po_id']) ? (int) $r['po_id'] : 0;
-        $purchaseOrderId = isset($r['purchase_order_id']) ? (int) $r['purchase_order_id'] : 0;
-        $poNumberRef = trim((string) ($r['po_number'] ?? ''));
-
-        return $poId === $id
-            || $purchaseOrderId === $id
-            || ($poNumberRef !== '' && $poNumberRef === $poNumber);
-    });
-    if (count($items) === 0 && $prId > 0) {
-        $items = Db::filter('purchase_order_items', static function (array $r) use ($prId): bool {
-            return isset($r['pr_id']) && (int) $r['pr_id'] === $prId;
-        });
-    }
-    if (count($items) === 0 && $prId > 0) {
-        $items = Db::filter('purchase_request_items', static function (array $r) use ($prId): bool {
-            return isset($r['pr_id']) && (int) $r['pr_id'] === $prId;
-        });
-    }
-    Db::sortRows($items, 'id', false);
+    $items = tnc_purchase_po_load_items($id, $po, is_array($pr) ? $pr : null);
 
     $po_vat_enabled = (int) ($data['vat_enabled'] ?? 0);
     $po_vat_amount = (float) ($data['vat_amount'] ?? 0);

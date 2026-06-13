@@ -76,6 +76,81 @@ if (!function_exists('tnc_purchase_totals_from_line_sum')) {
 }
 
 /**
+ * โหลดรายการ PO ให้ตรงกับหน้า view/พิมพ์ (po_id, po_number, fallback จาก PR)
+ *
+ * @return list<array<string, mixed>>
+ */
+if (!function_exists('tnc_purchase_po_load_items')) {
+    function tnc_purchase_po_load_items(int $poId, array $po, ?array $pr = null): array
+    {
+        if ($poId <= 0) {
+            return [];
+        }
+
+        $poNumber = trim((string) ($po['po_number'] ?? ''));
+        $prId = (int) ($po['pr_id'] ?? 0);
+        if ($pr === null && $prId > 0) {
+            $prRow = \Theelincon\Rtdb\Db::rowByIdField('purchase_requests', $prId);
+            $pr = is_array($prRow) ? $prRow : null;
+        }
+
+        $items = \Theelincon\Rtdb\Db::filter('purchase_order_items', static function (array $r) use ($poId, $poNumber): bool {
+            $pid = (int) ($r['po_id'] ?? 0);
+            $purchaseOrderId = (int) ($r['purchase_order_id'] ?? 0);
+            $poNumberRef = trim((string) ($r['po_number'] ?? ''));
+
+            return $pid === $poId
+                || $purchaseOrderId === $poId
+                || ($poNumber !== '' && $poNumberRef === $poNumber);
+        });
+
+        if ($items === [] && $prId > 0) {
+            $items = \Theelincon\Rtdb\Db::filter('purchase_order_items', static function (array $r) use ($prId): bool {
+                return (int) ($r['pr_id'] ?? 0) === $prId;
+            });
+        }
+        if ($items === [] && $prId > 0) {
+            $items = \Theelincon\Rtdb\Db::filter('purchase_request_items', static function (array $r) use ($prId): bool {
+                return (int) ($r['pr_id'] ?? 0) === $prId;
+            });
+        }
+
+        \Theelincon\Rtdb\Db::sortRows($items, 'id', false);
+
+        return $items;
+    }
+}
+
+/**
+ * ชื่อไซต์งานบน PO — ใช้ site_name ที่บันทึกไว้ก่อน แล้วค่อย lookup จาก PR / ตาราง sites
+ */
+if (!function_exists('tnc_purchase_po_resolve_site_name')) {
+    function tnc_purchase_po_resolve_site_name(array $po, ?array $pr = null, array $siteNameById = []): string
+    {
+        $siteName = trim((string) ($po['site_name'] ?? ''));
+        $siteId = (int) ($po['site_id'] ?? 0);
+
+        if ($siteName === '' && $siteId <= 0 && is_array($pr)) {
+            $siteId = (int) ($pr['site_id'] ?? 0);
+            $siteName = trim((string) ($pr['site_name'] ?? ''));
+        }
+
+        if ($siteName === '' && $siteId > 0) {
+            if (isset($siteNameById[$siteId]) && $siteNameById[$siteId] !== '') {
+                $siteName = $siteNameById[$siteId];
+            } else {
+                $siteRow = \Theelincon\Rtdb\Db::row('sites', (string) $siteId);
+                if (is_array($siteRow)) {
+                    $siteName = trim((string) ($siteRow['name'] ?? ''));
+                }
+            }
+        }
+
+        return $siteName;
+    }
+}
+
+/**
  * จัดกลุ่มรายการ PO ตาม po_id (โหลดครั้งเดียวสำหรับหน้ารายการ)
  *
  * @return array<int, list<array<string, mixed>>>
@@ -83,6 +158,18 @@ if (!function_exists('tnc_purchase_totals_from_line_sum')) {
 if (!function_exists('tnc_purchase_po_items_group_by_po_id')) {
     function tnc_purchase_po_items_group_by_po_id(): array
     {
+        $poNumberToId = [];
+        foreach (\Theelincon\Rtdb\Db::tableRows('purchase_orders') as $po) {
+            if (!is_array($po)) {
+                continue;
+            }
+            $id = (int) ($po['id'] ?? 0);
+            $poNumber = trim((string) ($po['po_number'] ?? ''));
+            if ($id > 0 && $poNumber !== '') {
+                $poNumberToId[$poNumber] = $id;
+            }
+        }
+
         $byPo = [];
         foreach (\Theelincon\Rtdb\Db::tableRows('purchase_order_items') as $item) {
             if (!is_array($item)) {
@@ -91,6 +178,12 @@ if (!function_exists('tnc_purchase_po_items_group_by_po_id')) {
             $poId = (int) ($item['po_id'] ?? 0);
             if ($poId <= 0) {
                 $poId = (int) ($item['purchase_order_id'] ?? 0);
+            }
+            if ($poId <= 0) {
+                $poNumberRef = trim((string) ($item['po_number'] ?? ''));
+                if ($poNumberRef !== '' && isset($poNumberToId[$poNumberRef])) {
+                    $poId = (int) $poNumberToId[$poNumberRef];
+                }
             }
             if ($poId <= 0) {
                 continue;

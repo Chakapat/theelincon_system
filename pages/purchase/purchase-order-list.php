@@ -39,23 +39,10 @@ foreach (Db::tableRows('purchase_requests') as $pr) {
     }
 }
 $resolvePoSiteName = static function (array $po) use ($siteNameById, $prById): string {
-    $siteId = (int) ($po['site_id'] ?? 0);
-    $siteName = trim((string) ($po['site_name'] ?? ''));
-    if ($siteId <= 0) {
-        $prId = (int) ($po['pr_id'] ?? 0);
-        if ($prId > 0 && isset($prById[$prId])) {
-            $pr = $prById[$prId];
-            $siteId = (int) ($pr['site_id'] ?? 0);
-            if ($siteName === '') {
-                $siteName = trim((string) ($pr['site_name'] ?? ''));
-            }
-        }
-    }
-    if ($siteId > 0 && isset($siteNameById[$siteId]) && $siteNameById[$siteId] !== '') {
-        $siteName = $siteNameById[$siteId];
-    }
+    $prId = (int) ($po['pr_id'] ?? 0);
+    $pr = ($prId > 0 && isset($prById[$prId])) ? $prById[$prId] : null;
 
-    return $siteName;
+    return tnc_purchase_po_resolve_site_name($po, is_array($pr) ? $pr : null, $siteNameById);
 };
 
 /** วันที่ใช้เรียง/แสดง: issue_date ก่อน แล้ว fallback created_at → Y-m-d หรือว่าง */
@@ -90,7 +77,13 @@ foreach (Db::tableRows('purchase_orders') as $po) {
         continue;
     }
     $poId = (int) ($po['id'] ?? 0);
-    $resolvedTotals = tnc_purchase_po_resolved_totals($po, $poItemsByPoId[$poId] ?? []);
+    $prIdForItems = (int) ($po['pr_id'] ?? 0);
+    $prForItems = ($prIdForItems > 0 && isset($prById[$prIdForItems])) ? $prById[$prIdForItems] : null;
+    $poItems = $poItemsByPoId[$poId] ?? [];
+    if ($poItems === []) {
+        $poItems = tnc_purchase_po_load_items($poId, $po, is_array($prForItems) ? $prForItems : null);
+    }
+    $resolvedTotals = tnc_purchase_po_resolved_totals($po, $poItems);
     $s = $suppliers[(string) ($po['supplier_id'] ?? '')] ?? null;
     $u = $users[(string) ($po['created_by'] ?? '')] ?? null;
     $status = strtolower(trim((string) ($po['status'] ?? 'ordered')));

@@ -2519,6 +2519,23 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
     }
 
     $afterSnap = Db::row('purchase_orders', $pk);
+    $supplierInvoiceNoEdit = mb_substr(trim((string) ($_POST['supplier_invoice_no'] ?? '')), 0, 120);
+    if ($supplierInvoiceNoEdit !== '' && $afterSnap !== null) {
+        $supplierInvoiceDateEdit = trim((string) ($_POST['supplier_invoice_date'] ?? ''));
+        $billedTotalEdit = (float) str_replace([',', ' '], '', trim((string) ($_POST['billed_total_amount'] ?? '')));
+        $billedVatEdit = (float) str_replace([',', ' '], '', trim((string) ($_POST['billed_vat_amount'] ?? '')));
+        tnc_po_sync_billing_on_edit(
+            $po_id,
+            $afterSnap,
+            $supplierInvoiceNoEdit,
+            $supplierInvoiceDateEdit,
+            $billedTotalEdit,
+            $billedVatEdit,
+            (int) ($_SESSION['user_id'] ?? 0)
+        );
+        $afterSnap = Db::row('purchase_orders', $pk);
+    }
+
     $poNo = $afterSnap !== null ? trim((string) ($afterSnap['po_number'] ?? '')) : '';
     tnc_audit_log('update', 'purchase_order', (string) $po_id, $poNo !== '' ? $poNo : ('#' . $po_id), [
         'source' => 'action-handler',
