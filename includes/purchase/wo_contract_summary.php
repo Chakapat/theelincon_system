@@ -93,6 +93,19 @@ $woSummaryFormatDate = static function (string $raw): string {
     }
 };
 
+$woSummaryCostCategory = static function (array $poRow): string {
+    $catName = trim((string) ($poRow['cost_category_name'] ?? ''));
+    $catId = (int) ($poRow['cost_category_id'] ?? 0);
+    if ($catName === '' && $catId > 0) {
+        if (!function_exists('tnc_site_category_name')) {
+            require_once dirname(__DIR__) . '/site_cost_categories.php';
+        }
+        $catName = tnc_site_category_name($catId);
+    }
+
+    return $catName !== '' ? $catName : '-';
+};
+
 $payRows = [];
 foreach ($activePaymentPos as $linkedPo) {
     $poNumber = trim((string) ($linkedPo['po_number'] ?? ''));
@@ -106,6 +119,7 @@ foreach ($activePaymentPos as $linkedPo) {
         'po_number' => $poNumber !== '' ? $poNumber : '-',
         'po_id' => $linkedPoId,
         'created_at' => $woSummaryFormatDate($createdRaw),
+        'cost_category' => $woSummaryCostCategory($linkedPo),
         'installment' => Purchase::hirePayablePoSequenceLabel(
             $linkedPo,
             (int) ($linkedPo['installment_total'] ?? $installmentTotalCount)
@@ -131,6 +145,7 @@ foreach ($activeAdvancePos as $advancePo) {
         'po_number' => $poNumber !== '' ? $poNumber : '-',
         'po_id' => $linkedPoId,
         'created_at' => $woSummaryFormatDate($createdRaw),
+        'cost_category' => $woSummaryCostCategory($advancePo),
         'installment' => Purchase::formatHireAdvanceLabel($advancePo),
         'sub' => $subAmt,
         'vat' => $vatAmt,
@@ -259,6 +274,7 @@ $contractTitle = trim((string) ($contract['title'] ?? ''));
                     <tr>
                         <th>PO No.</th>
                         <th class="text-center">วันที่</th>
+                        <th>หมวดหมู่</th>
                         <th class="text-center"><?= $hireOpenPaymentsView ? 'ครั้ง' : 'งวด' ?></th>
                         <th class="text-end">ก่อนภาษี</th>
                         <th class="text-end">VAT</th>
@@ -281,6 +297,7 @@ $contractTitle = trim((string) ($contract['title'] ?? ''));
                     <tr>
                         <th>PO No.</th>
                         <th class="text-center">วันที่</th>
+                        <th>หมวดหมู่</th>
                         <th class="text-center">ครั้ง</th>
                         <th class="text-end">ก่อนภาษี</th>
                         <th class="text-end">VAT</th>

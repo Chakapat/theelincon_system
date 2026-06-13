@@ -62,6 +62,20 @@ $printIncludePo = in_array($poPrintMode, ['po', 'both', 'all'], true);
 $printIncludeSlip = in_array($poPrintMode, ['slip', 'both', 'all'], true);
 $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
 
+$poEmbed = isset($_GET['embed']) && (string) $_GET['embed'] === '1';
+$poAutoprint = isset($_GET['autoprint']) && (string) $_GET['autoprint'] === '1';
+if ($poEmbed || $poAutoprint) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+}
+$woDocInModal = $isHireContractPoDoc && !$poEmbed && !$poAutoprint;
+if ($poEmbed) {
+    $printIncludePr = false;
+    $printIncludePo = true;
+    $printIncludeSlip = false;
+    $printIncludeQuotation = false;
+}
+
 /** วันที่ PO สำหรับค่าเริ่มต้นในฟอร์มบันทึกบิลซื้อ (issue_date → created_at) */
 $poIssueDateForBill = '';
 $issueRawForBill = trim((string) ($po['issue_date'] ?? ''));
@@ -612,13 +626,102 @@ if ($poIssueDateForBill !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $poIs
             .invoice-box.po-purchase-order-doc .footer-sticky { margin-top: 1.25rem; }
             .signature-grid { grid-template-columns: 1fr; gap: 18px; }
         }
+
+        <?php if ($poEmbed || $poAutoprint): ?>
+        body.po-doc-embed {
+            overflow-x: hidden;
+            max-width: 100%;
+            background: #f6f7f9;
+            margin: 0;
+        }
+        body.po-doc-autoprint {
+            background: #fff;
+        }
+        body.po-doc-embed .po-view-canvas {
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 0.5rem;
+        }
+        <?php endif; ?>
+
+        <?php if ($woDocInModal): ?>
+        .tnc-wo-doc-popover-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 1040;
+            background: rgba(15, 23, 42, 0.28);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        }
+        .tnc-wo-doc-popover-backdrop.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #tncWoDocPopover.tnc-wo-doc-popover {
+            position: fixed;
+            z-index: 1050;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -48%) scale(0.97);
+            width: min(calc(210mm + 2.5rem), calc(100vw - 1rem));
+            max-width: min(calc(210mm + 2.5rem), calc(100vw - 1rem));
+            margin: 0;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            border-radius: 0.75rem;
+            box-shadow: 0 1rem 2.5rem rgba(15, 23, 42, 0.18);
+            opacity: 0;
+            transition: opacity 0.22s ease, transform 0.22s ease;
+            pointer-events: none;
+            background: #fff;
+        }
+        #tncWoDocPopover.tnc-wo-doc-popover.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+        #tncWoDocPopover .popover-header {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            background: #fff;
+            border-bottom: 1px solid var(--tnc-border, #e2e8f0);
+            padding: 0.6rem 0.85rem;
+            font-size: 0.92rem;
+            font-weight: 800;
+            color: #0f172a;
+            border-radius: 0.75rem 0.75rem 0 0;
+        }
+        #tncWoDocPopover .popover-body {
+            padding: 0;
+            height: min(calc(297mm + 1rem), calc(100vh - 5rem));
+            max-height: calc(100vh - 5rem);
+            overflow: auto;
+            background: var(--tnc-surface, #f6f7f9);
+            border-radius: 0 0 0.75rem 0.75rem;
+            scrollbar-gutter: stable;
+        }
+        #tncWoDocPopover #tncWoDocPopoverFrame {
+            width: 100%;
+            height: 100%;
+            min-height: 240px;
+            display: block;
+            border: 0;
+        }
+        body.tnc-wo-doc-popover-open { overflow: hidden; }
+        <?php endif; ?>
     </style>
 </head>
-<body class="purchase-module tnc-app-body tnc-po-boot-lock" data-tnc-boot-title="กำลังโหลดใบสั่งซื้อ…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้บันทึกเลขบิลและดำเนินการต่อเมื่อโหลดเสร็จ">
+<body class="purchase-module<?= ($poEmbed || $poAutoprint) ? ' po-doc-embed' . ($poAutoprint ? ' po-doc-autoprint' : '') : ' tnc-app-body tnc-po-boot-lock' ?>"<?= ($poEmbed || $poAutoprint) ? '' : ' data-tnc-boot-title="กำลังโหลดใบสั่งซื้อ…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้บันทึกเลขบิลและดำเนินการต่อเมื่อโหลดเสร็จ"' ?>>
 
+<?php if (!$poEmbed && !$poAutoprint): ?>
 <div class="no-print tnc-app-chrome">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 </div>
+<?php endif; ?>
 
 <?php
 $pmToolbar = strtolower(trim((string) ($po['payment_method'] ?? 'transfer'))) === 'cash' ? 'cash' : 'transfer';
@@ -639,6 +742,7 @@ $hasAlerts = $poViewFlash !== null
     || ($poPrintMode === 'slip')
     || ($poPrintMode === 'all');
 ?>
+<?php if (!$poEmbed && !$poAutoprint): ?>
 <header class="po-view-shell no-print">
     <div class="po-view-shell-inner">
         <div class="po-view-toolbar-row mb-2">
@@ -700,12 +804,17 @@ $hasAlerts = $poViewFlash !== null
                 <a href="<?= $poListHref ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                     <i class="bi bi-arrow-left me-1"></i><?= $isHireContractPoDoc ? 'รายการ WO' : 'รายการ PO' ?>
                 </a>
+                <?php if ($woDocInModal): ?>
+                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" id="btnShowWoDoc">
+                        <i class="bi bi-file-earmark-text me-1"></i>แสดงเอกสารใบสั่งจ้าง
+                    </button>
+                <?php endif; ?>
                 <?php if ($hasPrintChoiceModal): ?>
                     <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#poPrintChoiceModal">
                         <i class="bi bi-printer me-1"></i>พิมพ์
                     </button>
                 <?php else: ?>
-                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="tncPrintPoWhenReady()">
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3"<?= $woDocInModal ? ' id="btnWoDocPrintDirect"' : ' onclick="tncPrintPoWhenReady()"' ?>>
                         <i class="bi bi-printer me-1"></i>พิมพ์
                     </button>
                 <?php endif; ?>
@@ -738,7 +847,9 @@ $hasAlerts = $poViewFlash !== null
         <?php endif; ?>
     </div>
 </header>
+<?php endif; ?>
 
+<?php if (!$poEmbed && !$poAutoprint): ?>
 <div class="modal fade no-print" id="receiveBillModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -825,11 +936,29 @@ $hasAlerts = $poViewFlash !== null
     </div>
 </div>
 <?php endif; ?>
+<?php endif; ?>
 
-<?php if ($isHireContractPoDoc && $hireContractIdForPo > 0): ?>
+<?php if ($isHireContractPoDoc && $hireContractIdForPo > 0 && !$poEmbed && !$poAutoprint): ?>
 <?php include dirname(__DIR__, 2) . '/includes/purchase/wo_contract_summary.php'; ?>
 <?php endif; ?>
 
+<?php if ($woDocInModal): ?>
+<div id="tncWoDocPopoverBackdrop" class="tnc-wo-doc-popover-backdrop d-none no-print" aria-hidden="true"></div>
+<div id="tncWoDocPopover" class="popover tnc-wo-doc-popover fade d-none no-print" role="dialog" aria-labelledby="tncWoDocPopoverTitle" aria-modal="true">
+    <div class="popover-header">
+        <span class="me-auto" id="tncWoDocPopoverTitle">ใบสั่งจ้าง (WORK ORDER)</span>
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-semibold text-nowrap" id="tncWoDocPopoverPrint" title="พิมพ์ใบสั่งจ้าง">
+            <i class="bi bi-printer me-1"></i>พิมพ์
+        </button>
+        <button type="button" class="btn-close ms-1" id="tncWoDocPopoverClose" aria-label="ปิด"></button>
+    </div>
+    <div class="popover-body p-0">
+        <iframe id="tncWoDocPopoverFrame" title="Work Order"></iframe>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (!$woDocInModal): ?>
 <div class="po-view-canvas">
 <?php if ($printIncludePr && $prCtxForPo !== null): ?>
 <div class="tnc-po-print-page tnc-po-print-page--pr">
@@ -859,10 +988,13 @@ $hasAlerts = $poViewFlash !== null
 </div>
 <?php endif; ?>
 </div>
+<?php endif; ?>
 
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-po-print.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
+<?php if (!$poEmbed && !$poAutoprint): ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<?php endif; ?>
 <?php if (!empty($woSummaryIncluded)): ?>
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -877,6 +1009,26 @@ $hasAlerts = $poViewFlash !== null
     function fmt(n) {
         var x = Number(n) || 0;
         return x.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function escHtml(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+    function poNumberCol() {
+        return {
+            data: 'po_number',
+            render: function (num, type, row) {
+                var label = num && String(num).trim() !== '' ? String(num) : '-';
+                var id = row && row.po_id;
+                if (id && label !== '-' && poViewBase) {
+                    return '<a href="' + poViewBase + '?id=' + encodeURIComponent(id) + '" class="fw-semibold link-primary text-decoration-none">' + escHtml(label) + '</a>';
+                }
+                return escHtml(label);
+            }
+        };
     }
     function poLinkCol() {
         return {
@@ -897,8 +1049,9 @@ $hasAlerts = $poViewFlash !== null
             pageLength: 10,
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
             columns: [
-                { data: 'po_number' },
+                poNumberCol(),
                 { data: 'created_at', className: 'text-center text-nowrap' },
+                { data: 'cost_category', className: 'small text-secondary' },
                 { data: 'installment', className: 'text-center' },
                 { data: 'sub', className: 'text-end', render: fmt },
                 { data: 'vat', className: 'text-end', render: fmt },
@@ -916,8 +1069,9 @@ $hasAlerts = $poViewFlash !== null
             pageLength: 10,
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
             columns: [
-                { data: 'po_number' },
+                poNumberCol(),
                 { data: 'created_at', className: 'text-center text-nowrap' },
+                { data: 'cost_category', className: 'small text-secondary' },
                 { data: 'installment', className: 'text-center' },
                 { data: 'sub', className: 'text-end', render: fmt },
                 { data: 'vat', className: 'text-end', render: fmt },
@@ -930,7 +1084,7 @@ $hasAlerts = $poViewFlash !== null
 })();
 </script>
 <?php endif; ?>
-<?php if ($hasPrintChoiceModal): ?>
+<?php if ($hasPrintChoiceModal && !$poEmbed && !$poAutoprint): ?>
 <script>
 (function () {
     var base = <?= json_encode(app_path('pages/purchase/purchase-order-view.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
@@ -958,6 +1112,111 @@ $hasAlerts = $poViewFlash !== null
 })();
 </script>
 <?php endif; ?>
+<?php if ($woDocInModal): ?>
+<script>
+(function () {
+    var poViewBase = <?= json_encode(app_path('pages/purchase/purchase-order-view.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var poId = <?= (int) $id ?>;
+
+    function tncCloseWoDocPopover() {
+        var pop = document.getElementById('tncWoDocPopover');
+        var backdrop = document.getElementById('tncWoDocPopoverBackdrop');
+        var frame = document.getElementById('tncWoDocPopoverFrame');
+        if (pop) {
+            pop.classList.remove('show');
+            window.setTimeout(function () {
+                if (!pop.classList.contains('show')) {
+                    pop.classList.add('d-none');
+                }
+            }, 200);
+        }
+        if (backdrop) {
+            backdrop.classList.remove('show');
+            window.setTimeout(function () {
+                if (!backdrop.classList.contains('show')) {
+                    backdrop.classList.add('d-none');
+                }
+            }, 200);
+        }
+        document.body.classList.remove('tnc-wo-doc-popover-open');
+        if (frame) {
+            frame.src = 'about:blank';
+        }
+    }
+
+    function tncOpenWoDocPopover() {
+        var frame = document.getElementById('tncWoDocPopoverFrame');
+        var titleEl = document.getElementById('tncWoDocPopoverTitle');
+        var pop = document.getElementById('tncWoDocPopover');
+        var backdrop = document.getElementById('tncWoDocPopoverBackdrop');
+        if (!frame || !pop || !backdrop) {
+            return;
+        }
+        var u = poViewBase + '?id=' + encodeURIComponent(String(poId)) + '&embed=1&_=' + Date.now();
+        frame.src = u;
+        if (titleEl) {
+            titleEl.textContent = <?= json_encode('ใบสั่งจ้าง · ' . ($po['po_number'] ?? ''), JSON_UNESCAPED_UNICODE) ?>;
+        }
+        backdrop.classList.remove('d-none');
+        pop.classList.remove('d-none');
+        window.requestAnimationFrame(function () {
+            backdrop.classList.add('show');
+            pop.classList.add('show');
+        });
+        document.body.classList.add('tnc-wo-doc-popover-open');
+    }
+
+    function tncPrintWoDocFromPopover() {
+        var frame = document.getElementById('tncWoDocPopoverFrame');
+        if (!frame || !frame.contentWindow) {
+            return;
+        }
+        try {
+            var src = frame.src || '';
+            if (!src || src === 'about:blank') {
+                return;
+            }
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+        } catch (e) {}
+    }
+
+    function tncWoDocPrintDirect() {
+        var u = poViewBase + '?id=' + encodeURIComponent(String(poId)) + '&print_mode=po&autoprint=1';
+        window.open(u, '_blank', 'noopener');
+    }
+
+    window.tncOpenWoDocPopover = tncOpenWoDocPopover;
+    window.tncWoDocPrintDirect = tncWoDocPrintDirect;
+
+    document.getElementById('btnShowWoDoc')?.addEventListener('click', tncOpenWoDocPopover);
+    document.getElementById('tncWoDocPopoverClose')?.addEventListener('click', tncCloseWoDocPopover);
+    document.getElementById('tncWoDocPopoverBackdrop')?.addEventListener('click', tncCloseWoDocPopover);
+    document.getElementById('tncWoDocPopoverPrint')?.addEventListener('click', tncPrintWoDocFromPopover);
+    document.getElementById('btnWoDocPrintDirect')?.addEventListener('click', tncWoDocPrintDirect);
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            var pop = document.getElementById('tncWoDocPopover');
+            if (pop && pop.classList.contains('show')) {
+                tncCloseWoDocPopover();
+            }
+            return;
+        }
+        if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'p') {
+            return;
+        }
+        var pop = document.getElementById('tncWoDocPopover');
+        if (!pop || !pop.classList.contains('show')) {
+            return;
+        }
+        e.preventDefault();
+        tncPrintWoDocFromPopover();
+    });
+})();
+</script>
+<?php endif; ?>
+<?php if (!$poEmbed && !$poAutoprint): ?>
 <script>
 window.__tncPoBoot = window.__tncPoBoot || { table: true, sync: false };
 window.tncPoLiveDatasetsUrl = <?= json_encode(app_path('actions/live-datasets.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
@@ -1100,6 +1359,7 @@ fetch(window.tncPoLiveDatasetsUrl + '?dataset=po_action_row&po_id=' + encodeURIC
     });
 })();
 </script>
+<?php endif; ?>
 <?php
 $tncPrintOnlyCssPath = dirname(__DIR__, 2) . '/assets/css/print-document-only.css';
 $tncPrintOnlyCssVer = is_file($tncPrintOnlyCssPath) ? (string) filemtime($tncPrintOnlyCssPath) : (string) time();

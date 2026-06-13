@@ -158,7 +158,47 @@ if ($requestType === 'hire' && is_array($hireContract)) {
     }
     $hireOpenPayments = Purchase::hireInstallmentsUnspecified($hcInstallmentTotalOpen);
 }
+$hirePoSiteDisplay = '—';
+$hirePoSiteId = 0;
+$hirePoCostCategoryId = 0;
+$hirePoCostCategoryName = '';
+if ($requestType === 'hire' && in_array($hirePoMode, ['payment', 'advance'], true)) {
+    $catSource = is_array($hireContractPoRow) ? $hireContractPoRow : $pr;
+    $hirePoSiteId = (int) ($catSource['site_id'] ?? 0);
+    if ($hirePoSiteId <= 0) {
+        $hirePoSiteId = (int) ($pr['site_id'] ?? 0);
+    }
+    $hirePoSiteName = trim((string) ($catSource['site_name'] ?? ''));
+    if ($hirePoSiteName === '') {
+        $hirePoSiteName = trim((string) ($pr['site_name'] ?? ''));
+    }
+    if ($hirePoSiteName === '' && $hirePoSiteId > 0) {
+        $siteRowHirePo = Db::row('sites', (string) $hirePoSiteId);
+        if (is_array($siteRowHirePo)) {
+            $hirePoSiteName = trim((string) ($siteRowHirePo['name'] ?? ''));
+        }
+    }
+    $hirePoSiteDisplay = $hirePoSiteName !== '' ? $hirePoSiteName : ($hirePoSiteId > 0 ? 'ไซต์ #' . $hirePoSiteId : '—');
+    $hirePoCostCategoryId = (int) ($catSource['cost_category_id'] ?? 0);
+    if ($hirePoCostCategoryId <= 0) {
+        $hirePoCostCategoryId = (int) ($pr['cost_category_id'] ?? 0);
+    }
+    $hirePoCostCategoryName = trim((string) ($catSource['cost_category_name'] ?? ''));
+    if ($hirePoCostCategoryName === '') {
+        $hirePoCostCategoryName = trim((string) ($pr['cost_category_name'] ?? ''));
+    }
+    if ($hirePoCostCategoryName === '' && $hirePoCostCategoryId > 0) {
+        require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
+        $hirePoCostCategoryName = tnc_site_category_name($hirePoCostCategoryId);
+    }
+}
 $remainingInstallments = $requestType === 'hire' ? max(0, $installmentTotal - count($issuedInstallments)) : 0;
+$poPaymentFlatItems = [[
+    'description' => '',
+    'quantity' => 1,
+    'unit' => '',
+    'unit_price' => 0,
+]];
 
 $supplier_rows = Db::tableRows('suppliers');
 Db::sortRows($supplier_rows, 'name', false);
@@ -242,6 +282,26 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
     <?php if ($requestType === 'hire'): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/pr-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-hire-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php if (in_array($hirePoMode, ['payment', 'advance'], true)): ?>
+    <?php
+    $poLineMobileCss = dirname(__DIR__, 2) . '/assets/css/po-line-table-mobile.css';
+    $poLineMobileVer = @filemtime($poLineMobileCss);
+    if (!is_int($poLineMobileVer) || $poLineMobileVer <= 0) {
+        $poLineMobileVer = time();
+    }
+    ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-line-table-mobile.css') . '?v=' . $poLineMobileVer, ENT_QUOTES, 'UTF-8') ?>">
+    <style>
+        .po-from-pr-hire-po-table .po-table-wrap { border: 1px solid #e8ecf1; border-radius: 0.75rem; overflow: hidden; background: #fff; }
+        .po-from-pr-hire-po-table .po-table-wrap thead th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; font-weight: 700; background: #f1f5f9 !important; }
+        .po-from-pr-hire-po-table .summary-box { background: linear-gradient(180deg, #fffbf5 0%, var(--tnc-orange-soft) 100%); border: 1px solid var(--tnc-orange-border); border-radius: 0.85rem; padding: 1.1rem 1.15rem; }
+        .po-from-pr-hire-po-table .summary-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; margin-bottom: 10px; }
+        .po-from-pr-hire-po-table .summary-grand { padding-top: 0.35rem; margin-top: 0.25rem; border-top: 2px dashed rgba(253, 126, 20, 0.25); }
+        .po-from-pr-hire-po-table .po-vat-panel { background: #fffbf5; border: 1px solid var(--tnc-orange-border); border-radius: 0.75rem; }
+        .po-from-pr-hire-po-table .po-actions-bar { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eef2f7; }
+        .po-from-pr-shell.po-from-pr-hire-pay { max-width: 1100px; }
+    </style>
+    <?php endif; ?>
     <?php endif; ?>
     <style>
         .po-from-pr-shell { max-width: 720px; }
@@ -261,7 +321,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
     <div class="<?= $requestType === 'hire' ? 'container-fluid px-3 px-lg-4' : 'container' ?> py-4 py-md-5">
         <div class="row justify-content-center">
             <div class="<?= $requestType === 'hire' ? 'col-12 po-hire-layout-inner' : 'col-xl-8' ?>">
-                <div class="po-from-pr-shell mx-auto">
+                <div class="po-from-pr-shell mx-auto<?= ($requestType === 'hire' && in_array($hirePoMode, ['payment', 'advance'], true)) ? ' po-from-pr-hire-pay' : '' ?>">
                 <div class="card po-from-pr-card">
                     <div class="po-from-pr-head">
                         <div class="<?= ($requestType === 'purchase' && $pr_needs_price_fix && count($pr_items_for_edit) > 0) ? 'd-flex flex-wrap justify-content-between align-items-start gap-2 gap-md-3' : '' ?>">
@@ -354,7 +414,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                     <?php elseif ($requestType === 'hire' && $hirePoMode === 'payment' && $hireContractRemaining <= 0.0005 && $hireContractRemaining >= -0.0005): ?>
                         <div class="alert alert-success py-2"><i class="bi bi-check-circle-fill me-1"></i>มูลค่าสัญญาจ้างออก PO สั่งจ่ายครบแล้ว (คงเหลือ 0 บาท)</div>
                     <?php endif; ?>
-                    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" data-tnc-fullnav="1"<?= $requestType === 'hire' ? ' data-hire-remaining="' . htmlspecialchars(number_format($hireContractRemaining, 2, '.', ''), ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
+                    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" data-tnc-fullnav="1"<?= $requestType === 'hire' ? ' data-hire-remaining="' . htmlspecialchars(number_format($hireContractRemaining, 2, '.', ''), ENT_QUOTES, 'UTF-8') . '"' . ($hirePoMode === 'advance' ? ' data-hire-advance="1"' : '') : '' ?>>
                         <input type="hidden" name="confirm_over_contract" id="confirm_over_contract" value="">
                         <?php csrf_field(); ?>
                         <input type="hidden" name="pr_id" value="<?= $pr['id'] ?>">
@@ -389,6 +449,22 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                 <?php endif; ?>
                             </div>
                         </div>
+                        <?php if (in_array($hirePoMode, ['payment', 'advance'], true)): ?>
+                        <div class="row g-3 mb-4 pt-1 border-top border-light">
+                            <div class="col-md-6">
+                                <label class="po-field-label">โครงการ / ไซต์</label>
+                                <input type="text" class="form-control bg-light" value="<?= htmlspecialchars($hirePoSiteDisplay, ENT_QUOTES, 'UTF-8') ?>" readonly>
+                                <div class="form-text">ดึงจาก Work Order</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="po-field-label">หมวดค่าใช้จ่าย</label>
+                                <input type="text" class="form-control bg-light" value="<?= htmlspecialchars($hirePoCostCategoryName !== '' ? $hirePoCostCategoryName : '—', ENT_QUOTES, 'UTF-8') ?>" readonly>
+                            </div>
+                            <input type="hidden" name="site_id" value="<?= (int) $hirePoSiteId ?>">
+                            <input type="hidden" name="cost_category_id" value="<?= (int) $hirePoCostCategoryId ?>">
+                            <input type="hidden" name="cost_category_name" value="<?= htmlspecialchars($hirePoCostCategoryName, ENT_QUOTES, 'UTF-8') ?>">
+                        </div>
+                        <?php endif; ?>
                         <?php endif; ?>
 
                         <?php if ($requestType === 'hire'): ?>
@@ -506,8 +582,92 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                         <input type="hidden" name="installment_amount" id="installment_amount" value="0">
                         <input type="hidden" name="installment_description" id="installment_description" value="">
 
-                        <div class="section-card p-3 mb-3 hire-lines-section" data-tnc-hire-root>
-                            <div class="section-title"><i class="bi bi-table me-1"></i><?= $hirePoMode === 'contract' ? 'ตารางรายละเอียดสัญญา (จาก PR)' : 'ตารางรายละเอียดสั่งจ่าย' ?></div>
+                        <div class="section-card p-3 mb-3<?= in_array($hirePoMode, ['payment', 'advance'], true) ? ' po-from-pr-hire-po-table' : '' ?> hire-lines-section" data-tnc-hire-root>
+                            <div class="section-title"><i class="bi bi-table me-1"></i><?php
+                                if ($hirePoMode === 'contract') {
+                                    echo 'ตารางรายละเอียดสัญญา (จาก PR)';
+                                } elseif ($hirePoMode === 'advance') {
+                                    echo 'ตารางรายละเอียดเบิกล่วงหน้า';
+                                } else {
+                                    echo 'ตารางรายละเอียดสั่งจ่าย';
+                                }
+                            ?></div>
+                            <?php if (in_array($hirePoMode, ['payment', 'advance'], true)): ?>
+                            <div class="table-responsive po-table-wrap po-line-table-mobile">
+                                <table class="table align-middle table-hover mb-0 po-line-table" id="poTable">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:3rem;">#</th>
+                                            <th>รายการ</th>
+                                            <th style="width:6.5rem;">จำนวน</th>
+                                            <th style="width:6.5rem;">หน่วย</th>
+                                            <th style="width:7.5rem;">ราคา/หน่วย</th>
+                                            <th style="width:7.5rem;">ยอดรวม</th>
+                                            <th style="width:2.75rem;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($poPaymentFlatItems as $index => $item): ?>
+                                            <tr>
+                                                <td class="po-cell-idx row-number text-secondary small fw-semibold">
+                                                    <div class="po-mobile-item-head">
+                                                        <span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no"><?= $index + 1 ?></span></span>
+                                                        <?php if ($index > 0): ?>
+                                                        <button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn po-row-delete-mobile" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                    <span class="d-none d-lg-inline po-mobile-item-no"><?= $index + 1 ?></span>
+                                                </td>
+                                                <td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm po-line-desc" required value="<?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ระบุรายการ"></td>
+                                                <td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.001" min="0" required value="<?= htmlspecialchars((string) ($item['quantity'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculatePoPaymentTotal()"></td>
+                                                <td class="po-cell-unit" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ชิ้น"></td>
+                                                <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.001" required value="<?= htmlspecialchars((string) ($item['unit_price'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculatePoPaymentTotal()"></td>
+                                                <td class="po-cell-total" data-label="ยอดรวม"><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
+                                                <td class="po-cell-action po-cell-action-desktop"><?php if ($index > 0): ?><button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button><?php endif; ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="po-actions-bar">
+                                <button type="button" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm" onclick="addPoPaymentRow()"><i class="bi bi-plus-lg me-1"></i>เพิ่มรายการ</button>
+                            </div>
+                            <div class="row g-4 mt-1">
+                                <div class="col-lg-7 order-2 order-lg-1">
+                                    <div class="po-vat-panel p-3">
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" role="switch" name="vat_enabled" id="vat_enabled" value="1" onchange="updatePoPaymentVatUi(); calculatePoPaymentTotal()">
+                                            <label class="form-check-label fw-semibold" for="vat_enabled">มี VAT 7%</label>
+                                        </div>
+                                        <input type="hidden" name="vat_mode" id="vat_mode" value="exclusive">
+                                        <div id="vat_basis_wrap" class="pt-2 border-top border-secondary border-opacity-25">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="radio" name="vat_basis" id="vat_basis_inclusive" value="inclusive" onchange="calculatePoPaymentTotal()">
+                                                <label class="form-check-label" for="vat_basis_inclusive">รวม VAT <span class="text-muted small">(รวมภาษีมูลค่าเพิ่มในราคารวม)</span></label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="vat_basis" id="vat_basis_exclusive" value="exclusive" checked onchange="calculatePoPaymentTotal()">
+                                                <label class="form-check-label" for="vat_basis_exclusive">แยก VAT <span class="text-muted small">(บวกภาษีมูลค่าเพิ่มแยกจากราคารวม)</span></label>
+                                            </div>
+                                        </div>
+                                        <div class="pt-3 mt-2 border-top border-secondary border-opacity-25">
+                                            <label class="form-label text-danger fw-bold mb-1 small" for="retention_value">หักประกันผลงาน (บาท)</label>
+                                            <input type="text" name="retention_value" id="retention_value" class="form-control form-control-sm" value="0" placeholder="0" oninput="calculatePoPaymentTotal()">
+                                        </div>
+                                        <input type="hidden" name="withholding_type" value="none">
+                                    </div>
+                                </div>
+                                <div class="col-lg-5 order-1 order-lg-2">
+                                    <div class="summary-box">
+                                        <div class="summary-line small text-muted"><span>ยอดรายการ</span><strong><span id="po_pay_subtotal_display">0.00</span> บาท</strong></div>
+                                        <div class="summary-line small text-success" id="po_pay_vat_row" style="display:none;"><span>ภาษีมูลค่าเพิ่ม</span><strong><span id="po_pay_vat_display">0.00</span> บาท</strong></div>
+                                        <div class="summary-line small text-muted border-bottom pb-2 mb-1"><span>ยอดรวม VAT</span><strong><span id="po_pay_total_after_vat_display">0.00</span> บาท</strong></div>
+                                        <div class="summary-line small text-danger" id="po_pay_retention_summary_row" style="display:none;"><span>หักประกันผลงาน</span><strong>- <span id="po_pay_retention_display">0.00</span> บาท</strong></div>
+                                        <div class="summary-line summary-grand fw-bold"><span>ยอดสุทธิ</span><strong class="text-tnc-orange"><span id="po_pay_grand_total">0.00</span> บาท</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php else: ?>
                             <div class="row g-3">
                                 <div class="col-12">
                                     <div class="hire-table-panel">
@@ -542,8 +702,10 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                     </div>
                                 </div>
                             </div>
+                            <?php endif; ?>
                         </div>
 
+                        <?php if ($hirePoMode === 'contract'): ?>
                         <div class="section-card p-3 mb-4">
                             <div class="section-title"><i class="bi bi-calculator me-1"></i>สรุปยอด</div>
                             <div class="po-hire-summary-grid">
@@ -553,12 +715,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                         <input class="form-check-input" type="checkbox" name="vat_enabled" id="vat_enabled"<?= ($hirePoMode === 'contract' && (int) ($pr['vat_enabled'] ?? 0) === 1) ? ' checked' : '' ?>>
                                         <label class="form-check-label fw-semibold" for="vat_enabled">บวก VAT 7% (+)</label>
                                     </div>
-                                    <?php if ($hirePoMode === 'payment'): ?>
-                                    <label class="form-label text-danger fw-bold mb-1" for="retention_value">หักประกันผลงาน (บาท)</label>
-                                    <input type="text" name="retention_value" id="retention_value" class="form-control" value="0" placeholder="0">
-                                    <?php else: ?>
                                     <input type="hidden" name="retention_value" id="retention_value" value="0">
-                                    <?php endif; ?>
                                     <input type="hidden" name="withholding_type" id="withholding_type" value="none">
                                     <input type="hidden" name="retention_type" id="retention_type" value="fixed">
                                 </div>
@@ -574,6 +731,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                                 </div>
                             </div>
                         </div>
+                        <?php endif; ?>
 
                         <div class="section-card p-3 mb-3">
                             <label class="po-field-label" for="po_note_hire">หมายเหตุใบสั่งซื้อ</label>
@@ -733,7 +891,9 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
     </div>
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php if ($requestType === 'hire' && $hirePoMode === 'contract'): ?>
 <script src="<?= htmlspecialchars(app_path('assets/js/hire-line-table.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<?php endif; ?>
 <script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function ($) {
@@ -808,6 +968,196 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
     panel.classList.add('d-none');
 })();
 
+<?php if ($requestType === 'hire' && in_array($hirePoMode, ['payment', 'advance'], true)): ?>
+<script>
+function addPoPaymentRow() {
+    const table = document.getElementById('poTable').getElementsByTagName('tbody')[0];
+    const newRow = table.insertRow();
+    const rowCount = table.rows.length;
+    newRow.innerHTML = '<td class="po-cell-idx row-number text-secondary small fw-semibold">' +
+        '<div class="po-mobile-item-head">' +
+        '<span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no">' + rowCount + '</span></span>' +
+        '<button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn po-row-delete-mobile" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button>' +
+        '</div>' +
+        '<span class="d-none d-lg-inline po-mobile-item-no">' + rowCount + '</span>' +
+        '</td>' +
+        '<td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm po-line-desc" required placeholder="ระบุรายการ"></td>' +
+        '<td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.001" min="0" required oninput="calculatePoPaymentTotal()"></td>' +
+        '<td class="po-cell-unit" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm" placeholder="ชิ้น"></td>' +
+        '<td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.001" required oninput="calculatePoPaymentTotal()"></td>' +
+        '<td class="po-cell-total" data-label="ยอดรวม"><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>' +
+        '<td class="po-cell-action po-cell-action-desktop"><button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>';
+    calculatePoPaymentTotal();
+}
+function removePoPaymentRow(btn) {
+    const row = btn.closest('tr');
+    if (!row) return;
+    row.remove();
+    document.querySelectorAll('#poTable .po-mobile-item-no, #poTable .row-number .d-none.d-lg-inline').forEach(function (el, i) {
+        if (el.classList.contains('po-mobile-item-no') || el.classList.contains('d-lg-inline')) {
+            el.innerText = i + 1;
+        }
+    });
+    document.querySelectorAll('#poTable tbody tr').forEach(function (rowEl, i) {
+        rowEl.querySelectorAll('.po-mobile-item-no').forEach(function (el) { el.innerText = i + 1; });
+    });
+    calculatePoPaymentTotal();
+}
+function poPaymentLineAmount(qty, price) {
+    const q = parseFloat(String(qty || '').replace(/,/g, '')) || 0;
+    const p = parseFloat(String(price || '').replace(/,/g, '')) || 0;
+    return Math.round(q * p * 100) / 100;
+}
+function updatePoPaymentVatUi() {
+    const vatBasisWrap = document.getElementById('vat_basis_wrap');
+    const vatEnabled = document.getElementById('vat_enabled');
+    if (!vatBasisWrap || !vatEnabled) return;
+    const on = vatEnabled.checked;
+    vatBasisWrap.classList.toggle('opacity-50', !on);
+    vatBasisWrap.style.pointerEvents = on ? '' : 'none';
+    vatBasisWrap.setAttribute('aria-disabled', on ? 'false' : 'true');
+    vatBasisWrap.querySelectorAll('input[name="vat_basis"]').forEach(function (el) {
+        el.disabled = !on;
+    });
+}
+function calculatePoPaymentTotal() {
+    const installmentAmountInput = document.getElementById('installment_amount');
+    const installmentDescriptionEl = document.getElementById('installment_description');
+    const vatModeInput = document.getElementById('vat_mode');
+    const vatEnabledEl = document.getElementById('vat_enabled');
+    const retentionValueEl = document.getElementById('retention_value');
+    const poTable = document.getElementById('poTable');
+    if (!poTable || !poTable.tBodies[0]) {
+        return;
+    }
+    const vatOn = !!(vatEnabledEl && vatEnabledEl.checked);
+    let vatMode = 'exclusive';
+    if (vatOn) {
+        const selectedBasis = document.querySelector('input[name="vat_basis"]:checked');
+        vatMode = selectedBasis ? selectedBasis.value : 'exclusive';
+    }
+    if (vatModeInput) vatModeInput.value = vatMode;
+
+    let lineAmount = 0;
+    let firstDescription = '';
+    const rows = poTable.tBodies[0].rows;
+    for (const row of rows) {
+        const descEl = row.querySelector('.po-line-desc');
+        if (firstDescription === '' && (descEl?.value || '').trim() !== '') {
+            firstDescription = (descEl?.value || '').trim();
+        }
+        const total = poPaymentLineAmount(row.querySelector('.qty')?.value, row.querySelector('.price')?.value);
+        const totalEl = row.querySelector('.row-total');
+        if (totalEl) {
+            totalEl.value = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        lineAmount += total;
+    }
+    lineAmount = Math.round(lineAmount * 100) / 100;
+    if (installmentAmountInput) {
+        installmentAmountInput.value = lineAmount > 0 ? String(lineAmount) : '';
+    }
+    if (installmentDescriptionEl) {
+        installmentDescriptionEl.value = firstDescription !== '' ? firstDescription : 'สั่งจ่ายตามตารางรายการ';
+    }
+
+    const split = typeof tncPurchaseVatFromLineSum === 'function'
+        ? tncPurchaseVatFromLineSum(lineAmount, vatOn, vatMode)
+        : { subtotal: lineAmount, vat: 0, gross: lineAmount };
+    const subtotal = split.subtotal;
+    const vat = split.vat;
+    const gross = split.gross;
+
+    let retentionRaw = (retentionValueEl?.value || '').toString().trim().replace('%', '');
+    let retention = Math.max(0, Math.round((parseFloat(retentionRaw) || 0) * 100) / 100);
+    const net = Math.round((gross - retention) * 100) / 100;
+    const fmt = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+
+    const subtotalDisplay = document.getElementById('po_pay_subtotal_display');
+    const vatDisplay = document.getElementById('po_pay_vat_display');
+    const vatRow = document.getElementById('po_pay_vat_row');
+    const totalAfterVatDisplay = document.getElementById('po_pay_total_after_vat_display');
+    const retentionDisplay = document.getElementById('po_pay_retention_display');
+    const retentionSummaryRow = document.getElementById('po_pay_retention_summary_row');
+    const grandTotal = document.getElementById('po_pay_grand_total');
+    const hireRemainingDisplay = document.getElementById('hire_remaining_display');
+    const poForm = document.querySelector('form[data-hire-remaining]');
+
+    if (subtotalDisplay) subtotalDisplay.textContent = subtotal.toLocaleString(undefined, fmt);
+    if (vatOn && vatRow && vatDisplay) {
+        vatRow.style.display = 'grid';
+        vatDisplay.textContent = vat.toLocaleString(undefined, fmt);
+    } else if (vatRow) {
+        vatRow.style.display = 'none';
+    }
+    if (totalAfterVatDisplay) totalAfterVatDisplay.textContent = gross.toLocaleString(undefined, fmt);
+    if (retentionDisplay) retentionDisplay.textContent = retention.toLocaleString(undefined, fmt);
+    if (retentionSummaryRow) retentionSummaryRow.style.display = retention > 0 ? 'grid' : 'none';
+    if (grandTotal) grandTotal.textContent = net.toLocaleString(undefined, fmt);
+
+    if (hireRemainingDisplay && poForm) {
+        const remaining = parseFloat(poForm.getAttribute('data-hire-remaining') || '0') || 0;
+        const projected = Math.round((remaining - net) * 100) / 100;
+        hireRemainingDisplay.textContent = projected.toLocaleString(undefined, fmt) + ' บาท';
+        hireRemainingDisplay.classList.remove('text-danger', 'text-success', 'text-tnc-orange', 'fw-bold');
+        if (projected < -0.0005) {
+            hireRemainingDisplay.classList.add('text-danger', 'fw-bold');
+        } else if (projected <= 0.0005) {
+            hireRemainingDisplay.classList.add('text-success', 'fw-bold');
+        } else {
+            hireRemainingDisplay.classList.add('text-tnc-orange', 'fw-bold');
+        }
+    }
+    window.__hirePoNet = net;
+    updatePoPaymentVatUi();
+}
+document.addEventListener('DOMContentLoaded', function () {
+    updatePoPaymentVatUi();
+    calculatePoPaymentTotal();
+    const poTable = document.getElementById('poTable');
+    if (poTable) {
+        poTable.addEventListener('input', function (e) {
+            if (e.target.closest('.qty, .price, .po-line-desc')) {
+                calculatePoPaymentTotal();
+            }
+        });
+        poTable.addEventListener('click', function (e) {
+            const btn = e.target.closest('.po-row-delete-btn');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            removePoPaymentRow(btn);
+        });
+    }
+    const poForm = document.querySelector('form[data-hire-remaining]');
+    const confirmOverInput = document.getElementById('confirm_over_contract');
+    poForm?.addEventListener('submit', function (event) {
+        calculatePoPaymentTotal();
+        const installmentDescriptionEl = document.getElementById('installment_description');
+        if (installmentDescriptionEl && installmentDescriptionEl.value.trim() === '') {
+            installmentDescriptionEl.value = 'สั่งจ่ายตามตารางรายการ';
+        }
+        if (poForm.getAttribute('data-hire-advance') === '1') {
+            return;
+        }
+        const net = window.__hirePoNet || 0;
+        const remaining = parseFloat(poForm.getAttribute('data-hire-remaining') || '0') || 0;
+        const alreadyConfirmed = confirmOverInput && confirmOverInput.value === '1';
+        if (net > remaining + 0.0005 && !alreadyConfirmed) {
+            event.preventDefault();
+            const msg = <?= json_encode($hirePoMode === 'advance'
+                ? 'จำนวนเงินที่ต้องการเบิก เกินมูลค่าคงเหลือในสัญญาแล้ว ท่านต้องการออก PO หรือไม่'
+                : 'จำนวนเงินที่ต้องการจ่าย เกินมูลค่าสัญญานี้แล้ว ท่านต้องการออกใบสั่งจ่ายหรือไม่', JSON_UNESCAPED_UNICODE) ?>;
+            if (confirm(msg)) {
+                if (confirmOverInput) confirmOverInput.value = '1';
+                poForm.requestSubmit();
+            }
+        }
+    });
+});
+</script>
+<?php elseif ($requestType === 'hire' && $hirePoMode === 'contract'): ?>
+<script>
 (function () {
     const installmentAmountInput = document.getElementById('installment_amount');
     const subtotalTextEl = document.getElementById('subtotal_text');
@@ -937,6 +1287,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
     recalcWithNet();
 })();
 </script>
+<?php endif; ?>
 <script>
 (function () {
     const table = document.getElementById('pr_fix_prTable');

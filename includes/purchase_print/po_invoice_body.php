@@ -112,14 +112,16 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
         </div>
     </div>
 
-    <?php if ($poSiteDisplay !== ''): ?>
+    <?php if ($poSiteDisplay !== '' || trim((string) ($poCostCategoryName ?? '')) !== ''): ?>
     <div class="row mb-2 doc-site-row">
         <div class="col-12">
             <div class="doc-site-block doc-site-block--po-split">
+                <?php if ($poSiteDisplay !== ''): ?>
                 <span class="doc-site-main">
                     <span class="doc-site-label"><?= $orderType === 'hire' ? 'ชื่อโครงการ:' : 'สถานที่:' ?></span>
                     <span class="doc-site-value"><?= htmlspecialchars($poSiteDisplay, ENT_QUOTES, 'UTF-8'); ?></span>
                 </span>
+                <?php endif; ?>
                 <?php if (trim((string) ($poCostCategoryName ?? '')) !== ''): ?>
                 <span class="doc-site-category">
                     <span class="doc-site-label">หมวดหมู่:</span>

@@ -173,11 +173,10 @@ $items = [[
                     </select>
                 </div>
                 <div class="col-md-6">
-                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span> <span class="text-muted small fw-normal">(หัวข้อย่อยของไซต์)</span></label>
+                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span></label>
                     <select name="cost_category_id" id="cost_category_id" class="form-select" required disabled>
                         <option value="" disabled selected>— เลือกไซต์ก่อน —</option>
                     </select>
-                    <div class="form-text">เลือกไซต์ก่อน — เพิ่มหมวดได้ที่หน้า <a href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">«ไซต์งาน»</a></div>
                 </div>
             </div>
             <?php endif; ?>
@@ -252,11 +251,11 @@ $items = [[
                         <div id="vat_basis_wrap" class="pt-2 border-top border-secondary border-opacity-25">
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="radio" name="vat_basis" id="vat_basis_inclusive" value="inclusive" onchange="calculateTotal()">
-                                <label class="form-check-label" for="vat_basis_inclusive">รวม VAT <span class="text-muted small">(ราคารวมภาษีแล้ว)</span></label>
+                                <label class="form-check-label" for="vat_basis_inclusive">รวม VAT <span class="text-muted small">(รวมภาษีมูลค่าเพิ่มในราคารวม)</span></label>
                             </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="vat_basis" id="vat_basis_exclusive" value="exclusive" checked onchange="calculateTotal()">
-                                <label class="form-check-label" for="vat_basis_exclusive">แยก VAT <span class="text-muted small">(บวก 7% จากฐาน)</span></label>
+                                <label class="form-check-label" for="vat_basis_exclusive">แยก VAT <span class="text-muted small">(บวกภาษีมูลค่าเพิ่มแยกจากราคารวม)</span></label>
                             </div>
                         </div>
                     </div>
@@ -272,11 +271,21 @@ $items = [[
             </div>
         </div>
 
-        <div class="card card-soft po-submit-panel">
-            <div class="d-flex flex-wrap align-items-center justify-content-end gap-3">
-                <button type="submit" class="btn btn-orange btn-lg po-submit-btn rounded-pill"<?= count($sites) === 0 ? ' disabled' : '' ?>>
-                    <i class="bi bi-check2-circle me-2"></i>ยืนยันสร้างใบสั่งซื้อ
-                </button>
+        <div class="po-submit-panel mb-2">
+            <div class="po-submit-panel-inner">
+                <div class="po-submit-panel-meta">
+                    <p class="po-submit-amount-label mb-0">ยอดสุทธิที่จะบันทึก</p>
+                    <p class="po-submit-amount mb-0">
+                        <span id="submit_grand_total">0.00</span>
+                        <span class="po-submit-currency">บาท</span>
+                    </p>
+                    <p class="po-submit-hint mb-0">ตรวจสอบรายการ ไซต์งาน และหลักฐานการจ่ายก่อนยืนยัน</p>
+                </div>
+                <div class="po-submit-panel-action">
+                    <button type="submit" class="btn btn-orange btn-lg po-submit-btn rounded-pill w-100 w-lg-auto"<?= count($sites) === 0 ? ' disabled' : '' ?>>
+                        <i class="bi bi-check2-circle me-2"></i>ยืนยันสร้างใบสั่งซื้อ
+                    </button>
+                </div>
             </div>
         </div>
     </form>

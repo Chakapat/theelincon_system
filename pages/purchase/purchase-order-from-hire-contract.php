@@ -43,11 +43,13 @@ if ($woSiteName === '' && $woSiteId > 0) {
         $woSiteName = trim((string) ($woSiteRow['name'] ?? ''));
     }
 }
+require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
 if ($woCostCategoryName === '' && $woCostCategoryId > 0) {
-    require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
     $woCostCategoryName = tnc_site_category_name($woCostCategoryId);
 }
 $woSiteDisplay = $woSiteName !== '' ? $woSiteName : ($woSiteId > 0 ? 'ไซต์ #' . $woSiteId : '—');
+$siteCategoriesForWo = tnc_site_categories_for_site($woSiteId);
+$requireCostCategory = count($siteCategoriesForWo) > 0;
 
 $contractorName = trim((string) ($hc['contractor_name'] ?? ''));
 $contractorId = (int) ($hc['contractor_id'] ?? 0);
@@ -148,19 +150,21 @@ $poFlatItems = [[
     'unit' => '',
     'unit_price' => 0,
 ]];
+$issueDateDisplay = date('d/m/Y');
 ?>
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $isAdvanceMode ? 'ออก PO เบิกล่วงหน้า (WO)' : 'ออก PO สั่งจ่าย (WO)' ?></title>
+    <title><?= $isAdvanceMode ? 'ออกใบสั่งจ่ายเบิกล่วงหน้า' : 'ออกใบสั่งจ่ายตามงวด/ครั้ง' ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
         .po-hire-form-wrap { max-width: 1100px; }
         .card-soft { border: 1px solid rgba(226, 232, 240, 0.95); border-radius: var(--tnc-radius-lg); box-shadow: var(--tnc-shadow-sm); background: #fff; }
@@ -222,6 +226,9 @@ $poFlatItems = [[
     <?php if ($errorCode === 'contract_exceeds_remaining' || $errorCode === 'contract_exceeds_confirm'): ?>
         <div class="alert alert-warning py-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>กรุณายืนยันการออกใบสั่งจ่ายเมื่อยอดเกินมูลค่าสัญญา</div>
     <?php endif; ?>
+    <?php if ($errorCode === 'need_cost_category'): ?>
+        <div class="alert alert-warning py-2">กรุณาเลือกหมวดค่าใช้จ่าย</div>
+    <?php endif; ?>
     <?php if ($remainingInstallments === 0 && $hireContractRemaining > 0.0005 && !$isAdvanceMode): ?>
         <div class="alert alert-info py-2">ออกใบสั่งจ่ายครบทุกงวดแล้ว แต่ยังมียอดคงเหลือในสัญญา — ตรวจสอบยอดแต่ละงวด</div>
     <?php endif; ?>
@@ -242,9 +249,6 @@ $poFlatItems = [[
         <input type="hidden" name="vat_mode" id="vat_mode" value="exclusive">
         <?php if ($woSiteId > 0): ?>
         <input type="hidden" name="site_id" value="<?= $woSiteId ?>">
-        <?php endif; ?>
-        <?php if ($woCostCategoryId > 0): ?>
-        <input type="hidden" name="cost_category_id" value="<?= $woCostCategoryId ?>">
         <?php endif; ?>
 
         <header class="po-create-hero p-4 p-md-4 mb-4">
@@ -274,10 +278,17 @@ $poFlatItems = [[
         <div class="card card-soft p-4 p-md-4 mb-4">
             <div class="row g-3 g-md-4">
                 <div class="col-md-4">
-                    <label class="po-field-label">เลขที่ PO (อัตโนมัติ)</label>
+                    <label class="po-field-label">เลขที่ใบสั่งจ่าย(อัตโนมัติ)</label>
                     <input type="text" name="po_number" class="form-control po-po-number bg-light text-tnc-orange fw-bold" value="<?= htmlspecialchars($po_number, ENT_QUOTES, 'UTF-8') ?>" readonly>
                 </div>
-                <div class="col-md-8">
+                <div class="col-md-4">
+                    <label class="po-field-label" for="issue_date">วันที่ออกใบสั่งจ่าย <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white text-tnc-orange"><i class="bi bi-calendar3"></i></span>
+                        <input type="text" name="issue_date" id="issue_date" class="form-control" value="<?= htmlspecialchars($issueDateDisplay, ENT_QUOTES, 'UTF-8') ?>" required autocomplete="off" placeholder="วัน/เดือน/ปี">
+                    </div>
+                </div>
+                <div class="col-md-4">
                     <label class="po-field-label">ผู้รับจ้าง</label>
                     <input type="text" class="form-control bg-light" value="<?= htmlspecialchars($contractorDisplay !== '' ? $contractorDisplay : '—', ENT_QUOTES, 'UTF-8') ?>" readonly>
                 </div>
@@ -286,59 +297,18 @@ $poFlatItems = [[
                 <div class="col-md-6">
                     <label class="po-field-label">โครงการ / ไซต์</label>
                     <input type="text" class="form-control bg-light" value="<?= htmlspecialchars($woSiteDisplay, ENT_QUOTES, 'UTF-8') ?>" readonly>
-                    <div class="form-text">ดึงจาก Work Order</div>
                 </div>
-                <?php if ($woCostCategoryId > 0 || $woCostCategoryName !== ''): ?>
+                <?php if ($requireCostCategory): ?>
                 <div class="col-md-6">
-                    <label class="po-field-label">หมวดค่าใช้จ่าย</label>
-                    <input type="text" class="form-control bg-light" value="<?= htmlspecialchars($woCostCategoryName !== '' ? $woCostCategoryName : '—', ENT_QUOTES, 'UTF-8') ?>" readonly>
-                </div>
-                <?php endif; ?>
-            </div>
-            <div class="row g-3 mt-1 pt-3 border-top border-light">
-                <div class="col-6 col-md-3">
-                    <div class="wo-kpi-mini">
-                        <div class="lbl">มูลค่าสัญญา</div>
-                        <div class="val text-primary"><?= number_format($hireContractAmount, 2) ?></div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="wo-kpi-mini">
-                        <div class="lbl"><?= $isAdvanceMode ? 'เบิกล่วงหน้าแล้ว' : 'สั่งจ่ายแล้ว' ?></div>
-                        <div class="val text-success"><?= number_format($isAdvanceMode ? $hireCommittedAdvance : $hireCommittedPayable, 2) ?></div>
-                    </div>
-                </div>
-                <?php if (!$isAdvanceMode): ?>
-                <div class="col-6 col-md-3">
-                    <div class="wo-kpi-mini">
-                        <div class="lbl">คงเหลือ</div>
-                        <div class="val <?= $hireRemainingCss ?>" id="hire_remaining_display"><?= number_format($hireContractRemaining, 2) ?></div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="wo-kpi-mini">
-                        <div class="lbl"><?= $hireOpenPayments ? 'PO สั่งจ่าย (ครั้ง)' : 'งวดที่ออก PO แล้ว' ?></div>
-                        <div class="val"><?php if ($hireOpenPayments): ?><?= number_format($paymentCount) ?><?php else: ?><?= number_format(count($issuedInstallments)) ?> / <?= number_format($installmentTotal) ?><?php endif; ?></div>
-                    </div>
-                </div>
-                <?php else: ?>
-                <div class="col-6 col-md-3">
-                    <div class="wo-kpi-mini">
-                        <div class="lbl">สั่งจ่ายแล้ว (มูลค่าสัญญา)</div>
-                        <div class="val text-primary"><?= number_format($hireCommittedPayable, 2) ?></div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="wo-kpi-mini">
-                        <div class="lbl">คงเหลือ (มูลค่าสัญญา)</div>
-                        <div class="val <?= $hireRemainingCss ?>"><?= number_format($hireContractRemaining, 2) ?></div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="wo-kpi-mini">
-                        <div class="lbl">ครั้งที่เบิกล่วงหน้า</div>
-                        <div class="val text-warning"><?= number_format($advanceCount) ?></div>
-                    </div>
+                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span></label>
+                    <select name="cost_category_id" id="cost_category_id" class="form-select" required>
+                        <option value="" disabled<?= $woCostCategoryId <= 0 ? ' selected' : '' ?>>— โปรดเลือกหมวด —</option>
+                        <?php foreach ($siteCategoriesForWo as $catRow): ?>
+                            <?php $catIdOpt = (int) ($catRow['id'] ?? 0); ?>
+                            <?php if ($catIdOpt <= 0) { continue; } ?>
+                            <option value="<?= $catIdOpt ?>"<?= $catIdOpt === $woCostCategoryId ? ' selected' : '' ?>><?= htmlspecialchars((string) ($catRow['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <?php endif; ?>
             </div>
@@ -454,8 +424,18 @@ $poFlatItems = [[
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
+function normalizeIssueDateInput(el) {
+    if (!el) return true;
+    const raw = (el.value || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return true;
+    const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return false;
+    el.value = m[3] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[1]).padStart(2, '0');
+    return true;
+}
 function addPoRow() {
     const table = document.getElementById('poTable').getElementsByTagName('tbody')[0];
     const newRow = table.insertRow();
@@ -567,11 +547,28 @@ function calculatePoTotal() {
     updatePoVatBasisUi();
 }
 document.addEventListener('DOMContentLoaded', function () {
+    const issueDateEl = document.getElementById('issue_date');
+    if (typeof flatpickr === 'function' && issueDateEl) {
+        flatpickr(issueDateEl, { dateFormat: 'd/m/Y', defaultDate: issueDateEl.value || 'today', allowInput: true });
+    }
     updatePoVatBasisUi();
     calculatePoTotal();
     const poForm = document.querySelector('form[data-hire-remaining]');
     const confirmOverInput = document.getElementById('confirm_over_contract');
     poForm?.addEventListener('submit', function (event) {
+        const catEl = document.getElementById('cost_category_id');
+        if (catEl && catEl.required && !(parseInt(catEl.value || '0', 10) > 0)) {
+            event.preventDefault();
+            alert('กรุณาเลือกหมวดค่าใช้จ่าย');
+            catEl.focus();
+            return;
+        }
+        if (!normalizeIssueDateInput(issueDateEl)) {
+            event.preventDefault();
+            alert('กรุณากรอกวันที่เป็น วัน/เดือน/ปี');
+            issueDateEl?.focus();
+            return;
+        }
         if (poForm.getAttribute('data-hire-advance') === '1') {
             return;
         }

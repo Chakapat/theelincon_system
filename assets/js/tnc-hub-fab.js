@@ -18,6 +18,8 @@
     var hideOnIndexDesktop = !!cfg.hideOnIndexDesktop;
     var activeHubKey = null;
     var hubButtons = {};
+    var flyoutCloseTimer = null;
+    var FLYOUT_CLOSE_MS = 260;
 
     function escapeHtml(text) {
         return String(text || '')
@@ -28,21 +30,25 @@
     }
 
     function fanPosition(index, total) {
-        var startAngle = 18;
-        var endAngle = 56;
+        /* Wider arc + larger radius so hub icons never overlap (≥2.95rem center gap). */
+        var startAngle = 8;
+        var endAngle = 78;
         var t = total <= 1 ? 0.5 : index / (total - 1);
         var angleDeg = startAngle + (endAngle - startAngle) * t;
         var rad = angleDeg * Math.PI / 180;
-        var radiusRem = 4.85 + index * 0.42;
+        var baseRadiusRem = 7.8;
+        var radiusRem = baseRadiusRem + index * 0.45;
         var xRem = Math.sin(rad) * radiusRem;
         var yRem = Math.cos(rad) * radiusRem;
-        var spinStart = -32 + index * 10;
+        var spinStart = -36 + index * 12;
 
         return {
             x: (-xRem).toFixed(2) + 'rem',
             y: (-yRem).toFixed(2) + 'rem',
             spin: spinStart.toFixed(1) + 'deg',
-            delay: String(index * 45) + 'ms'
+            delay: String(index * 45) + 'ms',
+            delayClose: String((total - 1 - index) * 38) + 'ms',
+            z: String(index + 1)
         };
     }
 
@@ -52,26 +58,59 @@
         el.style.setProperty('--fab-y', pos.y);
         el.style.setProperty('--fab-spin-start', pos.spin);
         el.style.setProperty('--fab-delay', pos.delay);
+        el.style.setProperty('--fab-delay-close', pos.delayClose);
+        el.style.zIndex = pos.z;
     }
 
-    function closeFlyout() {
-        activeHubKey = null;
-        flyout.classList.remove('is-visible');
-        flyout.setAttribute('aria-hidden', 'true');
-        root.classList.remove('has-flyout');
+    function resetFlyoutPanelStyles() {
         var panel = document.getElementById('tncHubFabFlyoutPanel');
         if (panel) {
             panel.style.maxHeight = '';
+            panel.style.maxWidth = '';
         }
+    }
+
+    function clearHubExpandedState() {
         Object.keys(hubButtons).forEach(function (key) {
             hubButtons[key].classList.remove('is-expanded');
             hubButtons[key].setAttribute('aria-expanded', 'false');
         });
-        window.setTimeout(function () {
-            if (!flyout.classList.contains('is-visible')) {
-                flyout.hidden = true;
-            }
-        }, 280);
+    }
+
+    function finishFlyoutClose(callback) {
+        activeHubKey = null;
+        root.classList.remove('has-flyout');
+        flyout.classList.remove('is-closing');
+        flyout.style.right = '';
+        flyout.hidden = true;
+        resetFlyoutPanelStyles();
+        clearHubExpandedState();
+        if (typeof callback === 'function') {
+            callback();
+        }
+    }
+
+    function closeFlyout(callback, instant) {
+        if (flyoutCloseTimer) {
+            window.clearTimeout(flyoutCloseTimer);
+            flyoutCloseTimer = null;
+        }
+
+        if (instant || flyout.hidden || (!flyout.classList.contains('is-visible') && !flyout.classList.contains('is-closing'))) {
+            flyout.classList.remove('is-visible', 'is-closing');
+            flyout.setAttribute('aria-hidden', 'true');
+            finishFlyoutClose(callback);
+            return;
+        }
+
+        flyout.classList.add('is-closing');
+        flyout.classList.remove('is-visible');
+        flyout.setAttribute('aria-hidden', 'true');
+
+        flyoutCloseTimer = window.setTimeout(function () {
+            flyoutCloseTimer = null;
+            finishFlyoutClose(callback);
+        }, FLYOUT_CLOSE_MS);
     }
 
     function positionFlyout(hubBtn) {
@@ -82,25 +121,39 @@
         }
 
         var pad = 12;
+        var hubGap = 10;
         var stackRect = stack.getBoundingClientRect();
         var btnRect = hubBtn.getBoundingClientRect();
         var hubCenter = btnRect.top + btnRect.height / 2;
-        var anchorY = hubCenter - stackRect.top;
 
+        /* Anchor flyout to the left of the selected hub icon, not the main FAB. */
+        var rightPx = stackRect.right - btnRect.left + hubGap;
+        flyout.style.right = rightPx + 'px';
+
+        var anchorY = hubCenter - stackRect.top;
         flyout.style.setProperty('--flyout-anchor-y', anchorY + 'px');
         if (panel) {
             panel.style.maxHeight = '';
+            panel.style.maxWidth = '';
         }
 
         window.requestAnimationFrame(function () {
             var flyRect = flyout.getBoundingClientRect();
             var flyHeight = flyRect.height;
+            var flyWidth = flyRect.width;
             var maxFlyHeight = window.innerHeight - pad * 2;
+            var maxFlyWidth = stackRect.left - pad;
 
             if (panel && flyHeight > maxFlyHeight) {
                 panel.style.maxHeight = maxFlyHeight + 'px';
                 flyRect = flyout.getBoundingClientRect();
                 flyHeight = flyRect.height;
+            }
+
+            if (panel && maxFlyWidth > 0 && flyWidth > maxFlyWidth) {
+                panel.style.maxWidth = maxFlyWidth + 'px';
+                flyRect = flyout.getBoundingClientRect();
+                flyWidth = flyRect.width;
             }
 
             var idealTop = hubCenter - flyHeight / 2;
@@ -113,6 +166,13 @@
 
             anchorY = idealTop + flyHeight / 2 - stackRect.top;
             flyout.style.setProperty('--flyout-anchor-y', anchorY + 'px');
+
+            /* Nudge left if panel still clips the viewport edge. */
+            flyRect = flyout.getBoundingClientRect();
+            if (flyRect.left < pad) {
+                rightPx -= pad - flyRect.left;
+                flyout.style.right = rightPx + 'px';
+            }
         });
     }
 
@@ -141,10 +201,23 @@
 
         flyout.hidden = false;
         flyout.setAttribute('aria-hidden', 'false');
-        flyout.classList.remove('is-visible');
+        flyout.classList.remove('is-visible', 'is-closing');
         root.classList.add('has-flyout');
         window.requestAnimationFrame(function () {
-            flyout.classList.add('is-visible');
+            window.requestAnimationFrame(function () {
+                flyout.classList.add('is-visible');
+            });
+        });
+    }
+
+    function openFlyout(hub, hubBtn) {
+        activeHubKey = hub.key;
+        hubBtn.classList.add('is-expanded');
+        hubBtn.setAttribute('aria-expanded', 'true');
+        renderFlyout(hub);
+        positionFlyout(hubBtn);
+        window.requestAnimationFrame(function () {
+            positionFlyout(hubBtn);
         });
     }
 
@@ -159,15 +232,14 @@
             return;
         }
 
-        closeFlyout();
-        activeHubKey = hub.key;
-        btn.classList.add('is-expanded');
-        btn.setAttribute('aria-expanded', 'true');
-        renderFlyout(hub);
-        positionFlyout(btn);
-        window.requestAnimationFrame(function () {
-            positionFlyout(btn);
-        });
+        if (activeHubKey) {
+            closeFlyout(function () {
+                openFlyout(hub, btn);
+            });
+            return;
+        }
+
+        openFlyout(hub, btn);
     }
 
     function renderHubs() {
@@ -222,10 +294,18 @@
     }
 
     function closeDial() {
-        closeFlyout();
-        root.classList.remove('is-open');
-        mainBtn.setAttribute('aria-expanded', 'false');
-        hideBackdrop();
+        var finishDialClose = function () {
+            root.classList.remove('is-open');
+            mainBtn.setAttribute('aria-expanded', 'false');
+            hideBackdrop();
+        };
+
+        if (activeHubKey || flyout.classList.contains('is-visible') || flyout.classList.contains('is-closing')) {
+            closeFlyout(finishDialClose);
+            return;
+        }
+
+        finishDialClose();
     }
 
     function toggleDial() {

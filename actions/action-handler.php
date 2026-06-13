@@ -1616,25 +1616,37 @@ if ($action === 'create_po_from_pr') {
                     tnc_action_redirect($poFromPrUrl . '&mode=payment&error=duplicate_installment');
                 }
             }
-        } elseif (Purchase::hasHireContractPo($pr_id, $hcId)) {
-            tnc_action_redirect($poFromPrUrl . '&mode=payment&error=contract_po_exists');
         }
 
-        $hireLines = tnc_hire_lines_from_post($_POST);
+        $hireLines = $hirePoKind === 'contract'
+            ? tnc_hire_lines_from_post($_POST)
+            : tnc_hire_lines_from_item_post($_POST);
+        if (count($hireLines) === 0 && in_array($hirePoKind, ['payment', 'advance'], true)) {
+            tnc_action_redirect($poFromPrUrl . '&mode=' . $hirePoKind . '&error=invalid_hire_rows');
+        }
+        if (count($hireLines) === 0) {
+            $hireLines = tnc_hire_lines_from_post($_POST);
+        }
         $hireSubtotal = tnc_hire_subtotal_from_lines($hireLines);
         if ($hireSubtotal <= 0 || count($hireLines) === 0) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&error=invalid_hire_rows');
+            tnc_action_redirect($poFromPrUrl . '&mode=' . $hirePoKind . '&error=invalid_hire_rows');
         }
 
         $vat_en = !empty($_POST['vat_enabled']) ? 1 : 0;
-        $vat_amt = $vat_en ? round($hireSubtotal * 0.07, 2) : 0.0;
-        $gross = round($hireSubtotal + $vat_amt, 2);
+        $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
+        if (!in_array($vat_mode_post, ['exclusive', 'inclusive'], true)) {
+            $vat_mode_post = 'exclusive';
+        }
+        $hireTotals = tnc_po_compute_totals($hireSubtotal, $vat_en, $vat_mode_post, 'none');
+        $vat_amt = $hireTotals['vat'];
+        $gross = $hireTotals['gross'];
+        $hireSubtotal = $hireTotals['subtotal'];
         $retRaw = trim((string) ($_POST['retention_value'] ?? '0'));
         $retRaw = str_replace('%', '', $retRaw);
         $retention = max(0.0, round((float) $retRaw, 2));
         $payable = max(0.0, round($gross - $retention, 2));
         if ($payable <= 0) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&error=invalid_installment_amount');
+            tnc_action_redirect($poFromPrUrl . '&mode=' . $hirePoKind . '&error=invalid_installment_amount');
         }
 
         $po_note = mb_substr(trim((string) ($_POST['po_note'] ?? '')), 0, 500);
@@ -1685,6 +1697,7 @@ if ($action === 'create_po_from_pr') {
             'billing_status' => 'pending',
             'created_by' => $created_by,
             'vat_enabled' => $vat_en,
+            'vat_mode' => $hireTotals['vat_mode'],
             'subtotal_amount' => $hireSubtotal,
             'vat_amount' => $vat_amt,
             'order_type' => 'hire',
@@ -1864,6 +1877,11 @@ if ($action === 'create_po_direct') {
             ? app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id_link
             : $poCreateDirectUrl);
     $hireFbSep = str_contains($hireFallback, '?') ? '&' : '?';
+    $hirePoKindFb = strtolower(trim((string) ($_POST['hire_po_kind'] ?? 'payment')));
+    if ($hire_contract_id > 0 && $hirePoKindFb === 'advance') {
+        $hireFallback .= $hireFbSep . 'mode=advance';
+        $hireFbSep = '&';
+    }
 
     if ($hire_contract_id <= 0 && $supplier_id <= 0) {
         $supErrUrl = $pr_id_link > 0
@@ -2148,8 +2166,19 @@ if ($action === 'create_po_direct') {
             }
         }
         $postedCatId = (int) ($_POST['cost_category_id'] ?? 0);
-        if ($postedCatId > 0) {
-            require_once ROOT_PATH . '/includes/site_cost_categories.php';
+        $siteIdForCat = (int) ($hireExtra['site_id'] ?? $postedSiteId ?? 0);
+        require_once ROOT_PATH . '/includes/site_cost_categories.php';
+        $catsForSite = tnc_site_categories_for_site($siteIdForCat);
+        if ($catsForSite !== []) {
+            if ($postedCatId <= 0 || !tnc_site_category_is_valid_for_site($postedCatId, $siteIdForCat)) {
+                tnc_action_redirect($hireFallback . $hireFbSep . 'error=need_cost_category');
+            }
+            $catNameHire = tnc_site_category_name($postedCatId);
+            $hireExtra['cost_category_id'] = $postedCatId;
+            if ($catNameHire !== '') {
+                $hireExtra['cost_category_name'] = $catNameHire;
+            }
+        } elseif ($postedCatId > 0 && tnc_site_category_is_valid_for_site($postedCatId, $siteIdForCat)) {
             $catNameHire = tnc_site_category_name($postedCatId);
             $hireExtra['cost_category_id'] = $postedCatId;
             if ($catNameHire !== '') {
