@@ -15,7 +15,6 @@ if ($nameTh === '') {
 }
 $nationalId = trim((string) ($contractorPrint['national_id'] ?? ''));
 $address = trim((string) ($contractorPrint['address'] ?? ''));
-$paymentLines = is_array($contractorPrint['payment_lines'] ?? null) ? $contractorPrint['payment_lines'] : [];
 ?>
 <?php if ($contractorPrintLayout === 'detail'): ?>
 <div class="po-section-title text-dark"><?= htmlspecialchars($nameTh, ENT_QUOTES, 'UTF-8') ?></div>
@@ -26,14 +25,6 @@ $paymentLines = is_array($contractorPrint['payment_lines'] ?? null) ? $contracto
     <?php if ($address !== ''): ?>
         <div><strong>ที่อยู่:</strong> <?= htmlspecialchars($address, ENT_QUOTES, 'UTF-8') ?></div>
     <?php endif; ?>
-    <?php if ($paymentLines !== []): ?>
-        <div class="contractor-print-payment">
-            <strong>ช่องทางการชำระ:</strong>
-            <?php foreach ($paymentLines as $payLine): ?>
-                <div><?= htmlspecialchars((string) $payLine, ENT_QUOTES, 'UTF-8') ?></div>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
 </div>
 <?php else: ?>
 <div class="contractor-print-panel small">
@@ -43,14 +34,6 @@ $paymentLines = is_array($contractorPrint['payment_lines'] ?? null) ? $contracto
     <?php endif; ?>
     <?php if ($address !== ''): ?>
         <div class="contractor-print-row"><strong>ที่อยู่:</strong> <?= htmlspecialchars($address, ENT_QUOTES, 'UTF-8') ?></div>
-    <?php endif; ?>
-    <?php if ($paymentLines !== []): ?>
-        <div class="contractor-print-row contractor-print-payment">
-            <strong>ช่องทางการชำระ:</strong>
-            <?php foreach ($paymentLines as $payLine): ?>
-                <div><?= htmlspecialchars((string) $payLine, ENT_QUOTES, 'UTF-8') ?></div>
-            <?php endforeach; ?>
-        </div>
     <?php endif; ?>
 </div>
 <?php endif; ?>

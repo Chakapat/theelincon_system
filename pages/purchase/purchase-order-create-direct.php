@@ -100,6 +100,7 @@ $items = [[
                 'no_items', 'invalid_items' => 'กรุณาเพิ่มรายการอย่างน้อย 1 รายการ และกรอกจำนวน/ราคาให้ถูกต้อง',
                 'billing_required' => 'กรุณากรอกเลขที่บิล/ใบกำกับภาษี',
                 'payment_slip_required' => 'กรุณาแนบสลิปหรือหลักฐานการจ่ายอย่างน้อย 1 ไฟล์',
+                'cash_paid_by_required' => 'กรุณากรอก «จ่ายโดย» เมื่อเลือกชำระด้วยเงินสด',
                 'need_site' => 'กรุณาเลือกไซต์งาน (โครงการ)',
                 'need_cost_category' => 'กรุณาเลือกหมวดค่าใช้จ่ายของไซต์',
                 'upload_failed', 'upload_type' => 'อัปโหลดสลิปไม่สำเร็จ — ใช้ไฟล์รูปหรือ PDF',
@@ -183,15 +184,31 @@ $items = [[
         </div>
 
         <div class="card card-soft p-4 p-md-4 mb-4">
-            <div class="row g-3 align-items-end">
-                <div class="col-md-6">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="po-field-label d-block mb-2">ช่องทางชำระ</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="payment_method" id="payMethodTransfer" value="transfer" checked>
+                        <label class="form-check-label" for="payMethodTransfer">โอนเงิน / ช่องทางอื่น <span class="text-muted small">(แนบหลักฐาน)</span></label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="payment_method" id="payMethodCash" value="cash">
+                        <label class="form-check-label" for="payMethodCash">เงินสด</label>
+                    </div>
+                </div>
+                <div class="col-md-6 d-none" id="poCreateCashWrap">
+                    <label class="po-field-label" for="payment_cash_paid_by">จ่ายโดย <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="payment_cash_paid_by" id="payment_cash_paid_by" maxlength="255" placeholder="เช่น ชื่อผู้รับเงิน / แผนก" autocomplete="off">
+                    <div class="form-text">บังคับเมื่อเลือกเงินสด — เก็บในฐานข้อมูลพร้อม PO</div>
+                </div>
+                <div class="col-md-6" id="poCreateSlipWrap">
                     <label class="po-field-label" for="payment_slips">แนบสลิป / หลักฐานการจ่าย</label>
                     <input type="file" name="payment_slips[]" id="payment_slips" class="form-control" accept="image/*,.pdf" multiple>
+                    <div class="form-text" id="poCreateSlipHint">เลือกได้หลายไฟล์ (รูปหรือ PDF) — ถ้าแนบแล้ว PO จะถูกบันทึกเป็น «จ่ายแล้ว»</div>
                 </div>
             </div>
             <input type="hidden" name="billed_total_amount" id="billed_total_amount" value="0">
             <input type="hidden" name="billed_vat_amount" id="billed_vat_amount" value="0">
-            <input type="hidden" name="payment_method" value="transfer">
         </div>
 
         <div class="card card-soft p-4 p-md-4 mb-4">
@@ -273,14 +290,6 @@ $items = [[
 
         <div class="po-submit-panel mb-2">
             <div class="po-submit-panel-inner">
-                <div class="po-submit-panel-meta">
-                    <p class="po-submit-amount-label mb-0">ยอดสุทธิที่จะบันทึก</p>
-                    <p class="po-submit-amount mb-0">
-                        <span id="submit_grand_total">0.00</span>
-                        <span class="po-submit-currency">บาท</span>
-                    </p>
-                    <p class="po-submit-hint mb-0">ตรวจสอบรายการ ไซต์งาน และหลักฐานการจ่ายก่อนยืนยัน</p>
-                </div>
                 <div class="po-submit-panel-action">
                     <button type="submit" class="btn btn-orange btn-lg po-submit-btn rounded-pill w-100 w-lg-auto"<?= count($sites) === 0 ? ' disabled' : '' ?>>
                         <i class="bi bi-check2-circle me-2"></i>ยืนยันสร้างใบสั่งซื้อ
@@ -311,6 +320,33 @@ $items = [[
         el.value = m[3] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[1]).padStart(2, '0');
         return true;
     }
+    const payMethodTransfer = document.getElementById('payMethodTransfer');
+    const payMethodCash = document.getElementById('payMethodCash');
+    const poCreateCashWrap = document.getElementById('poCreateCashWrap');
+    const paymentCashPaidBy = document.getElementById('payment_cash_paid_by');
+    const poCreateSlipHint = document.getElementById('poCreateSlipHint');
+
+    function syncPoCreatePaymentUi() {
+        const isCash = !!(payMethodCash && payMethodCash.checked);
+        if (poCreateCashWrap) {
+            poCreateCashWrap.classList.toggle('d-none', !isCash);
+        }
+        if (paymentCashPaidBy) {
+            paymentCashPaidBy.required = isCash;
+            if (!isCash) {
+                paymentCashPaidBy.value = '';
+            }
+        }
+        if (poCreateSlipHint) {
+            poCreateSlipHint.textContent = isCash
+                ? 'ไม่บังคับเมื่อเลือกเงินสด — แนบได้ถ้ามีใบเสร็จหรือหลักฐานเพิ่มเติม'
+                : 'เลือกได้หลายไฟล์ (รูปหรือ PDF) — ถ้าแนบแล้ว PO จะถูกบันทึกเป็น «จ่ายแล้ว»';
+        }
+    }
+    payMethodTransfer?.addEventListener('change', syncPoCreatePaymentUi);
+    payMethodCash?.addEventListener('change', syncPoCreatePaymentUi);
+    syncPoCreatePaymentUi();
+
     const form = document.querySelector('form');
     if (form) {
         form.addEventListener('submit', function (e) {
@@ -333,6 +369,15 @@ $items = [[
                 alert('กรุณากรอกวันที่เป็น วัน/เดือน/ปี');
                 issueDateEl && issueDateEl.focus();
                 return;
+            }
+            if (payMethodCash && payMethodCash.checked) {
+                const paidBy = (paymentCashPaidBy?.value || '').trim();
+                if (!paidBy) {
+                    e.preventDefault();
+                    alert('กรุณากรอก «จ่ายโดย» เมื่อเลือกชำระด้วยเงินสด');
+                    paymentCashPaidBy?.focus();
+                    return;
+                }
             }
         });
     }

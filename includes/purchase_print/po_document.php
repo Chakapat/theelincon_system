@@ -7,21 +7,15 @@ use Theelincon\Rtdb\Purchase;
 
 require_once __DIR__ . '/../hire_line_items.php';
 require_once __DIR__ . '/../contractors.php';
+require_once __DIR__ . '/../purchase_po_payment_slips.php';
 require_once __DIR__ . '/vat_print_summary.php';
 
 if (!function_exists('tnc_po_format_date_thai')) {
     function tnc_po_format_date_thai(mixed $date): string
     {
-        $s = trim((string) $date);
-        if ($s === '') {
-            return '-';
-        }
-        $ts = strtotime($s);
-        if ($ts === false) {
-            return '-';
-        }
+        $dmy = tnc_po_ymd_to_dmy(tnc_po_parse_date_ymd(trim((string) $date)));
 
-        return date('d/m/Y', $ts);
+        return $dmy !== '' ? $dmy : '-';
     }
 }
 
@@ -237,6 +231,25 @@ function tnc_purchase_po_print_prepare(int $id): ?array
             $poNotePo = $hireWorkConditions;
         }
     }
+    if ($orderType === 'hire' && $hirePoKind === 'contract' && $contractorId > 0) {
+        $paymentNote = trim(tnc_contractor_payment_note_text($contractorId));
+        if ($paymentNote !== '') {
+            $paymentLines = array_filter(array_map(
+                static fn (string $line): string => trim($line),
+                explode("\n", str_replace("\r", '', $paymentNote))
+            ));
+            $missingPaymentLine = false;
+            foreach ($paymentLines as $line) {
+                if ($line !== '' && !str_contains($poNotePo, $line)) {
+                    $missingPaymentLine = true;
+                    break;
+                }
+            }
+            if ($missingPaymentLine) {
+                $poNotePo = $poNotePo !== '' ? ($poNotePo . "\n\n" . $paymentNote) : $paymentNote;
+            }
+        }
+    }
 
     $poSiteDisplay = tnc_purchase_po_resolve_site_name($data, is_array($pr) ? $pr : null);
 
@@ -308,12 +321,9 @@ function tnc_purchase_po_print_prepare(int $id): ?array
             $po_vat_amount = $poDerivedFromItems['vat'];
         }
     }
-    $issueDate = (string) ($data['issue_date'] ?? '');
-    if (trim($issueDate) === '') {
-        $issueDate = (string) ($data['created_at'] ?? '');
-    }
-    if (trim($issueDate) === '' && is_array($pr) && trim((string) ($pr['created_at'] ?? '')) !== '') {
-        $issueDate = (string) $pr['created_at'];
+    $issueDate = tnc_po_issue_date_ymd($po);
+    if ($issueDate === '' && is_array($pr)) {
+        $issueDate = tnc_po_parse_date_ymd(trim((string) ($pr['created_at'] ?? '')));
     }
     if ($poDerivedFromItems !== null) {
         $po_subtotal = $poDerivedFromItems['subtotal'];

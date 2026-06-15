@@ -197,6 +197,17 @@ function tnc_po_optional_create_extras(
         $invoiceDate = date('Y-m-d');
     }
 
+    $paymentMethod = strtolower(trim((string) ($_POST['payment_method'] ?? 'transfer')));
+    if (!in_array($paymentMethod, ['cash', 'transfer'], true)) {
+        $paymentMethod = 'transfer';
+    }
+    $paymentCashPaidBy = trim((string) ($_POST['payment_cash_paid_by'] ?? ''));
+    if ($paymentMethod === 'cash') {
+        $paymentCashPaidBy = mb_substr($paymentCashPaidBy, 0, 255);
+    } else {
+        $paymentCashPaidBy = '';
+    }
+
     $slipPaths = tnc_po_payment_slip_upload_many($poId, 'payment_slips');
     if ($slipPaths !== []) {
         $poFields = array_merge($poFields, [
@@ -204,7 +215,16 @@ function tnc_po_optional_create_extras(
             'payment_slip_paths' => json_encode($slipPaths, JSON_UNESCAPED_UNICODE),
             'payment_slip_path' => $slipPaths[0] ?? '',
             'payment_marked_paid_at' => date('Y-m-d H:i:s'),
-            'payment_method' => trim((string) ($_POST['payment_method'] ?? 'transfer')) ?: 'transfer',
+            'payment_method' => $paymentMethod,
+            'payment_cash_paid_by' => $paymentCashPaidBy,
+        ]);
+        $extrasSaved = true;
+    } elseif ($paymentMethod === 'cash' && $paymentCashPaidBy !== '') {
+        $poFields = array_merge($poFields, [
+            'payment_status' => 'paid',
+            'payment_marked_paid_at' => date('Y-m-d H:i:s'),
+            'payment_method' => 'cash',
+            'payment_cash_paid_by' => $paymentCashPaidBy,
         ]);
         $extrasSaved = true;
     }
@@ -401,24 +421,49 @@ function tnc_purchase_po_is_doc_complete(array $po): bool
     return tnc_purchase_po_has_payment_proof($po);
 }
 
+/** แปลงวันที่จาก DB/ฟอร์ม → Y-m-d (รองรับ d/m/Y และ Y-m-d) */
+function tnc_po_parse_date_ymd(string $raw): string
+{
+    $s = trim($raw);
+    if ($s === '') {
+        return '';
+    }
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) {
+        return $s;
+    }
+    if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $s, $m)) {
+        return sprintf('%04d-%02d-%02d', (int) $m[3], (int) $m[2], (int) $m[1]);
+    }
+    $ts = strtotime($s);
+    if ($ts !== false) {
+        return date('Y-m-d', $ts);
+    }
+
+    return '';
+}
+
+/** Y-m-d → d/m/Y สำหรับแสดงในฟอร์ม */
+function tnc_po_ymd_to_dmy(string $ymd): string
+{
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', trim($ymd), $m)) {
+        return $m[3] . '/' . $m[2] . '/' . $m[1];
+    }
+
+    return '';
+}
+
+/** วันที่ออกใบสั่งซื้อ: issue_date ตอนสร้าง → วันที่บิล (ถ้ามี) → created_at */
 function tnc_po_issue_date_ymd(array $po): string
 {
-    $issue = trim((string) ($po['issue_date'] ?? ''));
-    if ($issue !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $issue)) {
-        return $issue;
-    }
-    if ($issue !== '') {
-        $ts = strtotime($issue);
-        if ($ts !== false) {
-            return date('Y-m-d', $ts);
+    foreach (['issue_date', 'supplier_invoice_date'] as $key) {
+        $ymd = tnc_po_parse_date_ymd(trim((string) ($po[$key] ?? '')));
+        if ($ymd !== '') {
+            return $ymd;
         }
     }
-    $created = trim((string) ($po['created_at'] ?? ''));
+    $created = tnc_po_parse_date_ymd(trim((string) ($po['created_at'] ?? '')));
     if ($created !== '') {
-        $ts = strtotime($created);
-        if ($ts !== false) {
-            return date('Y-m-d', $ts);
-        }
+        return $created;
     }
 
     return '';

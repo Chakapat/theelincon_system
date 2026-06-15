@@ -121,6 +121,44 @@
         break-before: page !important;
     }
 
+    body.purchase-module .po-view-canvas > .tnc-wo-history-print-page,
+    body.purchase-module:not(.po-wo-history-print) .po-view-canvas .wo-hist-print-sheet {
+        display: block !important;
+        visibility: visible !important;
+        position: relative !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        overflow: visible !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+    }
+
+    body.purchase-module.po-wo-history-print .po-view-canvas {
+        display: block !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        text-align: center !important;
+        background: #fff !important;
+    }
+
+    body.purchase-module.po-wo-history-print .po-view-canvas .wo-hist-print-sheet {
+        display: inline-block !important;
+        visibility: visible !important;
+        position: relative !important;
+        width: 100% !important;
+        max-width: 210mm !important;
+        margin: 0 auto !important;
+        padding: 12mm 10mm !important;
+        overflow: visible !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+        text-align: left !important;
+        box-sizing: border-box !important;
+    }
+
     body.purchase-module .tnc-po-print-page--slip .po-payment-slip-print-wrap,
     body.purchase-module .tnc-po-print-page--quotation .po-payment-slip-print-wrap {
         page-break-before: auto !important;

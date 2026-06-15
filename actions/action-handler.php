@@ -2016,6 +2016,15 @@ if ($action === 'create_po_direct') {
     }
 
     $isStandalonePurchasePo = !$isHireFlow && $pr_id_link <= 0 && $hire_contract_id <= 0;
+    if ($isStandalonePurchasePo) {
+        $paymentMethodPre = strtolower(trim((string) ($_POST['payment_method'] ?? 'transfer')));
+        if (!in_array($paymentMethodPre, ['cash', 'transfer'], true)) {
+            $paymentMethodPre = 'transfer';
+        }
+        if ($paymentMethodPre === 'cash' && trim((string) ($_POST['payment_cash_paid_by'] ?? '')) === '') {
+            tnc_action_redirect($poCreateDirectUrl . '?error=cash_paid_by_required');
+        }
+    }
     $poSiteId = 0;
     $poSiteName = '';
     $poCostCategoryId = 0;

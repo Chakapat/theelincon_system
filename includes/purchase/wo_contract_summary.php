@@ -4,166 +4,46 @@ declare(strict_types=1);
 
 /**
  * สรุปสัญญาจ้างบนหน้า Work Order (WO) — hire_contract = WO ในมุม UI
- * ต้องมีใน scope: $hireContractIdForPo (int), $po (array), Purchase, Db
+ * ต้องมีใน scope: $hireContractIdForPo (int), $po (array)
  */
 
-use Theelincon\Rtdb\Db;
-use Theelincon\Rtdb\Purchase;
+require_once dirname(__DIR__) . '/purchase/wo_contract_summary_data.php';
 
 $woSummaryIncluded = true;
+$woSummaryViewPoId = (int) ($po['id'] ?? 0);
 
-$resolvedContractId = (int) $hireContractIdForPo;
-$contract = Db::row('hire_contracts', (string) $resolvedContractId);
-if (!is_array($contract)) {
+$woCtx = tnc_wo_contract_summary_context((int) $hireContractIdForPo);
+if ($woCtx === null) {
+    $woSummaryIncluded = false;
+
     return;
 }
 
-Purchase::purgeStaleHireContractPayments($resolvedContractId);
-
-$resolvedPrId = (int) ($contract['pr_id'] ?? 0);
-$contractDocNo = Purchase::hireContractDocumentNumber($contract);
-$contractRemaining = Purchase::hireContractRemainingPayable($contract, $resolvedContractId);
-$hireCommittedPayable = Purchase::hireContractCommittedPayable($resolvedContractId);
-$hireCommittedAdvance = Purchase::hireContractCommittedAdvance($resolvedContractId);
-$contractRemainingOver = $contractRemaining < -0.0005;
-$contractRemainingCss = $contractRemainingOver
-    ? 'text-danger fw-bold'
-    : ($contractRemaining <= 0.0005 ? 'text-success' : 'text-primary');
-
-$payments = Purchase::filterActiveHireContractPaymentPos(
-    Db::filter('hire_contract_payments', static function (array $r) use ($resolvedContractId, $resolvedPrId): bool {
-        $hid = (int) ($r['hire_contract_id'] ?? 0);
-        if ($resolvedContractId > 0 && $hid > 0) {
-            return $hid === $resolvedContractId;
-        }
-
-        return $resolvedPrId > 0 && (int) ($r['pr_id'] ?? 0) === $resolvedPrId;
-    }),
-    $resolvedContractId > 0 ? $resolvedContractId : null,
-    $resolvedPrId > 0 ? $resolvedPrId : null
-);
-Db::sortRows($payments, 'installment_no', false);
-$paymentPoCount = count(Purchase::activeHirePaymentPos($resolvedContractId, $resolvedPrId));
-$advancePoCount = count(Purchase::activeHireAdvancePos($resolvedContractId, $resolvedPrId));
-$activePaymentPos = Purchase::activeHirePaymentPos($resolvedContractId, $resolvedPrId);
-$activeAdvancePos = Purchase::activeHireAdvancePos($resolvedContractId, $resolvedPrId);
-usort($activePaymentPos, static function (array $a, array $b): int {
-    return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
-});
-usort($activeAdvancePos, static function (array $a, array $b): int {
-    return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
-});
-
-$poRows = Db::filter('purchase_orders', static function (array $r) use ($resolvedContractId, $resolvedPrId): bool {
-    if (trim((string) ($r['order_type'] ?? 'purchase')) !== 'hire') {
-        return false;
-    }
-    if ($resolvedContractId > 0 && (int) ($r['hire_contract_id'] ?? 0) === $resolvedContractId) {
-        return true;
-    }
-
-    return $resolvedPrId > 0 && (int) ($r['pr_id'] ?? 0) === $resolvedPrId;
-});
-Db::sortRows($poRows, 'installment_no', false);
-$poByNumber = [];
-foreach ($poRows as $poRow) {
-    $poNum = trim((string) ($poRow['po_number'] ?? ''));
-    if ($poNum !== '') {
-        $poByNumber[$poNum] = $poRow;
-    }
-}
-
-$installmentTotalCount = (int) ($contract['installment_total'] ?? 0);
-if ($installmentTotalCount < 0) {
-    $installmentTotalCount = 0;
-}
-$hireOpenPaymentsView = Purchase::hireInstallmentsUnspecified($installmentTotalCount);
-
-$woSummaryFormatDate = static function (string $raw): string {
-    $value = trim($raw);
-    if ($value === '') {
-        return '-';
-    }
-    try {
-        $dt = new DateTime($value, new DateTimeZone('Asia/Bangkok'));
-
-        return $dt->format('d/m/Y');
-    } catch (Throwable $e) {
-        return $value;
-    }
-};
-
-$woSummaryCostCategory = static function (array $poRow): string {
-    $catName = trim((string) ($poRow['cost_category_name'] ?? ''));
-    $catId = (int) ($poRow['cost_category_id'] ?? 0);
-    if ($catName === '' && $catId > 0) {
-        if (!function_exists('tnc_site_category_name')) {
-            require_once dirname(__DIR__) . '/site_cost_categories.php';
-        }
-        $catName = tnc_site_category_name($catId);
-    }
-
-    return $catName !== '' ? $catName : '-';
-};
-
-$payRows = [];
-foreach ($activePaymentPos as $linkedPo) {
-    $poNumber = trim((string) ($linkedPo['po_number'] ?? ''));
-    $linkedPoId = (int) ($linkedPo['id'] ?? 0);
-    $subAmt = (float) ($linkedPo['subtotal_amount'] ?? 0);
-    $vatAmt = (float) ($linkedPo['vat_amount'] ?? 0);
-    $whtAmt = (float) ($linkedPo['withholding_amount'] ?? 0);
-    $netAmt = Purchase::hirePoPayableAmount($linkedPo);
-    $createdRaw = trim((string) ($linkedPo['created_at'] ?? ($linkedPo['issue_date'] ?? '')));
-    $payRows[] = [
-        'po_number' => $poNumber !== '' ? $poNumber : '-',
-        'po_id' => $linkedPoId,
-        'created_at' => $woSummaryFormatDate($createdRaw),
-        'cost_category' => $woSummaryCostCategory($linkedPo),
-        'installment' => Purchase::hirePayablePoSequenceLabel(
-            $linkedPo,
-            (int) ($linkedPo['installment_total'] ?? $installmentTotalCount)
-        ),
-        'sub' => $subAmt,
-        'vat' => $vatAmt,
-        'wht' => $whtAmt,
-        'net' => $netAmt,
-        'contract_line' => $netAmt,
-    ];
-}
-
-$advanceRows = [];
-foreach ($activeAdvancePos as $advancePo) {
-    $poNumber = trim((string) ($advancePo['po_number'] ?? ''));
-    $linkedPoId = (int) ($advancePo['id'] ?? 0);
-    $subAmt = (float) ($advancePo['subtotal_amount'] ?? 0);
-    $vatAmt = (float) ($advancePo['vat_amount'] ?? 0);
-    $whtAmt = (float) ($advancePo['withholding_amount'] ?? 0);
-    $netAmt = Purchase::hirePoPayableAmount($advancePo);
-    $createdRaw = trim((string) ($advancePo['created_at'] ?? ($advancePo['issue_date'] ?? '')));
-    $advanceRows[] = [
-        'po_number' => $poNumber !== '' ? $poNumber : '-',
-        'po_id' => $linkedPoId,
-        'created_at' => $woSummaryFormatDate($createdRaw),
-        'cost_category' => $woSummaryCostCategory($advancePo),
-        'installment' => Purchase::formatHireAdvanceLabel($advancePo),
-        'sub' => $subAmt,
-        'vat' => $vatAmt,
-        'wht' => $whtAmt,
-        'net' => $netAmt,
-        'contract_line' => $netAmt,
-    ];
-}
-
-$companies = Db::tableRows('company');
-Db::sortRows($companies, 'id', false);
-$company = array_values($companies)[0] ?? [];
-$employerName = trim((string) ($company['name'] ?? ''));
-$employerAddress = trim((string) ($company['address'] ?? ''));
-$employerTaxId = trim((string) ($company['tax_id'] ?? ''));
-$employerPhone = trim((string) ($company['phone'] ?? ''));
-$poViewBase = app_path('pages/purchase/purchase-order-view.php');
-$contractTitle = trim((string) ($contract['title'] ?? ''));
+extract($woCtx, EXTR_OVERWRITE);
+$contractRemainingOver = (bool) ($contract_remaining_over ?? false);
+$contractRemainingCss = (string) ($contract_remaining_css ?? 'text-primary');
+$contractRemaining = (float) ($contract_remaining ?? 0);
+$hireCommittedPayable = (float) ($hire_committed_payable ?? 0);
+$hireCommittedAdvance = (float) ($hire_committed_advance ?? 0);
+$paymentPoCount = (int) ($payment_po_count ?? 0);
+$advancePoCount = (int) ($advance_po_count ?? 0);
+$installmentTotalCount = (int) ($installment_total_count ?? 0);
+$hireOpenPaymentsView = !empty($hire_open_payments_view);
+$payTableTitle = (string) ($pay_table_title ?? 'ประวัติสั่งจ่าย');
+$payRows = (array) ($pay_rows ?? []);
+$advanceRows = (array) ($advance_rows ?? []);
+$historyRows = (array) ($history_rows ?? tnc_wo_contract_summary_history_rows($payRows, $advanceRows));
+$historyTableTitle = (string) ($history_table_title ?? 'ประวัติการจ่าย (สั่งจ่าย / เบิกล่วงหน้า)');
+$historyTotalPaid = (float) ($history_total_paid ?? ($hireCommittedPayable + $hireCommittedAdvance));
+$historyRemaining = (float) ($history_remaining ?? ((float) ($contract['contract_amount'] ?? 0) - $historyTotalPaid));
+$historyRemainingCss = (string) ($history_remaining_css ?? $contractRemainingCss);
+$employerName = (string) ($employer_name ?? '');
+$employerAddress = (string) ($employer_address ?? '');
+$employerTaxId = (string) ($employer_tax_id ?? '');
+$employerPhone = (string) ($employer_phone ?? '');
+$poViewBase = (string) ($po_view_base ?? app_path('pages/purchase/purchase-order-view.php'));
+$contractTitle = (string) ($contract_title ?? '');
+$contractDocNo = (string) ($contract_doc_no ?? '');
 ?>
 <section class="wo-summary-panel no-print container-xl px-3 px-md-4 pb-4" id="wo-contract-summary">
     <style>
@@ -189,6 +69,16 @@ $contractTitle = trim((string) ($contract['title'] ?? ''));
         .wo-summary-dl:last-child { border-bottom: 0; }
         .wo-summary-dl dt { color: #64748b; font-weight: 500; margin: 0; }
         .wo-summary-dl dd { margin: 0; color: #0f172a; }
+        .wo-summary-formula {
+            margin-top: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            font-size: 0.92rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .wo-summary-formula strong { color: #0f172a; }
     </style>
 
     <?php if ($contractRemainingOver): ?>
@@ -267,52 +157,43 @@ $contractTitle = trim((string) ($contract['title'] ?? ''));
     </div>
 
     <div class="wo-summary-card p-3 p-md-4 mb-3">
-        <h2 class="mb-3"><?= $hireOpenPaymentsView ? 'ประวัติสั่งจ่าย (ครั้ง)' : 'ประวัติจ่ายงวด' ?></h2>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h2 class="mb-0"><?= htmlspecialchars($historyTableTitle, ENT_QUOTES, 'UTF-8') ?></h2>
+            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-wo-history-print" data-print-mode="wo_history">
+                <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
+            </button>
+        </div>
         <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle mb-0 w-100" id="woPayDT">
+            <table class="table table-sm table-hover align-middle mb-0 w-100" id="woHistoryDT">
                 <thead class="table-light">
                     <tr>
                         <th>PO No.</th>
                         <th class="text-center">วันที่</th>
+                        <th class="text-center">ประเภท</th>
                         <th>หมวดหมู่</th>
                         <th class="text-center"><?= $hireOpenPaymentsView ? 'ครั้ง' : 'งวด' ?></th>
                         <th class="text-end">ก่อนภาษี</th>
                         <th class="text-end">VAT</th>
                         <th class="text-end">หัก ณ ที่จ่าย</th>
+                        <th class="text-end">หักประกันผลงาน</th>
                         <th class="text-end">สุทธิจ่าย</th>
-                        <th class="text-end">มูลค่าสัญญา (บรรทัด)</th>
                         <th class="text-center">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
             </table>
         </div>
-    </div>
-
-    <div class="wo-summary-card p-3 p-md-4">
-        <h2 class="mb-3">ประวัติเบิกล่วงหน้า</h2>
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle mb-0 w-100" id="woAdvanceDT">
-                <thead class="table-light">
-                    <tr>
-                        <th>PO No.</th>
-                        <th class="text-center">วันที่</th>
-                        <th>หมวดหมู่</th>
-                        <th class="text-center">ครั้ง</th>
-                        <th class="text-end">ก่อนภาษี</th>
-                        <th class="text-end">VAT</th>
-                        <th class="text-end">หัก ณ ที่จ่าย</th>
-                        <th class="text-end">สุทธิจ่าย</th>
-                        <th class="text-center">จัดการ</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+        <div class="wo-summary-formula">
+            <strong>สรุป:</strong>
+            มูลค่าสัญญา <?= number_format((float) ($contract['contract_amount'] ?? 0), 2) ?>
+            − ยอดจ่ายรวม <?= number_format($historyTotalPaid, 2) ?>
+            <span class="text-muted">(สั่งจ่าย <?= number_format($hireCommittedPayable, 2) ?> + เบิกล่วงหน้า <?= number_format($hireCommittedAdvance, 2) ?>)</span>
+            = คงเหลือ <strong class="<?= $historyRemainingCss ?>"><?= number_format($historyRemaining, 2) ?></strong> บาท
         </div>
     </div>
 </section>
 <script>
-window.__woSummaryPayRows = <?= json_encode($payRows, JSON_UNESCAPED_UNICODE) ?>;
-window.__woSummaryAdvanceRows = <?= json_encode($advanceRows, JSON_UNESCAPED_UNICODE) ?>;
+window.__woSummaryHistoryRows = <?= json_encode($historyRows, JSON_UNESCAPED_UNICODE) ?>;
 window.__woSummaryPoViewBase = <?= json_encode($poViewBase, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+window.__woSummaryViewPoId = <?= (int) $woSummaryViewPoId ?>;
 </script>
