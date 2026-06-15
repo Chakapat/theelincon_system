@@ -276,6 +276,51 @@ $ignoredCountAll = count($ignoredPoList);
             line-height: 1;
             padding: 0.28rem 0.5rem;
         }
+        .po-item-search-bar {
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 0.75rem;
+            background: linear-gradient(180deg, #fffbf7 0%, #fff 100%);
+            padding: 0.85rem 1rem;
+        }
+        .po-item-search-bar .form-control {
+            border-radius: 999px;
+            padding-left: 2.5rem;
+        }
+        .po-item-search-icon {
+            position: absolute;
+            left: 0.95rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--tnc-muted);
+            pointer-events: none;
+        }
+        .po-item-search-meta {
+            min-height: 1.25rem;
+            font-size: 0.82rem;
+        }
+        #poItemSearchTable thead th {
+            white-space: nowrap;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--tnc-muted);
+        }
+        #poItemSearchTable tbody td { vertical-align: middle; }
+        #poItemSearchTable .po-item-search-mark {
+            background: rgba(253, 126, 20, 0.22);
+            color: inherit;
+            padding: 0 0.12em;
+            border-radius: 0.15rem;
+        }
+        #poItemSearchTable .po-item-desc {
+            max-width: 22rem;
+            word-break: break-word;
+        }
+        #poItemSearchTable .po-item-num {
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
         @media (prefers-reduced-motion: reduce) {
             .po-incomplete-box:hover { transform: none; }
             #poTable tbody tr { transition: none; }
@@ -336,7 +381,21 @@ $ignoredCountAll = count($ignoredPoList);
     <?php endif; ?>
 
     <div class="card main-card p-4">
-        <div class="table-responsive">
+        <div class="po-item-search-bar mb-3">
+            <label class="visually-hidden" for="poItemSearchInput">ค้นหารายการใน PO</label>
+            <div class="position-relative">
+                <i class="bi bi-search po-item-search-icon" aria-hidden="true"></i>
+                <input type="search"
+                       class="form-control shadow-sm"
+                       id="poItemSearchInput"
+                       placeholder="ค้นหารายการสินค้า"
+                       autocomplete="off"
+                       enterkeyhint="search">
+            </div>
+
+        </div>
+
+        <div id="poListTableWrap" class="table-responsive">
             <table class="table table-sm table-hover align-middle" id="poTable"<?= count($po_rows) > 0 ? ' aria-busy="true"' : '' ?>>
                 <thead class="table-light">
                     <tr>
@@ -480,6 +539,25 @@ $ignoredCountAll = count($ignoredPoList);
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+
+        <div id="poItemSearchWrap" class="d-none">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle" id="poItemSearchTable" aria-live="polite">
+                    <thead class="table-light">
+                        <tr>
+                            <th>เลขที่ PO</th>
+                            <th>รายการ</th>
+                            <th class="text-end">จำนวน</th>
+                            <th class="text-center">หน่วย</th>
+                            <th class="text-end">ราคา/หน่วย</th>
+                            <th class="text-end">ส่วนลด</th>
+                            <th class="text-end">ยอดรายการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="poItemSearchBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -849,6 +927,202 @@ window.tncPoReloadWithWait = function (title, sub) {
             }
         }).catch(function () {});
     }, 6000);
+})(jQuery);
+
+(function ($) {
+    var searchInput = document.getElementById('poItemSearchInput');
+    var searchMeta = document.getElementById('poItemSearchMeta');
+    var searchClearBtn = document.getElementById('poItemSearchClearBtn');
+    var listWrap = document.getElementById('poListTableWrap');
+    var searchWrap = document.getElementById('poItemSearchWrap');
+    var searchBody = document.getElementById('poItemSearchBody');
+    var searchTimer = null;
+    var searchSeq = 0;
+    var itemSearchTable = null;
+    var minQueryLen = 2;
+
+    function escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function highlightTerms(text, tokens) {
+        var out = escapeHtml(text);
+        if (!tokens || !tokens.length) {
+            return out;
+        }
+        tokens.forEach(function (token) {
+            if (!token) {
+                return;
+            }
+            var safe = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            var re = new RegExp('(' + safe + ')', 'gi');
+            out = out.replace(re, '<mark class="po-item-search-mark">$1</mark>');
+        });
+        return out;
+    }
+
+    function setSearchMode(active) {
+        if (listWrap) {
+            listWrap.classList.toggle('d-none', active);
+        }
+        if (searchWrap) {
+            searchWrap.classList.toggle('d-none', !active);
+        }
+        if (searchClearBtn) {
+            searchClearBtn.classList.toggle('d-none', !active);
+        }
+    }
+
+    function destroyItemSearchTable() {
+        if (itemSearchTable && $.fn.DataTable.isDataTable('#poItemSearchTable')) {
+            itemSearchTable.destroy();
+            itemSearchTable = null;
+        }
+    }
+
+    function initItemSearchTable() {
+        if (!$.fn.DataTable || !document.querySelector('#poItemSearchTable tbody tr')) {
+            return;
+        }
+        if ($.fn.DataTable.isDataTable('#poItemSearchTable')) {
+            itemSearchTable = $('#poItemSearchTable').DataTable();
+            return;
+        }
+        itemSearchTable = $('#poItemSearchTable').DataTable({
+            order: [[0, 'desc']],
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
+            columnDefs: [
+                { targets: [2, 4, 5, 6], className: 'text-end po-item-num' },
+                { targets: [3], className: 'text-center' }
+            ]
+        });
+    }
+
+    function renderEmptySearchRow(message) {
+        destroyItemSearchTable();
+        if (searchBody) {
+            searchBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' + escapeHtml(message) + '</td></tr>';
+        }
+    }
+
+    function renderSearchRows(rows, tokens) {
+        if (!searchBody) {
+            return;
+        }
+        destroyItemSearchTable();
+        if (!rows.length) {
+            renderEmptySearchRow('ไม่พบรายการที่ตรงกับคำค้น');
+            return;
+        }
+        var html = rows.map(function (row) {
+            var poNo = row.po_number || ('#' + row.po_id);
+            var poDate = row.issue_date_display ? '<div class="small text-muted">' + escapeHtml(row.issue_date_display) + '</div>' : '';
+            var poCell = '<div class="fw-bold"><a href="' + escapeHtml(row.view_url || '#') + '" class="text-decoration-none text-tnc-orange">' + escapeHtml(poNo) + '</a></div>' + poDate;
+            var site = row.site_display ? '<div class="small text-muted text-truncate" style="max-width:12rem" title="' + escapeHtml(row.site_display) + '">' + escapeHtml(row.site_display) + '</div>' : '';
+            if (site) {
+                poCell += site;
+            }
+            var disc = row.discount_label ? escapeHtml(row.discount_label) : '—';
+            return '<tr>' +
+                '<td data-order="' + escapeHtml(row.issue_date || '0000-00-00') + '">' + poCell + '</td>' +
+                '<td class="po-item-desc">' + highlightTerms(row.description || '', tokens) + '</td>' +
+                '<td class="text-end po-item-num">' + escapeHtml(row.quantity_display || '0.00') + '</td>' +
+                '<td class="text-center">' + escapeHtml(row.unit || '—') + '</td>' +
+                '<td class="text-end po-item-num">' + escapeHtml(row.unit_price_display || '0.00') + '</td>' +
+                '<td class="text-end po-item-num text-muted small">' + disc + '</td>' +
+                '<td class="text-end po-item-num fw-semibold">' + escapeHtml(row.line_total_display || '0.00') + '</td>' +
+                '</tr>';
+        }).join('');
+        searchBody.innerHTML = html;
+        initItemSearchTable();
+    }
+
+    function runItemSearch(rawQuery) {
+        var q = String(rawQuery || '').trim();
+        if (q.length < minQueryLen) {
+            setSearchMode(false);
+            destroyItemSearchTable();
+            if (searchBody) {
+                searchBody.innerHTML = '';
+            }
+            if (searchMeta) {
+                searchMeta.textContent = 'พิมพ์อย่างน้อย ' + minQueryLen + ' ตัวอักษร — ค้นหาในชื่อรายการ (เจอแม้อยู่กลางข้อความ)';
+            }
+            return;
+        }
+
+        setSearchMode(true);
+        if (searchMeta) {
+            searchMeta.textContent = 'กำลังค้นหา…';
+        }
+
+        var seq = ++searchSeq;
+        var url = window.tncPoLiveDatasetsUrl + '?dataset=po_item_search&q=' + encodeURIComponent(q) + '&limit=200';
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) {
+                if (!r.ok) {
+                    throw new Error('fetch_failed');
+                }
+                return r.json();
+            })
+            .then(function (d) {
+                if (seq !== searchSeq) {
+                    return;
+                }
+                if (!d || !d.ok) {
+                    throw new Error('bad_payload');
+                }
+                renderSearchRows(d.rows || [], d.tokens || []);
+                var count = d.count || 0;
+                var meta = 'พบ ' + count.toLocaleString('th-TH') + ' รายการ';
+                if (d.truncated) {
+                    meta += ' (แสดงสูงสุด 200 — ลองค้นหาให้เฉพาะเจาะจงขึ้น)';
+                }
+                if (searchMeta) {
+                    searchMeta.textContent = meta;
+                }
+            })
+            .catch(function () {
+                if (seq !== searchSeq) {
+                    return;
+                }
+                renderEmptySearchRow('ค้นหาไม่สำเร็จ กรุณาลองใหม่');
+                if (searchMeta) {
+                    searchMeta.textContent = 'เกิดข้อผิดพลาดในการค้นหา';
+                }
+            });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(function () {
+                runItemSearch(searchInput.value);
+            }, 300);
+        });
+        searchInput.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape') {
+                searchInput.value = '';
+                runItemSearch('');
+                searchInput.blur();
+            }
+        });
+    }
+
+    searchClearBtn?.addEventListener('click', function () {
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+        }
+        runItemSearch('');
+    });
 })(jQuery);
 
 (function () {

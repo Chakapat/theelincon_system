@@ -8,6 +8,7 @@ header('Content-Type: application/json; charset=UTF-8');
 require_once dirname(__DIR__) . '/config/connect_database.php';
 require_once dirname(__DIR__) . '/includes/datasets.php';
 require_once dirname(__DIR__) . '/includes/purchase_po_payment_slips.php';
+require_once dirname(__DIR__) . '/includes/purchase/po_item_search.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -91,6 +92,21 @@ if ($dataset === 'po_action_row') {
         exit;
     }
     echo json_encode(['ok' => true, 'row' => $row], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if ($dataset === 'po_item_search') {
+    $q = trim((string) ($_GET['q'] ?? ''));
+    $limit = (int) ($_GET['limit'] ?? 200);
+    $result = tnc_po_item_search($q, ['limit' => $limit]);
+    echo json_encode([
+        'ok' => true,
+        'q' => $result['q'],
+        'tokens' => $result['tokens'],
+        'count' => $result['count'],
+        'truncated' => $result['truncated'],
+        'rows' => $result['rows'],
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
