@@ -1,0 +1,794 @@
+/**
+ * Index page (invoice hub) — page-specific styles on Bootstrap 5.
+ * Load after tnc-app.css.
+ */
+
+.nav-link { font-weight: 500; transition: 0.3s; }
+.nav-link:hover { opacity: 0.8; transform: translateY(-1px); }
+.card-stats {
+    border-left: 4px solid #dee2e6;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-radius: var(--tnc-radius) !important;
+}
+.card-stats:hover { transform: translateY(-3px); box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.08) !important; }
+.card-stats .index-stat-value {
+    font-size: clamp(1.75rem, 4vw, 2.35rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+.card-stats .index-stat-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+}
+.btn-white:hover { background-color: #f8f9fa; }
+.cust-logo-thumb { width: 40px; height: 40px; object-fit: contain; }
+.home-menu-hub .home-hub-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+.home-menu-hub .home-hub-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 0.65rem 1.25rem rgba(0, 0, 0, 0.07) !important;
+}
+.home-menu-hub .home-hub-head {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.home-menu-hub .home-hub-ico {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.65rem;
+    font-size: 1.25rem;
+}
+.home-menu-hub .home-hub-link {
+    position: relative;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    padding: 0.78rem 1rem 0.78rem 1.05rem;
+    color: #334155;
+    background: transparent;
+    border: none;
+    text-decoration: none;
+    transition: background-color 0.16s ease, color 0.16s ease;
+}
+.home-menu-hub .home-hub-link::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%) scaleY(0);
+    width: 3px;
+    height: 0;
+    border-radius: 0 3px 3px 0;
+    background: var(--tnc-sidebar-active-bar);
+    opacity: 0;
+    transition: transform 0.18s ease, height 0.18s ease, opacity 0.18s ease;
+}
+.home-menu-hub .home-hub-link:hover {
+    background: var(--tnc-sidebar-item-hover);
+    color: #0f172a;
+}
+.home-menu-hub .home-hub-link.active {
+    background: var(--tnc-sidebar-item-active-bg);
+    color: #9a3412;
+    font-weight: 600;
+}
+.home-menu-hub .home-hub-link.active::before {
+    transform: translateY(-50%) scaleY(1);
+    height: 62%;
+    min-height: 1.35rem;
+    opacity: 1;
+}
+.home-menu-hub .home-hub-link.active i { color: var(--tnc-orange) !important; }
+.home-menu-hub .home-hub-link i { opacity: 0.88; }
+.home-menu-hub-single .home-hub-section + .home-hub-section {
+    margin-top: 0.65rem;
+    padding-top: 0.65rem;
+    border-top: none;
+}
+.home-menu-hub-single .home-hub-toggle {
+    position: relative;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    padding: 0.95rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    border-radius: 0.5rem;
+    transition: background-color 0.16s ease;
+}
+.home-menu-hub-single .home-hub-toggle:hover,
+.home-menu-hub-single .home-hub-toggle:focus-visible {
+    background: var(--tnc-sidebar-item-hover);
+    outline: none;
+}
+.home-menu-hub-single .home-hub-toggle.has-active-child {
+    background: var(--tnc-sidebar-item-active-bg);
+}
+.home-menu-hub-single .home-hub-toggle.has-active-child::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 52%;
+    min-height: 1.2rem;
+    border-radius: 0 3px 3px 0;
+    background: var(--tnc-sidebar-active-bar);
+}
+.home-menu-hub-single .home-hub-toggle .home-hub-chevron {
+    margin-left: auto;
+    font-size: 1.1rem;
+    opacity: 0.65;
+    transition: transform 0.2s ease;
+}
+.home-menu-hub-single .home-hub-toggle:not(.collapsed) .home-hub-chevron {
+    transform: rotate(180deg);
+}
+.home-menu-hub-single .home-hub-panel {
+    padding: 0.35rem 0.75rem 1rem 0.75rem;
+}
+.home-menu-hub-single .home-hub-panel-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding-left: 0.15rem;
+}
+/* หน้าแรก: จำกัดความกว้างให้อยู่กึ่งกลาง ไม่ยืดเต็มจอใหญ่ */
+.index-page-wrap {
+    max-width: 1540px;
+}
+/* หน้าแรก: เมนูซ้าย (จอใหญ่) · มือถือแสดงเนื้อหาหลักก่อน */
+.index-layout-row { align-items: flex-start; }
+.index-sidebar-wrap {
+    position: relative;
+}
+.index-main-col {
+    min-width: 0;
+}
+@media (min-width: 992px) {
+    .index-sidebar-wrap {
+        flex: 0 0 320px;
+        max-width: 320px;
+    }
+    .index-main-col {
+        flex: 1 1 auto;
+        max-width: calc(100% - 320px);
+    }
+    .index-sidebar-sticky {
+        position: sticky;
+        top: 1rem;
+        max-height: calc(100vh - 1.25rem);
+    }
+    .index-sidebar-scroll {
+        max-height: calc(100vh - 1.25rem);
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 0.2rem;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(253, 126, 20, 0.45) transparent;
+    }
+    .index-sidebar-scroll::-webkit-scrollbar { width: 6px; }
+    .index-sidebar-scroll::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 999px;
+    }
+}
+.home-menu-hub.index-sidebar .index-sidebar-scroll {
+    padding-bottom: 0.5rem;
+}
+.home-menu-hub.index-sidebar .home-menu-hub-single {
+    border-radius: 0 0 1rem 1rem !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+.home-menu-hub.index-sidebar .home-hub-toggle {
+    padding: 0.88rem 1rem;
+    font-size: 0.95rem;
+}
+.home-menu-hub.index-sidebar .home-hub-ico {
+    width: 2.15rem;
+    height: 2.15rem;
+    font-size: 1.05rem;
+    background: rgba(255, 255, 255, 0.72) !important;
+}
+.home-menu-hub.index-sidebar .home-hub-link {
+    padding: 0.72rem 1rem 0.72rem 1.05rem;
+    font-size: 0.92rem;
+    line-height: 1.4;
+}
+.home-menu-hub.index-sidebar .home-hub-toggle > .fw-semibold,
+.home-menu-hub.index-sidebar .home-hub-link {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+.home-menu-hub.index-sidebar .home-hub-panel {
+    padding: 0.25rem 0.65rem 0.85rem;
+}
+@media (min-width: 1200px) {
+    .index-sidebar-wrap {
+        flex-basis: 340px;
+        max-width: 340px;
+    }
+    .index-main-col {
+        max-width: calc(100% - 340px);
+    }
+    .home-menu-hub.index-sidebar .home-hub-toggle {
+        padding: 0.78rem 0.85rem;
+        font-size: 0.88rem;
+        gap: 0.45rem;
+    }
+    .home-menu-hub.index-sidebar .home-hub-toggle > .fw-semibold {
+        min-width: 0;
+        line-height: 1.3;
+    }
+    .home-menu-hub.index-sidebar .home-hub-ico {
+        width: 1.85rem;
+        height: 1.85rem;
+        font-size: 0.92rem;
+    }
+    .home-menu-hub.index-sidebar .home-hub-link {
+        padding: 0.65rem 0.85rem 0.65rem 0.95rem;
+        font-size: 0.86rem;
+    }
+    .home-menu-hub.index-sidebar .home-hub-panel {
+        padding: 0.2rem 0.5rem 0.65rem;
+    }
+    .home-menu-hub.index-sidebar .home-hub-chevron {
+        font-size: 0.9rem;
+    }
+}
+/* เลขที่ใบแจ้งหนี้: สถานะใบกำกับภาษี */
+.inv-badge-tax-pending {
+    background-color: rgba(255, 193, 7, 0.22);
+    color: #856404;
+    border: 1px solid rgba(255, 193, 7, 0.55);
+    font-weight: 600;
+}
+.inv-badge-tax-issued {
+    background-color: rgba(25, 135, 84, 0.14);
+    color: #0f5132;
+    border: 1px solid rgba(25, 135, 84, 0.4);
+    font-weight: 600;
+}
+.index-inv-legend {
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+.index-inv-legend__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+}
+.index-inv-legend__swatch {
+    display: inline-block;
+    width: 0.72rem;
+    height: 0.72rem;
+    border-radius: 999px;
+    flex-shrink: 0;
+}
+.index-inv-legend__swatch--pending {
+    background-color: rgba(255, 193, 7, 0.55);
+    border: 1px solid rgba(255, 193, 7, 0.75);
+}
+.index-inv-legend__swatch--issued {
+    background-color: rgba(25, 135, 84, 0.45);
+    border: 1px solid rgba(25, 135, 84, 0.55);
+}
+.index-inv-legend__sep {
+    color: #cbd5e1;
+    user-select: none;
+}
+.index-inv-no-copy {
+    cursor: pointer;
+    user-select: none;
+    transition: filter 0.15s ease, transform 0.12s ease;
+}
+.index-inv-no-copy:hover {
+    filter: brightness(0.92);
+}
+.index-inv-no-copy:active {
+    transform: scale(0.98);
+}
+.index-inv-no-copy:focus-visible {
+    outline: 2px solid rgba(253, 126, 20, 0.65);
+    outline-offset: 2px;
+}
+/* Invoice table — roomier rows, single search only (no DataTables filter UI) */
+#invoice_table.table-invoice-index thead,
+#invoice_table.table-invoice-index.dataTable thead {
+    border-top: none !important;
+}
+#invoice_table.table-invoice-index thead th,
+#invoice_table.table-invoice-index.dataTable thead th {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    padding: 1rem 1.25rem;
+    border-top: none !important;
+    border-bottom: 1px solid #e8edf3 !important;
+}
+#invoice_table.table-invoice-index tbody td {
+    padding: 1.1rem 1.25rem;
+    vertical-align: middle;
+}
+#invoice_table.table-invoice-index tbody tr:last-child td {
+    border-bottom: 0;
+}
+#invoice_table.table-invoice-index tbody tr {
+    transition: background-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+#invoice_table.table-invoice-index tbody tr:hover {
+    background: #fff9f2;
+    box-shadow: inset 0 0 0 1px rgba(253, 126, 20, 0.1), 0 0.2rem 0.6rem rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+}
+.index-stat-label {
+    line-height: 1.35;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.index-table-toolbar-field {
+    min-width: 220px;
+    max-width: 100%;
+}
+
+.index-table-toolbar .form-control.index-search-input {
+    border-radius: var(--tnc-radius);
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: #fff;
+}
+.index-table-toolbar .form-control.index-search-input:focus {
+    border-color: rgba(253, 126, 20, 0.45);
+    box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.15);
+}
+.index-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.62rem 1.05rem;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease, background-color 0.16s ease, border-color 0.16s ease;
+}
+.index-cta-btn .index-cta-icon {
+    width: 1.55rem;
+    height: 1.55rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.84rem;
+}
+.index-cta-btn:hover {
+    transform: translateY(-1px);
+    text-decoration: none;
+}
+.index-cta-primary {
+    color: #fff;
+    background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+    box-shadow: 0 0.4rem 0.95rem rgba(253, 126, 20, 0.34);
+}
+.index-cta-primary .index-cta-icon {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.32);
+}
+.index-cta-primary:hover {
+    color: #fff;
+    filter: brightness(1.04);
+    box-shadow: 0 0.58rem 1.15rem rgba(253, 126, 20, 0.4);
+}
+.index-cta-secondary {
+    color: #14532d;
+    background: linear-gradient(135deg, rgba(25, 135, 84, 0.16) 0%, rgba(25, 135, 84, 0.07) 100%);
+    border-color: rgba(25, 135, 84, 0.35);
+    box-shadow: 0 0.3rem 0.85rem rgba(25, 135, 84, 0.14);
+}
+.index-cta-secondary .index-cta-icon {
+    background: rgba(25, 135, 84, 0.18);
+    border: 1px solid rgba(25, 135, 84, 0.26);
+    color: #146c43;
+}
+.index-cta-secondary:hover {
+    color: #0f5132;
+    background: linear-gradient(135deg, rgba(25, 135, 84, 0.21) 0%, rgba(25, 135, 84, 0.1) 100%);
+    border-color: rgba(25, 135, 84, 0.45);
+    box-shadow: 0 0.45rem 1rem rgba(25, 135, 84, 0.18);
+}
+a.btn-invoice-action { text-decoration: none; }
+.btn-invoice-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.35rem;
+    min-height: 2.35rem;
+    padding: 0.4rem 0.55rem;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+    font-size: 1rem;
+    line-height: 1;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.btn-invoice-action:hover { transform: translateY(-1px); }
+.btn-invoice-action-view {
+    background: rgba(253, 126, 20, 0.14);
+    color: #c2410c;
+    border-color: rgba(253, 126, 20, 0.24);
+}
+.btn-invoice-action-view:hover { background: rgba(253, 126, 20, 0.24); color: #9a3412; }
+.btn-invoice-action-view:focus-visible {
+    outline: 2px solid rgba(253, 126, 20, 0.55);
+    outline-offset: 2px;
+}
+.btn-invoice-action-tax {
+    background: rgba(25, 135, 84, 0.14);
+    color: #146c43;
+    border-color: rgba(25, 135, 84, 0.22);
+}
+.btn-invoice-action-tax:hover { background: rgba(25, 135, 84, 0.22); color: #0f5132; }
+.btn-invoice-action-edit {
+    background: rgba(108, 117, 125, 0.16);
+    color: #495057;
+    border-color: rgba(108, 117, 125, 0.22);
+}
+.btn-invoice-action-edit:hover { background: rgba(108, 117, 125, 0.24); color: #343a40; }
+.btn-invoice-action-delete {
+    background: rgba(220, 53, 69, 0.12);
+    color: #b02a37;
+    border-color: rgba(220, 53, 69, 0.25);
+}
+.btn-invoice-action-delete:hover { background: rgba(220, 53, 69, 0.2); color: #842029; }
+.index-dashboard-block { padding-top: 0.25rem; }
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-bottom: 0.75rem;
+}
+/* Invoice preview — popover panel (เบากว่า modal) */
+.tnc-invoice-popover-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    background: rgba(15, 23, 42, 0.28);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+.tnc-invoice-popover-backdrop.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+#tncInvoicePopover.tnc-invoice-popover {
+    position: fixed;
+    z-index: 1050;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -48%) scale(0.97);
+    width: min(calc(210mm + 2.5rem), calc(100vw - 1rem));
+    max-width: min(calc(210mm + 2.5rem), calc(100vw - 1rem));
+    margin: 0;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 0.75rem;
+    box-shadow: 0 1rem 2.5rem rgba(15, 23, 42, 0.18);
+    opacity: 0;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    pointer-events: none;
+}
+#tncInvoicePopover.tnc-invoice-popover.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    pointer-events: auto;
+}
+#tncInvoicePopover .popover-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    background: #fff;
+    border-bottom: 1px solid var(--tnc-border, #e2e8f0);
+    padding: 0.6rem 0.85rem;
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #0f172a;
+    border-radius: 0.75rem 0.75rem 0 0;
+}
+#tncInvoicePopover .popover-body {
+    padding: 0;
+    height: min(calc(297mm + 1rem), calc(100vh - 5rem));
+    max-height: calc(100vh - 5rem);
+    overflow: auto;
+    background: var(--tnc-surface, #f6f7f9);
+    border-radius: 0 0 0.75rem 0.75rem;
+    scrollbar-gutter: stable;
+}
+#tncInvoicePopover #tncInvoicePopoverFrame {
+    width: 100%;
+    height: 100%;
+    min-height: 240px;
+    display: block;
+    border: 0;
+}
+body.tnc-invoice-popover-open { overflow: hidden; }
+#tncInvoicePopover .popover-arrow { display: none; }
+
+/* Skeleton loading rows */
+.index-skeleton-wrap {
+    padding: 0.65rem 0.95rem;
+}
+.index-skeleton-row {
+    display: grid;
+    grid-template-columns: 120px 1.5fr 1.5fr 130px 160px;
+    gap: 0.8rem;
+    align-items: center;
+    padding: 0.82rem 0.5rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+.index-skeleton-line {
+    height: 0.78rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(226, 232, 240, 0.8) 25%, rgba(241, 245, 249, 0.96) 50%, rgba(226, 232, 240, 0.8) 75%);
+    background-size: 200% 100%;
+    animation: indexSkeletonWave 1.15s linear infinite;
+}
+.index-skeleton-line.sm { width: 62%; }
+.index-skeleton-line.md { width: 82%; }
+.index-skeleton-line.lg { width: 94%; }
+.index-skeleton-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.38rem;
+}
+.index-skeleton-dot {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.55rem;
+    background: linear-gradient(90deg, rgba(226, 232, 240, 0.88) 25%, rgba(241, 245, 249, 1) 50%, rgba(226, 232, 240, 0.88) 75%);
+    background-size: 200% 100%;
+    animation: indexSkeletonWave 1.15s linear infinite;
+}
+@keyframes indexSkeletonWave {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ---------- Index mobile: ใช้ FAB แทน sidebar ---------- */
+@media (max-width: 991.98px) {
+    body.tnc-index-page .index-sidebar-wrap {
+        display: none !important;
+    }
+    body.tnc-index-page .index-main-col {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+    .index-sidebar-wrap {
+        margin-top: 0.25rem;
+    }
+    .home-menu-hub.index-sidebar .home-hub-toggle {
+        padding: 0.92rem 0.95rem;
+    }
+    .home-menu-hub.index-sidebar .home-hub-section + .home-hub-section {
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .index-dashboard-block .card-stats {
+        padding: 1rem !important;
+    }
+    .card-stats:hover {
+        transform: none !important;
+        box-shadow: 0 0.35rem 0.95rem rgba(0, 0, 0, 0.07) !important;
+    }
+    .index-dashboard-block .card-stats .index-stat-label {
+        font-size: 0.74rem;
+    }
+    .index-dashboard-block .card-stats .index-stat-value {
+        font-size: clamp(1.35rem, 7vw, 1.9rem);
+    }
+    .index-table-card .card-header {
+        padding-top: 0.9rem !important;
+        padding-bottom: 0.9rem !important;
+    }
+    .index-table-card .card-header {
+        position: sticky;
+        top: 0.35rem;
+        z-index: 20;
+        background: rgba(255, 255, 255, 0.92) !important;
+        backdrop-filter: blur(7px);
+        -webkit-backdrop-filter: blur(7px);
+        box-shadow: 0 0.22rem 0.65rem rgba(0, 0, 0, 0.06);
+    }
+    .index-table-toolbar {
+        width: 100%;
+    }
+    .index-table-toolbar .form-control.index-search-input {
+        min-height: 2.7rem;
+    }
+    .index-cta-btn {
+        width: 100%;
+    }
+    .btn-invoice-action {
+        min-width: 2.2rem;
+        min-height: 2.2rem;
+    }
+    .btn-invoice-action:hover {
+        transform: none;
+    }
+
+    /* Turn invoice table into readable card rows on phones */
+    #invoice_table.table-invoice-index thead {
+        display: none;
+    }
+    #invoice_table.table-invoice-index tbody tr {
+        display: block;
+        margin: 0.65rem 0.75rem;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 0.75rem;
+        box-shadow: 0 0.15rem 0.75rem rgba(0, 0, 0, 0.05);
+        background: #fff;
+    }
+    #invoice_table.table-invoice-index tbody td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.9rem;
+        border: 0;
+        border-bottom: 1px dashed rgba(0, 0, 0, 0.08);
+        padding: 0.62rem 0.85rem;
+        text-align: right;
+    }
+    #invoice_table.table-invoice-index tbody td::before {
+        color: #6c757d;
+        font-size: 0.73rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        text-align: left;
+        flex: 0 0 5.8rem;
+    }
+    #invoice_table.table-invoice-index tbody td:nth-child(1)::before { content: "เลขที่"; }
+    #invoice_table.table-invoice-index tbody td:nth-child(2)::before { content: "ลูกค้า"; }
+    #invoice_table.table-invoice-index tbody td:nth-child(3)::before { content: "ยอดสุทธิ"; }
+    #invoice_table.table-invoice-index tbody td:nth-child(4)::before { content: "จัดการ"; }
+    #invoice_table.table-invoice-index tbody td:last-child {
+        border-bottom: 0;
+    }
+    #invoice_table.table-invoice-index tbody td:nth-child(4) .d-inline-flex {
+        margin-left: auto;
+    }
+
+    /* Keep loading/error row readable */
+    #invoice_table.table-invoice-index tbody tr td[colspan] {
+        display: block;
+        text-align: center;
+        border-bottom: 0;
+        padding: 1.1rem 0.75rem;
+    }
+    .index-skeleton-wrap {
+        padding: 0.45rem 0.45rem 0.75rem;
+    }
+    .index-skeleton-row {
+        grid-template-columns: 1fr;
+        gap: 0.45rem;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 0.7rem;
+        margin-bottom: 0.55rem;
+        padding: 0.7rem;
+    }
+    .index-skeleton-actions {
+        justify-content: flex-start;
+    }
+    .index-skeleton-dot {
+        width: 1.9rem;
+        height: 1.9rem;
+    }
+
+    #tncInvoicePopover.tnc-invoice-popover {
+        width: calc(100vw - 0.5rem);
+        max-width: calc(100vw - 0.5rem);
+    }
+    #tncInvoicePopover .popover-body {
+        height: calc(100vh - 5.5rem);
+        max-height: calc(100vh - 5.5rem);
+    }
+}
+
+@media (max-width: 575.98px) {
+    .index-page-wrap {
+        padding-left: 0.55rem !important;
+        padding-right: 0.55rem !important;
+    }
+    #invoice_table.table-invoice-index tbody tr {
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
+    }
+    #invoice_table.table-invoice-index tbody td::before {
+        flex-basis: 5.3rem;
+    }
+    .home-menu-hub.index-sidebar .home-hub-toggle {
+        padding: 0.82rem 0.85rem;
+    }
+    .home-menu-hub.index-sidebar .home-hub-link {
+        padding: 0.68rem 0.85rem 0.68rem 0.95rem;
+        font-size: 0.88rem;
+    }
+    /* Mobile: spacing between groups, no outlined chips */
+    .home-menu-hub.index-sidebar .home-hub-section {
+        margin-bottom: 0.35rem;
+    }
+    .home-menu-hub.index-sidebar .home-hub-section + .home-hub-section {
+        margin-top: 0.4rem;
+        padding-top: 0.4rem;
+    }
+    .home-menu-hub.index-sidebar .home-hub-toggle {
+        border: none;
+        border-radius: 0.55rem;
+        background: transparent;
+        box-shadow: none;
+        gap: 0.56rem;
+    }
+    .home-menu-hub.index-sidebar .home-hub-toggle:active {
+        background: var(--tnc-sidebar-item-hover);
+    }
+    .home-menu-hub.index-sidebar .home-hub-toggle .home-hub-chevron {
+        width: auto;
+        height: auto;
+        border-radius: 0;
+        display: inline;
+        background: transparent;
+        color: inherit;
+        opacity: 0.65;
+    }
+    .home-menu-hub.index-sidebar .home-hub-panel {
+        margin-top: 0.15rem;
+        padding: 0.15rem 0.45rem 0.5rem;
+    }
+    .home-menu-hub.index-sidebar .home-hub-link {
+        border-radius: 0.5rem;
+        background: transparent;
+    }
+    .home-menu-hub.index-sidebar .home-hub-link:active {
+        background: var(--tnc-sidebar-item-hover);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .card-stats,
+    .home-menu-hub .home-hub-card,
+    .index-cta-btn,
+    .btn-invoice-action,
+    #invoice_table.table-invoice-index tbody tr {
+        transition: none !important;
+        animation: none !important;
+    }
+    .home-menu-hub .home-hub-link,
+    .home-menu-hub .home-hub-link::before,
+    .home-menu-hub-single .home-hub-toggle {
+        transition: none !important;
+    }
+}

@@ -60,8 +60,8 @@ $hasPrintChoiceModal = $hasFollowPagesPrint || $hasPrForPrint;
 
 $printIncludePr = ($poPrintMode === 'all' && $hasPrForPrint);
 $printIncludePo = in_array($poPrintMode, ['po', 'both', 'all'], true);
-$printIncludeSlip = in_array($poPrintMode, ['slip', 'both', 'all'], true);
-$printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true);
+$printIncludeSlip = in_array($poPrintMode, ['slip', 'both', 'all'], true) && $hasPaymentSlipPrint;
+$printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true) && $hasQuotationAttachPrint;
 
 $woHistoryPrintMode = ($isHireContractPoDoc && $hireContractIdForPo > 0)
     ? tnc_wo_history_resolve_print_mode()

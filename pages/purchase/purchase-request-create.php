@@ -244,7 +244,7 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
             } elseif ($err === 'need_cost_category') {
                 echo 'กรุณาเลือกหมวดค่าใช้จ่าย (หัวข้อย่อยของไซต์) — ไม่สามารถบันทึกแบบ «ไม่ระบุหมวด» ได้';
             } elseif ($err === 'no_items') {
-                echo 'กรุณาระบุอย่างน้อย 1 รายการสินค้าที่มีรายละเอียดและจำนวนมากกว่า 0 (ราคาต่อหน่วยใส่ 0 ได้หากยังไม่ทราบราคา — กรอกราคาจริงตอนสร้าง PO)';
+                echo 'กรุณาระบุอย่างน้อย 1 รายการที่มีรายละเอียดและจำนวนมากกว่า 0 — ราคา/หน่วยไม่บังคับ (กรอกทีหลังตอนออก PO ได้)';
             } elseif ($err === 'invalid_hire' || $err === 'hire_invalid') {
                 echo 'กรุณากรอกข้อมูลจัดจ้างให้ครบ: ผู้รับจ้าง, รายการงาน, Overhead/Preliminary (ถ้ามี) และจำนวนงวด';
             } elseif ($err === 'hire_contractor_required') {
@@ -361,7 +361,7 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                         <th>รายการสินค้า</th>
                         <th style="width:7rem;" class="text-end">จำนวน</th>
                         <th style="width:6rem;" class="text-end">หน่วย</th>
-                        <th style="width:8rem;" class="text-end">ราคา/หน่วย</th>
+                        <th style="width:8rem;" class="text-end">ราคา/หน่วย <span class="text-muted fw-normal text-lowercase">(ไม่บังคับ)</span></th>
                         <th style="width:7rem;" class="text-end">ส่วนลด</th>
                         <th style="width:7rem;" class="text-end">ยอดรวม</th>
                         <th style="width:3rem;"></th>
@@ -397,7 +397,7 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                                 <td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($it['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" required oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['quantity'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td class="po-cell-unit" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($it['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" oninput="calculateTotal()" value="<?= htmlspecialchars((string) ($it['unit_price'] ?? '0'), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" min="0" placeholder="—" oninput="calculateTotal()" value="<?= (float) ($it['unit_price'] ?? 0) > 0 ? htmlspecialchars((string) ($it['unit_price'] ?? ''), ENT_QUOTES, 'UTF-8') : '' ?>"></td>
                                 <td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm line-discount text-end" maxlength="20" oninput="calculateTotal()" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td class="po-cell-total" data-label="รวม"><input type="text" class="form-control form-control-sm row-total text-end bg-light fw-semibold" value="<?= number_format((float) ($it['total'] ?? 0), 2, '.', '') ?>" readonly tabindex="-1"></td>
                                 <td class="po-cell-action po-cell-action-desktop"><?php if ($rn > 1): ?><button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button><?php endif; ?></td>
@@ -414,7 +414,7 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                         <td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required></td>
                         <td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" required oninput="calculateTotal()"></td>
                         <td class="po-cell-unit" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm text-end"></td>
-                        <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" oninput="calculateTotal()"></td>
+                        <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" min="0" placeholder="—" oninput="calculateTotal()"></td>
                         <td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm line-discount text-end" maxlength="20" oninput="calculateTotal()"></td>
                         <td class="po-cell-total" data-label="รวม"><input type="text" class="form-control form-control-sm row-total text-end bg-light fw-semibold" value="0.00" readonly tabindex="-1"></td>
                         <td class="po-cell-action po-cell-action-desktop"></td>
@@ -423,6 +423,7 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                 </tbody>
             </table>
                 </div>
+                <div class="form-text text-muted mb-2">ใบขอซื้อเป็นการขอสิ่งของ — ระบุรายการและจำนวนให้ครบ ราคา/หน่วยเว้นว่างได้หากยังไม่ทราบราคา</div>
                 <div class="po-actions-bar">
                     <button type="button" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm" onclick="addRow()">
                         <i class="bi bi-plus-lg me-1"></i>เพิ่มรายการ
@@ -595,7 +596,7 @@ function buildPrPurchaseRowHtml(rowCount, withDelete) {
         '<td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required></td>' +
         '<td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" required oninput="calculateTotal()"></td>' +
         '<td class="po-cell-unit" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm text-end"></td>' +
-        '<td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" min="0" placeholder="—" oninput="calculateTotal()"></td>' +
         '<td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm line-discount text-end" maxlength="20" oninput="calculateTotal()"></td>' +
         '<td class="po-cell-total" data-label="รวม"><input type="text" class="form-control form-control-sm row-total text-end bg-light fw-semibold" value="0.00" readonly tabindex="-1"></td>' +
         '<td class="po-cell-action po-cell-action-desktop">' + deleteDesktop + '</td>';
@@ -872,7 +873,7 @@ function toggleRequestTypeFields() {
     if (submitHint) {
         submitHint.textContent = isHire
             ? 'ตรวจสอบรายการงานและยอดสัญญาก่อนบันทึก'
-            : 'ตรวจสอบรายการและยอดเงินก่อนบันทึก';
+            : 'ตรวจสอบรายการและจำนวนก่อนบันทึก (ราคาใส่ทีหลังได้)';
     }
 
     if (hireFieldContractor) {
@@ -927,9 +928,12 @@ function toggleRequestTypeFields() {
         }
         return;
     }
-    const tableInputs = itemTableCard.querySelectorAll('input[name="item_description[]"], input[name="item_qty[]"], input[name="item_price[]"]');
-    tableInputs.forEach((input) => {
+    itemTableCard.querySelectorAll('input[name="item_description[]"], input[name="item_qty[]"]').forEach((input) => {
         input.required = !isHire;
+        input.disabled = isHire;
+    });
+    itemTableCard.querySelectorAll('input[name="item_price[]"]').forEach((input) => {
+        input.required = false;
         input.disabled = isHire;
     });
     itemTableCard.querySelectorAll('input[name="item_discount[]"]').forEach((input) => {

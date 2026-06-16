@@ -121,6 +121,26 @@
         break-before: page !important;
     }
 
+    /* ไม่ render wrapper เมื่อไม่มีเนื้อหา — กันแผ่นว่าง */
+    body.purchase-module .po-view-canvas > .tnc-po-print-page:empty {
+        display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        page-break-before: auto !important;
+        break-before: auto !important;
+        page-break-after: auto !important;
+        break-after: auto !important;
+    }
+
+    /* แยกหน้า PO/PR/สลิป ด้วย .tnc-po-print-page ไม่ใช้ break-after บน invoice-box (กันหน้าว่างท้ายชุด) */
+    body.purchase-module .po-view-canvas .invoice-box.po-purchase-order-doc,
+    body.purchase-module .po-view-canvas .invoice-box.pr-purchase-requisition-doc {
+        page-break-after: auto !important;
+        break-after: auto !important;
+    }
+
     body.purchase-module .po-view-canvas > .tnc-wo-history-print-page,
     body.purchase-module:not(.po-wo-history-print) .po-view-canvas .wo-hist-print-sheet {
         display: block !important;

@@ -801,7 +801,7 @@ if ($action === 'save_pr') {
         $subtotal = 0.0;
         $purchaseLineCount = 0;
         foreach ($_POST['item_description'] ?? [] as $key => $desc) {
-            if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
+            if (!isset($_POST['item_qty'][$key])) {
                 continue;
             }
             if (trim((string) $desc) === '') {
@@ -812,7 +812,7 @@ if ($action === 'save_pr') {
                 continue;
             }
             $purchaseLineCount++;
-            $price = (float) $_POST['item_price'][$key];
+            $price = (float) ($_POST['item_price'][$key] ?? 0);
             $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
             $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
             $subtotal += $parts['line_total'];
@@ -938,7 +938,7 @@ if ($action === 'save_pr') {
         tnc_hire_save_pr_items($pr_id, $hireLines);
     } else {
     foreach ($_POST['item_description'] ?? [] as $key => $desc) {
-        if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
+        if (!isset($_POST['item_qty'][$key])) {
             continue;
         }
         $desc = trim((string) $desc);
@@ -951,7 +951,7 @@ if ($action === 'save_pr') {
         }
         $iid = Db::nextNumericId('purchase_request_items', 'id');
         $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
-        $price = (float) $_POST['item_price'][$key];
+        $price = (float) ($_POST['item_price'][$key] ?? 0);
         $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
         $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
         $total = $parts['line_total'];
@@ -1148,7 +1148,7 @@ if ($action === 'update_pr') {
         $subtotal = 0.0;
         $purchaseLineCount = 0;
         foreach ($_POST['item_description'] ?? [] as $key => $desc) {
-            if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
+            if (!isset($_POST['item_qty'][$key])) {
                 continue;
             }
             if (trim((string) $desc) === '') {
@@ -1159,7 +1159,7 @@ if ($action === 'update_pr') {
                 continue;
             }
             $purchaseLineCount++;
-            $price = (float) $_POST['item_price'][$key];
+            $price = (float) ($_POST['item_price'][$key] ?? 0);
             $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
             $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
             $subtotal += $parts['line_total'];
@@ -1287,7 +1287,7 @@ if ($action === 'update_pr') {
         tnc_hire_save_pr_items($pr_id, $hireLines);
     } else {
     foreach ($_POST['item_description'] ?? [] as $key => $desc) {
-        if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
+        if (!isset($_POST['item_qty'][$key])) {
             continue;
         }
         $desc = trim((string) $desc);
@@ -1300,7 +1300,7 @@ if ($action === 'update_pr') {
         }
         $iid = Db::nextNumericId('purchase_request_items', 'id');
         $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
-        $price = (float) $_POST['item_price'][$key];
+        $price = (float) ($_POST['item_price'][$key] ?? 0);
         $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
         $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
         $total = $parts['line_total'];
