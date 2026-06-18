@@ -170,8 +170,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_category'])
             header('Content-Type: application/json; charset=UTF-8');
             echo json_encode([
                 'ok' => true,
-                'message' => 'บันทึกหัวข้อย่อยแล้ว',
+                'message' => $catId > 0 ? 'แก้ไขหัวข้อย่อยแล้ว' : 'บันทึกหัวข้อย่อยแล้ว',
                 'action' => 'site_category_saved',
+                'mode' => $catId > 0 ? 'update' : 'create',
                 'audio' => 'update',
                 'category' => [
                     'id' => $savedId,
@@ -277,7 +278,8 @@ $renderCategoryBlock = static function (int $siteId, array $cats): void {
             <?php foreach ($cats as $c): ?>
                 <span class="site-cat-chip" data-cat-id="<?= (int) ($c['id'] ?? 0) ?>">
                     <i class="bi bi-tag-fill"></i>
-                    <span><?= htmlspecialchars((string) ($c['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                    <span class="js-site-cat-label"><?= htmlspecialchars((string) ($c['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                    <button type="button" class="site-cat-edit js-site-cat-edit" title="แก้ไขชื่อ" aria-label="แก้ไขชื่อหัวข้อย่อย"><i class="bi bi-pencil"></i></button>
                     <form method="post" action="<?= $selfUrl ?>" class="d-inline js-site-cat-delete-form">
                         <?php csrf_field(); ?>
                         <input type="hidden" name="delete_site_category" value="1">
@@ -293,8 +295,10 @@ $renderCategoryBlock = static function (int $siteId, array $cats): void {
         <?php csrf_field(); ?>
         <input type="hidden" name="save_site_category" value="1">
         <input type="hidden" name="category_site_id" value="<?= $siteId ?>">
-        <input type="text" name="category_name" class="form-control form-control-sm site-cat-input js-site-cat-name" maxlength="150" required style="max-width:280px;" autocomplete="off">
+        <input type="hidden" name="category_id" value="" class="js-site-cat-id">
+        <input type="text" name="category_name" class="form-control form-control-sm site-cat-input js-site-cat-name" maxlength="150" placeholder="เพิ่มหัวข้อย่อย เช่น ค่าน้ำมันรถ" required style="max-width:280px;" autocomplete="off">
         <button type="submit" class="btn btn-sm btn-outline-warning fw-semibold js-site-cat-submit"><i class="bi bi-plus-lg me-1"></i>เพิ่ม</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary js-site-cat-cancel" hidden>ยกเลิก</button>
     </form>
     </div>
     <?php
@@ -464,6 +468,26 @@ usort($list, static function (array $a, array $b): int {
             cursor: pointer;
         }
         .site-cat-del:hover { background: rgba(239, 68, 68, 0.22); }
+        .site-cat-edit {
+            border: 0;
+            background: rgba(59, 130, 246, 0.12);
+            color: #2563eb;
+            border-radius: 999px;
+            width: 20px;
+            height: 20px;
+            line-height: 1;
+            font-size: .72rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .site-cat-edit:hover { background: rgba(59, 130, 246, 0.22); }
+        .site-cat-chip.is-editing {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 .15rem rgba(37, 99, 235, 0.18);
+            background: #eff6ff;
+        }
         .site-cat-input:focus {
             border-color: #ea580c;
             box-shadow: 0 0 0 .2rem rgba(253, 126, 20, 0.14);
@@ -647,8 +671,10 @@ usort($list, static function (array $a, array $b): int {
             + '<input type="hidden" name="_csrf" value="' + escHtml(csrfToken) + '">'
             + '<input type="hidden" name="save_site_category" value="1">'
             + '<input type="hidden" name="category_site_id" value="' + siteId + '">'
+            + '<input type="hidden" name="category_id" value="" class="js-site-cat-id">'
             + '<input type="text" name="category_name" class="form-control form-control-sm site-cat-input js-site-cat-name" maxlength="150" placeholder="เพิ่มหัวข้อย่อย เช่น ค่าน้ำมันรถ" required style="max-width:280px;" autocomplete="off">'
             + '<button type="submit" class="btn btn-sm btn-outline-warning fw-semibold js-site-cat-submit"><i class="bi bi-plus-lg me-1"></i>เพิ่ม</button>'
+            + '<button type="button" class="btn btn-sm btn-outline-secondary js-site-cat-cancel" hidden>ยกเลิก</button>'
             + '</form>'
             + '</div>';
     }
@@ -712,7 +738,8 @@ usort($list, static function (array $a, array $b): int {
         chip.setAttribute('data-cat-id', String(cat.id));
         chip.innerHTML =
             '<i class="bi bi-tag-fill"></i>'
-            + '<span>' + escHtml(cat.name) + '</span>'
+            + '<span class="js-site-cat-label">' + escHtml(cat.name) + '</span>'
+            + '<button type="button" class="site-cat-edit js-site-cat-edit" title="แก้ไขชื่อ" aria-label="แก้ไขชื่อหัวข้อย่อย"><i class="bi bi-pencil"></i></button>'
             + '<form method="post" action="' + escHtml(selfUrl) + '" class="d-inline js-site-cat-delete-form">'
             + '<input type="hidden" name="_csrf" value="' + escHtml(csrfToken) + '">'
             + '<input type="hidden" name="delete_site_category" value="1">'
@@ -721,6 +748,53 @@ usort($list, static function (array $a, array $b): int {
             + '<button type="submit" class="site-cat-del" title="ลบ" aria-label="ลบหัวข้อย่อย">&times;</button>'
             + '</form>';
         return chip;
+    }
+
+    function resetCategoryForm(block) {
+        if (!block) return;
+        var form = block.querySelector('.js-site-cat-form');
+        if (!form) return;
+        var idInput = form.querySelector('.js-site-cat-id');
+        if (idInput) idInput.value = '';
+        var nameInput = form.querySelector('.js-site-cat-name');
+        if (nameInput) {
+            nameInput.value = '';
+            nameInput.placeholder = 'เพิ่มหัวข้อย่อย เช่น ค่าน้ำมันรถ';
+        }
+        var submitBtn = form.querySelector('.js-site-cat-submit');
+        if (submitBtn) submitBtn.innerHTML = '<i class="bi bi-plus-lg me-1"></i>เพิ่ม';
+        var cancelBtn = form.querySelector('.js-site-cat-cancel');
+        if (cancelBtn) cancelBtn.hidden = true;
+        block.querySelectorAll('.site-cat-chip.is-editing').forEach(function (chip) {
+            chip.classList.remove('is-editing');
+        });
+    }
+
+    function startCategoryEdit(chipEl) {
+        var block = chipEl ? chipEl.closest('[data-site-cat-block]') : null;
+        if (!block) return;
+        resetCategoryForm(block);
+
+        var catId = parseInt(chipEl.getAttribute('data-cat-id') || '0', 10) || 0;
+        var labelEl = chipEl.querySelector('.js-site-cat-label');
+        var label = labelEl ? labelEl.textContent.trim() : '';
+        var form = block.querySelector('.js-site-cat-form');
+        if (!form) return;
+
+        chipEl.classList.add('is-editing');
+        var idInput = form.querySelector('.js-site-cat-id');
+        if (idInput) idInput.value = String(catId);
+        var nameInput = form.querySelector('.js-site-cat-name');
+        if (nameInput) {
+            nameInput.value = label;
+            nameInput.placeholder = 'แก้ไขชื่อหัวข้อย่อย';
+            nameInput.focus();
+            nameInput.select();
+        }
+        var submitBtn = form.querySelector('.js-site-cat-submit');
+        if (submitBtn) submitBtn.innerHTML = '<i class="bi bi-check2 me-1"></i>บันทึก';
+        var cancelBtn = form.querySelector('.js-site-cat-cancel');
+        if (cancelBtn) cancelBtn.hidden = false;
     }
 
     function bumpSiteCategoryCount(siteId, delta) {
@@ -732,10 +806,22 @@ usort($list, static function (array $a, array $b): int {
         badge.textContent = String(Math.max(0, next));
     }
 
-    function applyCategorySaved(cat, form) {
+    function applyCategorySaved(cat, form, mode) {
         var siteId = parseInt(cat.site_id, 10) || 0;
         var block = form ? form.closest('[data-site-cat-block]') : document.querySelector('[data-site-cat-block="' + siteId + '"]');
         if (!block) return;
+
+        var isUpdate = mode === 'update';
+        if (isUpdate) {
+            var chip = block.querySelector('.site-cat-chip[data-cat-id="' + String(cat.id) + '"]');
+            if (chip) {
+                var labelEl = chip.querySelector('.js-site-cat-label');
+                if (labelEl) labelEl.textContent = cat.name || '';
+                chip.classList.remove('is-editing');
+            }
+            resetCategoryForm(block);
+            return;
+        }
 
         var list = block.querySelector('.site-cat-list');
         var empty = list && list.querySelector('.js-site-cat-empty');
@@ -746,13 +832,11 @@ usort($list, static function (array $a, array $b): int {
             list.appendChild(buildCategoryChip(cat, csrf));
         }
 
+        resetCategoryForm(block);
         var catForm = form || block.querySelector('.js-site-cat-form');
         if (catForm) {
             var nameInput = catForm.querySelector('.js-site-cat-name');
-            if (nameInput) {
-                nameInput.value = '';
-                nameInput.focus();
-            }
+            if (nameInput) nameInput.focus();
         }
 
         bumpSiteCategoryCount(siteId, 1);
@@ -875,6 +959,21 @@ usort($list, static function (array $a, array $b): int {
         });
     }
 
+    document.addEventListener('click', function (ev) {
+        var editBtn = ev.target.closest('.js-site-cat-edit');
+        if (!editBtn) return;
+        var chipEl = editBtn.closest('.site-cat-chip');
+        if (!chipEl) return;
+        startCategoryEdit(chipEl);
+    });
+
+    document.addEventListener('click', function (ev) {
+        var cancelBtn = ev.target.closest('.js-site-cat-cancel');
+        if (!cancelBtn) return;
+        var block = cancelBtn.closest('[data-site-cat-block]');
+        resetCategoryForm(block);
+    });
+
     document.addEventListener('submit', function (ev) {
         var form = ev.target;
         if (!form || !form.classList) return;
@@ -909,7 +1008,7 @@ usort($list, static function (array $a, array $b): int {
                 showInlineToast(false, j.message || 'บันทึกหัวข้อย่อยไม่สำเร็จ');
                 return;
             }
-            applyCategorySaved(j.category, form);
+            applyCategorySaved(j.category, form, j.mode || 'create');
             showInlineToast(true, j.message || 'บันทึกหัวข้อย่อยแล้ว');
         });
     });
@@ -942,7 +1041,7 @@ usort($list, static function (array $a, array $b): int {
         }
 
         if (d.action === 'site_category_saved' && d.category) {
-            applyCategorySaved(d.category, null);
+            applyCategorySaved(d.category, null, d.mode || 'create');
         }
     });
 })();

@@ -382,6 +382,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
         }
         .po-table-wrap tbody td { padding: 0.5rem 0.45rem; vertical-align: middle; }
         .po-table-wrap .form-control-sm { min-height: calc(1.5em + 0.6rem + 2px); }
+        .po-actions-bar { margin-top: 0.85rem; padding-top: 0.85rem; border-top: 1px solid #eef2f7; }
         .po-wht-box {
             border: 1px solid #fee2e2;
             border-radius: 0.75rem;
@@ -496,11 +497,24 @@ $po_submit_disabled = $pr_prefill_items_display === [];
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container container-lg py-4 py-md-5 mb-5 po-create-wrap">
+    <?php if ($errorCode !== ''): ?>
+        <div class="alert alert-danger py-2 mb-3">
+            <?php
+            echo match ($errorCode) {
+                'supplier' => 'กรุณาเลือกผู้ขายจากรายการที่ระบบแนะนำ',
+                'no_items', 'invalid_items' => 'กรุณาเพิ่มรายการอย่างน้อย 1 รายการ และกรอกจำนวน/ราคาให้ถูกต้อง',
+                'cash_paid_by_required' => 'กรุณากรอก «จ่ายโดย» เมื่อเลือกชำระด้วยเงินสด',
+                'payment_slip_required' => 'กรุณาแนบสลิปหรือหลักฐานการจ่ายอย่างน้อย 1 ไฟล์',
+                'upload_failed', 'upload_type' => 'อัปโหลดสลิปไม่สำเร็จ — ใช้ไฟล์รูปหรือ PDF',
+                'billing_required' => 'กรุณากรอกวันที่ออกใบสั่งซื้อให้ถูกต้อง',
+                default => 'บันทึกใบสั่งซื้อไม่สำเร็จ กรุณาตรวจสอบข้อมูลและลองใหม่',
+            };
+            ?>
+        </div>
+    <?php endif; ?>
     <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1">
         <?php csrf_field(); ?>
         <input type="hidden" name="pr_id" value="<?= $pr_id ?>">
-        <input type="hidden" name="vat_enabled" id="vat_enabled" value="<?= $pr_vat_enabled ?>">
-        <input type="hidden" name="vat_mode" id="vat_mode" value="<?= htmlspecialchars($pr_vat_mode, ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="site_id" value="<?= $prSiteId ?>">
         <input type="hidden" name="site_name" value="<?= htmlspecialchars($prSiteName, ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="cost_category_id" value="<?= $prCostCategoryId ?>">
@@ -526,13 +540,13 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                 <div class="po-section-icon"><i class="bi bi-card-checklist"></i></div>
                 <div>
                     <h2 class="section-title">ข้อมูลใบสั่งซื้อ</h2>
-                    <p class="section-sub">กรอกวันที่และผู้ขาย — สถานที่และหมวดหมู่ดึงจาก PR อัตโนมัติ</p>
+                    <p class="section-sub">กรอกวันที่และผู้ขาย — แก้ไขรายการ/VAT ด้านล่างได้ก่อนยืนยัน PO</p>
                 </div>
             </div>
 
             <div class="row g-3 g-md-4 po-meta-primary align-items-end">
-                <div class="col-lg-6">
-                    <label class="po-field-label po-field-label--thai" for="issue_date">วันที่ออกใบสั่งซื้อ <span class="text-danger">*</span></label>
+                <div class="col-md-6 col-lg-4">
+                    <label class="po-field-label po-field-label--thai" for="issue_date">วันที่ออกใบสั่งซื้อ / วันที่ใบกำกับ <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text text-tnc-orange" title="ปฏิทิน"><i class="bi bi-calendar3"></i></span>
                         <input
@@ -547,11 +561,11 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                         >
                     </div>
                 </div>
-                <div class="col-lg-6">
-                    <label class="po-field-label po-field-label--thai" for="supplier_search">ผู้ขาย / แหล่งซื้อ <span class="text-danger">*</span></label>
+                <div class="col-md-6 col-lg-4">
+                    <label class="po-field-label po-field-label--thai" for="supplier_search">ผู้ขาย / แหล่งซื้อ</label>
                     <div class="input-group">
                         <span class="input-group-text text-secondary"><i class="bi bi-shop"></i></span>
-                        <input type="text" id="supplier_search" class="form-control" list="supplier_list" required autocomplete="off" placeholder="พิมพ์ชื่อผู้ขายเพื่อเลือก">
+                        <input type="text" id="supplier_search" class="form-control" list="supplier_list" autocomplete="off" placeholder="พิมพ์ชื่อผู้ขายเพื่อเลือก (ไม่บังคับ)">
                     </div>
                     <datalist id="supplier_list">
                         <?php foreach ($supplier_rows as $s): ?>
@@ -561,7 +575,14 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                             ></option>
                         <?php endforeach; ?>
                     </datalist>
-                    <input type="hidden" name="supplier_id" id="supplier_id">
+                    <input type="hidden" name="supplier_id" id="supplier_id" value="">
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <label class="po-field-label po-field-label--thai" for="supplier_invoice_no">เลขที่บิล / ใบกำกับภาษี</label>
+                    <div class="input-group">
+                        <span class="input-group-text text-secondary"><i class="bi bi-hash"></i></span>
+                        <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" class="form-control" maxlength="120">
+                    </div>
                 </div>
             </div>
 
@@ -589,32 +610,56 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                     </div>
                 </div>
             </div>
-
-            <div class="po-meta-section">
-                <div class="po-meta-optional">
-                    <div class="row g-3 align-items-start">
-                        <div class="col-md-6">
-                            <label class="po-field-label po-field-label--thai" for="supplier_invoice_no">เลขที่บิล / ใบกำกับภาษี</label>
-                            <div class="input-group">
-                                <span class="input-group-text text-secondary"><i class="bi bi-hash"></i></span>
-                                <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" class="form-control" maxlength="120">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="po-field-label po-field-label--thai" for="payment_slips">แนบสลิป / หลักฐานการจ่าย</label>
-                            <input type="file" name="payment_slips[]" id="payment_slips" class="form-control" accept="image/*,.pdf" multiple>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <input type="hidden" name="billed_total_amount" id="billed_total_amount" value="<?= htmlspecialchars(number_format((float) $prVatPrintCreate['net_amount'], 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="billed_vat_amount" id="billed_vat_amount" value="<?= htmlspecialchars(number_format((float) $prVatPrintCreate['vat_amount'], 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="payment_method" value="transfer">
         </div>
 
-        <div class="card card-soft p-0 mb-4 overflow-hidden po-items-readonly">
-            <div class="p-3 p-md-4">
+        <div class="card card-soft p-4 p-md-4 mb-4">
+            <div class="po-section-head mb-3 pb-0 border-bottom-0">
+                <div>
+                    <h2 class="section-title mb-0">การชำระเงิน</h2>
+                    <p class="section-sub mb-0">เลือกช่องทางชำระ — แนบสลิปแล้ว PO จะถูกบันทึกเป็น «จ่ายแล้ว»</p>
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="po-field-label po-field-label--thai d-block mb-2">ช่องทางชำระ</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="payment_method" id="payMethodTransfer" value="transfer" checked>
+                        <label class="form-check-label" for="payMethodTransfer">โอนเงิน / ช่องทางอื่น <span class="text-muted small">(แนบหลักฐาน)</span></label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="payment_method" id="payMethodCash" value="cash">
+                        <label class="form-check-label" for="payMethodCash">เงินสด</label>
+                    </div>
+                </div>
+                <div class="col-md-6 d-none" id="poCreateCashWrap">
+                    <label class="po-field-label po-field-label--thai" for="payment_cash_paid_by">จ่ายโดย <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="payment_cash_paid_by" id="payment_cash_paid_by" maxlength="255" placeholder="เช่น ชื่อผู้รับเงิน / แผนก" autocomplete="off">
+                    <div class="form-text">บังคับเมื่อเลือกเงินสด — เก็บในฐานข้อมูลพร้อม PO</div>
+                </div>
+                <div class="col-md-6" id="poCreateSlipWrap">
+                    <label class="po-field-label po-field-label--thai" for="payment_slips">แนบสลิป / หลักฐานการจ่าย</label>
+                    <input type="file" name="payment_slips[]" id="payment_slips" class="form-control" accept="image/*,.pdf" multiple>
+                    <div class="form-text" id="poCreateSlipHint">เลือกได้หลายไฟล์ (รูปหรือ PDF) — ถ้าแนบแล้ว PO จะถูกบันทึกเป็น «จ่ายแล้ว»</div>
+                </div>
+            </div>
+            <input type="hidden" name="billed_total_amount" id="billed_total_amount" value="<?= htmlspecialchars(number_format((float) $prVatPrintCreate['net_amount'], 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="billed_vat_amount" id="billed_vat_amount" value="<?= htmlspecialchars(number_format((float) $prVatPrintCreate['vat_amount'], 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
+        </div>
+
+        <div class="card card-soft p-4 p-md-4 mb-4">
+            <label class="po-field-label po-field-label--thai" for="po_note">หมายเหตุใบสั่งซื้อ</label>
+            <div class="form-text text-muted mb-2">เลือกผู้ขายแล้ว ระบบจะถามว่าต้องการใส่ข้อมูลบัญชีโอนลงหมายเหตุหรือไม่ (ถ้ามีในระบบ)</div>
+            <textarea name="po_note" id="po_note" class="form-control" rows="2" maxlength="500" placeholder="หมายเหตุ (ถ้ามี)"></textarea>
+        </div>
+
+        <div class="card card-soft p-0 mb-4 overflow-hidden">
+            <div class="p-3 p-md-4 pb-0">
+                <div class="po-section-head mb-3">
+                    <div>
+                        <h2 class="section-title mb-0">รายการสินค้า</h2>
+                        <p class="section-sub mb-0">ดึงจาก PR เป็นค่าเริ่มต้น — แก้ไขรายการ ราคา ส่วนลด และ VAT ได้ก่อนยืนยัน PO</p>
+                    </div>
+                </div>
                 <div class="table-responsive po-table-wrap po-line-table-mobile">
                     <table class="table align-middle mb-0 po-line-table" id="poTable">
                         <thead>
@@ -626,12 +671,13 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                                 <th style="width:7.5rem;" class="text-end">ราคา/หน่วย</th>
                                 <th style="width:6.5rem;" class="text-end">ส่วนลด</th>
                                 <th style="width:7.5rem;" class="text-end">ยอดรวม</th>
+                                <th style="width:2.75rem;"></th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if ($pr_prefill_items_display === []): ?>
                             <tr class="po-line-empty">
-                                <td colspan="7" class="text-center text-muted py-4">ไม่มีรายการในใบขอซื้อ — <a href="<?= htmlspecialchars($pr_edit_url, ENT_QUOTES, 'UTF-8') ?>">เพิ่มรายการที่ PR</a></td>
+                                <td colspan="8" class="text-center text-muted py-4">ไม่มีรายการในใบขอซื้อ — กด «เพิ่มรายการ» ด้านล่าง หรือ <a href="<?= htmlspecialchars($pr_edit_url, ENT_QUOTES, 'UTF-8') ?>">แก้ไข PR</a></td>
                             </tr>
                             <?php else: ?>
                             <?php foreach ($pr_prefill_items_display as $idx => $prItem): ?>
@@ -642,40 +688,54 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                             $prefillLineTotal = tnc_po_create_pr_line_total($prItem);
                             $unitCell = trim((string) ($prItem['unit'] ?? ''));
                             ?>
-                            <tr data-pr-total="<?= htmlspecialchars(number_format($prefillLineTotal, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
-                                <td class="po-cell-idx text-center text-secondary small fw-semibold">
+                            <tr>
+                                <td class="po-cell-idx row-number text-secondary small fw-semibold">
                                     <div class="po-mobile-item-head">
                                         <span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no"><?= $idx + 1 ?></span></span>
+                                        <?php if ($idx > 0): ?>
+                                        <button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn po-row-delete-mobile" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button>
+                                        <?php endif; ?>
                                     </div>
                                     <span class="d-none d-lg-inline po-mobile-item-no"><?= $idx + 1 ?></span>
                                 </td>
-                                <td class="po-cell-desc cell-desc" data-label="รายการ"><?= htmlspecialchars((string) ($prItem['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                <td class="po-cell-qty cell-num" data-label="จำนวน"><?= number_format($prefillQty, 2) ?></td>
-                                <td class="po-cell-unit text-center text-muted" data-label="หน่วย"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—' ?></td>
-                                <td class="po-cell-price cell-num" data-label="ราคา/หน่วย"><?= number_format($prefillPrice, 2) ?></td>
-                                <td class="po-cell-disc cell-num<?= $discDisplay !== '' ? ' fw-semibold' : ' text-muted' ?>" data-label="ส่วนลด"><?= $discDisplay !== '' ? htmlspecialchars($discDisplay, ENT_QUOTES, 'UTF-8') : '—' ?></td>
-                                <td class="po-cell-total cell-num fw-bold" data-label="ยอดรวม"><?= number_format($prefillLineTotal, 2) ?></td>
+                                <td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($prItem['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" required value="<?= htmlspecialchars((string) $prefillQty, ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td class="po-cell-unit text-center" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" min="0" required value="<?= $prefillPrice > 0 ? htmlspecialchars((string) $prefillPrice, ENT_QUOTES, 'UTF-8') : '' ?>" placeholder="0" oninput="calculateTotal()"></td>
+                                <td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount text-end" maxlength="20" value="<?= htmlspecialchars($discDisplay, ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td class="po-cell-total" data-label="ยอดรวม"><input type="text" class="form-control form-control-sm row-total text-end bg-light fw-semibold" value="<?= number_format($prefillLineTotal, 2, '.', '') ?>" readonly tabindex="-1"></td>
+                                <td class="po-cell-action po-cell-action-desktop"><?php if ($idx > 0): ?><button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button><?php endif; ?></td>
                             </tr>
                             <?php endforeach; ?>
                             <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
+                <div class="po-actions-bar px-0 pb-3">
+                    <button type="button" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm" onclick="addRow()">
+                        <i class="bi bi-plus-lg me-1"></i>เพิ่มรายการ
+                    </button>
+                </div>
             </div>
 
-            <div class="row g-4 mt-0 px-3 px-md-4 pb-4">  
+            <div class="row g-4 mt-0 px-3 px-md-4 pb-4">
                 <div class="col-lg-7 order-2 order-lg-1">
                     <div class="po-vat-panel p-3 mb-3">
-                        <?php if ($pr_vat_enabled): ?>
-                        <div class="small mb-2">
-                            <span class="badge bg-success-subtle text-success border border-success-subtle">
-                                <?= $pr_vat_mode === 'inclusive' ? 'รวม VAT' : 'แยก VAT' ?>
-                            </span>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" role="switch" name="vat_enabled" id="vat_enabled" value="1" onchange="updatePoVatBasisUi(); calculateTotal()"<?= $pr_vat_enabled === 1 ? ' checked' : '' ?>>
+                            <label class="form-check-label fw-semibold" for="vat_enabled">มี VAT 7%</label>
                         </div>
-                        <?php else: ?>
-                        <div class="small text-muted mb-2">ไม่มีภาษีมูลค่าเพิ่มในใบขอซื้อนี้</div>
-                        <?php endif; ?>
-                        <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id, ENT_QUOTES, 'UTF-8') ?>" class="small text-tnc-orange text-decoration-none"><i class="bi bi-pencil-square me-1"></i>ต้องการแก้ไขภาษีมูลค่าเพิ่ม?</a>
+                        <input type="hidden" name="vat_mode" id="vat_mode" value="<?= htmlspecialchars($pr_vat_mode, ENT_QUOTES, 'UTF-8') ?>">
+                        <div id="vat_basis_wrap" class="pt-2 border-top border-secondary border-opacity-25">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="vat_basis" id="vat_basis_inclusive" value="inclusive" onchange="calculateTotal()"<?= $pr_vat_mode === 'inclusive' ? ' checked' : '' ?>>
+                                <label class="form-check-label" for="vat_basis_inclusive">รวม VAT <span class="text-muted small">(รวมภาษีมูลค่าเพิ่มในราคารวม)</span></label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="vat_basis" id="vat_basis_exclusive" value="exclusive" onchange="calculateTotal()"<?= $pr_vat_mode !== 'inclusive' ? ' checked' : '' ?>>
+                                <label class="form-check-label" for="vat_basis_exclusive">แยก VAT <span class="text-muted small">(บวกภาษีมูลค่าเพิ่มแยกจากราคารวม)</span></label>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="col-lg-5 order-1 order-lg-2">
@@ -686,11 +746,6 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                     </div>
                 </div>
             </div>
-        </div>
-
-        <div class="card card-soft p-4 p-md-4 mb-2">
-            <label class="po-field-label" for="po_note">หมายเหตุใบสั่งซื้อ</label>
-            <textarea name="po_note" id="po_note" class="form-control" rows="3" maxlength="500" placeholder="หมายเหตุใบสั่งซื้อ"></textarea>
         </div>
 
         <div class="card card-soft po-submit-panel mb-2">
@@ -706,19 +761,22 @@ $po_submit_disabled = $pr_prefill_items_display === [];
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function () {
     const issueDateEl = document.getElementById('issue_date');
-    if (!issueDateEl || typeof flatpickr !== 'function') {
-        return;
+    if (issueDateEl && typeof flatpickr === 'function') {
+        flatpickr(issueDateEl, {
+            dateFormat: 'd/m/Y',
+            defaultDate: issueDateEl.value || 'today',
+            allowInput: true,
+        });
     }
-    flatpickr(issueDateEl, {
-        dateFormat: 'd/m/Y',
-        defaultDate: issueDateEl.value || 'today',
-        allowInput: true,
-    });
 
     function normalizeIssueDateForSubmit() {
+        if (!issueDateEl) {
+            return true;
+        }
         const raw = (issueDateEl.value || '').trim();
         if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
             return true;
@@ -738,25 +796,230 @@ $po_submit_disabled = $pr_prefill_items_display === [];
         return true;
     }
 
-    const poCreateForm = issueDateEl.closest('form');
+    const payMethodTransfer = document.getElementById('payMethodTransfer');
+    const payMethodCash = document.getElementById('payMethodCash');
+    const poCreateCashWrap = document.getElementById('poCreateCashWrap');
+    const paymentCashPaidBy = document.getElementById('payment_cash_paid_by');
+    const poCreateSlipHint = document.getElementById('poCreateSlipHint');
+
+    function syncPoCreatePaymentUi() {
+        const isCash = !!(payMethodCash && payMethodCash.checked);
+        if (poCreateCashWrap) {
+            poCreateCashWrap.classList.toggle('d-none', !isCash);
+        }
+        if (paymentCashPaidBy) {
+            paymentCashPaidBy.required = isCash;
+            if (!isCash) {
+                paymentCashPaidBy.value = '';
+            }
+        }
+        if (poCreateSlipHint) {
+            poCreateSlipHint.textContent = isCash
+                ? 'ไม่บังคับเมื่อเลือกเงินสด — แนบได้ถ้ามีใบเสร็จหรือหลักฐานเพิ่มเติม'
+                : 'เลือกได้หลายไฟล์ (รูปหรือ PDF) — ถ้าแนบแล้ว PO จะถูกบันทึกเป็น «จ่ายแล้ว»';
+        }
+    }
+    payMethodTransfer?.addEventListener('change', syncPoCreatePaymentUi);
+    payMethodCash?.addEventListener('change', syncPoCreatePaymentUi);
+    syncPoCreatePaymentUi();
+
+    const poCreateForm = issueDateEl ? issueDateEl.closest('form') : document.querySelector('form[data-tnc-fullnav="1"]');
     if (poCreateForm) {
         poCreateForm.addEventListener('submit', function (e) {
             if (!normalizeIssueDateForSubmit()) {
                 e.preventDefault();
                 alert('กรุณากรอกวันที่ออกใบสั่งซื้อเป็น วัน/เดือน/ปี เช่น 31/05/2026');
-                issueDateEl.focus();
+                issueDateEl && issueDateEl.focus();
+                return;
+            }
+            if (payMethodCash && payMethodCash.checked) {
+                const paidBy = (paymentCashPaidBy?.value || '').trim();
+                if (!paidBy) {
+                    e.preventDefault();
+                    alert('กรุณากรอก «จ่ายโดย» เมื่อเลือกชำระด้วยเงินสด');
+                    paymentCashPaidBy?.focus();
+                }
             }
         });
     }
 })();
+
+function addRow() {
+    const tbody = document.getElementById('poTable')?.getElementsByTagName('tbody')[0];
+    if (!tbody) {
+        return;
+    }
+    const emptyRow = tbody.querySelector('.po-line-empty');
+    if (emptyRow) {
+        emptyRow.remove();
+    }
+    const newRow = tbody.insertRow();
+    const rowCount = tbody.rows.length;
+    newRow.innerHTML = '<td class="po-cell-idx row-number text-secondary small fw-semibold">' +
+        '<div class="po-mobile-item-head">' +
+        '<span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no">' + rowCount + '</span></span>' +
+        '<button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn po-row-delete-mobile" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button>' +
+        '</div>' +
+        '<span class="d-none d-lg-inline po-mobile-item-no">' + rowCount + '</span>' +
+        '</td>' +
+        '<td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required></td>' +
+        '<td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" required oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-unit text-center" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm"></td>' +
+        '<td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" min="0" required placeholder="0" oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount text-end" maxlength="20" oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-total" data-label="ยอดรวม"><input type="text" class="form-control form-control-sm row-total text-end bg-light fw-semibold" value="0.00" readonly tabindex="-1"></td>' +
+        '<td class="po-cell-action po-cell-action-desktop"><button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>';
+    calculateTotal();
+    const submitBtn = document.querySelector('.po-submit-btn');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+    }
+}
+function removeRow(btn) {
+    const row = btn.closest('tr');
+    if (!row || !row.parentNode) {
+        return;
+    }
+    row.remove();
+    updateRowNumbers();
+    calculateTotal();
+}
+function updateRowNumbers() {
+    document.querySelectorAll('#poTable tbody tr:not(.po-line-empty)').forEach(function (row, index) {
+        row.querySelectorAll('.po-mobile-item-no').forEach(function (el) {
+            el.innerText = index + 1;
+        });
+    });
+}
+function poLineAmountAfterDiscount(qty, price, discRaw) {
+    const q = parseFloat(String(qty || '').replace(/,/g, '')) || 0;
+    const p = parseFloat(String(price || '').replace(/,/g, '')) || 0;
+    const base = Math.round(q * p * 100) / 100;
+    const dRaw = String(discRaw || '').trim();
+    let discount = 0;
+    if (dRaw !== '' && base > 0) {
+        const pctMatch = dRaw.match(/^([0-9]+(?:\.[0-9]+)?)\s*%$/);
+        if (pctMatch) {
+            let pct = parseFloat(pctMatch[1]) || 0;
+            if (pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
+            discount = Math.round(base * pct / 100 * 100) / 100;
+        } else {
+            discount = Math.min(base, Math.round((parseFloat(dRaw.replace(/,/g, '')) || 0) * 100) / 100);
+        }
+    }
+    return Math.round((base - discount) * 100) / 100;
+}
+function updatePoVatBasisUi() {
+    const vatBasisWrap = document.getElementById('vat_basis_wrap');
+    const vatEnabled = document.getElementById('vat_enabled');
+    if (!vatBasisWrap || !vatEnabled) {
+        return;
+    }
+    const on = vatEnabled.checked;
+    vatBasisWrap.classList.toggle('opacity-50', !on);
+    vatBasisWrap.style.pointerEvents = on ? '' : 'none';
+    vatBasisWrap.setAttribute('aria-disabled', on ? 'false' : 'true');
+    vatBasisWrap.querySelectorAll('input[name="vat_basis"]').forEach(function (el) {
+        el.disabled = !on;
+    });
+}
+function calculateTotal() {
+    const vatModeInput = document.getElementById('vat_mode');
+    const vatEnabledEl = document.getElementById('vat_enabled');
+    const vatOn = !!(vatEnabledEl && vatEnabledEl.checked);
+    let vatMode = 'exclusive';
+    if (vatOn) {
+        const selectedBasis = document.querySelector('input[name="vat_basis"]:checked');
+        vatMode = selectedBasis ? selectedBasis.value : 'exclusive';
+    }
+    if (vatModeInput) {
+        vatModeInput.value = vatMode;
+    }
+    let lineAmount = 0;
+    const tbody = document.getElementById('poTable')?.getElementsByTagName('tbody')[0];
+    const rows = tbody ? tbody.rows : [];
+    for (const row of rows) {
+        if (row.classList.contains('po-line-empty')) {
+            continue;
+        }
+        const qtyEl = row.querySelector('.qty');
+        const priceEl = row.querySelector('.price');
+        const discEl = row.querySelector('.po-discount');
+        const total = poLineAmountAfterDiscount(
+            qtyEl ? qtyEl.value : 0,
+            priceEl ? priceEl.value : 0,
+            discEl ? discEl.value : ''
+        );
+        const totalCell = row.querySelector('.row-total');
+        if (totalCell) {
+            totalCell.value = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        lineAmount += total;
+    }
+    lineAmount = Math.round(lineAmount * 100) / 100;
+    const split = tncPurchaseVatFromLineSum(lineAmount, vatOn, vatMode);
+    const subtotal = split.subtotal;
+    const vat = split.vat;
+    const gross = split.gross;
+    const subtotalDisplay = document.getElementById('subtotal_display');
+    if (subtotalDisplay) {
+        subtotalDisplay.innerText = subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    const vatLabelEl = document.getElementById('vat_label');
+    if (vatLabelEl) {
+        vatLabelEl.textContent = vatOn ? (vatMode === 'inclusive' ? 'รวม VAT' : 'แยก VAT') : 'ภาษีมูลค่าเพิ่ม';
+    }
+    const vatRow = document.getElementById('vat_row');
+    const vatDisplay = document.getElementById('vat_display');
+    if (vatOn) {
+        if (vatRow) vatRow.style.display = 'grid';
+        if (vatDisplay) {
+            vatDisplay.innerText = vat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+    } else if (vatRow) {
+        vatRow.style.display = 'none';
+    }
+    const grandTotalEl = document.getElementById('grand_total');
+    if (grandTotalEl) {
+        grandTotalEl.innerText = gross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    const billedTotalEl = document.getElementById('billed_total_amount');
+    const billedVatEl = document.getElementById('billed_vat_amount');
+    if (billedTotalEl) billedTotalEl.value = gross.toFixed(2);
+    if (billedVatEl) billedVatEl.value = vat.toFixed(2);
+    updatePoVatBasisUi();
+}
+document.addEventListener('DOMContentLoaded', function () {
+    updatePoVatBasisUi();
+    calculateTotal();
+    const poTable = document.getElementById('poTable');
+    if (poTable) {
+        poTable.addEventListener('click', function (e) {
+            const btn = e.target.closest('.po-row-delete-btn');
+            if (!btn) {
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            removeRow(btn);
+        });
+    }
+});
+
 const poCreateErrorCode = <?= json_encode($errorCode, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 (function () {
     if (!poCreateErrorCode) return;
     const messages = {
-        no_items: 'กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ และกรอกจำนวน/ราคาให้ถูกต้อง',
-        invalid_items: 'กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ และกรอกจำนวน/ราคาให้ถูกต้อง',
+        no_items: 'กรุณาเพิ่มรายการอย่างน้อย 1 รายการ และกรอกจำนวน/ราคาให้ถูกต้อง',
+        invalid_items: 'กรุณาเพิ่มรายการอย่างน้อย 1 รายการ และกรอกจำนวน/ราคาให้ถูกต้อง',
         contract: 'ไม่พบข้อมูลสัญญาจ้างที่อ้างอิง กรุณาตรวจสอบใหม่',
         supplier: 'กรุณาเลือกผู้ขายจากรายการที่ระบบแนะนำ',
+        cash_paid_by_required: 'กรุณากรอก «จ่ายโดย» เมื่อเลือกชำระด้วยเงินสด',
+        payment_slip_required: 'กรุณาแนบสลิปหรือหลักฐานการจ่ายอย่างน้อย 1 ไฟล์',
+        upload_failed: 'อัปโหลดสลิปไม่สำเร็จ กรุณาลองใหม่',
+        upload_type: 'อัปโหลดสลิปไม่สำเร็จ — ใช้ไฟล์รูปหรือ PDF',
+        billing_required: 'กรุณากรอกวันที่ออกใบสั่งซื้อให้ถูกต้อง',
         quotation_required: 'เมื่อระบุว่ามีใบเสนอราคา กรุณากรอกเลขที่ QT หรือแนบไฟล์อย่างน้อยหนึ่งอย่าง',
         quotation_upload_failed: 'อัปโหลดไฟล์ใบเสนอราคาไม่สำเร็จ กรุณาลองใหม่',
         quotation_upload_type: 'ไฟล์ใบเสนอราคาต้องเป็น PDF หรือรูปภาพ (JPG, PNG, WEBP, GIF ฯลฯ)'

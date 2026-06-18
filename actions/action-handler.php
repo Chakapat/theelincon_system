@@ -1535,9 +1535,6 @@ if ($action === 'create_po_from_pr') {
         if ($dup !== null) {
             tnc_action_redirect( app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) ($dup['id'] ?? 0));
         }
-        if ($supplier_id <= 0) {
-            tnc_action_redirect(app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id . '&error=supplier');
-        }
     }
 
     if ($isHirePr) {
@@ -1743,13 +1740,69 @@ if ($action === 'create_po_from_pr') {
         }
     }
 
-    $total_amount = (float) ($pr_row['total_amount'] ?? 0);
-    $vat_en = isset($pr_row['vat_enabled']) ? (int) $pr_row['vat_enabled'] : 0;
-    $vat_amt = isset($pr_row['vat_amount']) ? (float) $pr_row['vat_amount'] : 0.0;
-    if (array_key_exists('subtotal_amount', $pr_row) && $pr_row['subtotal_amount'] !== null && $pr_row['subtotal_amount'] !== '') {
-        $sub_amt = (float) $pr_row['subtotal_amount'];
-    } else {
-        $sub_amt = round($total_amount - $vat_amt, 2);
+    $poCreateFromPrUrl = app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id;
+
+    $vat_en = !empty($_POST['vat_enabled']) ? 1 : 0;
+    $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
+    if (!in_array($vat_mode_post, ['exclusive', 'inclusive'], true)) {
+        $vat_mode_post = 'exclusive';
+    }
+
+    $subtotal = 0.0;
+    $purchaseLineCount = 0;
+    $poItemsToSave = [];
+    foreach ($_POST['item_description'] ?? [] as $key => $desc) {
+        if (!isset($_POST['item_qty'][$key])) {
+            continue;
+        }
+        $desc = trim((string) $desc);
+        if ($desc === '') {
+            continue;
+        }
+        $qty = (float) $_POST['item_qty'][$key];
+        if ($qty <= 0) {
+            continue;
+        }
+        $price = (float) ($_POST['item_price'][$key] ?? 0);
+        $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $purchaseLineCount++;
+        $subtotal += $parts['line_total'];
+        $poItemsToSave[] = [
+            'description' => $desc,
+            'quantity' => $qty,
+            'unit' => trim((string) ($_POST['item_unit'][$key] ?? '')),
+            'unit_price' => $price,
+            'total' => $parts['line_total'],
+            'discount_input' => $parts['discount_input'],
+            'discount_type' => $parts['discount_type'],
+            'discount_value' => $parts['discount_value'],
+            'discount_amount' => $parts['discount_amount'],
+        ];
+    }
+    $subtotal = round($subtotal, 2);
+    if ($purchaseLineCount <= 0 || $subtotal <= 0) {
+        tnc_action_redirect($poCreateFromPrUrl . '&error=no_items');
+    }
+    $totalsPr = tnc_po_compute_totals($subtotal, $vat_en, $vat_mode_post, 'none');
+    $sub_amt = $totalsPr['subtotal'];
+    $vat_amt = $totalsPr['vat'];
+    $total_amount = $totalsPr['gross'];
+    $vat_mode_stored = $totalsPr['vat_mode'];
+
+    $postedBillTotal = trim((string) ($_POST['billed_total_amount'] ?? ''));
+    $postedBillVat = trim((string) ($_POST['billed_vat_amount'] ?? ''));
+    if ($postedBillTotal !== '') {
+        $parsedBillTotal = (float) str_replace([',', ' '], '', $postedBillTotal);
+        if ($parsedBillTotal > 0) {
+            $total_amount = $parsedBillTotal;
+        }
+    }
+    if ($postedBillVat !== '') {
+        $parsedBillVat = (float) str_replace([',', ' '], '', $postedBillVat);
+        if ($parsedBillVat >= 0) {
+            $vat_amt = $parsedBillVat;
+        }
     }
 
     $hasQt = !empty($_POST['has_qt']);
@@ -1762,8 +1815,19 @@ if ($action === 'create_po_from_pr') {
     $po_note = mb_substr(trim((string) ($_POST['po_note'] ?? '')), 0, 500);
 
     $issue_date = trim((string) ($_POST['issue_date'] ?? date('Y-m-d')));
+    if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $issue_date, $issueDm) === 1) {
+        $issue_date = sprintf('%04d-%02d-%02d', (int) $issueDm[3], (int) $issueDm[2], (int) $issueDm[1]);
+    }
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $issue_date)) {
-        $issue_date = date('Y-m-d');
+        tnc_action_redirect($poCreateFromPrUrl . '&error=billing_required');
+    }
+
+    $paymentMethodPre = strtolower(trim((string) ($_POST['payment_method'] ?? 'transfer')));
+    if (!in_array($paymentMethodPre, ['cash', 'transfer'], true)) {
+        $paymentMethodPre = 'transfer';
+    }
+    if ($paymentMethodPre === 'cash' && trim((string) ($_POST['payment_cash_paid_by'] ?? '')) === '') {
+        tnc_action_redirect($poCreateFromPrUrl . '&error=cash_paid_by_required');
     }
 
     $prSiteId = (int) ($_POST['site_id'] ?? 0);
@@ -1825,11 +1889,10 @@ if ($action === 'create_po_from_pr') {
         'billing_status' => 'pending',
         'created_by' => $created_by,
         'vat_enabled' => $vat_en,
-        'vat_mode' => in_array(trim((string) ($pr_row['vat_mode'] ?? 'exclusive')), ['exclusive', 'inclusive'], true)
-            ? trim((string) ($pr_row['vat_mode'] ?? 'exclusive'))
-            : 'exclusive',
+        'vat_mode' => $vat_mode_stored,
         'subtotal_amount' => $sub_amt,
         'vat_amount' => $vat_amt,
+        'gross_amount' => $total_amount,
         'order_type' => 'purchase',
         'site_id' => $prSiteId,
         'site_name' => $prSiteName,
@@ -1837,20 +1900,20 @@ if ($action === 'create_po_from_pr') {
         'cost_category_name' => $prCostCategoryName,
     ], $optionalExtras['po_fields']));
 
-    foreach (Db::filter('purchase_request_items', static fn (array $r): bool => isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id) as $item) {
+    foreach ($poItemsToSave as $item) {
         $iid = Db::nextNumericId('purchase_order_items', 'id');
         Db::setRow('purchase_order_items', (string) $iid, [
             'id' => $iid,
             'po_id' => $po_id,
-            'description' => $item['description'] ?? '',
-            'quantity' => $item['quantity'] ?? 0,
-            'unit' => $item['unit'] ?? '',
-            'unit_price' => $item['unit_price'] ?? 0,
-            'total' => $item['total'] ?? 0,
-            'discount_input' => trim((string) ($item['discount_input'] ?? '')),
-            'discount_type' => trim((string) ($item['discount_type'] ?? 'amount')) ?: 'amount',
-            'discount_value' => (float) ($item['discount_value'] ?? 0),
-            'discount_amount' => (float) ($item['discount_amount'] ?? 0),
+            'description' => $item['description'],
+            'quantity' => $item['quantity'],
+            'unit' => $item['unit'],
+            'unit_price' => $item['unit_price'],
+            'total' => $item['total'],
+            'discount_input' => $item['discount_input'],
+            'discount_type' => $item['discount_type'],
+            'discount_value' => $item['discount_value'],
+            'discount_amount' => $item['discount_amount'],
         ]);
     }
     if (method_exists(Purchase::class, 'seedPoPayments')) {
@@ -2496,10 +2559,49 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
     }
     $supplier_id = (int) ($_POST['supplier_id'] ?? 0);
 
+    $editSiteId = (int) ($existing['site_id'] ?? 0);
+    $editSiteName = trim((string) ($existing['site_name'] ?? ''));
+    $editCostCategoryId = (int) ($existing['cost_category_id'] ?? 0);
+    $editCostCategoryName = trim((string) ($existing['cost_category_name'] ?? ''));
+    $sitesForPoEdit = Db::tableRows('sites');
+    if (count($sitesForPoEdit) > 0) {
+        $editSiteId = (int) ($_POST['site_id'] ?? 0);
+        if ($editSiteId <= 0) {
+            tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=need_site');
+        }
+        $siteRowEdit = Db::row('sites', (string) $editSiteId);
+        if ($siteRowEdit === null) {
+            tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=need_site');
+        }
+        $editSiteName = trim((string) ($siteRowEdit['name'] ?? ''));
+        $editCostCategoryId = (int) ($_POST['cost_category_id'] ?? 0);
+        if ($editCostCategoryId <= 0 || !tnc_site_category_is_valid_for_site($editCostCategoryId, $editSiteId)) {
+            tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=need_cost_category');
+        }
+        $editCostCategoryName = tnc_site_category_name($editCostCategoryId);
+    } elseif ((int) ($_POST['site_id'] ?? 0) > 0) {
+        $editSiteId = (int) $_POST['site_id'];
+        $siteRowEdit = Db::row('sites', (string) $editSiteId);
+        if ($siteRowEdit !== null) {
+            $editSiteName = trim((string) ($siteRowEdit['name'] ?? ''));
+        }
+        $editCostCategoryId = (int) ($_POST['cost_category_id'] ?? 0);
+        if ($editCostCategoryId > 0 && tnc_site_category_is_valid_for_site($editCostCategoryId, $editSiteId)) {
+            $editCostCategoryName = tnc_site_category_name($editCostCategoryId);
+        } else {
+            $editCostCategoryId = 0;
+            $editCostCategoryName = '';
+        }
+    }
+
     $beforeSnap = $existing;
     Db::setRow('purchase_orders', $pk, array_merge($existing, [
         'issue_date' => $issue_date,
         'supplier_id' => $supplier_id,
+        'site_id' => $editSiteId,
+        'site_name' => $editSiteName,
+        'cost_category_id' => $editCostCategoryId,
+        'cost_category_name' => $editCostCategoryName,
         'quotation_number' => mb_substr(trim((string) ($existing['quotation_number'] ?? '')), 0, 120),
         'quotation_note' => mb_substr(trim((string) ($_POST['quotation_note'] ?? ($existing['quotation_note'] ?? ''))), 0, 500),
         'po_note' => mb_substr(trim((string) ($_POST['po_note'] ?? ($existing['po_note'] ?? ''))), 0, 500),

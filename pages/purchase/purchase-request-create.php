@@ -361,7 +361,7 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                         <th>รายการสินค้า</th>
                         <th style="width:7rem;" class="text-end">จำนวน</th>
                         <th style="width:6rem;" class="text-end">หน่วย</th>
-                        <th style="width:8rem;" class="text-end">ราคา/หน่วย <span class="text-muted fw-normal text-lowercase">(ไม่บังคับ)</span></th>
+                        <th style="width:8rem;" class="text-end">ราคา/หน่วย</th>
                         <th style="width:7rem;" class="text-end">ส่วนลด</th>
                         <th style="width:7rem;" class="text-end">ยอดรวม</th>
                         <th style="width:3rem;"></th>
@@ -423,7 +423,6 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                 </tbody>
             </table>
                 </div>
-                <div class="form-text text-muted mb-2">ใบขอซื้อเป็นการขอสิ่งของ — ระบุรายการและจำนวนให้ครบ ราคา/หน่วยเว้นว่างได้หากยังไม่ทราบราคา</div>
                 <div class="po-actions-bar">
                     <button type="button" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm" onclick="addRow()">
                         <i class="bi bi-plus-lg me-1"></i>เพิ่มรายการ

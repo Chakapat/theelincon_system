@@ -127,6 +127,36 @@ if ($isHirePo) {
     $vatLockedFromPr = false;
 }
 
+$sites = [];
+$siteCategoryMap = [];
+$poSiteId = 0;
+$poCostCategoryId = 0;
+$siteCategoriesForPo = [];
+if (!$isHirePo) {
+    $sites = Db::tableRows('sites');
+    usort($sites, static function (array $a, array $b): int {
+        $sort = ((int) ($a['sort_order'] ?? 0)) <=> ((int) ($b['sort_order'] ?? 0));
+        if ($sort !== 0) {
+            return $sort;
+        }
+
+        return strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
+    });
+    require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
+    $siteCategoryMap = tnc_site_categories_map_by_site();
+    $poSiteId = (int) ($po['site_id'] ?? 0);
+    $poCostCategoryId = (int) ($po['cost_category_id'] ?? 0);
+    if ($poSiteId <= 0 && $linkedPr !== null) {
+        $poSiteId = (int) ($linkedPr['site_id'] ?? 0);
+    }
+    if ($poCostCategoryId <= 0 && $linkedPr !== null) {
+        $poCostCategoryId = (int) ($linkedPr['cost_category_id'] ?? 0);
+    }
+    if ($poSiteId > 0) {
+        $siteCategoriesForPo = tnc_site_categories_for_site($poSiteId);
+    }
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -235,6 +265,12 @@ if ($isHirePo) {
         <?php if ($errorCode === 'no_items'): ?>
             <div class="alert alert-warning py-2 mb-3">กรุณาระบุรายการอย่างน้อย 1 รายการ</div>
         <?php endif; ?>
+        <?php if ($errorCode === 'need_site'): ?>
+            <div class="alert alert-warning py-2 mb-3">กรุณาเลือกไซต์งาน (โครงการ)</div>
+        <?php endif; ?>
+        <?php if ($errorCode === 'need_cost_category'): ?>
+            <div class="alert alert-warning py-2 mb-3">กรุณาเลือกหมวดค่าใช้จ่ายของไซต์</div>
+        <?php endif; ?>
 
         <header class="po-create-hero p-4 p-md-4 mb-4">
             <div class="row align-items-center g-3">
@@ -254,7 +290,7 @@ if ($isHirePo) {
                 <div class="po-section-icon" aria-hidden="true"><i class="bi bi-info-lg"></i></div>
                 <div>
                     <h2 class="section-title">ข้อมูลเอกสาร</h2>
-                    <p class="section-sub">เลขที่ PO อ่านอย่างเดียว · แก้วันที่ออกใบ / ผู้ขาย / เลขบิลได้ตามจริง</p>
+                    <p class="section-sub">เลขที่ PO อ่านอย่างเดียว · แก้วันที่ออกใบ / ผู้ขาย / ไซต์ / หมวดค่าใช้จ่ายได้ตามจริง</p>
                 </div>
             </div>
             <div class="row g-3 g-md-4">
@@ -327,6 +363,34 @@ if ($isHirePo) {
                             autocomplete="off"
                         >
                     </div>
+                </div>
+                <?php endif; ?>
+                <?php if (!$isHirePo && count($sites) > 0): ?>
+                <div class="col-md-6">
+                    <label class="po-field-label" for="site_id">ไซต์งาน / โครงการ <span class="text-danger">*</span></label>
+                    <select name="site_id" id="site_id" class="form-select" required>
+                        <option value="" disabled<?= $poSiteId <= 0 ? ' selected' : '' ?>>— เลือกไซต์งาน —</option>
+                        <?php foreach ($sites as $site): ?>
+                            <?php $sid = (int) ($site['id'] ?? 0); ?>
+                            <?php if ($sid <= 0) { continue; } ?>
+                            <option value="<?= $sid ?>"<?= $sid === $poSiteId ? ' selected' : '' ?>><?= htmlspecialchars((string) ($site['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span></label>
+                    <select name="cost_category_id" id="cost_category_id" class="form-select" required<?= $poSiteId <= 0 ? ' disabled' : '' ?>>
+                        <?php if ($poSiteId <= 0): ?>
+                            <option value="" disabled selected>— เลือกไซต์ก่อน —</option>
+                        <?php else: ?>
+                            <option value="" disabled<?= $poCostCategoryId <= 0 ? ' selected' : '' ?>>— เลือกหมวด —</option>
+                            <?php foreach ($siteCategoriesForPo as $catRow): ?>
+                                <?php $catIdOpt = (int) ($catRow['id'] ?? 0); ?>
+                                <?php if ($catIdOpt <= 0) { continue; } ?>
+                                <option value="<?= $catIdOpt ?>"<?= $catIdOpt === $poCostCategoryId ? ' selected' : '' ?>><?= htmlspecialchars((string) ($catRow['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
                 </div>
                 <?php endif; ?>
                 <?php if ($isHirePo): ?>
@@ -586,6 +650,71 @@ if ($isHirePo) {
         });
     }
 })();
+
+<?php if (!$isHirePo && count($sites) > 0): ?>
+(function () {
+    var catMap = <?= json_encode($siteCategoryMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;
+    var siteEl = document.getElementById('site_id');
+    var catEl = document.getElementById('cost_category_id');
+    var initialCatId = <?= (int) $poCostCategoryId ?>;
+    if (!catEl) return;
+
+    function populateCategories() {
+        var siteId = siteEl ? parseInt(siteEl.value || '0', 10) || 0 : 0;
+        var prev = parseInt(catEl.value || '0', 10) || initialCatId;
+        initialCatId = 0;
+        catEl.innerHTML = '';
+        if (siteId <= 0) {
+            catEl.disabled = true;
+            catEl.innerHTML = '<option value="" disabled selected>— เลือกไซต์ก่อน —</option>';
+            return;
+        }
+        catEl.disabled = false;
+        var list = catMap[siteId] || catMap[0] || [];
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.disabled = true;
+        placeholder.textContent = '— เลือกหมวด —';
+        catEl.appendChild(placeholder);
+        var hasPrev = false;
+        list.forEach(function (c) {
+            var opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            if (c.id === prev) {
+                opt.selected = true;
+                hasPrev = true;
+            }
+            catEl.appendChild(opt);
+        });
+        if (!hasPrev) {
+            placeholder.selected = true;
+        }
+    }
+
+    if (siteEl) {
+        siteEl.addEventListener('change', populateCategories);
+    }
+    populateCategories();
+
+    var form = siteEl ? siteEl.closest('form') : null;
+    if (form) {
+        form.addEventListener('submit', function (e) {
+            if (siteEl && siteEl.required && !(parseInt(siteEl.value || '0', 10) > 0)) {
+                e.preventDefault();
+                alert('กรุณาเลือกไซต์งาน (โครงการ)');
+                siteEl.focus();
+                return;
+            }
+            if (catEl && catEl.required && !(parseInt(catEl.value || '0', 10) > 0)) {
+                e.preventDefault();
+                alert('กรุณาเลือกหมวดค่าใช้จ่าย');
+                catEl.focus();
+            }
+        });
+    }
+})();
+<?php endif; ?>
 
 <?php if (!$isHirePo): ?>
 function addRow() {
