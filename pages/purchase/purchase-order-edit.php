@@ -262,6 +262,9 @@ if (!$isHirePo) {
         <?php if ($errorCode === 'contract_exceeds_confirm'): ?>
             <div class="alert alert-warning py-2 mb-3"><i class="bi bi-exclamation-triangle-fill me-1"></i>กรุณายืนยันการบันทึกเมื่อยอดเกินมูลค่าสัญญา</div>
         <?php endif; ?>
+        <?php if ($errorCode === 'contract_below_paid'): ?>
+            <div class="alert alert-warning py-2 mb-3">มูลค่าสัญญาใหม่ต่ำกว่ายอดที่สั่งจ่ายไปแล้ว — กรุณาปรับยอดให้ไม่ต่ำกว่ายอดที่จ่ายแล้ว</div>
+        <?php endif; ?>
         <?php if ($errorCode === 'no_items'): ?>
             <div class="alert alert-warning py-2 mb-3">กรุณาระบุรายการอย่างน้อย 1 รายการ</div>
         <?php endif; ?>

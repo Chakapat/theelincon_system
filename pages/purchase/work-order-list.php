@@ -29,6 +29,13 @@ foreach (Db::tableRows('sites') as $site) {
 }
 
 $paymentCountByContractPo = [];
+$hireContractById = [];
+foreach (Db::tableRows('hire_contracts') as $hcRow) {
+    $hcRowId = (int) ($hcRow['id'] ?? 0);
+    if ($hcRowId > 0) {
+        $hireContractById[$hcRowId] = $hcRow;
+    }
+}
 foreach (Db::tableRows('purchase_orders') as $poPay) {
     if (!Purchase::isHirePayablePo($poPay)) {
         continue;
@@ -85,6 +92,9 @@ foreach (Db::tableRows('purchase_orders') as $po) {
         'status' => $status,
         'site_display' => $siteName,
         'payment_po_count' => (int) ($paymentCountByContractPo[$woId] ?? 0),
+        'contract_amount_display' => isset($hireContractById[$hcId])
+            ? Purchase::hireContractAmount($hireContractById[$hcId])
+            : (float) ($po['total_amount'] ?? 0),
         'payment_from_hc_url' => $hcId > 0
             ? app_path('pages/purchase/purchase-order-from-hire-contract.php') . '?hire_contract_id=' . $hcId
             : '',
@@ -268,7 +278,7 @@ usort($wo_rows, static function (array $a, array $b): int {
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-end">
-                                    <div class="fw-bold wo-amount <?= $woCancelled ? 'text-danger' : '' ?>"><?= number_format((float) ($row['total_amount'] ?? 0), 2) ?></div>
+                                    <div class="fw-bold wo-amount <?= $woCancelled ? 'text-danger' : '' ?>"><?= number_format((float) ($row['contract_amount_display'] ?? $row['total_amount'] ?? 0), 2) ?></div>
                                 </td>
                                 <td class="text-center">
                                     <?php if (!$woCancelled): ?>

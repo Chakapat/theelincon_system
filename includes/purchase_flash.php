@@ -304,6 +304,10 @@ if (!function_exists('tnc_purchase_po_view_flash')) {
             ];
         }
 
+        if (!empty($get['updated'])) {
+            return ['type' => 'success', 'message' => 'บันทึกการแก้ไขเรียบร้อยแล้ว', 'audio' => 'complete'];
+        }
+
         if (!empty($get['error']) && (string) $get['error'] === 'no_contract_po') {
             return ['type' => 'warning', 'message' => 'ยังไม่มี Work Order (WO) — ต้องออก WO ก่อนจึงจะสั่งจ่าย PO ได้'];
         }

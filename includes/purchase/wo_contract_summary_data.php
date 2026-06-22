@@ -59,6 +59,10 @@ function tnc_wo_contract_summary_context(int $hireContractId): ?array
 
     $resolvedPrId = (int) ($contract['pr_id'] ?? 0);
     $contractDocNo = Purchase::hireContractDocumentNumber($contract);
+    $contractPo = Purchase::hireContractPoFor($resolvedPrId, $hireContractId);
+    $contractTitle = is_array($contractPo)
+        ? Purchase::hireWorkConditionsText($contractPo, $contract)
+        : trim((string) ($contract['title'] ?? ''));
     $contractRemaining = Purchase::hireContractRemainingPayable($contract, $hireContractId);
     $hireCommittedPayable = Purchase::hireContractCommittedPayable($hireContractId);
     $hireCommittedAdvance = Purchase::hireContractCommittedAdvance($hireContractId);
@@ -162,7 +166,7 @@ function tnc_wo_contract_summary_context(int $hireContractId): ?array
     Db::sortRows($companies, 'id', false);
     $company = array_values($companies)[0] ?? [];
 
-    $contractAmount = (float) ($contract['contract_amount'] ?? 0);
+    $contractAmount = Purchase::hireContractAmount($contract);
     $historyTotalPaid = round($hireCommittedPayable + $hireCommittedAdvance, 2);
     $historyRemaining = round($contractAmount - $historyTotalPaid, 2);
     $historyRemainingOver = $historyRemaining < -0.0005;
@@ -175,7 +179,7 @@ function tnc_wo_contract_summary_context(int $hireContractId): ?array
         'hire_contract_id' => $hireContractId,
         'contract' => $contract,
         'contract_doc_no' => $contractDocNo,
-        'contract_title' => trim((string) ($contract['title'] ?? '')),
+        'contract_title' => $contractTitle,
         'contractor_name' => trim((string) ($contract['contractor_name'] ?? '')),
         'contract_amount' => $contractAmount,
         'contract_remaining' => $contractRemaining,

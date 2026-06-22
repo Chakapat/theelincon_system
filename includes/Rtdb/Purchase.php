@@ -575,10 +575,58 @@ final class Purchase
         return round($sum, 2);
     }
 
+    /** มูลค่าสัญญาจ้าง — ใช้ยอดจาก WO (contract PO) เป็นหลัก แล้วค่อย fallback ค่าใน hire_contracts */
+    public static function hireContractAmount(array $hc): float
+    {
+        $contractPoId = (int) ($hc['contract_po_id'] ?? 0);
+        if ($contractPoId > 0) {
+            $poPk = Db::pkForLogicalId('purchase_orders', $contractPoId);
+            $po = Db::row('purchase_orders', $poPk);
+            if (is_array($po) && self::isHireContractPo($po)) {
+                $fromPo = self::hirePoPayableAmount($po);
+                if ($fromPo > 0) {
+                    return round($fromPo, 2);
+                }
+            }
+        }
+
+        return round((float) ($hc['contract_amount'] ?? 0), 2);
+    }
+
+    /** ซิงก์ hire_contracts จาก WO สัญญา (หลังแก้ไขใบสั่งจ้าง) */
+    public static function syncHireContractFromContractPo(int $poId): void
+    {
+        if ($poId <= 0) {
+            return;
+        }
+        $poPk = Db::pkForLogicalId('purchase_orders', $poId);
+        $po = Db::row('purchase_orders', $poPk);
+        if (!is_array($po) || !self::isHireContractPo($po)) {
+            return;
+        }
+        $hcId = (int) ($po['hire_contract_id'] ?? 0);
+        if ($hcId <= 0) {
+            return;
+        }
+        $hcPk = Db::pkForLogicalId('hire_contracts', $hcId);
+        $payable = self::hirePoPayableAmount($po);
+        $title = trim((string) ($po['po_note'] ?? ''));
+        $patch = [
+            'contract_amount' => $payable,
+            'contract_po_id' => (int) ($po['id'] ?? $poId),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+        if ($title !== '') {
+            $patch['title'] = $title;
+        }
+        Db::mergeRow('hire_contracts', $hcPk, $patch);
+        self::syncHireContractTotals($hcId);
+    }
+
     /** ยอดคงเหลือของสัญญา (มูลค่าสัญญา − ยอดสั่งจ่ายงวด/ครั้ง) — ไม่หักเบิกล่วงหน้า */
     public static function hireContractRemainingPayable(array $hc, int $hireContractId): float
     {
-        $contractAmount = round((float) ($hc['contract_amount'] ?? 0), 2);
+        $contractAmount = self::hireContractAmount($hc);
 
         return round($contractAmount - self::hireContractCommittedPayable($hireContractId), 2);
     }
@@ -591,7 +639,8 @@ final class Purchase
      */
     public static function hireContractCanIssuePo(int $hireContractId, float $newPayable, bool $allowOverContract = false): array
     {
-        $hc = Db::row('hire_contracts', (string) $hireContractId);
+        $hcPk = Db::pkForLogicalId('hire_contracts', $hireContractId);
+        $hc = Db::row('hire_contracts', $hcPk);
         if ($hc === null) {
             return ['ok' => false, 'remaining' => 0.0, 'message' => 'contract'];
         }
@@ -612,11 +661,13 @@ final class Purchase
      */
     public static function hireContractCanUpdatePoPayable(int $hireContractId, int $poId, float $newPayable, bool $allowOverContract = false): array
     {
-        $hc = Db::row('hire_contracts', (string) $hireContractId);
+        $hcPk = Db::pkForLogicalId('hire_contracts', $hireContractId);
+        $hc = Db::row('hire_contracts', $hcPk);
         if ($hc === null) {
             return ['ok' => false, 'remaining' => 0.0, 'room' => 0.0, 'message' => 'contract'];
         }
-        $po = Db::row('purchase_orders', (string) $poId);
+        $poPk = Db::pkForLogicalId('purchase_orders', $poId);
+        $po = Db::row('purchase_orders', $poPk);
         if ($po === null) {
             return ['ok' => false, 'remaining' => 0.0, 'room' => 0.0, 'message' => 'not_found'];
         }
@@ -641,15 +692,16 @@ final class Purchase
             return;
         }
         self::purgeStaleHireContractPayments($hireContractId);
-        $hire = Db::row('hire_contracts', (string) $hireContractId);
+        $hcPk = Db::pkForLogicalId('hire_contracts', $hireContractId);
+        $hire = Db::row('hire_contracts', $hcPk);
         if ($hire === null) {
             return;
         }
         $prId = (int) ($hire['pr_id'] ?? 0);
         $paidAmount = self::hireContractCommittedPayable($hireContractId);
         $paidInstallments = count(self::activeHirePaymentPos($hireContractId, $prId));
-        $contractAmount = (float) ($hire['contract_amount'] ?? 0);
-        Db::mergeRow('hire_contracts', (string) $hireContractId, [
+        $contractAmount = self::hireContractAmount($hire);
+        Db::mergeRow('hire_contracts', $hcPk, [
             'paid_amount' => $paidAmount,
             'paid_installments' => $paidInstallments,
             'remaining_amount' => round($contractAmount - $paidAmount, 2),

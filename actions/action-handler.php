@@ -2447,7 +2447,13 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         }
 
         $hcId = (int) ($existing['hire_contract_id'] ?? 0);
-        if ($hcId > 0 && !Purchase::isHireAdvancePo($existing)) {
+        $isContractWo = Purchase::isHireContractPo($existing);
+        if ($isContractWo && $hcId > 0) {
+            $committed = Purchase::hireContractCommittedPayable($hcId);
+            if ($payable + 0.0005 < $committed) {
+                tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=contract_below_paid');
+            }
+        } elseif ($hcId > 0 && !Purchase::isHireAdvancePo($existing)) {
             $hcCheck = Purchase::hireContractCanUpdatePoPayable($hcId, $po_id, $payable, !empty($_POST['confirm_over_contract']));
             if (!$hcCheck['ok']) {
                 tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=' . $hcCheck['message']);
@@ -2503,7 +2509,11 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         }
 
         if ($hcId > 0) {
-            Purchase::syncHireContractTotals($hcId);
+            if ($isContractWo) {
+                Purchase::syncHireContractFromContractPo($po_id);
+            } else {
+                Purchase::syncHireContractTotals($hcId);
+            }
         }
 
         $afterSnap = Db::row('purchase_orders', $pk);
@@ -2515,6 +2525,11 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
             'after' => $afterSnap,
         ]);
 
+        $viewUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id;
+        $woListUrl = app_path('pages/purchase/work-order-list.php');
+        if ($afterSnap !== null && Purchase::isWorkOrder($afterSnap)) {
+            tnc_action_redirect($viewUrl . '&updated=1');
+        }
         tnc_action_redirect($listUrl . '?updated=1');
     }
 
