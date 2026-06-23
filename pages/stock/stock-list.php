@@ -185,7 +185,7 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
         }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 
 <div class="no-print">
     <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -332,8 +332,8 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
     </form>
 
     <div class="stock-card bg-white mb-4 no-print">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 mobile-stack" id="stockMovementsTable" style="width:100%">
+        <div class="table-responsive tnc-mobile-table-wrap">
+            <table class="table table-hover align-middle mb-0 tnc-mobile-table" id="stockMovementsTable" style="width:100%">
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">วันที่</th>
@@ -358,16 +358,16 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
                             data-product-code="<?= htmlspecialchars((string) $m['product_code'], ENT_QUOTES, 'UTF-8') ?>"
                             data-person-name="<?= htmlspecialchars((string) $m['person_name'], ENT_QUOTES, 'UTF-8') ?>"
                         >
-                            <td class="ps-3 small text-nowrap"><?= htmlspecialchars(date('d/m/Y', strtotime((string) $m['created_at']))) ?></td>
-                            <td class="small fw-semibold"><?= htmlspecialchars((string) $m['person_name']) ?></td>
-                            <td>
+                            <td class="ps-3 small text-nowrap tnc-mobile-primary" data-label="วันที่"><?= htmlspecialchars(date('d/m/Y', strtotime((string) $m['created_at']))) ?></td>
+                            <td class="small fw-semibold" data-label="ชื่อคน"><?= htmlspecialchars((string) $m['person_name']) ?></td>
+                            <td data-label="อุปกรณ์">
                                 <div class="fw-semibold"><?= htmlspecialchars((string) $m['product_name']) ?></div>
                                 <div class="small text-muted">
                                     <?= htmlspecialchars((string) ($m['product_code'] !== '' ? $m['product_code'] . ' | ' : '')) ?>
                                     <?= htmlspecialchars((string) $m['unit']) ?>
                                 </div>
                             </td>
-                            <td class="small text-muted">
+                            <td class="small text-muted" data-label="ต้นทาง / ปลายทาง">
                                 <?php
                                 $route = '—';
                                 if ((string) $m['movement_type'] === 'in' && ((string) $m['source_site_name'] !== '' || (int) $m['source_site_id'] > 0)) {
@@ -378,17 +378,17 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
                                 echo htmlspecialchars($route, ENT_QUOTES, 'UTF-8');
                                 ?>
                             </td>
-                            <td>
+                            <td data-label="ประเภท">
                                 <?php if ((string) $m['movement_type'] === 'out'): ?>
                                     <span class="badge bg-danger-subtle text-danger-emphasis border txn-badge">นำออก</span>
                                 <?php else: ?>
                                     <span class="badge bg-success-subtle text-success-emphasis border txn-badge">นำเข้า</span>
                                 <?php endif; ?>
                             </td>
-                            <td class="text-end fw-bold <?= (float) $m['qty'] < 0 ? 'text-danger' : 'text-success' ?>">
+                            <td class="text-end fw-bold tnc-mobile-amount <?= (float) $m['qty'] < 0 ? 'text-danger' : 'text-success' ?>" data-label="จำนวน">
                                 <?= number_format(abs((float) $m['qty']), 2) ?>
                             </td>
-                            <td>
+                            <td data-label="รูป">
                                 <?php if ((string) $m['photo_path'] !== ''): ?>
                                     <a href="<?= htmlspecialchars(app_path((string) $m['photo_path']), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">
                                         <img src="<?= htmlspecialchars(app_path((string) $m['photo_path']), ENT_QUOTES, 'UTF-8') ?>" class="thumb" alt="รูปแนบ">
@@ -397,9 +397,9 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
                                     <span class="text-muted small">—</span>
                                 <?php endif; ?>
                             </td>
-                            <td class="pe-3 small"><?= htmlspecialchars((string) ($m['note'] !== '' ? $m['note'] : '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="pe-3 small" data-label="หมายเหตุ"><?= htmlspecialchars((string) ($m['note'] !== '' ? $m['note'] : '—'), ENT_QUOTES, 'UTF-8') ?></td>
                             <?php if ($canManage): ?>
-                                <td class="text-end pe-3 text-nowrap">
+                                <td class="text-end pe-3 text-nowrap tnc-mobile-actions" data-label="จัดการ">
                                     <?php if (!empty($m['is_transfer'])): ?>
                                         <span class="small text-muted me-1">โอนไซต์</span>
                                     <?php else: ?>
@@ -433,8 +433,8 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
     </div>
 
     <div class="stock-card bg-white print-balance-only no-print">
-        <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0 w-100" id="stockBalanceTable" style="width:100%">
+        <div class="table-responsive tnc-mobile-table-wrap">
+            <table class="table table-sm align-middle mb-0 w-100 tnc-mobile-table" id="stockBalanceTable" style="width:100%">
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">รหัส</th>
@@ -446,10 +446,10 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
                 <tbody>
                     <?php foreach ($balanceRows as $r): ?>
                         <tr>
-                            <td class="ps-3 small text-muted"><?= htmlspecialchars((string) $r['code']) ?></td>
-                            <td><?= htmlspecialchars((string) $r['name']) ?></td>
-                            <td class="small text-muted"><?= htmlspecialchars((string) $r['unit']) ?></td>
-                            <td class="text-end pe-3 fw-semibold <?= (float) $r['qty'] < 0 ? 'text-danger' : '' ?>">
+                            <td class="ps-3 small text-muted tnc-mobile-primary" data-label="รหัส"><?= htmlspecialchars((string) $r['code']) ?></td>
+                            <td data-label="อุปกรณ์"><?= htmlspecialchars((string) $r['name']) ?></td>
+                            <td class="small text-muted" data-label="หน่วย"><?= htmlspecialchars((string) $r['unit']) ?></td>
+                            <td class="text-end pe-3 fw-semibold tnc-mobile-amount <?= (float) $r['qty'] < 0 ? 'text-danger' : '' ?>" data-label="คงเหลือ">
                                 <?= number_format((float) $r['qty'], 0) ?>
                             </td>
                         </tr>

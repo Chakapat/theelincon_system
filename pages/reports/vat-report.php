@@ -192,8 +192,8 @@ function tnc_vat_render_table_html(
 ): string {
     ob_start();
     ?>
-    <div class="vat-print-table-wrap">
-        <table class="table table-bordered table-sm vat-print-table mb-0">
+    <div class="vat-print-table-wrap tnc-mobile-table-wrap">
+        <table class="table table-bordered table-sm vat-print-table tnc-mobile-table mb-0">
             <colgroup>
                 <col class="col-date">
                 <col class="col-doc">
@@ -228,20 +228,20 @@ function tnc_vat_render_table_html(
                     $nameCol = (string) ($isSales ? ($row['customer_name'] ?? '') : ($row['supplier_name'] ?? ''));
                     ?>
                     <tr<?= !$isSales && !empty($row['is_duplicate_bill']) ? ' class="vat-row-duplicate"' : '' ?>>
-                        <td><?= h((string) ($row['doc_date'] ?? '')) ?></td>
-                        <td><?= $withDocLinks ? tnc_vat_render_doc_no($docNo, (string) ($row['link_url'] ?? '')) : h($docNo) ?></td>
-                        <td><?= h($nameCol) ?></td>
-                        <td class="text-end"><?= number_format((float) ($row['base'] ?? 0), 2) ?></td>
-                        <td class="text-end"><?= number_format((float) ($row['vat'] ?? 0), 2) ?></td>
-                        <td class="text-end"><?= number_format((float) ($row['net'] ?? 0), 2) ?></td>
+                        <td data-label="<?= $isSales ? 'วันที่เอกสาร' : 'วันที่บิล' ?>"><?= h((string) ($row['doc_date'] ?? '')) ?></td>
+                        <td data-label="<?= $isSales ? 'เลขที่ใบกำกับภาษี' : 'เลขที่บิล/ใบกำกับภาษี' ?>" class="tnc-mobile-primary<?= !$isSales && !empty($row['is_duplicate_bill']) ? ' vat-duplicate-doc' : '' ?>"><?= $withDocLinks ? tnc_vat_render_doc_no($docNo, (string) ($row['link_url'] ?? '')) : h($docNo) ?></td>
+                        <td data-label="<?= $isSales ? 'ชื่อลูกค้า' : 'ชื่อซัพพลายเออร์' ?>"><?= h($nameCol) ?></td>
+                        <td class="text-end tnc-mobile-amount" data-label="มูลค่าสินค้า/บริการ"><?= number_format((float) ($row['base'] ?? 0), 2) ?></td>
+                        <td class="text-end" data-label="จำนวน VAT (7%)"><?= number_format((float) ($row['vat'] ?? 0), 2) ?></td>
+                        <td class="text-end tnc-mobile-amount" data-label="ยอดรวมสุทธิ"><?= number_format((float) ($row['net'] ?? 0), 2) ?></td>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
             <tr class="vat-print-total-row">
-                <th colspan="3" class="text-end">รวมเงินสุทธิ</th>
-                <th class="text-end"><?= number_format($sumBase, 2) ?></th>
-                <th class="text-end"><?= number_format($sumVat, 2) ?></th>
-                <th class="text-end"><?= number_format($sumNet, 2) ?></th>
+                <td colspan="3" class="vat-total-heading text-end">รวมเงินสุทธิ</td>
+                <td class="text-end" data-label="มูลค่าสินค้า/บริการ"><?= number_format($sumBase, 2) ?></td>
+                <td class="text-end" data-label="จำนวน VAT (7%)"><?= number_format($sumVat, 2) ?></td>
+                <td class="text-end tnc-mobile-amount" data-label="ยอดรวมสุทธิ"><?= number_format($sumNet, 2) ?></td>
             </tr>
             </tbody>
         </table>
@@ -718,7 +718,7 @@ if ($printType === 'sales' || $printType === 'purchase') {
         }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 <div class="vat-print-toolbar py-2 px-3 mb-0 d-flex flex-wrap gap-2 align-items-center justify-content-between no-print">
     <span class="small"><i class="bi bi-printer me-1"></i><?= h($printTitle) ?></span>
     <div class="d-flex flex-wrap gap-2">
@@ -815,24 +815,119 @@ if ($printType === 'sales' || $printType === 'purchase') {
         .vat-doc-link { font-weight: 600; text-decoration: none; color: var(--tnc-orange, #ea580c); }
         .vat-doc-link:hover { text-decoration: underline; color: var(--tnc-orange-dark, #9a3412); }
         .vat-row-duplicate td { background: #fff7ed !important; }
-        .vat-row-duplicate td:nth-child(2) { box-shadow: inset 3px 0 0 #ea580c; font-weight: 700; color: #c2410c; }
+        .vat-row-duplicate td.vat-duplicate-doc { box-shadow: inset 3px 0 0 #ea580c; font-weight: 700; color: #c2410c; }
         .vat-duplicate-bill-alert ul { margin-bottom: 0; }
         .vat-tab-meta { font-size: 0.82rem; color: #64748b; margin-bottom: 0.75rem; }
+        .vat-filter-card .form-label { margin-bottom: 0.25rem; }
+        .vat-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
+        .vat-summary-grid .report-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-height: 3.25rem;
+            line-height: 1.35;
+        }
+        .vat-summary-grid .report-badge--period {
+            grid-column: 1 / -1;
+        }
+        @media (max-width: 991.98px) {
+            .vat-print-table {
+                min-width: 0 !important;
+                width: 100%;
+                table-layout: auto;
+            }
+            .vat-print-table-wrap {
+                overflow: visible !important;
+                margin: 0;
+            }
+            .vat-filter-card .card-body { padding: 1rem; }
+            .vat-filter-actions {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
+                width: 100%;
+            }
+            .vat-filter-actions .btn {
+                width: 100%;
+                justify-content: center;
+                min-height: var(--tnc-mobile-tap-min, 44px);
+            }
+            .vat-filter-actions .btn-export {
+                grid-column: 1 / -1;
+            }
+            #vatTabs {
+                display: flex;
+                flex-wrap: nowrap;
+                gap: 0.35rem;
+                border-bottom: 0;
+                margin-bottom: 0.85rem !important;
+            }
+            #vatTabs .nav-item {
+                flex: 1 1 0;
+                min-width: 0;
+            }
+            #vatTabs .nav-link {
+                width: 100%;
+                text-align: center;
+                border: 1px solid rgba(15, 23, 42, 0.1);
+                border-radius: 999px !important;
+                font-size: 0.82rem;
+                font-weight: 700;
+                padding: 0.55rem 0.5rem;
+                color: #475569;
+                background: #fff;
+            }
+            #vatTabs .nav-link.active {
+                background: var(--tnc-orange-soft, #ffedd5);
+                border-color: var(--tnc-orange-border, #fdba74);
+                color: var(--tnc-orange-dark, #c2410c);
+            }
+            .vat-table-card .card-body {
+                padding: 1rem 0.85rem;
+            }
+            .vat-doc-link {
+                display: inline-block;
+                min-height: 1.75rem;
+                padding: 0.1rem 0;
+            }
+            .vat-row-duplicate {
+                border-color: rgba(234, 88, 12, 0.35) !important;
+                box-shadow: 0 0 0 1px rgba(234, 88, 12, 0.12), 0 0.2rem 0.75rem rgba(15, 23, 42, 0.06) !important;
+            }
+        }
         @media (max-width: 575.98px) {
             .card-soft .card-body { padding: 1rem; }
             .report-actions .btn { width: 100%; justify-content: center; }
-            .nav-tabs .nav-link { font-size: 0.85rem; padding: 0.45rem 0.65rem; }
         }
-        @media (max-width: 767.98px) {
-            .vat-print-table-wrap { margin: 0 -0.25rem; }
-            .vat-print-table { font-size: 0.8125rem; }
+        @media (min-width: 992px) {
+            .vat-summary-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                align-items: center;
+            }
+            .vat-summary-grid .report-badge {
+                display: inline-flex;
+                flex-direction: row;
+                min-height: 0;
+                text-align: left;
+            }
+            .vat-summary-grid .report-badge--period {
+                grid-column: auto;
+            }
         }
         @media (min-width: 1200px) {
             .container { max-width: 1140px; }
         }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list vat-report-page">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container pb-5 pt-4">
     <div class="tnc-page-head mb-3">
@@ -842,7 +937,7 @@ if ($printType === 'sales' || $printType === 'purchase') {
         </div>
     </div>
 
-    <div class="card card-soft mb-3">
+    <div class="card card-soft mb-3 vat-filter-card">
         <div class="card-body">
             <form method="get" class="row g-2 align-items-end">
                 <div class="col-6 col-md-2">
@@ -857,18 +952,18 @@ if ($printType === 'sales' || $printType === 'purchase') {
                     <label class="form-label small fw-semibold">ปี</label>
                     <input type="number" name="year" min="2000" max="2100" class="form-control" value="<?= $year ?>">
                 </div>
-                <div class="col-6 col-md-3">
-                    <label class="form-label small fw-semibold">วันที่เริ่มต้น (เลือกแทนเดือน/ปี)</label>
+                <div class="col-12 col-md-3">
+                    <label class="form-label small fw-semibold">วันที่เริ่มต้น <span class="text-muted fw-normal">(แทนเดือน/ปี)</span></label>
                     <input type="date" name="start_date" class="form-control" value="<?= h($startDate) ?>">
                 </div>
-                <div class="col-6 col-md-3">
+                <div class="col-12 col-md-3">
                     <label class="form-label small fw-semibold">วันที่สิ้นสุด</label>
                     <input type="date" name="end_date" class="form-control" value="<?= h($endDate) ?>">
                 </div>
-                <div class="col-12 col-md-2 d-flex gap-2">
+                <div class="col-12 col-md-2">
                     <button type="submit" class="btn btn-orange w-100"><i class="bi bi-search me-1"></i>ค้นหารายงาน</button>
                 </div>
-                <div class="col-12 d-flex flex-wrap justify-content-end gap-2 report-actions">
+                <div class="col-12 vat-filter-actions">
                     <a href="<?= h($printSalesUrl) ?>" class="btn btn-outline-orange rounded-pill px-3">
                         <i class="bi bi-printer me-1"></i>พิมพ์ภาษีขาย
                     </a>
@@ -879,16 +974,16 @@ if ($printType === 'sales' || $printType === 'purchase') {
                     $exportQuery = $_GET;
                     $exportQuery['export'] = 'csv';
                     ?>
-                    <a href="<?= h(app_path('pages/reports/vat-report.php') . '?' . http_build_query($exportQuery)) ?>" class="btn btn-outline-success rounded-pill px-3 fw-semibold">
+                    <a href="<?= h(app_path('pages/reports/vat-report.php') . '?' . http_build_query($exportQuery)) ?>" class="btn btn-outline-success rounded-pill px-3 fw-semibold btn-export">
                         <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
                     </a>
                 </div>
             </form>
-            <div class="report-summary-row mt-3 pt-3 border-top">
-                <span class="report-badge">ช่วงข้อมูล: <?= h($periodText) ?></span>
-                <span class="report-badge report-badge--sales">ภาษีขายรวม: <?= number_format($sumSalesVat, 2) ?></span>
-                <span class="report-badge report-badge--purchase">ภาษีซื้อรวม: <?= number_format($sumPurchaseVat, 2) ?></span>
-                <span class="report-badge <?= $vatDiff >= 0 ? 'report-badge--diff' : 'report-badge--refund' ?>"><?= h($vatSummaryLabel) ?>: <?= number_format(abs($vatDiff), 2) ?></span>
+            <div class="vat-summary-grid mt-3 pt-3 border-top">
+                <span class="report-badge report-badge--period">ช่วงข้อมูล: <?= h($periodText) ?></span>
+                <span class="report-badge report-badge--sales">ภาษีขายรวม<span class="d-md-none"><br></span><span class="d-none d-md-inline">: </span><?= number_format($sumSalesVat, 2) ?></span>
+                <span class="report-badge report-badge--purchase">ภาษีซื้อรวม<span class="d-md-none"><br></span><span class="d-none d-md-inline">: </span><?= number_format($sumPurchaseVat, 2) ?></span>
+                <span class="report-badge <?= $vatDiff >= 0 ? 'report-badge--diff' : 'report-badge--refund' ?>"><?= h($vatSummaryLabel) ?><span class="d-md-none"><br></span><span class="d-none d-md-inline">: </span><?= number_format(abs($vatDiff), 2) ?></span>
                 <?php if ($duplicatePurchaseBills !== []): ?>
                     <span class="report-badge bg-warning-subtle text-warning-emphasis border-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>เลขบิลซ้ำ <?= count($duplicatePurchaseBills) ?> รายการ</span>
                 <?php endif; ?>
@@ -900,14 +995,14 @@ if ($printType === 'sales' || $printType === 'purchase') {
         <?= tnc_vat_render_duplicate_bill_alert($duplicatePurchaseBills) ?>
     <?php endif; ?>
 
-    <div class="card card-soft mb-3">
+    <div class="card card-soft mb-3 vat-table-card">
         <div class="card-body">
             <ul class="nav nav-tabs mb-3" id="vatTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="vat-tab-sales" data-bs-toggle="tab" data-bs-target="#tab-sales" type="button" role="tab" aria-controls="tab-sales" aria-selected="true">ตารางภาษีขาย</button>
+                    <button class="nav-link active" id="vat-tab-sales" data-bs-toggle="tab" data-bs-target="#tab-sales" type="button" role="tab" aria-controls="tab-sales" aria-selected="true"><span class="d-md-none">ขาย (<?= count($salesRows) ?>)</span><span class="d-none d-md-inline">ตารางภาษีขาย</span></button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="vat-tab-purchase" data-bs-toggle="tab" data-bs-target="#tab-purchase" type="button" role="tab" aria-controls="tab-purchase" aria-selected="false">ตารางภาษีซื้อ</button>
+                    <button class="nav-link" id="vat-tab-purchase" data-bs-toggle="tab" data-bs-target="#tab-purchase" type="button" role="tab" aria-controls="tab-purchase" aria-selected="false"><span class="d-md-none">ซื้อ (<?= count($purchaseRows) ?>)</span><span class="d-none d-md-inline">ตารางภาษีซื้อ</span></button>
                 </li>
             </ul>
             <div class="tab-content">

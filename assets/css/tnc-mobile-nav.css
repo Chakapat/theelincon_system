@@ -1,0 +1,314 @@
+/**
+ * TNC Mobile Bottom Navigation
+ */
+
+.tnc-mobile-bottom-nav {
+    display: none;
+}
+
+@media (max-width: 991.98px) {
+    .tnc-mobile-bottom-nav {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1045;
+        height: calc(var(--tnc-mobile-bottom-nav-h, 3.65rem) + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: rgba(255, 255, 255, 0.94);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-top: 1px solid rgba(15, 23, 42, 0.08);
+        box-shadow: 0 -0.25rem 1rem rgba(15, 23, 42, 0.08);
+    }
+
+    .tnc-mobile-bottom-nav__inner {
+        display: flex;
+        align-items: stretch;
+        justify-content: space-around;
+        width: 100%;
+        max-width: 32rem;
+        margin: 0 auto;
+        padding: 0 0.25rem;
+    }
+
+    .tnc-mobile-bottom-nav__item {
+        flex: 1 1 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.15rem;
+        min-height: var(--tnc-mobile-bottom-nav-h, 3.65rem);
+        padding: 0.35rem 0.25rem 0.4rem;
+        border: 0;
+        background: transparent;
+        color: #64748b;
+        text-decoration: none;
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        line-height: 1.15;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .tnc-mobile-bottom-nav__item i {
+        font-size: 1.28rem;
+        line-height: 1;
+    }
+
+    .tnc-mobile-bottom-nav__item.is-active {
+        color: var(--tnc-orange, #ea580c);
+    }
+
+    .tnc-mobile-bottom-nav__item.is-active i {
+        transform: scale(1.05);
+    }
+
+    .tnc-mobile-bottom-nav__item:active {
+        opacity: 0.75;
+    }
+
+    .tnc-mobile-bottom-nav__item--more {
+        cursor: pointer;
+    }
+
+    .tnc-purchase-subnav {
+        display: flex;
+        gap: 0.45rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 0.15rem 0 0.85rem;
+        margin: -0.25rem 0 0.5rem;
+        scrollbar-width: none;
+    }
+
+    .tnc-purchase-subnav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .tnc-purchase-subnav__chip {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        min-height: 2.35rem;
+        padding: 0.4rem 0.95rem;
+        border-radius: 999px;
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        background: #fff;
+        color: #475569;
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: 0 0.12rem 0.45rem rgba(15, 23, 42, 0.05);
+    }
+
+    .tnc-purchase-subnav__chip i {
+        font-size: 0.95rem;
+        opacity: 0.85;
+    }
+
+    .tnc-purchase-subnav__chip.is-active {
+        background: var(--tnc-orange-soft, #ffedd5);
+        border-color: var(--tnc-orange-border, #fdba74);
+        color: var(--tnc-orange-dark, #c2410c);
+    }
+
+    body.tnc-has-mobile-nav .tnc-hub-fab-root,
+    body.tnc-has-mobile-nav .tnc-hub-fab-backdrop {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+
+    .tnc-mobile-menu-sheet {
+        position: fixed;
+        inset: 0;
+        z-index: 1060;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        pointer-events: none;
+    }
+
+    .tnc-mobile-menu-sheet:not([hidden]) {
+        pointer-events: auto;
+    }
+
+    .tnc-mobile-menu-sheet__backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        opacity: 0;
+        transition: opacity 0.22s ease;
+    }
+
+    .tnc-mobile-menu-sheet.is-open .tnc-mobile-menu-sheet__backdrop {
+        opacity: 1;
+    }
+
+    .tnc-mobile-menu-sheet__panel {
+        position: relative;
+        z-index: 1;
+        max-height: min(78vh, 640px);
+        margin-bottom: calc(var(--tnc-mobile-bottom-nav-h, 3.65rem) + env(safe-area-inset-bottom, 0px));
+        background: #fff;
+        border-radius: 1.1rem 1.1rem 0 0;
+        box-shadow: 0 -0.35rem 1.5rem rgba(15, 23, 42, 0.14);
+        transform: translateY(105%);
+        transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .tnc-mobile-menu-sheet.is-open .tnc-mobile-menu-sheet__panel {
+        transform: translateY(0);
+    }
+
+    .tnc-mobile-menu-sheet__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem 1rem 0.65rem;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+        flex-shrink: 0;
+    }
+
+    .tnc-mobile-menu-sheet__title {
+        font-size: 1.05rem;
+        font-weight: 800;
+        margin: 0;
+        color: #0f172a;
+    }
+
+    .tnc-mobile-menu-sheet__close {
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 0;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #475569;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .tnc-mobile-menu-sheet__body {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 0.5rem 0.75rem 0.85rem;
+    }
+
+    .tnc-mobile-menu-hub {
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 0.75rem;
+        margin-bottom: 0.55rem;
+        background: #fff;
+        overflow: hidden;
+    }
+
+    .tnc-mobile-menu-hub__summary {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.75rem 0.85rem;
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #334155;
+        cursor: pointer;
+        list-style: none;
+    }
+
+    .tnc-mobile-menu-hub__summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .tnc-mobile-menu-hub__summary::after {
+        content: '\F282';
+        font-family: 'bootstrap-icons';
+        margin-left: auto;
+        color: #94a3b8;
+        transition: transform 0.2s ease;
+    }
+
+    .tnc-mobile-menu-hub[open] .tnc-mobile-menu-hub__summary::after {
+        transform: rotate(90deg);
+    }
+
+    .tnc-mobile-menu-hub__summary i {
+        color: var(--tnc-orange, #ea580c);
+        font-size: 1.05rem;
+    }
+
+    .tnc-mobile-menu-hub__links {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        padding: 0 0.5rem 0.55rem;
+    }
+
+    .tnc-mobile-menu-hub__link {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-height: var(--tnc-mobile-tap-min, 44px);
+        padding: 0.55rem 0.65rem;
+        border-radius: 0.55rem;
+        text-decoration: none;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.88rem;
+    }
+
+    .tnc-mobile-menu-hub__link i {
+        width: 1.25rem;
+        text-align: center;
+        opacity: 0.85;
+    }
+
+    .tnc-mobile-menu-hub__link.is-active,
+    .tnc-mobile-menu-hub__link:active {
+        background: var(--tnc-orange-soft, #ffedd5);
+        color: var(--tnc-orange-dark, #c2410c);
+    }
+
+    body.tnc-mobile-menu-open {
+        overflow: hidden;
+    }
+}
+
+.tnc-mobile-dropdown-backdrop {
+    display: none;
+}
+
+@media (max-width: 991.98px) {
+    .tnc-mobile-dropdown-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1055;
+        background: rgba(15, 23, 42, 0.42);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+    }
+
+    .tnc-mobile-dropdown-backdrop.is-visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+@media print {
+    .tnc-mobile-bottom-nav,
+    .tnc-purchase-subnav,
+    .tnc-mobile-dropdown-backdrop,
+    .tnc-mobile-menu-sheet {
+        display: none !important;
+    }
+}

@@ -137,7 +137,7 @@ foreach ($siteRows as $siteRow) {
         }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -191,8 +191,8 @@ foreach ($siteRows as $siteRow) {
             <h5 class="fw-bold mb-0">รายละเอียดค่าใช้จ่ายรายไซต์</h5>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0" id="tncSiteExpensesTable">
+            <div class="table-responsive tnc-mobile-table-wrap">
+                <table class="table table-hover align-middle mb-0 tnc-mobile-table" id="tncSiteExpensesTable">
                     <thead class="table-light">
                         <tr>
                             <th class="ps-4" style="width:4rem;">#</th>
@@ -209,10 +209,10 @@ foreach ($siteRows as $siteRow) {
                     <?php else: ?>
                         <?php $n = 0; foreach ($siteRows as $siteRow): $n++; ?>
                             <tr>
-                                <td class="ps-4 text-secondary small"><?= $n ?></td>
-                                <td class="fw-semibold"><?= htmlspecialchars((string) ($siteRow['site_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                                <td class="text-center"><?= number_format((int) ($siteRow['expense_count'] ?? 0)) ?></td>
-                                <td class="text-end pe-4 fw-bold text-danger">฿<?= number_format((float) ($siteRow['expense_total'] ?? 0), 2) ?></td>
+                                <td class="ps-4 text-secondary small" data-label="#"><?= $n ?></td>
+                                <td class="fw-semibold tnc-mobile-primary" data-label="ไซต์งาน"><?= htmlspecialchars((string) ($siteRow['site_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="text-center" data-label="จำนวนรายการ"><?= number_format((int) ($siteRow['expense_count'] ?? 0)) ?></td>
+                                <td class="text-end pe-4 fw-bold text-danger tnc-mobile-amount" data-label="รวมค่าใช้จ่าย"><?= number_format((float) ($siteRow['expense_total'] ?? 0), 2) ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>

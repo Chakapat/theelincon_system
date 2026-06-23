@@ -125,7 +125,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
         }
     </style>
 </head>
-<body class="purchase-module tnc-app-body tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ PR…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้จัดการใบขอซื้อเมื่อโหลดเสร็จ" data-tnc-boot-sync-url="<?= htmlspecialchars(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_requests'), ENT_QUOTES, 'UTF-8') ?>">
+<body class="purchase-module tnc-app-body tnc-layout-list tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ PR…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้จัดการใบขอซื้อเมื่อโหลดเสร็จ" data-tnc-boot-sync-url="<?= htmlspecialchars(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_requests'), ENT_QUOTES, 'UTF-8') ?>">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -155,6 +155,8 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
         </div>
     </div>
 
+    <?php include dirname(__DIR__, 2) . '/components/purchase-subnav.php'; ?>
+
     <div class="pr-print-head pr-list-print-head d-none d-print-block">
         <div class="fw-bold fs-5"><?= htmlspecialchars($companyName !== '' ? $companyName : 'THEELIN CON', ENT_QUOTES, 'UTF-8') ?></div>
         <div class="small" style="color:#475569;">รายการใบขอซื้อ (PR) · พิมพ์เมื่อ <?= date('d/m/Y H:i') ?></div>
@@ -166,8 +168,8 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
             <span class="pr-po-legend__sep d-none d-sm-inline" aria-hidden="true">·</span>
             <span class="pr-po-legend__item"><span class="pr-po-status-dot pr-po-status-dot--has-po" aria-hidden="true"></span>สีเขียว = ออกใบสั่งซื้อแล้ว</span>
         </div>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle pr-list-print-table" id="prTable"<?= count($pr_rows) > 0 ? ' aria-busy="true"' : '' ?>>
+        <div class="table-responsive tnc-mobile-table-wrap">
+            <table class="table table-hover align-middle pr-list-print-table tnc-mobile-table" id="prTable"<?= count($pr_rows) > 0 ? ' aria-busy="true"' : '' ?>>
                 <thead class="table-light">
                     <tr>
                         <th class="text-center no-print" style="width:2.5rem;" title="เลือกเพื่อพิมพ์หลายใบ">
@@ -198,7 +200,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                             <td class="text-center align-middle no-print">
                                 <input type="checkbox" class="form-check-input m-0 js-pr-print-cb" value="<?= $rowPrId ?>" aria-label="เลือกพิมพ์ <?= htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                             </td>
-                            <td data-order="<?= htmlspecialchars($prDateOrder, ENT_QUOTES, 'UTF-8') ?>">
+                            <td data-order="<?= htmlspecialchars($prDateOrder, ENT_QUOTES, 'UTF-8') ?>" data-label="เลขที่ PR" class="tnc-mobile-primary">
                                 <div class="fw-bold <?= $prPoCancelled ? 'text-danger' : 'text-tnc-orange' ?>">
                                     <span class="d-inline-flex align-items-center gap-2 flex-wrap">
                                         <?php
@@ -218,11 +220,11 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                                 </div>
                                 <div class="small text-muted"><?= htmlspecialchars($prDateDisplay, ENT_QUOTES, 'UTF-8') ?></div>
                             </td>
-                            <td class="small"><?php
+                            <td class="small" data-label="ไซต์งาน"><?php
                                 $sn = trim((string) ($row['site_name'] ?? ''));
                                 echo $sn !== '' ? htmlspecialchars($sn, ENT_QUOTES, 'UTF-8') : '—';
                             ?></td>
-                            <td class="text-center">
+                            <td class="text-center" data-label="ประเภท">
                                 <?php $reqType = (string) ($row['request_type'] ?? 'purchase'); ?>
                                 <?php if ($reqType === 'hire'): ?>
                                     <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill" style="font-size:0.75rem;">จัดจ้าง</span>
@@ -230,7 +232,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                                     <span class="badge bg-light text-secondary border rounded-pill" style="font-size:0.75rem;">จัดซื้อ</span>
                                 <?php endif; ?>
                             </td>
-                            <td class="text-center">
+                            <td class="text-center" data-label="อนุมัติ">
                                 <?php
                                 $apSt = line_pr_normalize_status($row);
                                 $apLbl = line_pr_status_label_th($apSt);
@@ -243,7 +245,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                                 $totalIsZero = abs($totalAmt) < 0.0005;
                                 $hasUnknownLinePrice = $reqType === 'purchase' && !empty($pr_ids_unknown_unit_price[$rowPrId]);
                             ?>
-                            <td class="text-end" data-order="<?= htmlspecialchars((string) $totalAmt, ENT_QUOTES, 'UTF-8') ?>">
+                            <td class="text-end tnc-mobile-amount" data-label="ยอดรวมสุทธิ" data-order="<?= htmlspecialchars((string) $totalAmt, ENT_QUOTES, 'UTF-8') ?>">
                                 <div class="fw-bold"><?php
                                     if ($totalIsZero) {
                                         echo '<span class="text-warning">รอราคา</span>';
@@ -252,7 +254,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                                     }
                                 ?></div>
                             </td>
-                            <td class="text-center no-print">
+                            <td class="text-center no-print tnc-mobile-actions" data-label="จัดการ">
                                 <div class="btn-group shadow-sm rounded">
                                     <?php
                                     $prCanEdit = line_pr_user_can_edit($row, $prHasPo);

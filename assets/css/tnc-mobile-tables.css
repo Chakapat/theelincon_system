@@ -1,0 +1,414 @@
+/**
+ * TNC Mobile Tables — card-row list pattern (data-label on td)
+ */
+
+@media (max-width: 991.98px) {
+    .tnc-mobile-table-wrap.table-responsive {
+        overflow: visible;
+        border: 0;
+    }
+
+    .tnc-mobile-table thead {
+        display: none;
+    }
+
+    .tnc-mobile-table tbody tr {
+        display: block;
+        margin: 0 0 0.75rem;
+        padding: 0;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: var(--tnc-mobile-card-radius, 0.85rem);
+        box-shadow: 0 0.2rem 0.75rem rgba(15, 23, 42, 0.06);
+        background: #fff;
+    }
+
+    .tnc-mobile-table tbody tr:hover {
+        background: #fff;
+    }
+
+    .tnc-mobile-table tbody tr.po-row-cancelled,
+    .tnc-mobile-table tbody tr.table-secondary {
+        opacity: 0.92;
+    }
+
+    .tnc-mobile-table tbody td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        border: 0;
+        border-bottom: 1px dashed rgba(15, 23, 42, 0.08);
+        padding: 0.62rem 0.9rem;
+        text-align: right;
+    }
+
+    .tnc-mobile-table tbody td::before {
+        content: attr(data-label);
+        color: var(--tnc-muted, #64748b);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        text-align: left;
+        flex: 0 0 6.5rem;
+        padding-top: 0.12rem;
+    }
+
+    .tnc-mobile-table tbody td.tnc-mobile-primary::before {
+        display: none;
+    }
+
+    .tnc-mobile-table tbody td.tnc-mobile-primary {
+        display: block;
+        text-align: left;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+        padding: 0.85rem 0.9rem 0.65rem;
+    }
+
+    .tnc-mobile-table tbody td.tnc-mobile-primary .fw-bold {
+        font-size: 1.05rem;
+    }
+
+    .tnc-mobile-table tbody td.no-print:first-child {
+        display: none;
+    }
+
+    .tnc-mobile-table tbody td:last-child {
+        border-bottom: 0;
+    }
+
+    .tnc-mobile-table tbody td.tnc-mobile-actions {
+        justify-content: flex-end;
+        padding-top: 0.5rem;
+        padding-bottom: 0.75rem;
+    }
+
+    .tnc-mobile-table tbody td.tnc-mobile-actions::before {
+        align-self: center;
+    }
+
+    .tnc-mobile-table tbody td.tnc-mobile-amount .fw-bold {
+        font-size: 1.05rem;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .tnc-mobile-table tbody tr td[colspan] {
+        display: block;
+        text-align: center;
+        border-bottom: 0;
+        padding: 1.25rem 0.9rem;
+    }
+
+    .tnc-mobile-table tbody tr td[colspan]::before {
+        display: none;
+    }
+
+    /* Dropdown → bottom sheet on mobile */
+    .tnc-mobile-table .dropdown-menu {
+        position: fixed !important;
+        inset: auto 0 0 0 !important;
+        transform: none !important;
+        margin: 0;
+        width: 100%;
+        max-width: 100%;
+        border-radius: 1rem 1rem 0 0;
+        border: 0;
+        box-shadow: 0 -0.5rem 2rem rgba(15, 23, 42, 0.18);
+        padding: 0.5rem 0 calc(0.75rem + env(safe-area-inset-bottom, 0px));
+        max-height: min(70vh, 28rem);
+        overflow-y: auto;
+        z-index: 1060;
+    }
+
+    .tnc-mobile-table .dropdown-menu::before {
+        content: '';
+        display: block;
+        width: 2.5rem;
+        height: 0.28rem;
+        background: #cbd5e1;
+        border-radius: 999px;
+        margin: 0.35rem auto 0.55rem;
+    }
+
+    .tnc-mobile-table .dropdown-item {
+        min-height: var(--tnc-mobile-tap-min, 44px);
+        display: flex;
+        align-items: center;
+        padding: 0.65rem 1.15rem;
+        font-size: 0.95rem;
+    }
+
+    .tnc-mobile-table .dropdown-toggle.po-actions-btn,
+    .tnc-mobile-table .dropdown-toggle:not(.btn-sm) {
+        min-width: var(--tnc-mobile-tap-min, 44px);
+        min-height: var(--tnc-mobile-tap-min, 44px);
+        border-radius: 0.65rem;
+        font-weight: 600;
+    }
+
+    .tnc-mobile-table .btn-group.shadow-sm {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .tnc-mobile-table .btn-group .btn {
+        min-width: var(--tnc-mobile-tap-min, 44px);
+        min-height: var(--tnc-mobile-tap-min, 44px);
+    }
+
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter {
+        margin-bottom: 0.65rem;
+    }
+
+    .dataTables_wrapper .dataTables_filter input {
+        min-height: 2.75rem;
+        font-size: 16px;
+    }
+
+    .dataTables_wrapper .dataTables_info,
+    .dataTables_wrapper .dataTables_paginate {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.85rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tnc-mobile-table tbody tr {
+        transition: none;
+    }
+}
+
+/* VAT report tables */
+@media (max-width: 991.98px) {
+    .vat-print-table-wrap.table-responsive,
+    .vat-print-table-wrap {
+        overflow: visible;
+    }
+
+    .vat-print-table.tnc-mobile-table {
+        min-width: 0 !important;
+        table-layout: auto;
+    }
+
+    .vat-print-table.tnc-mobile-table colgroup {
+        display: none;
+    }
+
+    .vat-print-table.tnc-mobile-table tbody tr:not(.vat-print-total-row) {
+        display: block;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: var(--tnc-mobile-card-radius, 0.85rem);
+        box-shadow: 0 0.2rem 0.75rem rgba(15, 23, 42, 0.06);
+        background: #fff;
+        margin-bottom: 0.75rem;
+    }
+
+    .vat-print-table.tnc-mobile-table tbody tr:not(.vat-print-total-row) td {
+        border: 0;
+        border-bottom: 1px dashed rgba(15, 23, 42, 0.08);
+    }
+
+    .vat-print-table.tnc-mobile-table tbody tr:not(.vat-print-total-row) td:last-child {
+        border-bottom: 0;
+    }
+
+    .vat-print-table.tnc-mobile-table tbody tr.vat-print-total-row {
+        display: block;
+        margin-top: 0.25rem;
+        margin-bottom: 0;
+        padding: 0.85rem 1rem;
+        border-radius: var(--tnc-mobile-card-radius, 0.85rem);
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        box-shadow: none;
+    }
+
+    .vat-print-table.tnc-mobile-table tbody tr.vat-print-total-row td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        border: 0;
+        padding: 0.35rem 0;
+        font-size: 0.9rem;
+        text-align: right;
+    }
+
+    .vat-print-table.tnc-mobile-table tbody tr.vat-print-total-row td::before {
+        content: attr(data-label);
+        color: var(--tnc-muted, #64748b);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        text-align: left;
+        flex: 0 0 6.5rem;
+    }
+
+    .vat-print-table.tnc-mobile-table tbody tr.vat-print-total-row td.vat-total-heading {
+        display: block;
+        text-align: center;
+        font-weight: 800;
+        font-size: 1rem;
+        color: #0f172a;
+        padding: 0 0 0.5rem;
+        margin-bottom: 0.25rem;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+    }
+
+    .vat-print-table.tnc-mobile-table tbody tr.vat-print-total-row td.vat-total-heading::before {
+        display: none;
+    }
+
+    .vat-print-table.tnc-mobile-table tbody tr.vat-print-total-row td.tnc-mobile-amount {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: var(--tnc-orange, #ea580c);
+    }
+
+    .vat-print-table.tnc-mobile-table tbody td.vat-duplicate-doc,
+    .vat-print-table.tnc-mobile-table tbody td.vat-duplicate-doc .vat-doc-link {
+        color: #c2410c;
+        font-weight: 800;
+    }
+
+    .vat-print-table.tnc-mobile-table tbody td.vat-duplicate-doc {
+        box-shadow: inset 3px 0 0 #ea580c;
+        padding-left: calc(0.9rem - 3px);
+    }
+
+    .vat-report-page .vat-duplicate-bill-alert {
+        border-radius: var(--tnc-mobile-card-radius, 0.85rem);
+    }
+}
+
+    /* Site spending report (2-column matrix) */
+    #spendTable.tnc-mobile-table thead {
+        display: none;
+    }
+
+    #spendTable.tnc-mobile-table tbody tr.site-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin: 0 0 0.5rem;
+        padding: 0.85rem 1rem;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: var(--tnc-mobile-card-radius, 0.85rem);
+        background: #fff;
+        box-shadow: 0 0.12rem 0.55rem rgba(15, 23, 42, 0.05);
+    }
+
+    #spendTable.tnc-mobile-table tbody tr.site-row td {
+        border: 0;
+        padding: 0;
+    }
+
+    #spendTable.tnc-mobile-table tbody tr.site-row td:first-child {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    #spendTable.tnc-mobile-table tbody tr.site-row td.col-amt {
+        flex: 0 0 auto;
+        font-size: 1.05rem;
+    }
+
+    #spendTable.tnc-mobile-table tbody tr.cat-detail-row {
+        display: block;
+        margin: -0.35rem 0 0.65rem;
+        border: 0;
+        background: transparent;
+    }
+
+    #spendTable.tnc-mobile-table tbody tr.cat-detail-row > td {
+        display: block;
+        border: 0;
+        padding: 0 0.35rem 0.5rem;
+    }
+
+    #spendTable.tnc-mobile-table tfoot tr.grand-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 0.75rem;
+        padding: 0.85rem 1rem;
+        border-radius: var(--tnc-mobile-card-radius, 0.85rem);
+        background: #fff7ed;
+        border: 1px solid rgba(234, 88, 12, 0.2);
+    }
+
+    #spendTable.tnc-mobile-table tfoot tr.grand-row td {
+        border: 0;
+        padding: 0;
+    }
+
+    /* Sites table with expandable category rows */
+    #sitesTable.tnc-mobile-table thead {
+        display: none;
+    }
+
+    #sitesTable.tnc-mobile-table tbody tr[id^="site-"] {
+        display: block;
+        margin: 0 0 0;
+        padding: 0.85rem 1rem 0.65rem;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: var(--tnc-mobile-card-radius, 0.85rem) var(--tnc-mobile-card-radius, 0.85rem) 0 0;
+        background: #fff;
+        box-shadow: 0 0.12rem 0.55rem rgba(15, 23, 42, 0.05);
+    }
+
+    #sitesTable.tnc-mobile-table tbody tr.site-cat-row {
+        display: block;
+        margin: 0 0 0.75rem;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-top: 0;
+        border-radius: 0 0 var(--tnc-mobile-card-radius, 0.85rem) var(--tnc-mobile-card-radius, 0.85rem);
+        background: #fff;
+        box-shadow: 0 0.12rem 0.55rem rgba(15, 23, 42, 0.05);
+    }
+
+    #sitesTable.tnc-mobile-table tbody tr.site-cat-row > td {
+        display: block;
+        border: 0;
+        padding: 0;
+    }
+
+    #sitesTable.tnc-mobile-table tbody tr[id^="site-"] td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        border: 0;
+        padding: 0.35rem 0;
+    }
+
+    #sitesTable.tnc-mobile-table tbody tr[id^="site-"] td.tnc-mobile-primary {
+        display: block;
+        padding-bottom: 0.5rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    #sitesTable.tnc-mobile-table tbody tr[id^="site-"] td.tnc-mobile-primary::before {
+        display: none;
+    }
+
+    .audit-table-wrap.tnc-mobile-table-wrap {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    table.audit-table.tnc-mobile-table thead {
+        position: static;
+    }
+
+    #taxTable.tnc-mobile-table tbody td[data-label="ยอดสุทธิ"] {
+        font-size: 1.05rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        color: var(--tnc-ink, #0f172a);
+    }
+}

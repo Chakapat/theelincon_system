@@ -69,7 +69,7 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
         .tnc-sw-change-pw .swal2-html-container .input-group .form-control { font-size: 1rem; }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-form">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 

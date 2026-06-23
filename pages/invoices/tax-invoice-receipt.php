@@ -1377,15 +1377,15 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
 
 <header class="doc-view-shell no-print">
     <div class="doc-view-shell-inner">
-        <div class="doc-view-toolbar-row">
+        <div class="doc-view-toolbar-row js-tnc-doc-toolbar">
             <div class="doc-view-toolbar-main">
                 <span class="doc-view-toolbar-id"><?= htmlspecialchars($tirPrintDocTitle, ENT_QUOTES, 'UTF-8') ?></span>
             </div>
             <div class="doc-view-toolbar-actions">
-                <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="print">
                     <i class="bi bi-printer me-1"></i>พิมพ์
                 </button>
-                <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="back">
                     <i class="bi bi-arrow-left me-1"></i>กลับหน้ารายการใบกำกับภาษี
                 </a>
             </div>

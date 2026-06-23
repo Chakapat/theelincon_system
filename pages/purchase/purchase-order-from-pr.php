@@ -316,7 +316,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
         .form-control:focus, .form-select:focus { border-color: var(--tnc-orange-border); box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.12); }
     </style>
 </head>
-<body<?= $requestType === 'hire' ? ' class="po-hire-mode purchase-module"' : ' class="purchase-module"' ?>>
+<body<?= $requestType === 'hire' ? ' class="po-hire-mode purchase-module tnc-app-body tnc-layout-form"' : ' class="purchase-module tnc-app-body tnc-layout-form"' ?>>
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
     <div class="<?= $requestType === 'hire' ? 'container-fluid px-3 px-lg-4' : 'container' ?> py-4 py-md-5">
         <div class="row justify-content-center">
@@ -785,14 +785,38 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                         <?php endif; ?>
                         <?php endif; ?>
 
-                        <div class="d-grid gap-2 mt-1">
-                            <button type="submit" class="btn btn-orange btn-lg rounded-pill shadow-sm fw-semibold py-3"<?= $tnc_po_submit_disabled ? ' disabled' : '' ?>><?= htmlspecialchars($tnc_po_submit_label, ENT_QUOTES, 'UTF-8') ?></button>
+                        <div class="tnc-mobile-sticky-cta d-lg-none">
+                            <div class="tnc-mobile-sticky-inner">
+                                <?php if ($requestType === 'hire' && in_array($hirePoMode, ['payment', 'advance'], true)): ?>
+                                <div class="tnc-mobile-sticky-meta">
+                                    <div class="tnc-mobile-sticky-label">ยอดสุทธิ</div>
+                                    <div class="tnc-mobile-sticky-total" id="grand_total_sticky">0.00</div>
+                                </div>
+                                <?php elseif ($requestType === 'hire' && $hirePoMode === 'contract'): ?>
+                                <div class="tnc-mobile-sticky-meta">
+                                    <div class="tnc-mobile-sticky-label">ยอดสุทธิ</div>
+                                    <div class="tnc-mobile-sticky-total" id="grand_total_sticky">0.00</div>
+                                </div>
+                                <?php elseif ($requestType !== 'hire'): ?>
+                                <div class="tnc-mobile-sticky-meta">
+                                    <div class="tnc-mobile-sticky-label">ยอดสุทธิ</div>
+                                    <div class="tnc-mobile-sticky-total"><?= number_format((float) $prVatPrintFromPo['net_amount'], 2) ?></div>
+                                </div>
+                                <?php endif; ?>
+                                <div class="tnc-mobile-sticky-actions">
+                                    <button type="submit" class="btn btn-orange rounded-pill fw-semibold po-submit-btn-mobile"<?= $tnc_po_submit_disabled ? ' disabled' : '' ?>><?= htmlspecialchars($tnc_po_submit_label, ENT_QUOTES, 'UTF-8') ?></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-1 d-none d-lg-grid">
+                            <button type="submit" class="btn btn-orange btn-lg rounded-pill shadow-sm fw-semibold py-3 po-submit-btn-desktop"<?= $tnc_po_submit_disabled ? ' disabled' : '' ?>><?= htmlspecialchars($tnc_po_submit_label, ENT_QUOTES, 'UTF-8') ?></button>
                             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $pr_id ?>" class="btn btn-outline-danger btn-lg rounded-pill fw-semibold py-2">ยกเลิก</a>
                         </div>
                     </form>
                     <?php if ($requestType === 'purchase' && count($pr_items_for_edit) > 0 && $pr_needs_price_fix): ?>
                     <div class="modal fade" id="prFixFromPoModal" tabindex="-1" aria-labelledby="prFixFromPoModalLabel" aria-hidden="true">
-                        <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+                        <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered modal-fullscreen-md-down">
                             <div class="modal-content">
                                 <div class="modal-header border-bottom">
                                     <h2 class="modal-title fs-5 fw-bold" id="prFixFromPoModalLabel"><i class="bi bi-pencil-square text-warning me-2"></i>แก้ใบขอซื้อ — <?= htmlspecialchars((string) ($pr['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></h2>

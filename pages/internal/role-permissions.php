@@ -217,9 +217,25 @@ $roleLabels = [
             color: #64748b;
             font-weight: 500;
         }
+        @media (max-width: 991.98px) {
+            .perm-page-details .table-responsive {
+                margin: 0 -0.25rem;
+                -webkit-overflow-scrolling: touch;
+            }
+            .perm-table th,
+            .perm-table td {
+                font-size: 0.82rem;
+                padding: 0.45rem 0.35rem;
+            }
+            .perm-table .role-col-admin,
+            .perm-table .role-col-Accounting,
+            .perm-table .role-col-Staff {
+                min-width: 4.25rem !important;
+            }
+        }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-form">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -356,13 +372,24 @@ $roleLabels = [
                     <?php endforeach; ?>
                 </div>
 
-                <div class="mt-4 d-flex flex-wrap gap-2">
+                <div class="mt-4 d-flex flex-wrap gap-2 d-none d-lg-flex">
                     <button type="submit" class="btn btn-orange rounded-pill px-4 fw-semibold">
                         <i class="bi bi-check2-circle me-1"></i>บันทึกสิทธิ์
                     </button>
                     <a href="<?= htmlspecialchars(app_path('pages/organization/member-manage.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-4">
                         จัดการสมาชิก
                     </a>
+                </div>
+
+                <div class="tnc-mobile-sticky-cta d-lg-none">
+                    <div class="tnc-mobile-sticky-inner">
+                        <div class="tnc-mobile-sticky-actions w-100 justify-content-between">
+                            <a href="<?= htmlspecialchars(app_path('pages/organization/member-manage.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill btn-sm">สมาชิก</a>
+                            <button type="submit" class="btn btn-orange rounded-pill fw-semibold">
+                                <i class="bi bi-check2-circle me-1"></i>บันทึกสิทธิ์
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </form>
         </div>

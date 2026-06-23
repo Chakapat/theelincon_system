@@ -87,11 +87,12 @@ $items = [[
     ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-line-table-mobile.css') . '?v=' . $poLineMobileVer, ENT_QUOTES, 'UTF-8') ?>">
 </head>
-<body class="purchase-module tnc-app-body">
+<body class="purchase-module tnc-app-body tnc-layout-form">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container container-lg py-4 py-md-5 mb-5 po-create-wrap">
+    <?php include dirname(__DIR__, 2) . '/components/purchase-subnav.php'; ?>
     <?php if ($errorCode !== ''): ?>
         <div class="alert alert-danger py-2 mb-3">
             <?php
@@ -285,7 +286,21 @@ $items = [[
             </div>
         </div>
 
-        <div class="po-submit-panel mb-2">
+        <div class="po-submit-panel mb-2 tnc-mobile-sticky-cta d-lg-none">
+            <div class="tnc-mobile-sticky-inner">
+                <div class="tnc-mobile-sticky-meta">
+                    <div class="tnc-mobile-sticky-label">ยอดสุทธิ</div>
+                    <div class="tnc-mobile-sticky-total" id="grand_total_sticky">0.00</div>
+                </div>
+                <div class="tnc-mobile-sticky-actions">
+                    <button type="submit" class="btn btn-orange btn-lg po-submit-btn rounded-pill"<?= count($sites) === 0 ? ' disabled' : '' ?>>
+                        <i class="bi bi-check2-circle me-1"></i>สร้าง PO
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="po-submit-panel mb-2 d-none d-lg-block">
             <div class="po-submit-panel-inner">
                 <div class="po-submit-panel-action">
                     <button type="submit" class="btn btn-orange btn-lg po-submit-btn rounded-pill w-100 w-lg-auto"<?= count($sites) === 0 ? ' disabled' : '' ?>>

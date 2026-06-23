@@ -509,7 +509,7 @@ usort($list, static function (array $a, array $b): int {
         }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container pb-5 sites-page-wrap">
     <?php
@@ -580,20 +580,20 @@ usort($list, static function (array $a, array $b): int {
             <span class="fw-bold text-secondary"><i class="bi bi-geo-alt me-2 text-warning"></i>ไซต์งาน &amp; หัวข้อย่อย</span>
             <input type="search" id="siteSearchInput" class="form-control form-control-sm sites-input" placeholder="ค้นหาไซต์..." style="max-width:240px;min-height:38px;">
         </div>
-        <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle" id="sitesTable" width="100%">
+        <div class="table-responsive tnc-mobile-table-wrap">
+            <table class="table table-hover mb-0 align-middle tnc-mobile-table" id="sitesTable" width="100%">
                 <thead class="table-light"><tr><th class="ps-4">รายการสถานที่ทำงาน</th><th class="text-center" style="width:9rem;">จำนวนหัวข้อย่อย</th><th class="pe-4 text-end" style="width:7rem;">การจัดการ</th></tr></thead>
                 <tbody id="sitesTableBody">
                     <?php foreach ($list as $r): ?>
                     <?php $rid = (int) ($r['id'] ?? 0); $siteCats = $catBySite[$rid] ?? []; ?>
                     <tr id="site-<?= $rid ?>">
-                        <td class="ps-4 site-name-cell"><?= htmlspecialchars((string) ($r['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                        <td class="text-center">
+                        <td class="ps-4 site-name-cell tnc-mobile-primary" data-label="ไซต์งาน"><?= htmlspecialchars((string) ($r['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="text-center" data-label="หัวข้อย่อย">
                             <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-bs-toggle="collapse" data-bs-target="#cat-collapse-<?= $rid ?>" aria-expanded="false">
                                 <i class="bi bi-list-nested me-1"></i><span class="badge bg-warning text-dark js-site-cat-count" data-site-id="<?= $rid ?>"><?= count($siteCats) ?></span>
                             </button>
                         </td>
-                        <td class="pe-4 text-end">
+                        <td class="pe-4 text-end tnc-mobile-actions" data-label="จัดการ">
                             <a class="site-action-btn site-action-edit" href="?edit=<?= $rid ?>" aria-label="แก้ไขไซต์">
                                 <i class="bi bi-pencil-square"></i>
                             </a>

@@ -1,0 +1,189 @@
+/**
+ * Document preview pages — compact header + bottom action dock
+ */
+
+@media (max-width: 991.98px) {
+    body.tnc-layout-doc {
+        padding-bottom: calc(
+            var(--tnc-doc-dock-h, 3.75rem)
+            + var(--tnc-mobile-bottom-nav-h, 3.65rem)
+            + env(safe-area-inset-bottom, 0px)
+        );
+    }
+
+    .js-tnc-doc-toolbar.po-view-toolbar-row,
+    .js-tnc-doc-toolbar.pr-view-toolbar-row,
+    .js-tnc-doc-toolbar.doc-view-toolbar-row {
+        flex-wrap: wrap;
+        overflow: visible;
+        gap: 0.35rem;
+    }
+
+    .js-tnc-doc-toolbar .po-view-toolbar-main,
+    .js-tnc-doc-toolbar .doc-view-toolbar-main {
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+        white-space: normal;
+    }
+
+    .js-tnc-doc-toolbar .po-view-toolbar-id,
+    .js-tnc-doc-toolbar .pr-view-toolbar-id,
+    .js-tnc-doc-toolbar .doc-view-toolbar-id {
+        font-size: 1.05rem;
+    }
+
+    .js-tnc-doc-toolbar .po-view-toolbar-sep--actions,
+    .js-tnc-doc-toolbar .po-view-toolbar-actions,
+    .js-tnc-doc-toolbar .doc-view-toolbar-actions,
+    .js-tnc-doc-toolbar .js-tnc-doc-actions-host {
+        display: none !important;
+    }
+
+    .js-tnc-doc-toolbar .po-view-chip {
+        font-size: 0.68rem;
+        padding: 0.15rem 0.45rem;
+    }
+
+    .po-view-shell-inner,
+    .pr-view-shell-inner,
+    .doc-view-shell-inner {
+        padding: 0.65rem 0.85rem;
+    }
+
+    .po-view-canvas,
+    .pr-view-canvas,
+    .doc-view-canvas {
+        padding-bottom: 1rem;
+        max-width: 100%;
+    }
+
+    .tnc-doc-action-dock {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(
+            var(--tnc-mobile-bottom-nav-h, 3.65rem) + env(safe-area-inset-bottom, 0px)
+        );
+        z-index: 1042;
+        height: var(--tnc-doc-dock-h, 3.75rem);
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-top: 1px solid rgba(15, 23, 42, 0.1);
+        box-shadow: 0 -0.25rem 1rem rgba(15, 23, 42, 0.08);
+        padding: 0 0.35rem;
+        align-items: stretch;
+        gap: 0.25rem;
+    }
+
+    .tnc-doc-dock-slot {
+        flex: 1 1 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+    }
+
+    .tnc-doc-dock-slot:empty {
+        display: none;
+    }
+
+    .tnc-doc-dock-slot .btn,
+    .tnc-doc-dock-slot form {
+        width: 100%;
+    }
+
+    .tnc-doc-dock-slot .btn {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.1rem;
+        min-height: var(--tnc-doc-dock-h, 3.75rem);
+        padding: 0.35rem 0.25rem;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: #475569;
+        font-size: 0.62rem;
+        font-weight: 700;
+        line-height: 1.15;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .tnc-doc-dock-slot .btn i {
+        font-size: 1.2rem;
+        line-height: 1;
+    }
+
+    .tnc-doc-dock-slot .btn.btn-orange,
+    .tnc-doc-dock-slot .btn.text-orange {
+        color: var(--tnc-orange, #ea580c);
+    }
+
+    .tnc-doc-dock-slot .btn.btn-outline-danger,
+    .tnc-doc-dock-slot .btn.text-danger {
+        color: #dc3545;
+    }
+
+    .tnc-doc-dock-more {
+        flex: 1 1 0;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.1rem;
+        min-height: var(--tnc-doc-dock-h, 3.75rem);
+        border: 0;
+        background: transparent;
+        color: #475569;
+        font-size: 0.62rem;
+        font-weight: 700;
+    }
+
+    .tnc-doc-dock-more i {
+        font-size: 1.2rem;
+    }
+
+    #tncDocMoreSheet .offcanvas-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        padding: 0.5rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    #tncDocMoreSheet .js-tnc-doc-action {
+        width: 100%;
+        justify-content: flex-start;
+        min-height: var(--tnc-mobile-tap-min, 44px);
+        border-radius: 0.65rem;
+    }
+
+    #tncDocMoreSheet form.d-inline {
+        display: block !important;
+        width: 100%;
+    }
+
+    #tncDocMoreSheet form.d-inline .btn {
+        width: 100%;
+        text-align: left;
+    }
+
+    .tnc-mobile-master .col-lg-4 {
+        order: 2;
+    }
+
+    .tnc-mobile-master .col-lg-8,
+    .tnc-mobile-master .col-lg-12 {
+        order: 1;
+    }
+}
+
+@media print {
+    .tnc-doc-action-dock,
+    #tncDocMoreSheet {
+        display: none !important;
+    }
+}

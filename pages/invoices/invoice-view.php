@@ -332,17 +332,17 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
 </div>
 <header class="tnc-inv-chrome doc-view-shell no-print">
     <div class="doc-view-shell-inner">
-        <div class="doc-view-toolbar-row">
+        <div class="doc-view-toolbar-row js-tnc-doc-toolbar">
             <div class="doc-view-toolbar-main">
                 <span class="doc-view-toolbar-id"><?= htmlspecialchars($invDocTitle, ENT_QUOTES, 'UTF-8') ?></span>
                 <span class="doc-view-toolbar-sep" aria-hidden="true">—</span>
                 <span class="doc-view-toolbar-meta">ต้นฉบับ + สำเนา (2 แผ่น)</span>
             </div>
             <div class="doc-view-toolbar-actions">
-                <a href="<?= htmlspecialchars(app_path('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <a href="<?= htmlspecialchars(app_path('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="back">
                     <i class="bi bi-arrow-left me-1"></i>หน้าหลัก
                 </a>
-                <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="print">
                     <i class="bi bi-printer me-1"></i>พิมพ์
                 </button>
             </div>

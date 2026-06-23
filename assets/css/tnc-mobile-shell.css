@@ -1,0 +1,92 @@
+/**
+ * TNC Mobile Shell — safe areas, page chrome, layout modes
+ */
+
+:root {
+    --tnc-mobile-page-pad: 1rem;
+    --tnc-mobile-card-radius: 0.85rem;
+    --tnc-mobile-tap-min: 44px;
+    --tnc-mobile-title: 1.25rem;
+    --tnc-mobile-bottom-nav-h: 3.65rem;
+    --tnc-mobile-sticky-cta-h: 4.25rem;
+}
+
+@media (max-width: 991.98px) {
+    body.tnc-layout-form.tnc-has-mobile-nav {
+        padding-bottom: calc(
+            var(--tnc-mobile-bottom-nav-h)
+            + var(--tnc-mobile-sticky-cta-h)
+            + env(safe-area-inset-bottom, 0px)
+        );
+    }
+
+    .container.mt-4,
+    .container.py-4,
+    .container.mb-5 {
+        padding-left: max(var(--tnc-mobile-page-pad), env(safe-area-inset-left, 0px));
+        padding-right: max(var(--tnc-mobile-page-pad), env(safe-area-inset-right, 0px));
+    }
+
+    .purchase-page-head {
+        align-items: flex-start;
+    }
+
+    .purchase-page-head > .d-flex {
+        width: 100%;
+    }
+
+    .purchase-page-head .btn {
+        min-height: var(--tnc-mobile-tap-min);
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+
+    .purchase-page-head .btn.rounded-pill {
+        font-size: 0.9rem;
+    }
+
+    .purchase-list-title {
+        font-size: var(--tnc-mobile-title);
+    }
+
+    .card.main-card.p-4,
+    .card.table-card.p-4 {
+        padding: 1rem !important;
+        border-radius: var(--tnc-mobile-card-radius);
+    }
+
+    .form-control,
+    .form-select {
+        min-height: var(--tnc-mobile-tap-min);
+        font-size: 16px;
+    }
+
+    .btn:not(.btn-sm):not(.btn-link) {
+        min-height: 2.75rem;
+    }
+
+    .modal-dialog {
+        margin-left: max(0.5rem, env(safe-area-inset-left, 0px));
+        margin-right: max(0.5rem, env(safe-area-inset-right, 0px));
+    }
+
+    .modal-fullscreen-md-down {
+        padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    }
+}
+
+@media (max-width: 575.98px) {
+    .purchase-page-head .d-flex.flex-wrap {
+        flex-direction: column;
+    }
+
+    .purchase-page-head .d-flex.flex-wrap .btn {
+        width: 100%;
+    }
+}
+
+@media print {
+    body.tnc-has-mobile-nav {
+        padding-bottom: 0 !important;
+    }
+}

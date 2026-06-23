@@ -242,10 +242,11 @@ if (!$isHirePo) {
         <?php endif; ?>
     </style>
 </head>
-<body<?= $isHirePo ? ' class="po-hire-mode purchase-module"' : ' class="purchase-module"' ?>>
+<body<?= $isHirePo ? ' class="po-hire-mode purchase-module tnc-app-body tnc-layout-form"' : ' class="purchase-module tnc-app-body tnc-layout-form"' ?>>
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="<?= $isHirePo ? 'container-fluid px-3 px-lg-4' : 'container container-lg' ?> py-4 py-md-5 mb-5 po-create-wrap">
+    <?php include dirname(__DIR__, 2) . '/components/purchase-subnav.php'; ?>
     <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_po_direct&id=<?= (int) $poId ?>" method="POST" data-tnc-fullnav="1"<?= $isHirePo && $hireEditRoom > 0 ? ' data-hire-remaining="' . htmlspecialchars(number_format($hireEditRoom, 2, '.', ''), ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
         <input type="hidden" name="confirm_over_contract" id="confirm_over_contract" value="">
         <?php csrf_field(); ?>
@@ -280,7 +281,7 @@ if (!$isHirePo) {
                 <div class="col-lg">
                     <h1 class="mb-2 mt-1"><i class="bi bi-pencil-square me-2 opacity-90"></i><?= $isHirePo ? 'แก้ไขใบสั่งจ่าย' : 'แก้ไขใบสั่งซื้อ' ?></h1>
                 </div>
-                <div class="col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
+                <div class="col-lg-auto d-none d-lg-flex flex-wrap gap-2 justify-content-lg-end">
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php')) ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับหน้ารายการใบสั่งซื้อ</a>
                     <button type="submit" class="btn btn-orange rounded-pill px-4 shadow"><i class="bi bi-check2-circle me-1"></i>บันทึกการแก้ไข</button>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php')) ?>?id=<?= (int) $poId ?>" class="btn btn-outline-light rounded-pill px-3"><i class="bi bi-eye me-1"></i>ดูใบสั่งซื้อ</a>
@@ -608,9 +609,17 @@ if (!$isHirePo) {
             </div>
         </div>
 
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-2 d-md-none">
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php')) ?>" class="btn btn-outline-secondary rounded-pill">ยกเลิก</a>
-            <button type="submit" class="btn btn-orange rounded-pill px-4 fw-bold"><i class="bi bi-check2-circle me-1"></i>บันทึก</button>
+        <div class="tnc-mobile-sticky-cta d-lg-none">
+            <div class="tnc-mobile-sticky-inner">
+                <div class="tnc-mobile-sticky-meta">
+                    <div class="tnc-mobile-sticky-label">ยอดสุทธิ</div>
+                    <div class="tnc-mobile-sticky-total" id="grand_total_mobile_sticky"><?= number_format((float) ($po['total_amount'] ?? 0), 2) ?></div>
+                </div>
+                <div class="tnc-mobile-sticky-actions">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php')) ?>" class="btn btn-outline-secondary rounded-pill btn-sm">ยกเลิก</a>
+                    <button type="submit" class="btn btn-orange rounded-pill fw-bold"><i class="bi bi-check2-circle me-1"></i>บันทึก</button>
+                </div>
+            </div>
         </div>
     </form>
 </div>

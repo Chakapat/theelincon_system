@@ -327,7 +327,7 @@ $ignoredCountAll = count($ignoredPoList);
         }
     </style>
 </head>
-<body class="purchase-module tnc-app-body tnc-po-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ PO…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้แนบสลิปและบันทึกเลขบิลเมื่อโหลดเสร็จ">
+<body class="purchase-module tnc-app-body tnc-layout-list tnc-po-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ PO…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้แนบสลิปและบันทึกเลขบิลเมื่อโหลดเสร็จ">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -356,6 +356,8 @@ $ignoredCountAll = count($ignoredPoList);
             </a>
         </div>
     </div>
+
+    <?php include dirname(__DIR__, 2) . '/components/purchase-subnav.php'; ?>
 
     <?php if ($incompleteCountAll > 0): ?>
         <div class="po-incomplete-box mb-4" role="button" tabindex="0"
@@ -395,8 +397,8 @@ $ignoredCountAll = count($ignoredPoList);
 
         </div>
 
-        <div id="poListTableWrap" class="table-responsive">
-            <table class="table table-sm table-hover align-middle" id="poTable"<?= count($po_rows) > 0 ? ' aria-busy="true"' : '' ?>>
+        <div id="poListTableWrap" class="table-responsive tnc-mobile-table-wrap">
+            <table class="table table-sm table-hover align-middle tnc-mobile-table" id="poTable"<?= count($po_rows) > 0 ? ' aria-busy="true"' : '' ?>>
                 <thead class="table-light">
                     <tr>
                         <th class="text-center no-print" style="width:2.5rem;" title="เลือกเพื่อพิมพ์หลายใบ">
@@ -431,7 +433,7 @@ $ignoredCountAll = count($ignoredPoList);
                         $ymd = trim((string) ($row['_list_sort_ymd'] ?? ''));
                         $dateOrderAttr = $ymd !== '' ? $ymd : '0000-00-00';
                         ?>
-                        <td data-order="<?= htmlspecialchars($dateOrderAttr, ENT_QUOTES, 'UTF-8') ?>">
+                        <td data-order="<?= htmlspecialchars($dateOrderAttr, ENT_QUOTES, 'UTF-8') ?>" data-label="เลขที่ PO" class="tnc-mobile-primary">
                             <div class="fw-bold <?= $poCancelled ? 'text-danger' : ($isDocComplete ? 'text-info' : 'text-warning') ?>">
                                 <?php
                                 $poNoDisp = htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -442,7 +444,7 @@ $ignoredCountAll = count($ignoredPoList);
                             </div>
                             <div class="small text-muted"><?= $ymd !== '' ? htmlspecialchars(date('d/m/Y', strtotime($ymd)), ENT_QUOTES, 'UTF-8') : '—' ?></div>
                         </td>
-                        <td class="po-site-col small">
+                        <td class="po-site-col small" data-label="ไซต์งาน">
                             <?php
                             $siteDisp = trim((string) ($row['site_display'] ?? ''));
                             if ($siteDisp !== ''): ?>
@@ -451,7 +453,7 @@ $ignoredCountAll = count($ignoredPoList);
                                 <span class="text-muted">—</span>
                             <?php endif; ?>
                         </td>
-                        <td>
+                        <td data-label="ผู้ขาย / ผู้รับจ้าง">
                             <?php
                             $orderTypeCell = in_array((string) ($row['order_type'] ?? ''), ['purchase', 'hire'], true) ? (string) $row['order_type'] : 'purchase';
                             $supplierDisplay = $orderTypeCell === 'hire'
@@ -460,10 +462,10 @@ $ignoredCountAll = count($ignoredPoList);
                             echo htmlspecialchars($supplierDisplay !== '' ? $supplierDisplay : '-', ENT_QUOTES, 'UTF-8');
                             ?>
                         </td>
-                        <td class="text-end">
+                        <td class="text-end tnc-mobile-amount" data-label="ยอดเงินรวม">
                             <div class="fw-bold po-amount <?= $poCancelled ? 'text-danger' : '' ?>"><?= number_format((float)$row['total_amount'], 2) ?></div>
                         </td>
-                        <td class="text-center">
+                        <td class="text-center tnc-mobile-actions" data-label="จัดการ">
                             <?php
                             $rowPaid = (($row['payment_status'] ?? 'unpaid') === 'paid');
                             $poPaidLocked = $rowPaid && !Purchase::adminCanModifyPaidPo();
@@ -568,7 +570,7 @@ $ignoredCountAll = count($ignoredPoList);
 </div>
 
 <div class="modal fade" id="incompletePoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered modal-fullscreen-md-down">
         <div class="modal-content border-0 shadow">
             <div class="modal-header">
                 <h5 class="modal-title fw-bold">
@@ -661,7 +663,7 @@ $ignoredCountAll = count($ignoredPoList);
 </div>
 
 <div class="modal fade" id="receiveBillModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-fullscreen-md-down">
         <div class="modal-content">
             <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=receive_po_bill" method="POST" id="receiveBillForm">
                 <?php csrf_field(); ?>
@@ -700,7 +702,7 @@ $ignoredCountAll = count($ignoredPoList);
 </div>
 
 <div class="modal fade" id="markPaidModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-fullscreen-md-down">
         <div class="modal-content">
             <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_po_payment_status" method="POST" enctype="multipart/form-data" id="markPaidForm">
                 <?php csrf_field(); ?>
@@ -743,7 +745,7 @@ $ignoredCountAll = count($ignoredPoList);
 </div>
 
 <div class="modal fade" id="poBatchPrintChoiceModal" tabindex="-1" aria-labelledby="poBatchPrintChoiceModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-md-down">
         <div class="modal-content border-0 shadow">
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title fw-bold" id="poBatchPrintChoiceModalLabel">พิมพ์ใบสั่งซื้อที่เลือก</h5>

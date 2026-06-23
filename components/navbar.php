@@ -5,6 +5,23 @@ if (!function_exists('app_path')) {
 
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
+<?php
+$tncMobileCss = [
+    'assets/css/tnc-mobile-shell.css',
+    'assets/css/tnc-mobile-tables.css',
+    'assets/css/tnc-mobile-forms.css',
+    'assets/css/tnc-mobile-nav.css',
+    'assets/css/tnc-mobile-doc.css',
+];
+foreach ($tncMobileCss as $tncMobileCssFile) {
+    $tncMobileCssPath = dirname(__DIR__) . '/' . $tncMobileCssFile;
+    $tncMobileCssVer = @filemtime($tncMobileCssPath);
+    if (!is_int($tncMobileCssVer) || $tncMobileCssVer <= 0) {
+        $tncMobileCssVer = time();
+    }
+    echo '<link rel="stylesheet" href="' . htmlspecialchars(app_path($tncMobileCssFile) . '?v=' . $tncMobileCssVer, ENT_QUOTES, 'UTF-8') . '">' . "\n";
+}
+?>
 <style>
     .navbar-hub {
         gap: 0.35rem;
@@ -300,6 +317,23 @@ if (!function_exists('app_path')) {
 </nav>
 <?php if (isset($_SESSION['user_id'])): ?>
 <?php include __DIR__ . '/hub-fab.php'; ?>
+<?php include __DIR__ . '/mobile-bottom-nav.php'; ?>
+<?php
+$tncMobileJsPath = dirname(__DIR__) . '/assets/js/tnc-mobile-nav.js';
+$tncMobileJsVer = @filemtime($tncMobileJsPath);
+if (!is_int($tncMobileJsVer) || $tncMobileJsVer <= 0) {
+    $tncMobileJsVer = time();
+}
+?>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-mobile-nav.js') . '?v=' . $tncMobileJsVer, ENT_QUOTES, 'UTF-8') ?>" defer></script>
+<?php
+$tncMobileDocJsPath = dirname(__DIR__) . '/assets/js/tnc-mobile-doc.js';
+$tncMobileDocJsVer = @filemtime($tncMobileDocJsPath);
+if (!is_int($tncMobileDocJsVer) || $tncMobileDocJsVer <= 0) {
+    $tncMobileDocJsVer = time();
+}
+?>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-mobile-doc.js') . '?v=' . $tncMobileDocJsVer, ENT_QUOTES, 'UTF-8') ?>" defer></script>
 <?php endif; ?>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <?php if (isset($_SESSION['user_id'])): ?>

@@ -1,0 +1,123 @@
+/**
+ * TNC Mobile Forms — sticky CTAs, collapsible sections
+ */
+
+@media (max-width: 991.98px) {
+    .tnc-mobile-sticky-cta {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(
+            var(--tnc-mobile-bottom-nav-h, 3.65rem) + env(safe-area-inset-bottom, 0px)
+        );
+        z-index: 1035;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        border-left: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+        box-shadow: 0 -0.35rem 1.25rem rgba(15, 23, 42, 0.12) !important;
+        padding: 0.65rem max(1rem, env(safe-area-inset-left, 0px)) 0.65rem max(1rem, env(safe-area-inset-right, 0px)) !important;
+    }
+
+    .tnc-mobile-sticky-cta .tnc-mobile-sticky-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+
+    .tnc-mobile-sticky-cta .tnc-mobile-sticky-meta {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .tnc-mobile-sticky-cta .tnc-mobile-sticky-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #94a3b8;
+        margin-bottom: 0.1rem;
+    }
+
+    .tnc-mobile-sticky-cta .tnc-mobile-sticky-total {
+        font-size: 1.2rem;
+        font-weight: 800;
+        color: var(--tnc-orange, #ea580c);
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .tnc-mobile-sticky-cta .tnc-mobile-sticky-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .tnc-mobile-sticky-cta .po-submit-btn,
+    .tnc-mobile-sticky-cta .btn-orange {
+        min-height: var(--tnc-mobile-tap-min, 44px);
+        padding-left: 1.15rem;
+        padding-right: 1.15rem;
+        white-space: nowrap;
+    }
+
+    .purchase-module .po-submit-panel.tnc-mobile-sticky-cta .po-submit-panel-inner {
+        flex-direction: row;
+        text-align: left;
+        align-items: center;
+    }
+
+    .purchase-module .po-submit-panel.tnc-mobile-sticky-cta .po-submit-panel-action {
+        flex-shrink: 0;
+    }
+
+    .purchase-module .po-submit-panel.tnc-mobile-sticky-cta .po-submit-btn {
+        width: auto;
+    }
+
+    .tnc-mobile-section-collapse .po-section-head {
+        cursor: pointer;
+        user-select: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: 0;
+    }
+
+    .tnc-mobile-section-collapse .po-section-head::after {
+        content: '\F282';
+        font-family: 'bootstrap-icons';
+        margin-left: auto;
+        color: var(--tnc-muted);
+        transition: transform 0.2s ease;
+    }
+
+    .tnc-mobile-section-collapse.is-open .po-section-head::after {
+        transform: rotate(180deg);
+    }
+
+    .tnc-mobile-section-collapse .tnc-mobile-section-body {
+        display: none;
+        padding-top: 1rem;
+    }
+
+    .tnc-mobile-section-collapse.is-open .tnc-mobile-section-body {
+        display: block;
+    }
+}
+
+@media (min-width: 992px) {
+    .tnc-mobile-sticky-cta.d-lg-none {
+        display: none !important;
+    }
+}
+
+@media print {
+    .tnc-mobile-sticky-cta {
+        display: none !important;
+    }
+}

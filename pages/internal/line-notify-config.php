@@ -254,7 +254,7 @@ foreach ($userRows as $u) {
         }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-form">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 line-shell">
@@ -354,17 +354,30 @@ foreach ($userRows as $u) {
                     <div id="approver-hidden-inputs" class="visually-hidden" aria-hidden="true"></div>
                 </div>
 
+                <div class="d-none d-lg-block">
                 <button type="submit" class="btn btn-save-primary fw-semibold px-4" id="btn-save-line-config">
                     <span class="label-default"><i class="bi bi-check2-circle me-1"></i>บันทึก</span>
                     <span class="label-loading d-none"><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>กำลังบันทึก...</span>
                 </button>
+                </div>
+
+                <div class="tnc-mobile-sticky-cta d-lg-none">
+                    <div class="tnc-mobile-sticky-inner">
+                        <div class="tnc-mobile-sticky-actions w-100">
+                            <button type="submit" class="btn btn-save-primary fw-semibold w-100">
+                                <span class="label-default"><i class="bi bi-check2-circle me-1"></i>บันทึกการตั้งค่า</span>
+                                <span class="label-loading d-none"><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>กำลังบันทึก...</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </form>
         </div>
     </div>
 </div>
 
 <div class="modal fade" id="approverPickerModal" tabindex="-1" aria-labelledby="approverPickerModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
         <div class="modal-content rounded-4 border-0 shadow">
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title fw-bold" id="approverPickerModalLabel"><i class="bi bi-people me-2 text-success"></i>เลือกผู้อนุมัติ</h5>
@@ -515,14 +528,16 @@ foreach ($userRows as $u) {
     });
 
     var formEl = document.getElementById('line-notify-form');
-    var saveBtn = document.getElementById('btn-save-line-config');
-    if (formEl && saveBtn) {
+    if (formEl) {
         formEl.addEventListener('submit', function () {
-            saveBtn.classList.add('is-loading');
-            var d = saveBtn.querySelector('.label-default');
-            var l = saveBtn.querySelector('.label-loading');
-            if (d) d.classList.add('d-none');
-            if (l) l.classList.remove('d-none');
+            formEl.querySelectorAll('.btn-save-primary').forEach(function (saveBtn) {
+                saveBtn.classList.add('is-loading');
+                saveBtn.disabled = true;
+                var d = saveBtn.querySelector('.label-default');
+                var l = saveBtn.querySelector('.label-loading');
+                if (d) d.classList.add('d-none');
+                if (l) l.classList.remove('d-none');
+            });
         });
     }
 

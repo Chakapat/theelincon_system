@@ -951,7 +951,7 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
         }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container pb-5 pt-4">
     <div class="tnc-page-head mb-3 no-print">
@@ -1108,8 +1108,8 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
                     <span class="report-badge report-badge--filter"><i class="bi bi-funnel-fill me-1"></i><?= h(implode(', ', $filterCatLabels)) ?></span>
                 <?php endif; ?>
             </div>
-            <div class="table-responsive">
-                <table id="spendTable" class="table align-middle mb-0">
+            <div class="table-responsive tnc-mobile-table-wrap">
+                <table id="spendTable" class="table align-middle mb-0 tnc-mobile-table">
                     <colgroup>
                         <col class="spend-col-label">
                         <col class="spend-col-amt">

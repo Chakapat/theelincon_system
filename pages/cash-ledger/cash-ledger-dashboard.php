@@ -559,7 +559,7 @@ $net = $sumIncome - $sumExpense;
         }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 

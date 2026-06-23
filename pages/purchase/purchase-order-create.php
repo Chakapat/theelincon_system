@@ -492,7 +492,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
     ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-line-table-mobile.css') . '?v=' . $poLineMobileVer, ENT_QUOTES, 'UTF-8') ?>">
 </head>
-<body class="purchase-module tnc-app-body">
+<body class="purchase-module tnc-app-body tnc-layout-form">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -748,7 +748,21 @@ $po_submit_disabled = $pr_prefill_items_display === [];
             </div>
         </div>
 
-        <div class="card card-soft po-submit-panel mb-2">
+        <div class="po-submit-panel mb-2 tnc-mobile-sticky-cta d-lg-none">
+            <div class="tnc-mobile-sticky-inner">
+                <div class="tnc-mobile-sticky-meta">
+                    <div class="tnc-mobile-sticky-label">ยอดสุทธิ</div>
+                    <div class="tnc-mobile-sticky-total" id="grand_total_sticky"><?= number_format((float) $prVatPrintCreate['net_amount'], 2) ?></div>
+                </div>
+                <div class="tnc-mobile-sticky-actions">
+                    <button type="submit" class="btn btn-orange btn-lg po-submit-btn rounded-pill"<?= $po_submit_disabled ? ' disabled' : '' ?>>
+                        <i class="bi bi-check2-circle me-1"></i>สร้าง PO
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-soft po-submit-panel mb-2 d-none d-lg-block">
             <div class="d-flex flex-wrap align-items-center justify-content-end gap-3">
                 <button type="submit" class="btn btn-orange btn-lg po-submit-btn rounded-pill"<?= $po_submit_disabled ? ' disabled' : '' ?>>
                     <i class="bi bi-check2-circle me-2"></i>ยืนยันสร้างใบสั่งซื้อ

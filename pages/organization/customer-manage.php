@@ -38,7 +38,7 @@ Db::sortRows($customers, 'id', true);
         .logo-preview { height: 50px; width: 50px; object-fit: contain; border-radius: 8px; background: var(--tnc-surface, #f6f7f9); }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -50,7 +50,7 @@ Db::sortRows($customers, 'id', true);
         </div>
     </div>
 
-    <div class="row g-4">
+    <div class="row g-4 tnc-mobile-master">
         <?php if ($is_admin): ?>
         <div class="col-lg-4">
             <div class="card shadow-sm border-0 rounded-4">
@@ -94,8 +94,8 @@ Db::sortRows($customers, 'id', true);
 
         <div class="col-lg-<?= $is_admin ? '8' : '12' ?>">
             <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0" id="customerTable" width="100%">
+                <div class="table-responsive tnc-mobile-table-wrap">
+                    <table class="table table-hover align-middle mb-0 tnc-mobile-table" id="customerTable" width="100%">
                         <thead class="bg-light text-muted small text-uppercase">
                             <tr>
                                 <th class="ps-4 py-3">ลูกค้า</th>
@@ -107,7 +107,7 @@ Db::sortRows($customers, 'id', true);
                         <tbody>
                             <?php foreach ($customers as $row): ?>
                             <tr>
-                                <td class="ps-4">
+                                <td class="ps-4 tnc-mobile-primary" data-label="ลูกค้า">
                                     <div class="d-flex align-items-center">
                                         <?php if($row['logo']): ?>
                                             <img src="<?= htmlspecialchars(upload_logo_url($row['logo'])) ?>" class="logo-preview me-3 border">
@@ -120,12 +120,12 @@ Db::sortRows($customers, 'id', true);
                                         </div>
                                     </div>
                                 </td>
-                                <td><span class="badge bg-warning-subtle text-dark fw-normal border"><?= htmlspecialchars($row['tax_id'] ?: '-') ?></span></td>
-                                <td class="small">
+                                <td data-label="เลขผู้เสียภาษี"><span class="badge bg-warning-subtle text-dark fw-normal border"><?= htmlspecialchars($row['tax_id'] ?: '-') ?></span></td>
+                                <td class="small" data-label="ติดต่อ">
                                     <div><i class="bi bi-telephone text-warning me-1"></i><?= h((string) ($row['phone'] ?? '')) ?></div>
                                     <div class="text-muted"><i class="bi bi-envelope text-warning me-1"></i><?= h((string) ($row['email'] ?? '')) ?></div>
                                 </td>
-                                <td class="text-end pe-4">
+                                <td class="text-end pe-4 tnc-mobile-actions" data-label="จัดการ">
                                     <?php if ($is_admin): ?>
                                     <button type="button" onclick="editCustomer(<?= (int) $row['id'] ?>)" class="btn btn-sm btn-outline-warning rounded-circle me-1"><i class="bi bi-pencil-square"></i></button>
                                     <?php endif; ?>

@@ -66,7 +66,7 @@ $hasPhoto = trim((string) ($contractor['id_card_photo_path'] ?? '')) !== '';
         .photo-preview { max-width: 280px; border-radius: 0.75rem; border: 1px solid #e2e8f0; }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-form">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 py-md-5">

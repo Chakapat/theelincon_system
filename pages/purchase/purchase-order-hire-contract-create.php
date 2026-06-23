@@ -65,7 +65,7 @@ $handlerUrl = app_path('actions/action-handler.php') . '?action=create_hire_cont
         .po-hire-create-page .hire-lines-toolbar .btn { font-size: 0.82rem; padding: 0.28rem 0.55rem; }
     </style>
 </head>
-<body class="po-hire-mode po-hire-create-page purchase-module tnc-app-body">
+<body class="po-hire-mode po-hire-create-page purchase-module tnc-app-body tnc-layout-form">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container-fluid px-3 px-lg-4 py-3 py-md-4">
     <div class="row justify-content-center">
@@ -187,8 +187,20 @@ $handlerUrl = app_path('actions/action-handler.php') . '?action=create_hire_cont
                                 </div>
                             </div>
 
-                            <div class="d-flex justify-content-end pt-1">
+                            <div class="d-none d-lg-flex justify-content-end pt-1">
                                 <button type="submit" class="btn btn-orange rounded-pill fw-semibold px-4">ยืนยันออก Work Order</button>
+                            </div>
+
+                            <div class="tnc-mobile-sticky-cta d-lg-none">
+                                <div class="tnc-mobile-sticky-inner">
+                                    <div class="tnc-mobile-sticky-meta">
+                                        <div class="tnc-mobile-sticky-label">มูลค่าสัญญา</div>
+                                        <div class="tnc-mobile-sticky-total" id="grand_total_sticky">0.00</div>
+                                    </div>
+                                    <div class="tnc-mobile-sticky-actions">
+                                        <button type="submit" class="btn btn-orange rounded-pill fw-semibold">ยืนยัน WO</button>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                     </div>

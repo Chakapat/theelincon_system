@@ -335,7 +335,7 @@ Db::sortRows($customer_data, 'name', false);
         }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-form">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 

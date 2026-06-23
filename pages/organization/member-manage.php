@@ -39,7 +39,7 @@ function member_role_badge_class(array $row): string
         body { font-family: 'Sarabun', sans-serif; background-color: #fffaf5; }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -50,7 +50,7 @@ function member_role_badge_class(array $row): string
             <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-person-gear"></i></span>จัดการสมาชิก</h1>
         </div>
     </div>
-    <div class="row g-4">
+    <div class="row g-4 tnc-mobile-master">
         <div class="col-lg-4">
             <div class="card shadow-sm border-0 rounded-4">
                 <div class="card-body p-4">
@@ -111,8 +111,8 @@ function member_role_badge_class(array $row): string
             <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                 <div class="card-body p-4">
                     <h5 class="fw-bold mb-4"><i class="bi bi-people-fill me-2 text-warning"></i>รายชื่อสมาชิก</h5>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle" id="memberTable" width="100%">
+                    <div class="table-responsive tnc-mobile-table-wrap">
+                        <table class="table table-hover align-middle tnc-mobile-table" id="memberTable" width="100%">
                             <thead class="bg-light">
                                 <tr>
                                     <th class="border-0 ps-3">รหัส</th>
@@ -125,15 +125,15 @@ function member_role_badge_class(array $row): string
                             <tbody>
                                 <?php foreach ($userRows as $row): ?>
                                 <tr>
-                                    <td class="fw-bold text-orange ps-3" style="color:#ea580c;"><?= htmlspecialchars((string) ($row['user_code'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td><?= htmlspecialchars(trim((string) (($row['fname'] ?? '') . ' ' . ($row['lname'] ?? ''))), ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td class="text-center">
+                                    <td class="fw-bold text-orange ps-3 tnc-mobile-primary" style="color:#ea580c;" data-label="รหัส"><?= htmlspecialchars((string) ($row['user_code'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td data-label="ชื่อ-นามสกุล"><?= htmlspecialchars(trim((string) (($row['fname'] ?? '') . ' ' . ($row['lname'] ?? ''))), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="text-center" data-label="สิทธิ์">
                                         <span class="badge rounded-pill px-3 <?= member_role_badge_class($row) ?>">
                                             <?= htmlspecialchars(strtoupper(trim((string) ($row['role'] ?? 'USER'))), ENT_QUOTES, 'UTF-8') ?>
                                         </span>
                                     </td>
-                                    <td class="small text-muted"><?= htmlspecialchars(trim((string) ($row['job_title'] ?? '')) ?: '—') ?></td>
-                                    <td class="text-end pe-3">
+                                    <td class="small text-muted" data-label="ตำแหน่งงาน"><?= htmlspecialchars(trim((string) ($row['job_title'] ?? '')) ?: '—') ?></td>
+                                    <td class="text-end pe-3 tnc-mobile-actions" data-label="จัดการ">
                                         <button type="button" onclick="editMember(<?= (int) ($row['userid'] ?? 0) ?>)" class="btn btn-sm btn-light border text-warning rounded-3"><i class="bi bi-pencil-square"></i></button>
                                         <button type="button" onclick="confirmDelete(<?= (int) ($row['userid'] ?? 0) ?>, 'member')" class="btn btn-sm btn-light border text-danger rounded-3 ms-1"><i class="bi bi-trash3-fill"></i></button>
                                     </td>

@@ -219,47 +219,6 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
             .index-table-toolbar .form-control.index-search-input { min-height: 2.7rem; }
             .btn-invoice-action { min-width: 2.2rem; min-height: 2.2rem; }
             .btn-invoice-action:hover { transform: none; }
-            #taxTable.table-invoice-index thead { display: none; }
-            #taxTable.table-invoice-index tbody tr {
-                display: block;
-                margin: 0.65rem 0.75rem;
-                border: 1px solid rgba(0, 0, 0, 0.08);
-                border-radius: 0.75rem;
-                box-shadow: 0 0.15rem 0.75rem rgba(0, 0, 0, 0.05);
-                background: #fff;
-            }
-            #taxTable.table-invoice-index tbody td {
-                display: flex;
-                align-items: flex-start;
-                justify-content: space-between;
-                gap: 0.9rem;
-                border: 0;
-                border-bottom: 1px dashed rgba(0, 0, 0, 0.08);
-                padding: 0.62rem 0.85rem;
-                text-align: right;
-            }
-            #taxTable.table-invoice-index tbody td::before {
-                color: #6c757d;
-                font-size: 0.73rem;
-                font-weight: 700;
-                letter-spacing: 0.03em;
-                text-transform: uppercase;
-                text-align: left;
-                flex: 0 0 5.8rem;
-            }
-            #taxTable.table-invoice-index tbody td:nth-child(1)::before { content: "เลขที่"; }
-            #taxTable.table-invoice-index tbody td:nth-child(2)::before { content: "วันที่"; }
-            #taxTable.table-invoice-index tbody td:nth-child(3)::before { content: "ลูกค้า"; }
-            #taxTable.table-invoice-index tbody td:nth-child(4)::before { content: "ยอดสุทธิ"; }
-            #taxTable.table-invoice-index tbody td:nth-child(5)::before { content: "จัดการ"; }
-            #taxTable.table-invoice-index tbody td:last-child { border-bottom: 0; }
-            #taxTable.table-invoice-index tbody td:nth-child(5) .d-inline-flex { margin-left: auto; }
-            #taxTable.table-invoice-index tbody tr td[colspan] {
-                display: block;
-                text-align: center;
-                border-bottom: 0;
-                padding: 1.1rem 0.75rem;
-            }
         }
 
         /* —— Modal: สร้างใบกำกับภาษี (solid + search) —— */
@@ -370,7 +329,7 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
     </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -401,8 +360,8 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
                 </div>
             </div>
         <?php endif; ?>
-        <div class="table-responsive">
-            <table class="table table-invoice-index table-hover align-middle mb-0" id="taxTable" style="width:100%">
+        <div class="table-responsive tnc-mobile-table-wrap">
+            <table class="table table-invoice-index table-hover align-middle mb-0 tnc-mobile-table" id="taxTable" style="width:100%">
                 <thead class="table-light">
                     <tr>
                         <th class="ps-4">เลขที่ใบกำกับภาษี</th>
@@ -425,14 +384,14 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
                             $taxSortOrder = sprintf('%010d', (int) ($row['tax_id'] ?? 0));
                             ?>
                             <tr<?= $taxDateAttr !== '' ? ' data-tax-date="' . $taxDateAttr . '"' : '' ?>>
-                                <td data-order="<?= htmlspecialchars($taxSortOrder, ENT_QUOTES, 'UTF-8') ?>">
+                                <td class="tnc-mobile-primary" data-label="เลขที่" data-order="<?= htmlspecialchars($taxSortOrder, ENT_QUOTES, 'UTF-8') ?>">
                                     <div><span class="badge rounded-pill inv-badge-tax-issued px-3"><?= htmlspecialchars($row['tax_invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></div>
                                     <?php if ($row['invoice_number'] !== ''): ?>
                                         <div class="tax-ref-invoice mt-1" title="อ้างอิงจากใบแจ้งหนี้"><span class="tax-ref-invoice-arrow" aria-hidden="true">→</span> <span class="tax-ref-invoice-no"><?= htmlspecialchars($row['invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></div>
                                     <?php endif; ?>
                                 </td>
-                                <td class="text-muted tabular-nums" data-order="<?= htmlspecialchars($taxDateOrder, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($taxDateDisplay, ENT_QUOTES, 'UTF-8') ?></td>
-                                <td class="fw-semibold">
+                                <td class="text-muted tabular-nums" data-label="วันที่" data-order="<?= htmlspecialchars($taxDateOrder, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($taxDateDisplay, ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="fw-semibold" data-label="ลูกค้า">
                                     <div class="d-flex align-items-center gap-2">
                                         <?php if ($custLogo !== ''): ?>
                                             <img src="<?= htmlspecialchars(upload_logo_url($custLogo), ENT_QUOTES, 'UTF-8') ?>" alt="" class="cust-logo-thumb rounded border bg-light flex-shrink-0">
@@ -440,8 +399,8 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
                                         <span class="text-break"><?= htmlspecialchars($row['customer_name'] !== '' ? $row['customer_name'] : 'ไม่ระบุ', ENT_QUOTES, 'UTF-8') ?></span>
                                     </div>
                                 </td>
-                                <td class="fw-bold text-dark tabular-nums">฿<?= number_format((float) $row['grand_total'], 2) ?></td>
-                                <td class="text-end pe-4">
+                                <td class="fw-bold text-dark tabular-nums" data-label="ยอดสุทธิ">฿<?= number_format((float) $row['grand_total'], 2) ?></td>
+                                <td class="text-end pe-4 tnc-mobile-actions" data-label="จัดการ">
                                     <div class="d-inline-flex flex-wrap align-items-center justify-content-end gap-2">
                                         <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>" class="btn btn-invoice-action btn-invoice-action-view" title="ดูเอกสาร Tax INV"><i class="bi bi-eye-fill"></i></a>
                                         <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>&edit=1" class="btn btn-invoice-action btn-invoice-action-edit" title="แก้ไข Tax INV"><i class="bi bi-pencil-square"></i></a>
@@ -464,7 +423,7 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
 </div>
 
 <div class="modal fade" id="tirCreateModal" tabindex="-1" aria-labelledby="tirCreateModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-md-down">
         <div class="modal-content tir-modal-glass">
             <div class="modal-header">
                 <h2 class="modal-title tir-modal-title mb-0" id="tirCreateModalLabel">สร้างใบกำกับภาษี</h2>

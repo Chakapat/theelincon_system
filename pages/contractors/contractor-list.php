@@ -35,7 +35,7 @@ usort($contractors, static function (array $a, array $b): int {
         .main-card { border: none; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-5 mb-5">
@@ -58,8 +58,8 @@ usort($contractors, static function (array $a, array $b): int {
     </div>
 
     <div class="card main-card p-4">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle" id="contractorTable" style="width:100%">
+        <div class="table-responsive tnc-mobile-table-wrap">
+            <table class="table table-hover align-middle tnc-mobile-table" id="contractorTable" style="width:100%">
                 <thead class="table-light">
                     <tr>
                         <th>ชื่อ-นามสกุล (ไทย)</th>
@@ -75,14 +75,14 @@ usort($contractors, static function (array $a, array $b): int {
                     <?php else: ?>
                     <?php foreach ($contractors as $row): ?>
                     <tr>
-                        <td class="fw-bold"><?= htmlspecialchars(tnc_contractor_full_name_th($row), ENT_QUOTES, 'UTF-8') ?></td>
-                        <td><?= htmlspecialchars(tnc_contractor_full_name_en($row), ENT_QUOTES, 'UTF-8') ?></td>
-                        <td><?= htmlspecialchars((string) ($row['national_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                        <td class="small">
+                        <td class="fw-bold tnc-mobile-primary" data-label="ชื่อ-นามสกุล (ไทย)"><?= htmlspecialchars(tnc_contractor_full_name_th($row), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td data-label="ชื่อ-นามสกุล (อังกฤษ)"><?= htmlspecialchars(tnc_contractor_full_name_en($row), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td data-label="เลขบัตรประชาชน"><?= htmlspecialchars((string) ($row['national_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="small" data-label="ธนาคาร / เลขบัญชี">
                             <?= htmlspecialchars((string) ($row['bank_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?><br>
                             <span class="text-muted"><?= htmlspecialchars((string) ($row['bank_account_no'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
                         </td>
-                        <td class="text-center text-nowrap">
+                        <td class="text-center text-nowrap tnc-mobile-actions" data-label="จัดการ">
                             <a href="<?= htmlspecialchars(app_path('pages/contractors/contractor-form.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) ($row['id'] ?? 0) ?>" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-pencil"></i></a>
                             <?php if ($is_admin): ?>
                             <button type="button" onclick="deleteContractor(<?= (int) ($row['id'] ?? 0) ?>)" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>

@@ -744,6 +744,9 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
 <?php if (!$poEmbed && !$poAutoprint && $woHistoryPrintMode === null): ?>
 <div class="no-print tnc-app-chrome">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
+<div class="container-fluid px-3 d-lg-none no-print">
+    <?php include dirname(__DIR__, 2) . '/components/purchase-subnav.php'; ?>
+</div>
 </div>
 <?php endif; ?>
 
@@ -769,7 +772,7 @@ $hasAlerts = $poViewFlash !== null
 <?php if (!$poEmbed && !$poAutoprint && $woHistoryPrintMode === null): ?>
 <header class="po-view-shell no-print">
     <div class="po-view-shell-inner">
-        <div class="po-view-toolbar-row mb-2">
+        <div class="po-view-toolbar-row js-tnc-doc-toolbar mb-2">
             <div class="po-view-toolbar-main">
                 <span class="po-view-toolbar-id"><?= htmlspecialchars($poDocTitle, ENT_QUOTES, 'UTF-8') ?></span>
                 <?php if ($isHireContractPoDoc): ?>
@@ -797,12 +800,12 @@ $hasAlerts = $poViewFlash !== null
                     <?php endif; ?>
                 <?php endif; ?>
                 <?php if (user_can('po.update') && !$isPoCancelled && !$poPaidLocksActions): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm js-tnc-doc-action" data-dock-primary="edit">
                         <i class="bi bi-pencil-square me-1"></i>แก้ไข
                     </a>
                 <?php endif; ?>
                 <?php if (user_can('po.cancel') && !$isPoCancelled && !$poPaidLocksActions): ?>
-                    <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=cancel_purchase_order" class="d-inline" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบสั่งซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และจะแสดงประทับบนใบพิมพ์');">
+                    <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=cancel_purchase_order" class="d-inline js-tnc-doc-action" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบสั่งซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และจะแสดงประทับบนใบพิมพ์');">
                         <?php csrf_field(); ?>
                         <input type="hidden" name="po_id" value="<?= (int) $id ?>">
                         <input type="hidden" name="return_to" value="view">
@@ -810,14 +813,14 @@ $hasAlerts = $poViewFlash !== null
                     </form>
                 <?php endif; ?>
                 <?php if (user_can('po.update') && !$isPoCancelled && $billingStatusPo === 'pending' && !$isHireContractPoDoc): ?>
-                    <button type="button" class="btn btn-outline-orange btn-sm rounded-pill px-3" id="btnOpenReceiveBill">
+                    <button type="button" class="btn btn-outline-orange btn-sm rounded-pill px-3 js-tnc-doc-action" id="btnOpenReceiveBill">
                         <i class="bi bi-receipt me-1"></i>บันทึกเลขที่บิลซื้อ
                     </button>
                 <?php endif; ?>
                 <?php if ($isPoPaid && user_can('po.update') && !$poPaidLocksActions && !$isHireContractPoDoc): ?>
                     <button
                         type="button"
-                        class="btn btn-outline-orange btn-sm rounded-pill px-3 js-manage-slips"
+                        class="btn btn-outline-orange btn-sm rounded-pill px-3 js-manage-slips js-tnc-doc-action"
                         data-po-id="<?= (int) $id ?>"
                         data-return-to="view"
                     >
@@ -828,27 +831,27 @@ $hasAlerts = $poViewFlash !== null
             <span class="po-view-toolbar-sep po-view-toolbar-sep--actions" aria-hidden="true">|</span>
             <div class="po-view-toolbar-actions">
                 <?php if ($isHireContractPoDoc && !$isPoCancelled && user_can('po.create') && $poPaymentFromHcUrl !== ''): ?>
-                    <a href="<?= htmlspecialchars($poPaymentFromHcUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3">
+                    <a href="<?= htmlspecialchars($poPaymentFromHcUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3 js-tnc-doc-action">
                         <i class="bi bi-cash-coin me-1"></i>ออก PO สั่งจ่าย
                     </a>
-                    <a href="<?= htmlspecialchars($poAdvanceFromHcUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-warning btn-sm rounded-pill px-3">
+                    <a href="<?= htmlspecialchars($poAdvanceFromHcUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-warning btn-sm rounded-pill px-3 js-tnc-doc-action">
                         <i class="bi bi-wallet2 me-1"></i>เบิกล่วงหน้า
                     </a>
                 <?php endif; ?>
-                <a href="<?= $poListHref ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <a href="<?= $poListHref ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="back">
                     <i class="bi bi-arrow-left me-1"></i><?= $isHireContractPoDoc ? 'รายการ WO' : 'รายการ PO' ?>
                 </a>
                 <?php if ($woDocInModal): ?>
-                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" id="btnShowWoDoc">
+                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 js-tnc-doc-action" id="btnShowWoDoc">
                         <i class="bi bi-file-earmark-text me-1"></i>แสดงเอกสารใบสั่งจ้าง
                     </button>
                 <?php endif; ?>
                 <?php if ($hasPrintChoiceModal): ?>
-                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#poPrintChoiceModal">
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="print" data-bs-toggle="modal" data-bs-target="#poPrintChoiceModal">
                         <i class="bi bi-printer me-1"></i>พิมพ์
                     </button>
                 <?php else: ?>
-                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3"<?= $woDocInModal ? ' id="btnWoDocPrintDirect"' : ' onclick="tncPrintPoWhenReady()"' ?>>
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="print"<?= $woDocInModal ? ' id="btnWoDocPrintDirect"' : ' onclick="tncPrintPoWhenReady()"' ?>>
                         <i class="bi bi-printer me-1"></i>พิมพ์
                     </button>
                 <?php endif; ?>
@@ -885,7 +888,7 @@ $hasAlerts = $poViewFlash !== null
 
 <?php if (!$poEmbed && !$poAutoprint && $woHistoryPrintMode === null): ?>
 <div class="modal fade no-print" id="receiveBillModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-fullscreen-md-down">
         <div class="modal-content">
             <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=receive_po_bill" method="POST" id="receiveBillForm">
                 <?php csrf_field(); ?>

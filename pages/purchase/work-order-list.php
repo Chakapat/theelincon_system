@@ -175,7 +175,7 @@ usort($wo_rows, static function (array $a, array $b): int {
         .wo-empty-state i { font-size: 2rem; color: var(--tnc-muted); opacity: 0.65; }
     </style>
 </head>
-<body class="purchase-module tnc-app-body tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ WO…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้จัดการ Work Order เมื่อโหลดเสร็จ">
+<body class="purchase-module tnc-app-body tnc-layout-list tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ WO…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้จัดการ Work Order เมื่อโหลดเสร็จ">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -211,9 +211,11 @@ usort($wo_rows, static function (array $a, array $b): int {
         </div>
     </div>
 
+    <?php include dirname(__DIR__, 2) . '/components/purchase-subnav.php'; ?>
+
     <div class="card main-card p-4">
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle" id="woTable"<?= count($wo_rows) > 0 ? ' aria-busy="true"' : '' ?>>
+        <div class="table-responsive tnc-mobile-table-wrap">
+            <table class="table table-sm table-hover align-middle tnc-mobile-table" id="woTable"<?= count($wo_rows) > 0 ? ' aria-busy="true"' : '' ?>>
                 <thead class="table-light">
                     <tr>
                         <th class="text-center no-print" style="width:2.5rem;" title="เลือกเพื่อพิมพ์หลายใบ">
@@ -250,7 +252,7 @@ usort($wo_rows, static function (array $a, array $b): int {
                                 <td class="text-center align-middle no-print">
                                     <input type="checkbox" class="form-check-input m-0 js-wo-print-cb" value="<?= $woId ?>" aria-label="เลือกพิมพ์ <?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                                 </td>
-                                <td data-order="<?= htmlspecialchars($ymd !== '' ? $ymd : '0000-00-00', ENT_QUOTES, 'UTF-8') ?>">
+                                <td data-order="<?= htmlspecialchars($ymd !== '' ? $ymd : '0000-00-00', ENT_QUOTES, 'UTF-8') ?>" data-label="เลขที่ WO" class="tnc-mobile-primary">
                                     <div class="fw-bold <?= $woCancelled ? 'text-danger text-decoration-line-through' : 'text-primary' ?>">
                                         <a href="<?= htmlspecialchars($viewUrl, ENT_QUOTES, 'UTF-8') ?>" class="<?= $woCancelled ? 'text-danger' : 'text-primary' ?> text-decoration-none"><?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></a>
                                     </div>
@@ -259,7 +261,7 @@ usort($wo_rows, static function (array $a, array $b): int {
                                         <span class="badge rounded-pill text-bg-danger mt-1">ยกเลิก</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="wo-site-col small">
+                                <td class="wo-site-col small" data-label="ชื่อโครงการ">
                                     <?php
                                     $siteDisp = trim((string) ($row['site_display'] ?? ''));
                                     if ($siteDisp !== ''): ?>
@@ -268,8 +270,8 @@ usort($wo_rows, static function (array $a, array $b): int {
                                         <span class="text-muted">—</span>
                                     <?php endif; ?>
                                 </td>
-                                <td><?= htmlspecialchars(trim((string) ($row['contractor_name'] ?? '')) !== '' ? trim((string) ($row['contractor_name'] ?? '')) : '—', ENT_QUOTES, 'UTF-8') ?></td>
-                                <td class="text-center">
+                                <td data-label="ผู้รับจ้าง"><?= htmlspecialchars(trim((string) ($row['contractor_name'] ?? '')) !== '' ? trim((string) ($row['contractor_name'] ?? '')) : '—', ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="text-center" data-label="PO สั่งจ่าย">
                                     <?php $payCount = (int) ($row['payment_po_count'] ?? 0); ?>
                                     <?php if ($payCount > 0): ?>
                                         <span class="badge rounded-pill text-bg-success"><?= number_format($payCount) ?> ใบ</span>
@@ -277,10 +279,10 @@ usort($wo_rows, static function (array $a, array $b): int {
                                         <span class="text-muted small">—</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="text-end">
+                                <td class="text-end tnc-mobile-amount" data-label="มูลค่าสัญญา">
                                     <div class="fw-bold wo-amount <?= $woCancelled ? 'text-danger' : '' ?>"><?= number_format((float) ($row['contract_amount_display'] ?? $row['total_amount'] ?? 0), 2) ?></div>
                                 </td>
-                                <td class="text-center">
+                                <td class="text-center tnc-mobile-actions" data-label="จัดการ">
                                     <?php if (!$woCancelled): ?>
                                     <div class="dropdown">
                                         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">จัดการ</button>

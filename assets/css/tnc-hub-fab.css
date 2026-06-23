@@ -524,6 +524,30 @@ body.tnc-has-hub-fab {
     body.tnc-has-hub-fab.tnc-index-desktop-sidebar {
         padding-bottom: 0;
     }
+
+    body.tnc-has-mobile-nav.tnc-has-hub-fab {
+        padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+@media (max-width: 991.98px) {
+    body.tnc-has-mobile-nav:not(.tnc-has-hub-fab) {
+        padding-bottom: calc(
+            var(--tnc-mobile-bottom-nav-h, 3.65rem) + env(safe-area-inset-bottom, 0px)
+        );
+    }
+
+    body.tnc-has-mobile-nav.tnc-has-hub-fab {
+        padding-bottom: calc(
+            var(--tnc-mobile-bottom-nav-h, 3.65rem) + env(safe-area-inset-bottom, 0px)
+        );
+    }
+
+    body.tnc-has-mobile-nav.tnc-index-desktop-sidebar.tnc-has-hub-fab {
+        padding-bottom: calc(
+            var(--tnc-mobile-bottom-nav-h, 3.65rem) + env(safe-area-inset-bottom, 0px)
+        );
+    }
 }
 
 @media (max-width: 575.98px) {

@@ -436,35 +436,38 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
 
 <div class="no-print tnc-app-chrome">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
+<div class="container-fluid px-3 d-lg-none no-print">
+    <?php include dirname(__DIR__, 2) . '/components/purchase-subnav.php'; ?>
+</div>
 </div>
 
 <header class="pr-view-shell no-print">
     <div class="pr-view-shell-inner">
-        <div class="pr-view-toolbar-row mb-2">
+        <div class="pr-view-toolbar-row js-tnc-doc-toolbar mb-2">
                 <span class="badge rounded-pill px-3 py-2 <?= htmlspecialchars($prApprovalBadgeClass, ENT_QUOTES, 'UTF-8') ?>">
                     <?= htmlspecialchars($prApprovalLabel, ENT_QUOTES, 'UTF-8') ?>
                 </span>
                 <?php if ($prCanSendLineAdmin || $prCanWebDecide): ?>
                     <?php if ($prCanSendLineAdmin): ?>
-                        <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3" id="btnPrSendLine" title="ส่งขออนุมัติไปกลุ่ม LINE">
+                        <button type="button" class="btn js-tnc-doc-action btn-outline-success btn-sm rounded-pill px-3" id="btnPrSendLine" title="ส่งขออนุมัติไปกลุ่ม LINE">
                             <i class="bi bi-line me-1"></i>ส่ง LINE
                         </button>
                     <?php endif; ?>
                     <?php if ($prCanWebDecide): ?>
-                        <button type="button" class="btn btn-success btn-sm rounded-pill px-3" id="btnPrWebApprove" title="อนุมัติบนเว็บ">
+                        <button type="button" class="btn js-tnc-doc-action btn-success btn-sm rounded-pill px-3" id="btnPrWebApprove" title="อนุมัติบนเว็บ">
                             <i class="bi bi-check-circle me-1"></i>อนุมัติ
                         </button>
-                        <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" id="btnPrWebReject" title="ไม่อนุมัติบนเว็บ">
+                        <button type="button" class="btn js-tnc-doc-action btn-outline-danger btn-sm rounded-pill px-3" id="btnPrWebReject" title="ไม่อนุมัติบนเว็บ">
                             <i class="bi bi-x-circle me-1"></i>ไม่อนุมัติ
                         </button>
                     <?php endif; ?>
                 <?php endif; ?>
                 <?php if ($requestType !== 'hire' && $existing_po): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $existing_po['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $existing_po['id'] ?>" class="btn js-tnc-doc-action btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-eye me-1"></i>ดูใบสั่งซื้อ
                     </a>
                 <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo) && user_can('po.create')): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn js-tnc-doc-action btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-file-earmark-plus me-1"></i>สร้างใบสั่งซื้อ
                     </a>
                 <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo)): ?>
@@ -481,15 +484,15 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                     $woFromPrUrl = app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . (int) $pr['id'] . '&mode=contract';
                     ?>
                     <?php if ($woViewPrUrl !== null): ?>
-                    <a href="<?= htmlspecialchars($woViewPrUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3">
+                    <a href="<?= htmlspecialchars($woViewPrUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn js-tnc-doc-action btn-orange btn-sm rounded-pill px-3">
                         <i class="bi bi-file-earmark-ruled me-1"></i>ดู Work Order
                     </a>
                     <?php else: ?>
-                    <a href="<?= htmlspecialchars($woFromPrUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3" title="ออก WO จาก PR เก่า">
+                    <a href="<?= htmlspecialchars($woFromPrUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn js-tnc-doc-action btn-orange btn-sm rounded-pill px-3" title="ออก WO จาก PR เก่า">
                         <i class="bi bi-file-earmark-ruled me-1"></i>ออก Work Order
                     </a>
                     <?php endif; ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-hire-contract-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3" title="สัญญาจ้างใหม่ — ไม่ผ่าน PR">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-hire-contract-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn js-tnc-doc-action btn-outline-secondary btn-sm rounded-pill px-3" title="สัญญาจ้างใหม่ — ไม่ผ่าน PR">
                         <i class="bi bi-plus-lg me-1"></i>WO ใหม่
                     </a>
                 <?php elseif ($requestType === 'hire'): ?>
@@ -497,20 +500,20 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                     $woViewPrUrl = Purchase::workOrderViewUrl(0, (int) $pr['id']);
                     ?>
                     <?php if ($woViewPrUrl !== null): ?>
-                    <a href="<?= htmlspecialchars($woViewPrUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <a href="<?= htmlspecialchars($woViewPrUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn js-tnc-doc-action btn-outline-secondary btn-sm rounded-pill px-3">
                         <i class="bi bi-file-earmark-ruled me-1"></i>ดู Work Order
                     </a>
                     <?php endif; ?>
                 <?php endif; ?>
                 <?php if ($prCanEdit): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $pr['id'] ?>" class="btn btn-outline-warning btn-sm rounded-pill px-3" title="<?= in_array($prApprovalStatus, ['approved', 'ready'], true) ? 'แก้ไข PR ที่อนุมัติแล้ว (Admin)' : 'แก้ไขใบขอซื้อ' ?>">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $pr['id'] ?>" class="btn js-tnc-doc-action btn-outline-warning btn-sm rounded-pill px-3" data-dock-primary="edit" title="<?= in_array($prApprovalStatus, ['approved', 'ready'], true) ? 'แก้ไข PR ที่อนุมัติแล้ว (Admin)' : 'แก้ไขใบขอซื้อ' ?>">
                         <i class="bi bi-pencil-square me-1"></i>แก้ไข PR
                     </a>
                 <?php endif; ?>
-                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn js-tnc-doc-action btn-outline-secondary btn-sm rounded-pill px-3" data-dock-primary="back">
                     <i class="bi bi-arrow-left me-1"></i>รายการ PR
                 </a>
-                <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <button type="button" onclick="window.print()" class="btn js-tnc-doc-action btn-outline-secondary btn-sm rounded-pill px-3" data-dock-primary="print">
                     <i class="bi bi-printer me-1"></i>พิมพ์
                 </button>
         </div>

@@ -33,7 +33,7 @@ $handler = app_path('actions/stock-handler.php');
         .stock-form-card { border: 1px solid #e8edf5; border-radius: 1rem; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05); }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-form">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 pb-5" style="max-width: 680px;">

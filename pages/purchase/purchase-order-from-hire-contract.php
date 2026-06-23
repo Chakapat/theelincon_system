@@ -186,7 +186,7 @@ $issueDateDisplay = date('d/m/Y');
         .hc-pay-history thead th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
     </style>
 </head>
-<body class="purchase-module tnc-app-body">
+<body class="purchase-module tnc-app-body tnc-layout-form">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container container-lg py-4 py-md-5 mb-5 po-hire-form-wrap">
@@ -268,8 +268,8 @@ $issueDateDisplay = date('d/m/Y');
                         <?php endif; ?>
                     </div>
                 </div>
-                <div class="col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
-                    <button type="submit" class="btn btn-orange rounded-pill px-4 shadow"<?= $submitDisabled ? ' disabled' : '' ?>><i class="bi bi-check2-circle me-1"></i><?= htmlspecialchars($submitLabel, ENT_QUOTES, 'UTF-8') ?></button>
+                <div class="col-lg-auto d-none d-lg-flex flex-wrap gap-2 justify-content-lg-end">
+                    <button type="submit" class="btn btn-orange rounded-pill px-4 shadow po-submit-btn-desktop"<?= $submitDisabled ? ' disabled' : '' ?>><i class="bi bi-check2-circle me-1"></i><?= htmlspecialchars($submitLabel, ENT_QUOTES, 'UTF-8') ?></button>
                     <a href="<?= htmlspecialchars($viewHcUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับหน้ารายการสั่งจ้าง</a>
                 </div>
             </div>
@@ -417,6 +417,18 @@ $issueDateDisplay = date('d/m/Y');
                         <div class="summary-line small text-danger" id="retention_summary_row" style="display:none;"><span>หักประกันผลงาน</span><strong>- <span id="retention_display">0.00</span> บาท</strong></div>
                         <div class="summary-line summary-grand fw-bold"><span>ยอดสุทธิ</span><strong class="text-tnc-orange"><span id="grand_total">0.00</span> บาท</strong></div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tnc-mobile-sticky-cta d-lg-none">
+            <div class="tnc-mobile-sticky-inner">
+                <div class="tnc-mobile-sticky-meta">
+                    <div class="tnc-mobile-sticky-label">ยอดสุทธิ</div>
+                    <div class="tnc-mobile-sticky-total" id="grand_total_sticky">0.00</div>
+                </div>
+                <div class="tnc-mobile-sticky-actions">
+                    <button type="submit" class="btn btn-orange rounded-pill fw-bold po-submit-btn-mobile"<?= $submitDisabled ? ' disabled' : '' ?>><i class="bi bi-check2-circle me-1"></i><?= htmlspecialchars($submitLabel, ENT_QUOTES, 'UTF-8') ?></button>
                 </div>
             </div>
         </div>

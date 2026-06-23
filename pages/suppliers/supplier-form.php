@@ -71,7 +71,7 @@ if ($id > 0) {
         .bank-select-preview { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; font-size: 12px; color: #6b7280; }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-form">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 

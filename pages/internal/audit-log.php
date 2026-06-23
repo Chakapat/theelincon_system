@@ -167,7 +167,7 @@ if (!function_exists('tnc_audit_log_format_datetime_th')) {
         }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 pb-5">
@@ -226,8 +226,8 @@ if (!function_exists('tnc_audit_log_format_datetime_th')) {
                     </div>
                 </div>
             </div>
-            <div class="table-responsive audit-table-wrap">
-                <table class="table table-hover align-middle audit-table mb-0" id="auditTable">
+            <div class="table-responsive audit-table-wrap tnc-mobile-table-wrap">
+                <table class="table table-hover align-middle audit-table mb-0 tnc-mobile-table" id="auditTable">
                     <thead class="table-light">
                         <tr>
                             <th>วันเวลา</th>
@@ -250,13 +250,13 @@ if (!function_exists('tnc_audit_log_format_datetime_th')) {
                                 ?>
                                 <tr>
                                     <?php $atRaw = (string) ($r['created_at'] ?? ''); ?>
-                                    <td class="text-nowrap small mono-time" title="เวลาไทย (Asia/Bangkok)" data-order="<?= htmlspecialchars($atRaw, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(tnc_audit_log_format_datetime_th($atRaw), ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td><?= htmlspecialchars((string) ($r['user_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td><span class="<?= htmlspecialchars($verbClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(tnc_audit_log_page_verb_th($verb), ENT_QUOTES, 'UTF-8') ?></span></td>
-                                    <td class="small"><span class="<?= htmlspecialchars(tnc_audit_log_entity_badge_class((string) ($r['entity_type'] ?? '')), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($r['entity_type'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span></td>
-                                    <td class="small font-monospace"><?= htmlspecialchars((string) ($r['entity_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td class="small"><?= htmlspecialchars((string) ($r['summary'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td class="text-end">
+                                    <td class="text-nowrap small mono-time" title="เวลาไทย (Asia/Bangkok)" data-order="<?= htmlspecialchars($atRaw, ENT_QUOTES, 'UTF-8') ?>" data-label="วันเวลา"><?= htmlspecialchars(tnc_audit_log_format_datetime_th($atRaw), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td data-label="ผู้ทำ"><?= htmlspecialchars((string) ($r['user_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td data-label="การกระทำ"><span class="<?= htmlspecialchars($verbClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(tnc_audit_log_page_verb_th($verb), ENT_QUOTES, 'UTF-8') ?></span></td>
+                                    <td class="small" data-label="ประเภท"><span class="<?= htmlspecialchars(tnc_audit_log_entity_badge_class((string) ($r['entity_type'] ?? '')), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($r['entity_type'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span></td>
+                                    <td class="small font-monospace" data-label="รหัสอ้างอิง"><?= htmlspecialchars((string) ($r['entity_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="small" data-label="รายละเอียด"><?= htmlspecialchars((string) ($r['summary'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="text-end tnc-mobile-actions" data-label="ข้อมูลเต็ม">
                                         <button type="button" class="btn btn-sm btn-outline-primary btn-view-audit tnc-open-audit-detail" data-row="<?= (int) $idx ?>" title="ดูรายละเอียด">
                                             <i class="bi bi-eye"></i>
                                         </button>

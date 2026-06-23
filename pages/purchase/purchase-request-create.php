@@ -226,11 +226,12 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
     ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-line-table-mobile.css') . '?v=' . $poLineMobileVer, ENT_QUOTES, 'UTF-8') ?>">
 </head>
-<body class="purchase-module tnc-app-body">
+<body class="purchase-module tnc-app-body tnc-layout-form">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container container-lg py-4 py-md-5 mb-5 pr-create-wrap" id="pr_page_root">
+    <?php include dirname(__DIR__, 2) . '/components/purchase-subnav.php'; ?>
     <?php if (!empty($_GET['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <?php
@@ -523,7 +524,21 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
             </div>
         </div>
 
-        <div class="po-submit-panel po-submit-panel--end mb-2 d-flex w-100 justify-content-center justify-content-lg-end">
+        <div class="po-submit-panel po-submit-panel--end mb-2 tnc-mobile-sticky-cta d-lg-none">
+            <div class="tnc-mobile-sticky-inner">
+                <div class="tnc-mobile-sticky-meta">
+                    <div class="tnc-mobile-sticky-label">ยอดสุทธิ</div>
+                    <div class="tnc-mobile-sticky-total" id="grand_total_sticky">0.00</div>
+                </div>
+                <div class="tnc-mobile-sticky-actions">
+                    <button type="button" class="btn btn-orange btn-lg po-submit-btn rounded-pill" id="btnPrSaveOpenModalMobile"<?= count($sites) === 0 ? ' disabled' : '' ?> onclick="document.getElementById('btnPrSaveOpenModal')?.click()">
+                        <i class="bi bi-check2-circle me-1"></i>บันทึก
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="po-submit-panel po-submit-panel--end mb-2 d-none d-lg-flex w-100 justify-content-center justify-content-lg-end">
             <button type="button" class="btn btn-orange btn-lg po-submit-btn rounded-pill w-100 w-lg-auto" id="btnPrSaveOpenModal"<?= count($sites) === 0 ? ' disabled' : '' ?>>
                 <i class="bi bi-check2-circle me-2"></i><?= $requestTypeVal === 'hire' ? 'บันทึกใบขอจัดจ้าง' : 'บันทึกใบขอซื้อ' ?>
             </button>
@@ -867,6 +882,10 @@ function toggleRequestTypeFields() {
         saveBtn.innerHTML = isHire
             ? '<i class="bi bi-check2-circle me-2"></i>บันทึกใบขอจัดจ้าง'
             : '<i class="bi bi-check2-circle me-2"></i>บันทึกใบขอซื้อ';
+    }
+    const saveBtnMobile = document.getElementById('btnPrSaveOpenModalMobile');
+    if (saveBtnMobile && saveBtn) {
+        saveBtnMobile.disabled = saveBtn.disabled;
     }
     const submitHint = document.getElementById('pr_submit_hint');
     if (submitHint) {

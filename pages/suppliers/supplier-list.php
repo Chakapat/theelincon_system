@@ -24,6 +24,7 @@ Db::sortRows($suppliers, 'name', false);
 <html lang="th">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>จัดการผู้ขาย (Suppliers)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -33,7 +34,7 @@ Db::sortRows($suppliers, 'name', false);
         .bank-logo-chip { width: 22px; height: 22px; object-fit: contain; border-radius: 4px; flex-shrink: 0; }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-5">
@@ -57,8 +58,8 @@ Db::sortRows($suppliers, 'name', false);
     </div>
 
     <div class="card main-card tnc-list-card p-4">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle" id="supplierTable" style="width:100%">
+        <div class="table-responsive tnc-mobile-table-wrap">
+            <table class="table table-hover align-middle tnc-mobile-table" id="supplierTable" style="width:100%">
                 <thead class="table-light">
                     <tr>
                         <th>ชื่อบริษัท/ร้านค้า</th>
@@ -74,10 +75,10 @@ Db::sortRows($suppliers, 'name', false);
                     <?php else: ?>
                     <?php foreach ($suppliers as $row): ?>
                     <tr>
-                        <td class="fw-bold"><?= htmlspecialchars($row['name']) ?></td>
-                        <td><?= htmlspecialchars($row['contact_person']) ?: '-' ?></td>
-                        <td><?= $row['phone'] ?></td>
-                        <td class="small">
+                        <td class="fw-bold tnc-mobile-primary" data-label="ชื่อบริษัท/ร้านค้า"><?= htmlspecialchars($row['name']) ?></td>
+                        <td data-label="ผู้ติดต่อ"><?= htmlspecialchars($row['contact_person']) ?: '-' ?></td>
+                        <td data-label="เบอร์โทรศัพท์"><?= $row['phone'] ?></td>
+                        <td class="small" data-label="บัญชีรับโอน">
                             <?php
                             $rowBank = trim((string) ($row['bank_name'] ?? ''));
                             $rowAccNo = trim((string) ($row['bank_account_number'] ?? ''));
@@ -102,7 +103,7 @@ Db::sortRows($suppliers, 'name', false);
                                 <?php endif; ?>
                             <?php endif; ?>
                         </td>
-                        <td class="text-center">
+                        <td class="text-center tnc-mobile-actions" data-label="จัดการ">
                             <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-form.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-warning me-1"><i class="bi bi-pencil"></i></a>
                             <?php if($is_admin): ?>
                             <button onclick="deleteSup(<?= $row['id'] ?>)" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>

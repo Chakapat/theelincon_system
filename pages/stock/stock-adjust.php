@@ -56,7 +56,7 @@ $handler = app_path('actions/stock-handler.php');
         .mode-pill .btn-check:checked + .btn { background: #ea580c; border-color: #ea580c; color: #fff; }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-form">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 

@@ -56,7 +56,7 @@ function company_type_label_th(string $type): string
         .bank-select-preview { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; font-size: 12px; color: #6b7280; }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-list">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -68,7 +68,7 @@ function company_type_label_th(string $type): string
         </div>
     </div>
 
-    <div class="row g-4">
+    <div class="row g-4 tnc-mobile-master">
         <div class="col-lg-4">
             <div class="card shadow-sm border-0 rounded-4">
                 <div class="card-body p-4">
@@ -141,8 +141,8 @@ function company_type_label_th(string $type): string
         <div class="col-lg-8">
             <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                 <div class="p-4 border-bottom bg-white"><h5 class="fw-bold mb-0">รายชื่อบริษัททั้งหมด</h5></div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0" id="companyTable" width="100%">
+                <div class="table-responsive tnc-mobile-table-wrap">
+                    <table class="table table-hover align-middle mb-0 tnc-mobile-table" id="companyTable" width="100%">
                         <thead class="bg-light text-muted small">
                             <tr>
                                 <th class="ps-4 border-0">ชื่อ / ประเภท</th>
@@ -158,7 +158,7 @@ function company_type_label_th(string $type): string
                                 $ctype = company_type_key($row);
                             ?>
                             <tr>
-                                <td class="ps-4">
+                                <td class="ps-4 tnc-mobile-primary" data-label="ชื่อ / ประเภท">
                                     <div class="d-flex align-items-center">
                                         <?php if($row['logo']): ?>
                                             <img src="<?= htmlspecialchars(upload_logo_url($row['logo'])) ?>" class="logo-preview me-3 border">
@@ -172,8 +172,8 @@ function company_type_label_th(string $type): string
                                         </div>
                                     </div>
                                 </td>
-                                <td><span class="badge bg-warning-subtle text-warning border px-3 py-2 rounded-pill"><?= htmlspecialchars($row['tax_id']) ?></span></td>
-                                <td class="small">
+                                <td data-label="เลขผู้เสียภาษี"><span class="badge bg-warning-subtle text-warning border px-3 py-2 rounded-pill"><?= htmlspecialchars($row['tax_id']) ?></span></td>
+                                <td class="small" data-label="ติดต่อ">
                                     <div><i class="bi bi-telephone text-warning me-1"></i><?= htmlspecialchars((string) ($row['phone'] ?? '')) ?></div>
                                     <div class="text-muted"><i class="bi bi-envelope text-warning me-1"></i><?= htmlspecialchars((string) ($row['email'] ?? '')) ?></div>
                                     <?php
@@ -188,7 +188,7 @@ function company_type_label_th(string $type): string
                                     </div>
                                     <?php endif; ?>
                                 </td>
-                                <td class="text-end pe-4">
+                                <td class="text-end pe-4 tnc-mobile-actions" data-label="จัดการ">
                                     <?php if($is_admin): ?>
                                     <button onclick="editCompany(<?= $row['id'] ?>)" class="btn btn-sm btn-outline-warning rounded-circle me-1"><i class="bi bi-pencil-square"></i></button>
                                     <button onclick="confirmDelete(<?= $row['id'] ?>, 'company')" class="btn btn-sm btn-outline-danger rounded-circle"><i class="bi bi-trash3"></i></button>
@@ -208,7 +208,7 @@ function company_type_label_th(string $type): string
 </div>
 
 <div class="modal fade" id="editCompanyModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-md-down">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=edit_company" method="POST" enctype="multipart/form-data" data-tnc-soft-reload="1">
                 <?php csrf_field(); ?>

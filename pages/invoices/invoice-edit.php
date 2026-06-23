@@ -95,7 +95,7 @@ Db::sortRows($customers, 'name', false);
         .btn-add-invoice-row .bi { font-size: 1.25rem; }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-layout-form">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -238,8 +238,22 @@ Db::sortRows($customers, 'name', false);
                     <input type="hidden" name="total_amount" id="grand_total" value="<?= $invoice['total_amount'] ?>">
                 </div>
             </div>
-                    <button type="button" onclick="confirmUpdate()" class="btn btn-orange w-100 py-3 shadow mt-3">
+                    <button type="button" onclick="confirmUpdate()" class="btn btn-orange w-100 py-3 shadow mt-3 d-none d-lg-block">
                         <i class="bi bi-save2 me-2"></i> อัปเดตข้อมูล
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tnc-mobile-sticky-cta d-lg-none">
+            <div class="tnc-mobile-sticky-inner">
+                <div class="tnc-mobile-sticky-meta">
+                    <div class="tnc-mobile-sticky-label">ยอดสุทธิ</div>
+                    <div class="tnc-mobile-sticky-total" id="grand_total_sticky">0.00</div>
+                </div>
+                <div class="tnc-mobile-sticky-actions">
+                    <button type="button" onclick="confirmUpdate()" class="btn btn-orange rounded-pill fw-bold">
+                        <i class="bi bi-save2 me-1"></i>บันทึก
                     </button>
                 </div>
             </div>
