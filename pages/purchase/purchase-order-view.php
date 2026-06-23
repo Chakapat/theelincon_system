@@ -814,6 +814,16 @@ $hasAlerts = $poViewFlash !== null
                         <i class="bi bi-receipt me-1"></i>บันทึกเลขที่บิลซื้อ
                     </button>
                 <?php endif; ?>
+                <?php if ($isPoPaid && user_can('po.update') && !$poPaidLocksActions && !$isHireContractPoDoc): ?>
+                    <button
+                        type="button"
+                        class="btn btn-outline-orange btn-sm rounded-pill px-3 js-manage-slips"
+                        data-po-id="<?= (int) $id ?>"
+                        data-return-to="view"
+                    >
+                        <i class="bi bi-images me-1"></i>จัดการสลิป<?= count($slipItemsToolbar) > 1 ? ' (' . count($slipItemsToolbar) . ')' : '' ?>
+                    </button>
+                <?php endif; ?>
             </div>
             <span class="po-view-toolbar-sep po-view-toolbar-sep--actions" aria-hidden="true">|</span>
             <div class="po-view-toolbar-actions">
@@ -1021,6 +1031,27 @@ $hasAlerts = $poViewFlash !== null
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-po-print.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
 <?php if (!$poEmbed && !$poAutoprint && $woHistoryPrintMode === null): ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php if ($isPoPaid && user_can('po.update') && !$poPaidLocksActions && !$isHireContractPoDoc): ?>
+<script>
+window.tncPoLiveDatasetsUrl = <?= json_encode(app_path('actions/live-datasets.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+window.tncPoFetchActionRow = function (poId) {
+    var url = window.tncPoLiveDatasetsUrl + '?dataset=po_action_row&po_id=' + encodeURIComponent(String(poId || ''));
+    return fetch(url, { credentials: 'same-origin' })
+        .then(function (r) {
+            if (!r.ok) throw new Error('fetch_failed');
+            return r.json();
+        })
+        .then(function (d) {
+            if (!d || !d.ok || !d.row) throw new Error('bad_payload');
+            return d.row;
+        });
+};
+</script>
+<?php
+$poSlipDefaultReturnTo = 'view';
+include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
+?>
+<?php endif; ?>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <?php endif; ?>
 <?php if (!empty($woSummaryIncluded)): ?>

@@ -189,7 +189,7 @@ $items = [[
                     <label class="po-field-label d-block mb-2">ช่องทางชำระ</label>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="payment_method" id="payMethodTransfer" value="transfer" checked>
-                        <label class="form-check-label" for="payMethodTransfer">โอนเงิน / ช่องทางอื่น <span class="text-muted small">(แนบหลักฐาน)</span></label>
+                        <label class="form-check-label" for="payMethodTransfer">โอนเงิน</label>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="payment_method" id="payMethodCash" value="cash">
@@ -199,12 +199,9 @@ $items = [[
                 <div class="col-md-6 d-none" id="poCreateCashWrap">
                     <label class="po-field-label" for="payment_cash_paid_by">จ่ายโดย <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" name="payment_cash_paid_by" id="payment_cash_paid_by" maxlength="255" placeholder="เช่น ชื่อผู้รับเงิน / แผนก" autocomplete="off">
-                    <div class="form-text">บังคับเมื่อเลือกเงินสด — เก็บในฐานข้อมูลพร้อม PO</div>
                 </div>
                 <div class="col-md-6" id="poCreateSlipWrap">
-                    <label class="po-field-label" for="payment_slips">แนบสลิป / หลักฐานการจ่าย</label>
                     <input type="file" name="payment_slips[]" id="payment_slips" class="form-control" accept="image/*,.pdf" multiple>
-                    <div class="form-text" id="poCreateSlipHint">เลือกได้หลายไฟล์ (รูปหรือ PDF) — ถ้าแนบแล้ว PO จะถูกบันทึกเป็น «จ่ายแล้ว»</div>
                 </div>
             </div>
             <input type="hidden" name="billed_total_amount" id="billed_total_amount" value="0">

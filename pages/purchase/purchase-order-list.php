@@ -487,7 +487,12 @@ $ignoredCountAll = count($ignoredPoList);
                                                 data-slip-path="<?= htmlspecialchars((string) ($row['payment_slip_path'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-payment-method="<?= htmlspecialchars((string) ($row['payment_method'] ?? 'transfer'), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-cash-paid-by="<?= htmlspecialchars((string) ($row['payment_cash_paid_by'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                            ><i class="bi bi-image me-2"></i>ดูสลิปจ่ายเงิน</button>
+                                            ><i class="bi bi-image me-2"></i><?php
+                                            $slipCount = (int) ($row['payment_slip_count'] ?? 0);
+                                            echo $slipCount > 1
+                                                ? 'ดูสลิปจ่ายเงิน (' . number_format($slipCount) . ' ไฟล์)'
+                                                : 'ดูสลิปจ่ายเงิน';
+                                            ?></button>
                                         </li>
                                     <?php else: ?>
                                         <li>
@@ -737,50 +742,6 @@ $ignoredCountAll = count($ignoredPoList);
     </div>
 </div>
 
-<div class="modal fade" id="showSlipModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">หลักฐานการจ่ายเงิน: <span id="showSlipPoNumber">-</span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center">
-                <div id="showSlipPayMeta" class="text-start small text-muted mb-2 d-none"></div>
-                <img id="showSlipImage" src="" alt="หลักฐานการจ่ายเงิน" class="img-fluid rounded border d-none" style="max-height:55vh; object-fit:contain;">
-                <div id="showSlipPdfHint" class="text-muted py-4 d-none">
-                    <i class="bi bi-file-earmark-pdf fs-1 text-danger d-block mb-2"></i>
-                    ไฟล์นี้เป็น PDF — ใช้ปุ่ม «เปิดไฟล์เต็ม» เพื่อดู หรืออัปโหลดไฟล์ใหม่ด้านล่าง
-                </div>
-                <div id="showSlipNoImage" class="text-muted py-4 d-none">ไม่พบไฟล์หลักฐานการจ่ายเงิน</div>
-                <form
-                    action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=replace_po_payment_slip"
-                    method="POST"
-                    enctype="multipart/form-data"
-                    id="replaceSlipForm"
-                    class="border-top pt-3 mt-3 text-start"
-                    onsubmit="return confirm('ยืนยันเปลี่ยนไฟล์หลักฐานการจ่าย? ไฟล์เดิมจะถูกแทนที่');"
-                >
-                    <?php csrf_field(); ?>
-                    <input type="hidden" name="po_id" id="replaceSlipPoId" value="">
-                    <input type="hidden" name="slip_path" id="replaceSlipPath" value="">
-                    <label class="form-label fw-semibold mb-1" for="replaceSlipFile">
-                        <i class="bi bi-arrow-repeat me-1"></i>เปลี่ยนรูป / ไฟล์หลักฐาน
-                    </label>
-                    <input type="file" name="payment_slip" id="replaceSlipFile" class="form-control form-control-sm mb-2" accept="image/*,.pdf" required>
-                    <div class="form-text mb-2">เลือกรูปหรือ PDF ใหม่เพื่อแทนที่ไฟล์ปัจจุบัน</div>
-                    <button type="submit" class="btn btn-warning btn-sm rounded-pill px-3">
-                        <i class="bi bi-upload me-1"></i>บันทึกรูปใหม่
-                    </button>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <a id="showSlipOpenLink" href="#" target="_blank" rel="noopener" class="btn btn-outline-orange d-none">เปิดไฟล์เต็ม</a>
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">ปิด</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="modal fade" id="poBatchPrintChoiceModal" tabindex="-1" aria-labelledby="poBatchPrintChoiceModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -868,6 +829,10 @@ window.tncPoReloadWithWait = function (title, sub) {
     window.location.reload();
 };
 </script>
+<?php
+$poSlipDefaultReturnTo = 'list';
+include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
+?>
 <script>
 (function ($) {
     var poBoot = window.__tncPoBoot;
@@ -1326,37 +1291,18 @@ window.tncPoReloadWithWait = function (title, sub) {
 
 (function () {
     const markPaidModalEl = document.getElementById('markPaidModal');
-    const showSlipModalEl = document.getElementById('showSlipModal');
-    if (!markPaidModalEl || !showSlipModalEl) return;
+    if (!markPaidModalEl) return;
 
     const markPaidModal = new bootstrap.Modal(markPaidModalEl);
-    const showSlipModal = new bootstrap.Modal(showSlipModalEl);
     const poIdInput = document.getElementById('markPaidPoId');
     const poNumberLabel = document.getElementById('markPaidPoNumber');
     const markPaidFile = document.getElementById('markPaidFile');
     const markPaidFileReq = document.getElementById('markPaidFileReq');
-    const showSlipPoNumber = document.getElementById('showSlipPoNumber');
-    const showSlipImage = document.getElementById('showSlipImage');
-    const showSlipNoImage = document.getElementById('showSlipNoImage');
-    const showSlipOpenLink = document.getElementById('showSlipOpenLink');
-    const showSlipPayMeta = document.getElementById('showSlipPayMeta');
-    const showSlipPdfHint = document.getElementById('showSlipPdfHint');
-    const replaceSlipPoId = document.getElementById('replaceSlipPoId');
-    const replaceSlipPath = document.getElementById('replaceSlipPath');
-    const replaceSlipFile = document.getElementById('replaceSlipFile');
     const payMethodTransfer = document.getElementById('payMethodTransfer');
     const payMethodCash = document.getElementById('payMethodCash');
     const markPaidCashWrap = document.getElementById('markPaidCashWrap');
     const markPaidCashBy = document.getElementById('markPaidCashBy');
     const markPaidForm = document.getElementById('markPaidForm');
-
-    function tncEscHtml(s) {
-        return String(s)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
 
     function syncMarkPaidCashUi() {
         if (!markPaidCashWrap || !markPaidCashBy || !payMethodCash) return;
@@ -1437,70 +1383,6 @@ window.tncPoReloadWithWait = function (title, sub) {
                 poId: btn.getAttribute('data-po-id') || '',
                 poNumber: btn.getAttribute('data-po-number') || '-',
             });
-        });
-    });
-
-    document.querySelectorAll('.js-show-slip').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const poId = btn.getAttribute('data-po-id') || '';
-            window.tncPoShowWait(
-                'กำลังโหลดหลักฐาน…',
-                'กรุณารอสักครู่ ระบบกำลังดึงข้อมูลล่าสุด'
-            );
-            window.tncPoFetchActionRow(poId)
-                .then(function (row) {
-                    const poNumber = row.po_number || btn.getAttribute('data-po-number') || '-';
-                    const slip = Array.isArray(row.slip_items) && row.slip_items.length ? row.slip_items[0] : null;
-                    const slipUrl = slip ? (slip.url || '') : '';
-                    const slipPath = slip ? (slip.path || '') : '';
-                    const pm = (row.payment_method || 'transfer').toLowerCase();
-                    const paidBy = row.payment_cash_paid_by || '';
-                    const isPdf = slip ? !!slip.is_pdf : /\.pdf(\?|$)/i.test(slipUrl);
-                    showSlipPoNumber.textContent = poNumber;
-                    if (replaceSlipPoId) replaceSlipPoId.value = String(row.id || poId);
-                    if (replaceSlipPath) replaceSlipPath.value = slipPath;
-                    if (replaceSlipFile) replaceSlipFile.value = '';
-                    if (showSlipPayMeta) {
-                        if (pm === 'cash') {
-                            showSlipPayMeta.classList.remove('d-none');
-                            const extra = paidBy.trim() !== '' ? (' · <strong>จ่ายโดย:</strong> ' + tncEscHtml(paidBy)) : '';
-                            showSlipPayMeta.innerHTML = '<strong>ชำระ:</strong> เงินสด' + extra;
-                        } else {
-                            showSlipPayMeta.classList.remove('d-none');
-                            showSlipPayMeta.innerHTML = '<strong>ชำระ:</strong> โอน/ช่องทางอื่น';
-                        }
-                    }
-                    if (slipUrl !== '') {
-                        showSlipNoImage.classList.add('d-none');
-                        showSlipOpenLink.href = slipUrl;
-                        showSlipOpenLink.classList.remove('d-none');
-                        if (isPdf) {
-                            showSlipImage.src = '';
-                            showSlipImage.classList.add('d-none');
-                            showSlipPdfHint?.classList.remove('d-none');
-                        } else {
-                            showSlipImage.src = slipUrl;
-                            showSlipImage.classList.remove('d-none');
-                            showSlipPdfHint?.classList.add('d-none');
-                        }
-                    } else {
-                        showSlipImage.src = '';
-                        showSlipImage.classList.add('d-none');
-                        showSlipPdfHint?.classList.add('d-none');
-                        showSlipNoImage.classList.remove('d-none');
-                        showSlipOpenLink.href = '#';
-                        showSlipOpenLink.classList.add('d-none');
-                    }
-                    showSlipModal.show();
-                })
-                .catch(function () {
-                    alert('โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่');
-                })
-                .finally(function () {
-                    if (!window.__tncPoReloading) {
-                        window.tncPoHideWait();
-                    }
-                });
         });
     });
 })();

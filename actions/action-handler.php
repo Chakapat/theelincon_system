@@ -3095,9 +3095,9 @@ if ($action === 'add_po_payment_slips' && ($_SERVER['REQUEST_METHOD'] ?? '') ===
         if (preg_match('/^(\d{4}-\d{2})/', $billDate, $mm) === 1) {
             $billMonth = $mm[1];
         }
-        tnc_action_redirect($listUrl . '?payment_slips_updated=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
+        tnc_po_slip_action_redirect($po_id, 'payment_slips_updated=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
     }
-    tnc_action_redirect($listUrl . '?payment_slips_updated=1');
+    tnc_po_slip_action_redirect($po_id, 'payment_slips_updated=1');
 }
 
 /** ลบไฟล์หลักฐานการจ่ายรายการเดียว */
@@ -3142,7 +3142,7 @@ if ($action === 'remove_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') =
         'after' => $poAfter,
         'meta' => ['removed' => $removePath, 'reverted_to_unpaid' => $revertedToUnpaid],
     ]);
-    tnc_action_redirect($listUrl . '?payment_slips_updated=1' . ($revertedToUnpaid ? '&payment_reverted=1' : ''));
+    tnc_po_slip_action_redirect($po_id, 'payment_slips_updated=1' . ($revertedToUnpaid ? '&payment_reverted=1' : ''));
 }
 
 /** เปลี่ยนไฟล์หลักฐานการจ่าย (แทนที่ไฟล์เดิม) */
@@ -3209,9 +3209,9 @@ if ($action === 'replace_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') 
         if (preg_match('/^(\d{4}-\d{2})/', $billDate, $mm) === 1) {
             $billMonth = $mm[1];
         }
-        tnc_action_redirect($listUrl . '?payment_slips_updated=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
+        tnc_po_slip_action_redirect($po_id, 'payment_slips_updated=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
     }
-    tnc_action_redirect($listUrl . '?payment_slips_updated=1');
+    tnc_po_slip_action_redirect($po_id, 'payment_slips_updated=1');
 }
 
 if ($action === 'upload_po_payment_slip' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {

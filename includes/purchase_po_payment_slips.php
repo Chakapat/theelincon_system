@@ -66,6 +66,21 @@ function tnc_po_payment_slip_items(array $po): array
     return $items;
 }
 
+function tnc_po_slip_action_redirect(int $po_id, string $queryString = ''): void
+{
+    $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+    $qs = ltrim($queryString, '?&');
+    if ($returnTo === 'view' && $po_id > 0) {
+        $url = app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id;
+        if ($qs !== '') {
+            $url .= '&' . $qs;
+        }
+        tnc_action_redirect($url);
+    }
+    $listUrl = app_path('pages/purchase/purchase-order-list.php');
+    tnc_action_redirect($listUrl . ($qs !== '' ? '?' . $qs : ''));
+}
+
 function tnc_po_payment_slip_save_paths(int $po_id, array $paths): void
 {
     if ($po_id <= 0) {
