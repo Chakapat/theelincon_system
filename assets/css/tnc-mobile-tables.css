@@ -283,6 +283,7 @@
     }
 }
 
+@media (max-width: 991.98px) {
     /* Site spending report (2-column matrix) */
     #spendTable.tnc-mobile-table thead {
         display: none;
