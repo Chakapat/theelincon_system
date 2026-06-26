@@ -236,4 +236,27 @@
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
+
+    body.tnc-doc-inv #tnc-invoice-print-root .invoice-title {
+        color: var(--doc-inv-primary, #ff6600) !important;
+    }
+
+    body.tnc-doc-inv #tnc-invoice-print-root .doc-type-text {
+        color: var(--doc-inv-primary, #ff6600) !important;
+        border-color: var(--doc-inv-primary, #ff6600) !important;
+        background-color: var(--doc-inv-soft, #fff9f5) !important;
+    }
+
+    body.tnc-doc-inv #tnc-invoice-print-root .table-custom thead th {
+        border-bottom-color: var(--doc-inv-primary, #ff6600) !important;
+    }
+
+    body.tnc-doc-inv #tnc-invoice-print-root .grand-total-row {
+        background: var(--doc-inv-primary, #ff6600) !important;
+        color: #fff !important;
+    }
+
+    body.tnc-doc-inv #tnc-invoice-print-root .grand-total-row span {
+        color: #fff !important;
+    }
 }

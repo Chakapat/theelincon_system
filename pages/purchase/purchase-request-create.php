@@ -23,7 +23,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $editId = (int) ($_GET['id'] ?? 0);
 if ($editId > 0) {
-    if (!user_can('pr.update')) {
+    if (!user_can('pr.update') && !user_can('pr.create')) {
         header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?error=forbidden');
         exit();
     }
@@ -36,6 +36,7 @@ $uid = (int) $_SESSION['user_id'];
 
 $editPr = null;
 $editItems = [];
+$poForPr = null;
 if ($editId > 0) {
     $editPr = Db::rowByIdField('purchase_requests', $editId);
     if ($editPr === null) {
@@ -45,11 +46,7 @@ if ($editId > 0) {
     $poForPr = Db::findFirst('purchase_orders', static function (array $r) use ($editId): bool {
         return isset($r['pr_id']) && (int) $r['pr_id'] === $editId;
     });
-    if ($poForPr !== null) {
-        header('Location: ' . app_path('pages/purchase/purchase-request-list.php') . '?error=pr_has_po');
-        exit();
-    }
-    if (!line_pr_user_can_edit($editPr, false)) {
+    if (!line_pr_user_can_edit($editPr)) {
         header('Location: ' . app_path('pages/purchase/purchase-request-view.php') . '?id=' . $editId . '&error=pr_approved_locked');
         exit();
     }
@@ -131,6 +128,11 @@ usort($sites, static function (array $a, array $b): int {
 require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
 $siteCategoryMap = tnc_site_categories_map_by_site(); // [siteId => [{id,name}], 0 = หมวดกลาง]
 $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
+$editPrIsApproved = $isEdit && line_pr_is_approved_for_po($editPr);
+$editPrHasLinkedPo = $isEdit && is_array($poForPr) && (int) ($poForPr['id'] ?? 0) > 0;
+$editLinkedPoViewUrl = $editPrHasLinkedPo
+    ? app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $poForPr['id']
+    : '';
 
 $siteLockedFromHub = false;
 $lockedSiteHubUrl = '';
@@ -279,6 +281,19 @@ if ($hubSiteIdParam > 0 && !$isEdit) {
     <?php endif; ?>
     <?php if (count($sites) === 0): ?>
         <div class="alert alert-warning">ยังไม่มีข้อมูลไซต์งานในระบบ — ผู้ดูแลต้องเพิ่มที่เมนู «ไซต์งาน» ก่อนจึงจะสร้างใบขอซื้อได้</div>
+    <?php endif; ?>
+    <?php if ($editPrHasLinkedPo): ?>
+        <div class="alert alert-warning border-0 shadow-sm">
+            <i class="bi bi-arrow-repeat me-1"></i>PR นี้มี PO แล้ว — บันทึก PR แล้วระบบจะ<strong>อัปเดต PO ที่เชื่อม</strong>ให้อัตโนมัติ (หมวดหมู่, ไซต์, รายการในตาราง, ยอดรวม)
+            <?php if ($editLinkedPoViewUrl !== ''): ?>
+                · <a href="<?= htmlspecialchars($editLinkedPoViewUrl, ENT_QUOTES, 'UTF-8') ?>" class="alert-link" target="_blank" rel="noopener">ดู PO ที่เชื่อม</a>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+    <?php if ($editPrIsApproved): ?>
+        <div class="alert alert-success border-0 shadow-sm">
+            <i class="bi bi-check-circle me-1"></i>PR นี้อนุมัติแล้ว — แก้ไขและบันทึกได้ สถานะอนุมัติจะยังคงอยู่ (ยังออก PO ได้ตามเดิม)
+        </div>
     <?php endif; ?>
     <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=<?= htmlspecialchars($prFormAction, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1">
         <?php csrf_field(); ?>

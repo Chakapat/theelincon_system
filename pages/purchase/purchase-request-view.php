@@ -24,7 +24,7 @@ extract($prCtx, EXTR_OVERWRITE);
 
 $prCanSendLineAdmin = user_can('pr.send_line') && in_array($prApprovalStatus, ['pending', 'rejected'], true);
 $prCanWebDecide = user_can('pr.approve') && $prApprovalStatus === 'pending';
-$prCanEdit = line_pr_user_can_edit($pr, !empty($existing_po));
+$prCanEdit = line_pr_user_can_edit($pr);
 $prHandlerUrl = app_path('actions/action-handler.php');
 
 $prToolbarPoNumber = '';
@@ -49,14 +49,10 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php require_once dirname(__DIR__, 2) . '/includes/document_color_css.php'; tnc_doc_color_render_head_assets(); ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
         :root {
-            --brand-color: #28a745;
-            --brand-color-deep: #1a5632;
-            --brand-color-soft: #f0fdf4;
-            --brand-border-soft: #bbf7d0;
             --dark: #333;
         }
         body {
@@ -74,7 +70,7 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
             top: 0;
             z-index: 100;
             background: #fff;
-            border-bottom: 1px solid #bbf7d0;
+            border-bottom: 1px solid var(--brand-border-soft, var(--doc-pr-border, #bbf7d0));
             box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
         }
 
@@ -432,7 +428,7 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
         }
     </style>
 </head>
-<body class="purchase-module tnc-app-body tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดใบขอซื้อ…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้ดำเนินการต่อเมื่อโหลดเสร็จ">
+<body class="purchase-module tnc-doc-pr-view tnc-app-body tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดใบขอซื้อ…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้ดำเนินการต่อเมื่อโหลดเสร็จ">
 
 <div class="no-print tnc-app-chrome">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -506,7 +502,7 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                     <?php endif; ?>
                 <?php endif; ?>
                 <?php if ($prCanEdit): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $pr['id'] ?>" class="btn js-tnc-doc-action btn-outline-warning btn-sm rounded-pill px-3" data-dock-primary="edit" title="<?= in_array($prApprovalStatus, ['approved', 'ready'], true) ? 'แก้ไข PR ที่อนุมัติแล้ว (Admin)' : 'แก้ไขใบขอซื้อ' ?>">
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $pr['id'] ?>" class="btn js-tnc-doc-action btn-outline-warning btn-sm rounded-pill px-3" data-dock-primary="edit" title="แก้ไขใบขอซื้อ">
                         <i class="bi bi-pencil-square me-1"></i>แก้ไข PR
                     </a>
                 <?php endif; ?>
@@ -606,6 +602,7 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
 </script>
 <?php
 $tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
+tnc_doc_color_render_print_style_tag();
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
 <style media="print">

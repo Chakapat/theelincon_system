@@ -51,23 +51,51 @@ function line_pr_status_badge_class(string $status): string
 }
 
 /**
- * แก้ไข PR ได้เมื่อมี pr.update, ยังไม่มี PO และยังไม่อนุมัติ
- * PR อนุมัติแล้ว — เฉพาะ ADMIN เท่านั้น
+ * แก้ไข PR ได้เมื่อมี pr.update หรือ pr.create (มี PO แล้วก็แก้ได้)
+ * PR อนุมัติแล้ว — บันทึกแล้วคงสถานะอนุมัติ (ดู line_pr_status_fields_for_update)
  */
-function line_pr_user_can_edit(array $pr, bool $hasPo = false): bool
+function line_pr_user_can_edit(array $pr): bool
 {
-    if (!function_exists('user_can') || !user_can('pr.update')) {
-        return false;
+    if (function_exists('user_can') && user_can('pr.update')) {
+        return true;
     }
-    if ($hasPo) {
-        return false;
-    }
-    $st = line_pr_normalize_status($pr);
-    if (in_array($st, ['approved', 'ready'], true)) {
-        return function_exists('user_is_admin_only_role') && user_is_admin_only_role();
+    if (function_exists('user_can') && user_can('pr.create')) {
+        return true;
     }
 
-    return true;
+    return false;
+}
+
+/**
+ * ฟิลด์สถานะ PR หลัง update — อนุมัติแล้วคงสถานะเดิม, อื่น ๆ กลับ pending
+ *
+ * @return array<string, mixed>
+ */
+function line_pr_status_fields_for_update(array $existing): array
+{
+    $st = line_pr_normalize_status($existing);
+    $token = trim((string) ($existing['line_approval_token'] ?? ''));
+    if (in_array($st, ['approved', 'ready'], true)) {
+        return [
+            'status' => trim((string) ($existing['status'] ?? 'approved')),
+            'line_approval_token' => $token,
+            'line_decision' => (string) ($existing['line_decision'] ?? ''),
+            'line_decided_at' => (string) ($existing['line_decided_at'] ?? ''),
+            'line_decided_by_line_user_id' => (string) ($existing['line_decided_by_line_user_id'] ?? ''),
+            'line_decided_by_user_id' => (int) ($existing['line_decided_by_user_id'] ?? 0),
+            'line_decision_source' => (string) ($existing['line_decision_source'] ?? ''),
+        ];
+    }
+
+    return [
+        'status' => 'pending',
+        'line_approval_token' => $token,
+        'line_decision' => '',
+        'line_decided_at' => '',
+        'line_decided_by_line_user_id' => '',
+        'line_decided_by_user_id' => 0,
+        'line_decision_source' => '',
+    ];
 }
 
 function line_pr_new_approval_token(): string

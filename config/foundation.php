@@ -70,15 +70,9 @@ if (!function_exists('tnc_default_company_logo_filename')) {
 }
 
 if (!function_exists('tnc_company_logo_url')) {
-    /** Company (employer) logo URL — uses bundled brand asset, then uploads/logos fallback. */
+    /** Company (employer) logo URL — custom upload first, then bundled default. */
     function tnc_company_logo_url(?string $storedFilename = null): string
     {
-        $bundledRel = 'assets/img/' . tnc_default_company_logo_filename();
-        $bundledAbs = ROOT_PATH . '/' . $bundledRel;
-        if (is_file($bundledAbs)) {
-            return app_path($bundledRel);
-        }
-
         if ($storedFilename !== null && $storedFilename !== '') {
             $basename = basename(str_replace('\\', '/', trim($storedFilename)));
             if ($basename !== '' && $basename !== '.' && $basename !== '..') {
@@ -86,7 +80,17 @@ if (!function_exists('tnc_company_logo_url')) {
                 if (is_file($uploadAbs)) {
                     return upload_logo_url($basename);
                 }
+                $assetAbs = ROOT_PATH . '/assets/img/' . $basename;
+                if (is_file($assetAbs)) {
+                    return app_path('assets/img/' . $basename);
+                }
             }
+        }
+
+        $bundledRel = 'assets/img/' . tnc_default_company_logo_filename();
+        $bundledAbs = ROOT_PATH . '/' . $bundledRel;
+        if (is_file($bundledAbs)) {
+            return app_path($bundledRel);
         }
 
         return '';

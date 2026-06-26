@@ -265,6 +265,7 @@ foreach ($tncMobileCss as $tncMobileCssFile) {
                     user_can('page.internal.roles')
                     || user_can('page.internal.audit')
                     || user_can('page.internal.line')
+                    || user_can('page.internal.doc_colors')
                 );
                 ?>
                 <li class="nav-item nav-hub-block">
@@ -297,6 +298,11 @@ foreach ($tncMobileCss as $tncMobileCssFile) {
                             <?php if ($tncNavShowInternal && user_can('page.internal.line')): ?>
                             <a class="tnc-user-popover-link" href="<?= htmlspecialchars(app_path('pages/internal/line-notify-config.php'), ENT_QUOTES, 'UTF-8') ?>">
                                 <i class="bi bi-bell-fill text-success"></i>ตั้งค่า LINE แจ้งเตือน
+                            </a>
+                            <?php endif; ?>
+                            <?php if ($tncNavShowInternal && user_can('page.internal.doc_colors')): ?>
+                            <a class="tnc-user-popover-link" href="<?= htmlspecialchars(app_path('pages/internal/config_color_docs.php'), ENT_QUOTES, 'UTF-8') ?>">
+                                <i class="bi bi-palette-fill text-warning"></i>ตั้งค่าโทนสีเอกสาร
                             </a>
                             <?php endif; ?>
                             <?php if ($tncNavShowInternal): ?>

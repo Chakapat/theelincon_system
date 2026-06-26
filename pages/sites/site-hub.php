@@ -8,6 +8,7 @@ session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/site_budget.php';
 require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
+require_once dirname(__DIR__, 2) . '/includes/line_pr_approval.php';
 require_once dirname(__DIR__, 2) . '/includes/sites.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
 
@@ -126,6 +127,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_category'])
         exit;
     }
     $catId = (int) ($_POST['category_id'] ?? 0);
+    if ($catId > 0 && !tnc_site_category_belongs_to_site($catId, $siteId)) {
+        header('Location: ' . $hubUrl . '&error=cat_forbidden&open_cat=1');
+        exit;
+    }
     $catName = trim((string) ($_POST['category_name'] ?? ''));
     $pctRaw = trim(str_replace('%', '', (string) ($_POST['category_budget_percent'] ?? '')));
     $catBudgetPercent = null;
@@ -159,6 +164,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_category'])
         exit;
     }
     header('Location: ' . $hubUrl . '&error=invalid&open_cat=1');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site_category'])) {
+    if (!$canEditBudget) {
+        header('Location: ' . app_path('index.php') . '?error=forbidden');
+        exit;
+    }
+    if (!csrf_verify_request()) {
+        header('Location: ' . $hubUrl . '&error=csrf');
+        exit;
+    }
+    require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
+    $postSiteId = (int) ($_POST['category_site_id'] ?? 0);
+    if ($postSiteId !== $siteId) {
+        header('Location: ' . $hubUrl . '&error=invalid');
+        exit;
+    }
+    $catId = (int) ($_POST['category_id'] ?? 0);
+    $deleteResult = tnc_site_category_delete_for_site($catId, $siteId);
+    if (empty($deleteResult['ok'])) {
+        $code = (string) ($deleteResult['error_code'] ?? 'invalid');
+        $redirect = $hubUrl . '&error=' . rawurlencode($code);
+        if ($code === 'in_use' && $catId > 0) {
+            $redirect .= '&cat_ref=' . $catId;
+        }
+        header('Location: ' . $redirect);
+        exit;
+    }
+    $beforeCat = is_array($deleteResult['before'] ?? null) ? $deleteResult['before'] : [];
+    tnc_audit_log('delete', 'site_cost_category', (string) $catId, trim((string) ($beforeCat['name'] ?? '')), [
+        'source' => 'site-hub.php',
+        'action' => 'delete_site_category',
+        'before' => $beforeCat,
+        'site_id' => $siteId,
+    ]);
+    header('Location: ' . $hubUrl . '&cat_deleted=1');
     exit;
 }
 
@@ -227,6 +269,15 @@ $openCatEditId = isset($_GET['edit_cat']) ? (int) $_GET['edit_cat'] : 0;
 $openCatModal = !empty($_GET['open_cat']) || $openCatEditId > 0 || (isset($_GET['error']) && in_array((string) $_GET['error'], ['percent_sum', 'invalid_name'], true));
 $openDeleteModal = !empty($_GET['open_delete']) || (isset($_GET['error']) && in_array((string) $_GET['error'], ['confirm_mismatch', 'site_delete_failed', 'confirm_password_required', 'confirm_password_invalid'], true));
 $openRenameModal = !empty($_GET['open_rename']);
+$catRefId = isset($_GET['cat_ref']) ? (int) $_GET['cat_ref'] : 0;
+$catRefBlock = null;
+$openCatRefModal = false;
+if ((string) ($_GET['error'] ?? '') === 'in_use' && $catRefId > 0) {
+    $catRefBlock = tnc_site_category_list_references($catRefId);
+    if ((int) ($catRefBlock['total'] ?? 0) > 0) {
+        $openCatRefModal = true;
+    }
+}
 $qSite = 'site_id=' . $siteId;
 $sitePurchaseCounts = tnc_site_purchase_counts($siteId);
 
@@ -449,6 +500,61 @@ $renderHubMenuItems = static function (array $items): void {
             outline: 2px solid rgba(234, 88, 12, 0.45);
             outline-offset: 2px;
         }
+        .hub-cat-delete-btn {
+            width: 1.75rem;
+            height: 1.75rem;
+            padding: 0;
+            border: 0;
+            border-radius: 999px;
+            background: transparent;
+            color: var(--hub-muted);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: color 0.15s ease, background 0.15s ease;
+        }
+        .hub-cat-delete-btn:hover {
+            color: #dc2626;
+            background: rgba(220, 38, 38, 0.08);
+        }
+        .hub-cat-delete-btn:focus-visible {
+            outline: 2px solid rgba(220, 38, 38, 0.35);
+            outline-offset: 2px;
+        }
+        .hub-cat-actions {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.15rem;
+        }
+        .hub-cat-ref-modal .modal-content {
+            border: 1px solid #fecaca;
+            border-radius: 0.875rem;
+            overflow: hidden;
+        }
+        .hub-cat-ref-modal__header {
+            background: #fff7ed;
+            border-bottom: 1px solid #fed7aa;
+        }
+        .hub-cat-ref-modal__name {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 0.375rem;
+            background: #ffedd5;
+            color: #9a3412;
+            font-weight: 700;
+        }
+        .hub-cat-ref-modal__section-title {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--hub-ink);
+            margin: 0 0 0.5rem;
+        }
+        .hub-cat-ref-modal__table td,
+        .hub-cat-ref-modal__table th {
+            font-size: 0.875rem;
+        }
         .hub-cat-name-cell { display: flex; align-items: center; gap: 0.35rem; min-width: 0; }
         .hub-cat-name-cell__text { min-width: 0; }
         .hub-danger-zone {
@@ -564,6 +670,9 @@ $renderHubMenuItems = static function (array $items): void {
     if ($hubFlash === null && !empty($_GET['cat_saved'])) {
         $hubFlash = ['type' => 'success', 'message' => 'บันทึกหมวดค่าใช้จ่ายแล้ว', 'audio' => 'update'];
     }
+    if ($hubFlash === null && !empty($_GET['cat_deleted'])) {
+        $hubFlash = ['type' => 'success', 'message' => 'ลบหมวดค่าใช้จ่ายแล้ว', 'audio' => 'update'];
+    }
     if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'percent_sum') {
         $hubFlash['message'] = 'รวม % หมวดของไซต์นี้เกิน 100% — กรุณาปรับสัดส่วน';
     }
@@ -588,6 +697,17 @@ $renderHubMenuItems = static function (array $items): void {
     }
     if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'invalid_name' && !empty($_GET['open_rename'])) {
         $hubFlash['message'] = 'ชื่อไซต์ไม่ถูกต้อง — กรุณากรอก 1–200 ตัวอักษร';
+    }
+    if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'cat_forbidden') {
+        $hubFlash['message'] = 'ไม่สามารถแก้ไขหมวดกลางจาก Site Hub ได้';
+    }
+    if ($openCatRefModal) {
+        $hubFlash = null;
+    } elseif ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'in_use') {
+        $hubFlash['message'] = 'ลบหมวดไม่ได้ — มี PR/PO อ้างอิงหมวดนี้อยู่';
+    }
+    if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'forbidden' && empty($_GET['open_delete'])) {
+        $hubFlash['message'] = 'ไม่สามารถลบหมวดนี้ได้';
     }
     tnc_render_flash($hubFlash);
     ?>
@@ -648,6 +768,14 @@ $renderHubMenuItems = static function (array $items): void {
 
     <?php if (!empty($summary['categories']) || $canEditBudget): ?>
     <div class="hub-card p-4 mb-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h2 class="hub-menu-section-title mb-0"><i class="bi bi-tags me-2 text-secondary"></i>หมวดค่าใช้จ่าย</h2>
+            <?php if ($canEditBudget): ?>
+                <button type="button" class="btn btn-sm btn-warning rounded-pill hub-cat-open-add" data-bs-toggle="modal" data-bs-target="#hubCategoryModal">
+                    <i class="bi bi-plus-lg me-1"></i>เพิ่มหมวด
+                </button>
+            <?php endif; ?>
+        </div>
         <?php if (empty($summary['categories'])): ?>
             <div class="text-center py-4 text-muted">
                 <i class="bi bi-tags fs-3 d-block mb-2 opacity-50"></i>
@@ -669,13 +797,15 @@ $renderHubMenuItems = static function (array $items): void {
                         <th class="text-end">วงเงิน</th>
                         <th class="text-end">ใช้ไป</th>
                         <th class="text-end">คงเหลือ</th>
-                        <?php if ($canEditBudget): ?><th class="text-end" style="width:3rem;"><span class="visually-hidden">แก้ไข</span></th><?php endif; ?>
+                        <?php if ($canEditBudget): ?><th class="text-end" style="width:4.5rem;"><span class="visually-hidden">จัดการ</span></th><?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($summary['categories'] as $cat): ?>
                         <?php
                         $catIdRow = (int) ($cat['id'] ?? 0);
+                        $catCanManage = !empty($cat['can_manage']);
+                        $catIsGlobal = !empty($cat['is_global']);
                         $catPctVal = $cat['budget_percent'] ?? null;
                         $catPctInput = ($catPctVal === null) ? '' : rtrim(rtrim(number_format((float) $catPctVal, 2, '.', ''), '0'), '.');
                         $catEditPercentRoom = round(max(0.0, 100.0 - tnc_site_category_percent_sum($siteId, $catIdRow)), 2);
@@ -685,6 +815,9 @@ $renderHubMenuItems = static function (array $items): void {
                                 <div class="hub-cat-name-cell">
                                     <div class="hub-cat-name-cell__text">
                                         <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                                        <?php if ($catIsGlobal): ?>
+                                            <span class="badge bg-secondary-subtle text-secondary ms-1">หมวดกลาง</span>
+                                        <?php endif; ?>
                                         <?php if (!empty($cat['over_budget'])): ?>
                                             <span class="badge bg-danger ms-1">เกินงบ</span>
                                         <?php elseif ($cat['remaining'] !== null && $cat['remaining'] <= 0.0001): ?>
@@ -717,18 +850,39 @@ $renderHubMenuItems = static function (array $items): void {
                             </td>
                             <?php if ($canEditBudget): ?>
                             <td class="text-end">
-                                <button type="button"
-                                        class="hub-cat-edit-btn hub-cat-open-edit"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#hubCategoryModal"
-                                        data-cat-id="<?= $catIdRow ?>"
-                                        data-cat-name="<?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                        data-cat-percent="<?= htmlspecialchars($catPctInput, ENT_QUOTES, 'UTF-8') ?>"
-                                        data-cat-percent-room="<?= htmlspecialchars(number_format($catEditPercentRoom, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>"
-                                        title="แก้ไขหมวด"
-                                        aria-label="แก้ไขหมวด <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
+                                <?php if ($catCanManage): ?>
+                                <div class="hub-cat-actions">
+                                    <button type="button"
+                                            class="hub-cat-edit-btn hub-cat-open-edit"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#hubCategoryModal"
+                                            data-cat-id="<?= $catIdRow ?>"
+                                            data-cat-name="<?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-cat-percent="<?= htmlspecialchars($catPctInput, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-cat-percent-room="<?= htmlspecialchars(number_format($catEditPercentRoom, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            title="แก้ไขหมวด"
+                                            aria-label="แก้ไขหมวด <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form method="post"
+                                          action="<?= htmlspecialchars($hubUrl, ENT_QUOTES, 'UTF-8') ?>"
+                                          class="d-inline"
+                                          onsubmit="return confirm(<?= json_encode('ลบหมวด «' . (string) ($cat['name'] ?? '') . '» ถาวร?', JSON_UNESCAPED_UNICODE) ?>);">
+                                        <?php csrf_field(); ?>
+                                        <input type="hidden" name="delete_site_category" value="1">
+                                        <input type="hidden" name="category_site_id" value="<?= $siteId ?>">
+                                        <input type="hidden" name="category_id" value="<?= $catIdRow ?>">
+                                        <button type="submit"
+                                                class="hub-cat-delete-btn"
+                                                title="ลบหมวด"
+                                                aria-label="ลบหมวด <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                            <i class="bi bi-trash3"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                                <?php else: ?>
+                                <span class="text-muted small">—</span>
+                                <?php endif; ?>
                             </td>
                             <?php endif; ?>
                         </tr>
@@ -772,6 +926,102 @@ $renderHubMenuItems = static function (array $items): void {
                         <button type="submit" class="btn btn-warning rounded-pill" id="hubCategorySubmitBtn"><i class="bi bi-check-lg me-1"></i><span id="hubCategorySubmitText">บันทึกหมวด</span></button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($canEditBudget && $catRefBlock !== null): ?>
+    <div class="modal fade hub-cat-ref-modal" id="hubCategoryRefModal" tabindex="-1" aria-labelledby="hubCategoryRefModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header hub-cat-ref-modal__header">
+                    <h5 class="modal-title" id="hubCategoryRefModalLabel">
+                        <i class="bi bi-exclamation-triangle text-warning me-2"></i>ลบหมวดไม่ได้
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">
+                        หมวด <span class="hub-cat-ref-modal__name"><?= htmlspecialchars((string) ($catRefBlock['category_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                        ยังถูกใช้งานใน <?= (int) ($catRefBlock['total'] ?? 0) ?> เอกสาร — กรุณาแก้หรือลบ PR/PO เหล่านี้ก่อน
+                    </p>
+
+                    <?php if (!empty($catRefBlock['prs'])): ?>
+                    <div class="mb-4">
+                        <h6 class="hub-cat-ref-modal__section-title"><i class="bi bi-cart-check me-1 text-warning"></i>ใบขอซื้อ (PR) · <?= count($catRefBlock['prs']) ?> รายการ</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0 hub-cat-ref-modal__table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>เลขที่</th>
+                                        <th>วันที่</th>
+                                        <th>สถานะ</th>
+                                        <th class="text-end">ยอดรวม</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($catRefBlock['prs'] as $refPr): ?>
+                                    <tr>
+                                        <td>
+                                            <a href="<?= htmlspecialchars((string) ($refPr['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="fw-semibold text-decoration-none" target="_blank" rel="noopener">
+                                                <?= htmlspecialchars((string) ($refPr['number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                                                <i class="bi bi-box-arrow-up-right ms-1 small opacity-50"></i>
+                                            </a>
+                                        </td>
+                                        <td><?= htmlspecialchars((string) ($refPr['date'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($refPr['status_label'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td class="text-end"><?= number_format((float) ($refPr['amount'] ?? 0), 2) ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($catRefBlock['pos'])): ?>
+                    <div class="mb-0">
+                        <h6 class="hub-cat-ref-modal__section-title"><i class="bi bi-receipt me-1 text-success"></i>ใบสั่งซื้อ (PO) · <?= count($catRefBlock['pos']) ?> รายการ</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0 hub-cat-ref-modal__table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>เลขที่</th>
+                                        <th>ประเภท</th>
+                                        <th>วันที่</th>
+                                        <th>สถานะ</th>
+                                        <th class="text-end">ยอดรวม</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($catRefBlock['pos'] as $refPo): ?>
+                                    <?php
+                                    $refPoType = (string) ($refPo['order_type'] ?? 'purchase');
+                                    $refPoTypeLabel = $refPoType === 'hire' ? 'จัดจ้าง' : 'สั่งซื้อ';
+                                    ?>
+                                    <tr>
+                                        <td>
+                                            <a href="<?= htmlspecialchars((string) ($refPo['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="fw-semibold text-decoration-none" target="_blank" rel="noopener">
+                                                <?= htmlspecialchars((string) ($refPo['number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                                                <i class="bi bi-box-arrow-up-right ms-1 small opacity-50"></i>
+                                            </a>
+                                        </td>
+                                        <td><?= htmlspecialchars($refPoTypeLabel, ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($refPo['date'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($refPo['status_label'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td class="text-end"><?= number_format((float) ($refPo['amount'] ?? 0), 2) ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">ปิด</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1018,7 +1268,7 @@ $renderHubMenuItems = static function (array $items): void {
         <?php
         $openCatEditRow = null;
         foreach ($summary['categories'] ?? [] as $catRow) {
-            if ((int) ($catRow['id'] ?? 0) === $openCatEditId) {
+            if ((int) ($catRow['id'] ?? 0) === $openCatEditId && !empty($catRow['can_manage'])) {
                 $openCatEditRow = $catRow;
                 break;
             }
@@ -1043,6 +1293,16 @@ $renderHubMenuItems = static function (array $items): void {
         window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
     <?php endif; ?>
+}());
+</script>
+<?php endif; ?>
+<?php if ($openCatRefModal): ?>
+<script>
+(function () {
+    var refModalEl = document.getElementById('hubCategoryRefModal');
+    if (refModalEl && window.bootstrap) {
+        window.bootstrap.Modal.getOrCreateInstance(refModalEl).show();
+    }
 }());
 </script>
 <?php endif; ?>

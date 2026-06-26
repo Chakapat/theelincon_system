@@ -10,6 +10,7 @@ require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/banks.php';
 require_once dirname(__DIR__, 2) . '/includes/tax_invoice_ref_search_catalog.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
+require_once dirname(__DIR__, 2) . '/includes/document_color_css.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -455,10 +456,9 @@ if (!$inv) {
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <?php tnc_doc_color_render_style_tag(); ?>
         <style>
             :root {
-                --tir-accent: #ea580c;
-                --tir-accent-dark: #c2410c;
                 --tir-focus: rgba(253, 126, 20, 0.35);
                 --tir-card-shadow: 0 0.35rem 2rem rgba(15, 23, 42, 0.06), 0 0.08rem 0.35rem rgba(15, 23, 42, 0.04);
             }
@@ -586,7 +586,7 @@ if (!$inv) {
             }
         </style>
     </head>
-    <body class="tir-search-page">
+    <body class="tir-search-page tnc-doc-tax">
     <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
     <div class="container py-4 py-md-5 px-3">
         <div class="tir-hero-card">
@@ -773,13 +773,13 @@ if (!$has_tax_invoice || $edit_mode) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <?php tnc_doc_color_render_style_tag(); ?>
     <style>
-        /* body canvas: tnc-app.css */
-        .border-orange { border-left: 5px solid #FF6600 !important; }
-        .btn-orange { background: linear-gradient(135deg, #FF9966 0%, #FF6600 100%); color: white; border: none; border-radius: 10px; font-weight: 600; padding: 10px 25px; }
+        .border-orange { border-left: 5px solid var(--doc-tax-primary, #ff6600) !important; }
+        .btn-orange { background: linear-gradient(135deg, color-mix(in srgb, var(--doc-tax-primary, #ff6600) 65%, #fff) 0%, var(--doc-tax-primary, #ff6600) 100%); color: white; border: none; border-radius: 10px; font-weight: 600; padding: 10px 25px; }
         .btn-orange:hover { opacity: 0.9; color: white; }
         .readonly-grand-total {
-            font-size: 2.2rem; font-weight: bold; color: #FF6600;
+            font-size: 2.2rem; font-weight: bold; color: var(--doc-tax-primary, #ff6600);
             border: none; background-color: transparent !important;
             text-align: right; width: 100%; padding: 10px; outline: none;
         }
@@ -788,7 +788,7 @@ if (!$has_tax_invoice || $edit_mode) {
         .remove-row:hover { transform: scale(1.2); }
     </style>
 </head>
-<body class="tnc-app-body">
+<body class="tnc-app-body tnc-doc-tax">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container mt-4 mb-5">
@@ -1199,11 +1199,11 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
+    <?php tnc_doc_color_render_head_assets(); ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/doc-view-shell.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
-        :root { --orange: #FF6600; --dark: #333; }
+        :root { --dark: #333; }
         
         .invoice-box.inv-sales-doc {
             width: 210mm;
@@ -1242,7 +1242,7 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
         .doc-type-text {
             border: 2px solid var(--orange); color: var(--orange);
             padding: 2px 12px; font-weight: 700; font-size: 14px; border-radius: 4px;
-            display: inline-block; background-color: #fff9f5;
+            display: inline-block; background-color: var(--doc-tax-soft, #fff9f5);
         }
 
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
@@ -1354,7 +1354,7 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
         }
     </style>
 </head>
-<body class="invoice-print-page tax-print-page tnc-app-body">
+<body class="invoice-print-page tax-print-page tnc-app-body tnc-doc-tax">
 
 <div class="no-print">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -1557,6 +1557,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <?php
 $tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
+tnc_doc_color_render_print_style_tag();
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
 <style media="print">

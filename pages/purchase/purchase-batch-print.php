@@ -71,25 +71,19 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php require_once dirname(__DIR__, 2) . '/includes/document_color_css.php'; tnc_doc_color_render_head_assets(); ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <style>
         <?php if ($kind === 'po'): ?>
-        :root {
-            --brand-color: #ea580c;
-            --brand-color-deep: #c2410c;
-            --brand-color-soft: #fff3e6;
-            --brand-border-soft: #fed7aa;
-            --dark: #333;
-        }
+        :root { --dark: #333; }
         .po-side-accent { border-left-color: var(--brand-color) !important; }
         .po-vat-line { color: var(--brand-color-deep) !important; }
         .invoice-box .po-total-sheet {
             width: 100%;
             max-width: 100%;
             box-sizing: border-box;
-            background: #fff9f0;
-            border: 1px solid #fed7aa;
+            background: var(--doc-po-soft, #fff9f0);
+            border: 1px solid var(--doc-po-border, #fed7aa);
             border-radius: 0.5rem;
             padding: 0.75rem 1rem;
         }
@@ -158,7 +152,7 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
             background: #f8fafc;
         }
         <?php else: ?>
-        :root { --brand-color: #28a745; --dark: #333; }
+        :root { --dark: #333; }
         <?php endif; ?>
         body { font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', Tahoma, sans-serif; background: #e8ecf1; color: var(--dark); margin: 0; padding: 0; font-weight: 500; }
         .tnc-batch-toolbar {
@@ -200,10 +194,10 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
         }
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
         .po-purchase-order-doc .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
-        .pr-purchase-requisition-doc .invoice-title { font-size: 28px; font-weight: 800; color: #28a745; line-height: 1.1; }
+        .pr-purchase-requisition-doc .invoice-title { font-size: 28px; font-weight: 800; color: var(--doc-pr-primary, #28a745); line-height: 1.1; }
         .table-custom { margin-top: 12px; margin-bottom: 0; }
         .invoice-box.po-purchase-order-doc .table-custom thead th { background: #fafafa; border-bottom: 2px solid var(--brand-color); font-size: 13px; padding: 10px; }
-        .pr-purchase-requisition-doc .table-custom thead th { background: #fafafa; border-bottom: 2px solid #28a745; font-size: 13px; padding: 10px; }
+        .pr-purchase-requisition-doc .table-custom thead th { background: #fafafa; border-bottom: 2px solid var(--doc-pr-primary, #28a745); font-size: 13px; padding: 10px; }
         .table-custom td { padding: 10px; font-size: 13px; border-bottom: 1px solid #f2f2f2; }
         .invoice-box .po-total-sheet .summary-item {
             display: flex;
@@ -229,7 +223,7 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
         }
         .pr-purchase-requisition-doc .grand-total-row {
             display: flex; justify-content: space-between; align-items: center;
-            background: #28a745; color: #fff; padding: 12px; border-radius: 5px; margin-top: 8px;
+            background: var(--doc-pr-primary, #28a745); color: #fff; padding: 12px; border-radius: 5px; margin-top: 8px;
         }
         .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; text-align: center; margin-top: 22px; page-break-inside: avoid; break-inside: avoid; }
         .sig-space { height: 72px; }
@@ -321,7 +315,7 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
         }
     </style>
 </head>
-<body class="tnc-batch-print-body purchase-module">
+<body class="tnc-batch-print-body purchase-module<?= $kind === 'po' ? ' tnc-doc-po-view' : ($kind === 'pr' ? ' tnc-doc-pr-view' : '') ?>">
 
 <div class="tnc-batch-toolbar no-print d-flex flex-wrap align-items-center justify-content-between gap-2">
     <div class="d-flex flex-wrap align-items-center gap-2">
@@ -399,6 +393,7 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <?php
 $tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
+tnc_doc_color_render_print_style_tag();
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
 <style media="print">

@@ -83,7 +83,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
+    <?php require_once dirname(__DIR__, 2) . '/includes/document_color_css.php'; tnc_doc_color_render_head_assets(); ?>
     <style>
         .table-card { border: none; border-radius: var(--tnc-radius-lg); box-shadow: var(--tnc-shadow-sm); }
         .badge { font-weight: 500; }
@@ -276,12 +276,8 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                             <td class="text-center no-print tnc-mobile-actions" data-label="จัดการ">
                                 <div class="btn-group shadow-sm rounded">
                                     <?php
-                                    $prCanEdit = line_pr_user_can_edit($row, $prHasPo);
-                                    $prEditLockTitle = $prHasPo
-                                        ? 'มีใบสั่งซื้อ (PO) แล้ว — แก้ไขไม่ได้'
-                                        : (in_array(line_pr_normalize_status($row), ['approved', 'ready'], true)
-                                            ? 'อนุมัติแล้ว — เฉพาะ Admin แก้ไขได้'
-                                            : 'แก้ไขไม่ได้');
+                                    $prCanEdit = line_pr_user_can_edit($row);
+                                    $prEditLockTitle = 'ไม่มีสิทธิ์แก้ไข PR';
                                     ?>
                                     <?php if ($prCanEdit): ?>
                                         <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['id'] ?>" class="btn btn-sm btn-white text-warning border" title="แก้ไขใบขอซื้อ">

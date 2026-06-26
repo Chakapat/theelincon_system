@@ -162,6 +162,15 @@ if (!function_exists('tnc_site_budget_site_used_map')) {
      */
     function tnc_site_budget_site_used_map(?int $excludePoId = null): array
     {
+        static $cachedDefault = null;
+        static $cachedByExclude = [];
+        if ($excludePoId === null && is_array($cachedDefault)) {
+            return $cachedDefault;
+        }
+        if ($excludePoId !== null && array_key_exists($excludePoId, $cachedByExclude)) {
+            return $cachedByExclude[$excludePoId];
+        }
+
         $map = [];
         foreach (tnc_site_budget_purchase_orders_cached() as $po) {
             if (!is_array($po)) {
@@ -182,6 +191,12 @@ if (!function_exists('tnc_site_budget_site_used_map')) {
         }
         foreach ($map as $siteId => $sum) {
             $map[$siteId] = round($sum, 2);
+        }
+
+        if ($excludePoId === null) {
+            $cachedDefault = $map;
+        } else {
+            $cachedByExclude[$excludePoId] = $map;
         }
 
         return $map;
@@ -209,7 +224,7 @@ if (!function_exists('tnc_site_budget_site_summary_light')) {
      */
     function tnc_site_budget_site_summary_light(int $siteId, array $siteRow, float $used): array
     {
-        $siteLimit = tnc_site_budget_site_limit_from_row($siteRow);
+        $siteLimit = tnc_site_budget_site_limit($siteId);
         $used = round(max(0.0, $used), 2);
         $remaining = $siteLimit !== null ? round($siteLimit - $used, 2) : null;
         $low = false;
@@ -366,9 +381,13 @@ if (!function_exists('tnc_site_budget_category_rows_for_site')) {
             if ($limit !== null && $remaining !== null && $remaining > 0.0001 && $remaining <= tnc_site_budget_low_threshold($limit) + 0.0001) {
                 $low = true;
             }
+            $catSiteId = (int) ($cat['site_id'] ?? 0);
             $rows[] = [
                 'id' => $cid,
                 'name' => (string) ($cat['name'] ?? ''),
+                'site_id' => $catSiteId,
+                'is_global' => $catSiteId === 0,
+                'can_manage' => $catSiteId === $siteId,
                 'budget_percent' => $pct,
                 'limit' => $limit,
                 'used' => $used,

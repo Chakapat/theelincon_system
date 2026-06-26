@@ -125,11 +125,11 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/doc-view-shell.css'), ENT_QUOTES, 'UTF-8') ?>">
     <?php endif; ?>
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
+    <?php require_once dirname(__DIR__, 2) . '/includes/document_color_css.php'; tnc_doc_color_render_head_assets(); ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/invoice-sales-print.css'), ENT_QUOTES, 'UTF-8') ?>">
     
     <style>
-        :root { --orange: #FF6600; --dark: #333; }
+        :root { --dark: #333; }
         
         .invoice-box.inv-sales-doc {
             width: 210mm;
@@ -181,11 +181,11 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
         .doc-type-text {
             border: 2px solid var(--orange); color: var(--orange);
             padding: 2px 15px; font-weight: 800; font-size: 14px; border-radius: 5px;
-            display: inline-block; background-color: #fff9f5;
+            display: inline-block; background-color: var(--doc-inv-soft, #fff9f5);
         }
         .doc-site-block {
             border-left: 3px solid var(--orange);
-            background: #fff9f5;
+            background: var(--doc-inv-soft, #fff9f5);
             padding: 0.35rem 0.65rem;
             margin-bottom: 0.35rem;
             font-size: 13px;
@@ -324,7 +324,7 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
         }
     </style>
 </head>
-<body class="invoice-print-page<?= $autoprint ? ' invoice-autoprint' : ($embed ? ' invoice-embed' : ' tnc-app-body') ?>">
+<body class="invoice-print-page tnc-doc-inv<?= $autoprint ? ' invoice-autoprint' : ($embed ? ' invoice-embed' : ' tnc-app-body') ?>">
 
 <?php if (!$embed && !$autoprint): ?>
 <div class="tnc-inv-chrome no-print">
@@ -519,6 +519,7 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
 
 <?php
 $tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
+tnc_doc_color_render_print_style_tag();
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
 <style media="print">

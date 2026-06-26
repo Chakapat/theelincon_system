@@ -65,6 +65,12 @@ if (in_array($action, $tncDeletePwdActions, true)) {
 
 $admin_only_actions = ['add_member', 'edit_member', 'delete_supplier', 'delete_contractor', 'add_company', 'edit_company', 'add_customer', 'edit_customer'];
 if (in_array($action, $admin_only_actions, true) && !user_is_admin_role()) {
+    if (tnc_ajax_form_requested()) {
+        header('Content-Type: application/json; charset=UTF-8');
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'message' => 'เฉพาะผู้ดูแลระบบ (CEO/ADMIN) เท่านั้น'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     exit('Access Denied: เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถดำเนินการนี้ได้');
 }
 
@@ -355,10 +361,28 @@ if ($action === 'get_data') {
         $row = Db::rowByIdField('suppliers', $id);
     } elseif ($type === 'contractor') {
         $row = Db::rowByIdField('contractors', $id);
-    } elseif ($type === 'company' || $type === 'customer') {
-        tnc_require_finance_role();
-        $table = ($type === 'company') ? 'company' : 'customers';
-        $row = Db::row($table, (string) $id);
+    } elseif ($type === 'company') {
+        if (!user_can('page.org.company')) {
+            http_response_code(403);
+            echo json_encode(['error' => 'forbidden'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        require_once dirname(__DIR__) . '/includes/party_logo.php';
+        $row = Db::rowByIdField('company', $id);
+        if ($row !== null) {
+            $row['logo_url'] = tnc_party_logo_public_url((string) ($row['logo'] ?? ''));
+        }
+    } elseif ($type === 'customer') {
+        if (!user_can('page.org.customer')) {
+            http_response_code(403);
+            echo json_encode(['error' => 'forbidden'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        require_once dirname(__DIR__) . '/includes/party_logo.php';
+        $row = Db::rowByIdField('customers', $id);
+        if ($row !== null) {
+            $row['logo_url'] = tnc_party_logo_public_url((string) ($row['logo'] ?? ''));
+        }
     } else {
         http_response_code(400);
         echo json_encode(['error' => 'bad_type'], JSON_UNESCAPED_UNICODE);
@@ -892,7 +916,9 @@ if ($action === 'pr_web_decision') {
 }
 
 if ($action === 'update_pr') {
-    tnc_require_can('pr.update', 'ไม่มีสิทธิ์แก้ไข PR');
+    if (!user_can('pr.update') && !user_can('pr.create')) {
+        tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?error=forbidden');
+    }
     $pr_id = (int) ($_POST['pr_id'] ?? 0);
     if ($pr_id <= 0) {
         tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?error=invalid_pr');
@@ -901,13 +927,7 @@ if ($action === 'update_pr') {
     if ($existing === null) {
         tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?error=invalid_pr');
     }
-    $hasPo = Db::findFirst('purchase_orders', static function (array $r) use ($pr_id): bool {
-        return isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
-    });
-    if ($hasPo !== null) {
-        tnc_action_redirect(app_path('pages/purchase/purchase-request-list.php') . '?error=pr_has_po');
-    }
-    if (!line_pr_user_can_edit($existing, false)) {
+    if (!line_pr_user_can_edit($existing)) {
         tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=pr_approved_locked');
     }
 
@@ -1125,15 +1145,7 @@ if ($action === 'update_pr') {
         'quotation_attachment_name' => $quoteAttachmentName,
         'quotation_attachment_mime' => $quoteAttachmentMime,
         'quotation_attachment_size' => $quoteAttachmentSize,
-        'status' => 'pending',
-        // คงโทเคนเดิมไว้ เพื่อให้ลิงก์อนุมัติ LINE ที่ส่งไปแล้วยังใช้ได้ (อายุไม่จำกัด)
-        'line_approval_token' => trim((string) ($existing['line_approval_token'] ?? '')),
-        'line_decision' => '',
-        'line_decided_at' => '',
-        'line_decided_by_line_user_id' => '',
-        'line_decided_by_user_id' => 0,
-        'line_decision_source' => '',
-    ]);
+    ], line_pr_status_fields_for_update($existing));
     Db::setRow('purchase_requests', (string) $pr_id, $pr_row);
 
     Db::deleteWhereEquals('purchase_request_items', 'pr_id', (string) $pr_id);
@@ -1195,6 +1207,11 @@ if ($action === 'update_pr') {
         'meta' => ['lines' => $prItemsAfter],
     ]);
 
+    require_once dirname(__DIR__) . '/includes/pr_po_sync.php';
+    $poSyncResult = is_array($prAfterSave)
+        ? tnc_pr_sync_linked_purchase_orders($pr_id, $prAfterSave)
+        : ['synced' => 0, 'skipped' => [], 'errors' => []];
+
     $lineNotifyQ = '';
     if (!empty($_POST['send_line_after_save'])) {
         $lineSendUp = line_pr_prepare_and_send_line($pr_id);
@@ -1204,10 +1221,10 @@ if ($action === 'update_pr') {
     }
 
     if (trim((string) ($_POST['after_pr_update'] ?? '')) === 'po_from_pr' && $pr_id > 0) {
-        tnc_action_redirect(app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&pr_updated=1' . $lineNotifyQ);
+        tnc_action_redirect(app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&pr_updated=1' . $lineNotifyQ . tnc_pr_po_sync_query_suffix($poSyncResult));
     }
 
-    tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&updated=1' . $lineNotifyQ);
+    tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&updated=1' . $lineNotifyQ . tnc_pr_po_sync_query_suffix($poSyncResult));
 }
 
 if ($action === 'delete_pr') {
@@ -3296,6 +3313,14 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
             ]));
         }
 
+        require_once dirname(__DIR__) . '/includes/party_logo.php';
+        $removeLogo = !empty($_POST['remove_logo']);
+        $logoUpload = tnc_party_logo_upload_from_post($_FILES['logo'] ?? []);
+        if (!$logoUpload['ok']) {
+            $logoErr = ($logoUpload['error'] ?? '') === 'upload_type' ? 'logo_upload_type' : 'logo_upload_failed';
+            tnc_action_redirect(app_path($page) . '?error=' . $logoErr);
+        }
+
         if (strpos($action, 'add') !== false) {
             $nid = Db::nextNumericId($table, 'id');
             $row['id'] = $nid;
@@ -3303,6 +3328,9 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
                 $row['customer_type'] = $partyType;
             } elseif ($table === 'company') {
                 $row['company_type'] = $partyType;
+            }
+            if ($logoUpload['filename'] !== '') {
+                $row['logo'] = $logoUpload['filename'];
             }
             Db::setRow($table, (string) $nid, $row);
             $entityLabel = $table === 'company' ? 'company' : 'customer';
@@ -3314,15 +3342,28 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
             ]);
         } else {
             $edit_id = (int) ($_POST['id'] ?? 0);
-            $cur = Db::row($table, (string) $edit_id) ?? [];
+            $cur = Db::rowByIdField($table, $edit_id) ?? [];
+            if ($edit_id <= 0 || $cur === []) {
+                tnc_action_redirect(app_path($page) . '?error=not_found');
+            }
+            $pk = Db::pkForLogicalId($table, $edit_id);
             if ($table === 'company') {
                 $row['company_type'] = $partyType;
             } elseif ($table === 'customers' && array_key_exists('customer_type', $_POST)) {
                 $row['customer_type'] = $partyType;
             }
-            Db::setRow($table, (string) $edit_id, array_merge($cur, $row));
+            if ($removeLogo) {
+                tnc_party_logo_delete_stored($cur['logo'] ?? '');
+                $row['logo'] = '';
+            } elseif ($logoUpload['filename'] !== '') {
+                tnc_party_logo_delete_stored($cur['logo'] ?? '');
+                $row['logo'] = $logoUpload['filename'];
+            } else {
+                $row['logo'] = (string) ($cur['logo'] ?? '');
+            }
+            Db::setRow($table, $pk, array_merge($cur, $row));
             $entityLabel = $table === 'company' ? 'company' : 'customer';
-            $orgAfterEd = Db::row($table, (string) $edit_id);
+            $orgAfterEd = Db::row($table, $pk);
             tnc_audit_log('update', $entityLabel, (string) $edit_id, $name !== '' ? $name : ('#' . $edit_id), [
                 'source' => 'action-handler',
                 'action' => $action,

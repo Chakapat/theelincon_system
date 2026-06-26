@@ -128,11 +128,6 @@ foreach ($sites as $siteRow) {
         break;
     }
 }
-$siteUsedMap = [];
-if ($hasSites && function_exists('tnc_site_budget_site_used_map')) {
-    $siteUsedMap = tnc_site_budget_site_used_map();
-}
-
 $pickerQuickLinks = [];
 if (user_can('page.pr')) {
     $pickerQuickLinks[] = [
@@ -203,7 +198,7 @@ if (user_can('page.po')) {
             border: 1px solid var(--picker-border);
             border-radius: 0.875rem;
             background: var(--picker-surface);
-            min-height: 10.5rem;
+            min-height: 11.75rem;
             overflow: hidden;
             transition: transform 0.18s ease-out, border-color 0.18s ease-out, background-color 0.18s ease-out;
         }
@@ -266,10 +261,55 @@ if (user_can('page.po')) {
         .site-card__stats {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 0.35rem 0.5rem;
-            margin-top: 0.75rem;
-            padding-top: 0.75rem;
-            border-top: 1px solid #f1f5f9;
+            gap: 0.5rem;
+            margin-top: 0.85rem;
+        }
+        .site-stat-box {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            min-width: 0;
+            padding: 0.6rem 0.55rem;
+            border-radius: 0.625rem;
+            background: #f8fafc;
+        }
+        .site-card--favorite .site-stat-box {
+            background: #fff7ed;
+        }
+        .site-stat-box--spent {
+            background: #fff;
+            box-shadow: inset 0 0 0 1px #e2e8f0;
+        }
+        .site-card--favorite .site-stat-box--spent {
+            background: #fffaf5;
+            box-shadow: inset 0 0 0 1px #fed7aa;
+        }
+        .site-stat-box--remaining {
+            background: #f0fdf4;
+        }
+        .site-card--favorite .site-stat-box--remaining {
+            background: #ecfdf5;
+        }
+        .site-stat-box--remaining.is-warn {
+            background: #fff7ed;
+        }
+        .site-stat-box--remaining.is-danger {
+            background: #fef2f2;
+        }
+        .site-stat-box--remaining.is-muted {
+            background: #f8fafc;
+        }
+        .site-card__detail {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            margin-top: 0.5rem;
+            padding: 0.55rem 0.65rem;
+            border-radius: 0.625rem;
+            background: #f8fafc;
+        }
+        .site-card--favorite .site-card__detail {
+            background: #fff7ed;
         }
         .site-stat__label {
             display: block;
@@ -277,7 +317,6 @@ if (user_can('page.po')) {
             font-weight: 700;
             letter-spacing: 0.04em;
             color: var(--picker-muted);
-            margin-bottom: 0.1rem;
         }
         .site-stat__value {
             display: block;
@@ -286,6 +325,7 @@ if (user_can('page.po')) {
             color: var(--picker-ink);
             font-variant-numeric: tabular-nums;
             line-height: 1.3;
+            word-break: break-word;
         }
         .site-stat__value--muted { color: var(--picker-muted); font-weight: 600; }
         .site-stat__value--warn { color: #c2410c; }
@@ -293,8 +333,7 @@ if (user_can('page.po')) {
         .site-card__progress {
             height: 0.35rem;
             border-radius: 999px;
-            background: #f1f5f9;
-            margin-top: 0.75rem;
+            background: #e2e8f0;
             overflow: hidden;
         }
         .site-card__progress-bar {
@@ -309,7 +348,7 @@ if (user_can('page.po')) {
         .site-card__status {
             display: inline-flex;
             align-items: center;
-            margin-top: 0.65rem;
+            align-self: flex-start;
             padding: 0.2rem 0.55rem;
             border-radius: 999px;
             font-size: 0.6875rem;
@@ -368,7 +407,23 @@ if (user_can('page.po')) {
         .site-skeleton-line.sm { width: 42%; }
         .site-skeleton-line.md { width: 58%; }
         .site-skeleton-line.lg { width: 72%; }
-        .site-skeleton-pill { width: 5.5rem; height: 1.35rem; border-radius: 999px; }
+        .site-skeleton-box {
+            display: block;
+            min-height: 3.1rem;
+            border-radius: 0.625rem;
+            background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 45%, #eef2f7 90%);
+            background-size: 200% 100%;
+            animation: sitePickerSkeletonWave 1.35s ease-in-out infinite;
+        }
+        .site-skeleton-panel {
+            display: block;
+            height: 2.25rem;
+            margin-top: 0.5rem;
+            border-radius: 0.625rem;
+            background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 45%, #eef2f7 90%);
+            background-size: 200% 100%;
+            animation: sitePickerSkeletonWave 1.35s ease-in-out infinite;
+        }
         .site-skeleton-icon { width: 2.75rem; height: 2.75rem; border-radius: 0.625rem; flex-shrink: 0; }
         @keyframes sitePickerSkeletonWave {
             0% { background-position: 200% 0; }
@@ -378,7 +433,7 @@ if (user_can('page.po')) {
         .site-card--add {
             border: 2px dashed #cbd5e1;
             background: #fff;
-            min-height: 10.5rem;
+            min-height: 11.75rem;
             cursor: pointer;
             transition: border-color 0.18s ease-out, background-color 0.18s ease-out, transform 0.18s ease-out;
         }
@@ -722,7 +777,8 @@ if (user_can('page.po')) {
             .picker-action-tile,
             .picker-action-tile__chevron,
             .site-skeleton-line,
-            .site-skeleton-pill,
+            .site-skeleton-box,
+            .site-skeleton-panel,
             .site-skeleton-icon {
                 transition: none;
                 animation: none;
@@ -751,11 +807,7 @@ if (user_can('page.po')) {
     }
     tnc_render_flash($flash);
     ?>
-    <div class="site-picker-head">
-        <p class="tnc-page-kicker">Site Picker</p>
-        <h1 class="tnc-list-title mb-0"><span class="tnc-list-title__icon me-2"><i class="bi bi-buildings"></i></span>เลือกไซต์งาน</h1>
-        <p class="site-picker-head__hint">กดดาวมุมขวาบนเพื่อปักหมุดไซต์ที่ใช้บ่อย รายการโปรดจะอยู่ด้านบนเสมอ</p>
-    </div>
+
     <?php if ($pickerQuickLinks !== []): ?>
     <section class="picker-quick-bar mb-4" aria-label="รายการจัดซื้อทั้งระบบ">
         <div class="row picker-quick-grid">
@@ -789,17 +841,6 @@ if (user_can('page.po')) {
         }
     }
     ?>
-    <?php if ($hasSites): ?>
-    <div class="site-picker-section">
-        <h2 class="site-picker-section__title">ไซต์ทั้งหมด</h2>
-        <span class="site-picker-section__meta">
-            <?= (int) $visibleSiteCount ?> ไซต์
-            <?php if (count($favoriteSiteIds) > 0): ?>
-                · <?= count($favoriteSiteIds) ?> รายการโปรด
-            <?php endif; ?>
-        </span>
-    </div>
-    <?php endif; ?>
 
     <div class="row site-picker-grid<?= $hasSites ? ' site-picker-is-loading' : '' ?>" id="sitePickerGrid"<?= $hasSites ? ' aria-busy="true"' : '' ?>>
         <?php if ($hasSites): ?>
@@ -811,12 +852,12 @@ if (user_can('page.po')) {
                                 <span class="site-skeleton-icon"></span>
                                 <div class="site-card__body flex-grow-1">
                                     <span class="site-skeleton-line lg d-block"></span>
-                                    <div class="site-card__stats" style="border-top:0;padding-top:0.5rem;margin-top:0.65rem;">
-                                        <span class="site-skeleton-line sm"></span>
-                                        <span class="site-skeleton-line sm"></span>
-                                        <span class="site-skeleton-line sm"></span>
+                                    <div class="site-card__stats">
+                                        <span class="site-skeleton-box"></span>
+                                        <span class="site-skeleton-box"></span>
+                                        <span class="site-skeleton-box"></span>
                                     </div>
-                                    <span class="site-skeleton-line md d-block mt-3"></span>
+                                    <span class="site-skeleton-panel d-block"></span>
                                 </div>
                             </div>
                         </div>
@@ -831,11 +872,7 @@ if (user_can('page.po')) {
                     continue;
                 }
                 $isFavorite = !empty($favoriteSiteIdSet[$sid]);
-                if (function_exists('tnc_site_budget_site_summary_light')) {
-                    $summary = tnc_site_budget_site_summary_light($sid, $site, $siteUsedMap[$sid] ?? 0.0);
-                } else {
-                    $summary = tnc_site_budget_site_summary($sid);
-                }
+                $summary = tnc_site_budget_site_summary($sid);
                 $limit = $summary['limit'];
                 $used = (float) ($summary['used'] ?? 0);
                 $remaining = $summary['remaining'];
@@ -848,6 +885,14 @@ if (user_can('page.po')) {
                     $progressClass = 'is-full';
                 } elseif (!empty($summary['low'])) {
                     $progressClass = 'is-low';
+                }
+                $remainingBoxClass = 'site-stat-box--remaining';
+                if (!empty($summary['unlimited'])) {
+                    $remainingBoxClass .= ' is-muted';
+                } elseif ($remaining !== null && $remaining <= 0.0001) {
+                    $remainingBoxClass .= ' is-danger';
+                } elseif ($remaining !== null && !empty($summary['low'])) {
+                    $remainingBoxClass .= ' is-warn';
                 }
                 ?>
                 <div class="col-12 col-md-6 col-lg-4 site-picker-card"
@@ -869,21 +914,19 @@ if (user_can('page.po')) {
                                 <div class="site-card__body">
                                     <h2 class="site-card__name"><?= htmlspecialchars((string) ($site['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></h2>
                                     <div class="site-card__stats">
-                                        <div class="site-stat">
+                                        <div class="site-stat-box">
                                             <span class="site-stat__label">งบ</span>
                                             <span class="site-stat__value<?= !empty($summary['unlimited']) ? ' site-stat__value--muted' : '' ?>">
                                                 <?= !empty($summary['unlimited']) ? 'ไม่จำกัด' : tnc_site_budget_format_money($limit) ?>
                                             </span>
                                         </div>
-                                        <div class="site-stat">
+                                        <div class="site-stat-box site-stat-box--spent">
                                             <span class="site-stat__label">ใช้ไป</span>
-                                            <span class="site-stat__value<?= !empty($summary['unlimited']) ? ' site-stat__value--muted' : '' ?>">
-                                                <?= !empty($summary['unlimited']) ? '—' : tnc_site_budget_format_money($used) ?>
-                                            </span>
+                                            <span class="site-stat__value"><?= tnc_site_budget_format_money($used) ?></span>
                                         </div>
-                                        <div class="site-stat">
+                                        <div class="site-stat-box <?= htmlspecialchars($remainingBoxClass, ENT_QUOTES, 'UTF-8') ?>">
                                             <span class="site-stat__label">คงเหลือ</span>
-                                            <span class="site-stat__value<?= ($remaining !== null && $remaining <= 0.0001) ? ' site-stat__value--danger' : (($remaining !== null && !empty($summary['low'])) ? ' site-stat__value--warn' : '') ?>">
+                                            <span class="site-stat__value<?= ($remaining !== null && $remaining <= 0.0001) ? ' site-stat__value--danger' : (($remaining !== null && !empty($summary['low'])) ? ' site-stat__value--warn' : '') ?><?= !empty($summary['unlimited']) ? ' site-stat__value--muted' : '' ?>">
                                                 <?php if (!empty($summary['unlimited'])): ?>
                                                     —
                                                 <?php elseif ($remaining !== null): ?>
@@ -895,18 +938,18 @@ if (user_can('page.po')) {
                                         </div>
                                     </div>
                                     <?php if ($usedPct !== null): ?>
-                                        <div class="site-card__progress" role="presentation" aria-hidden="true">
-                                            <span class="site-card__progress-bar <?= htmlspecialchars($progressClass, ENT_QUOTES, 'UTF-8') ?>" style="width: <?= htmlspecialchars((string) $usedPct, ENT_QUOTES, 'UTF-8') ?>%;"></span>
+                                        <div class="site-card__detail">
+                                            <div class="site-card__progress" role="presentation" aria-hidden="true">
+                                                <span class="site-card__progress-bar <?= htmlspecialchars($progressClass, ENT_QUOTES, 'UTF-8') ?>" style="width: <?= htmlspecialchars((string) $usedPct, ENT_QUOTES, 'UTF-8') ?>%;"></span>
+                                            </div>
+                                            <?php if (!empty($summary['exhausted'])): ?>
+                                                <span class="site-card__status site-card__status--danger">เต็มวงเงินแล้ว</span>
+                                            <?php elseif (!empty($summary['low'])): ?>
+                                                <span class="site-card__status site-card__status--warn">งบเหลือน้อย</span>
+                                            <?php elseif ($remaining !== null): ?>
+                                                <span class="site-card__status site-card__status--ok">พร้อมใช้งาน</span>
+                                            <?php endif; ?>
                                         </div>
-                                    <?php endif; ?>
-                                    <?php if (!empty($summary['unlimited'])): ?>
-                                        <span class="site-card__status site-card__status--neutral">งบไม่จำกัด</span>
-                                    <?php elseif (!empty($summary['exhausted'])): ?>
-                                        <span class="site-card__status site-card__status--danger">เต็มวงเงินแล้ว</span>
-                                    <?php elseif (!empty($summary['low'])): ?>
-                                        <span class="site-card__status site-card__status--warn">งบเหลือน้อย</span>
-                                    <?php elseif ($remaining !== null): ?>
-                                        <span class="site-card__status site-card__status--ok">พร้อมใช้งาน</span>
                                     <?php endif; ?>
                                 </div>
                             </div>

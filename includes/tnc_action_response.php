@@ -112,6 +112,9 @@ if (!function_exists('tnc_ajax_error_message')) {
             'photo_required' => 'กรุณาแนบรูปบัตรประชาชน',
             'invalid_national_id' => 'เลขบัตรประชาชนไม่ถูกต้อง',
             'duplicate_national_id' => 'เลขบัตรประชาชนนี้มีในระบบแล้ว',
+            'logo_upload_failed' => 'อัปโหลดโลโก้ไม่สำเร็จ',
+            'logo_upload_type' => 'ไฟล์โลโก้ไม่รองรับ (ใช้ JPG, PNG, WEBP หรือ GIF)',
+            'not_found' => 'ไม่พบข้อมูล',
         ];
 
         return $map[$code] ?? ('ไม่สามารถดำเนินการได้ (' . $code . ')');

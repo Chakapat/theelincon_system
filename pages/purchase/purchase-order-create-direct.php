@@ -7,6 +7,8 @@ use Theelincon\Rtdb\Purchase;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/banks.php';
+require_once dirname(__DIR__, 2) . '/includes/suppliers.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -26,6 +28,24 @@ $errorCode = trim((string) ($_GET['error'] ?? ''));
 $po_number = Purchase::generatePONumber();
 $supplierRows = Db::tableRows('suppliers');
 Db::sortRows($supplierRows, 'name', false);
+
+/** @var array<string, array{name: string, bank: string, account_name: string, account_number: string, bank_logo: string, note_text: string}> $supplierPaymentMap */
+$supplierPaymentMap = [];
+foreach ($supplierRows as $supplierRow) {
+    $sid = (int) ($supplierRow['id'] ?? 0);
+    if ($sid <= 0 || !tnc_supplier_has_payment_info($supplierRow)) {
+        continue;
+    }
+    $bankName = trim((string) ($supplierRow['bank_name'] ?? ''));
+    $supplierPaymentMap[(string) $sid] = [
+        'name' => trim((string) ($supplierRow['name'] ?? '')),
+        'bank' => $bankName,
+        'account_name' => trim((string) ($supplierRow['bank_account_name'] ?? '')),
+        'account_number' => trim((string) ($supplierRow['bank_account_number'] ?? '')),
+        'bank_logo' => $bankName !== '' ? tnc_bank_logo_url($bankName) : '',
+        'note_text' => tnc_supplier_payment_note_text($supplierRow),
+    ];
+}
 
 $sites = Db::tableRows('sites');
 usort($sites, static function (array $a, array $b): int {
@@ -196,6 +216,10 @@ $items = [[
                             <option value="<?= $sid ?>"<?= $prefillSiteId === $sid ? ' selected' : '' ?>><?= htmlspecialchars((string) ($site['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <?php if ($siteLockedFromHub): ?>
+                        <input type="hidden" name="site_id" value="<?= $prefillSiteId ?>">
+                        <div class="form-text"><i class="bi bi-lock-fill me-1"></i>ล็อกจาก Site Hub — <a href="<?= htmlspecialchars($lockedSiteHubUrl, ENT_QUOTES, 'UTF-8') ?>">กลับเมนูไซต์</a></div>
+                    <?php endif; ?>
                 </div>
                 <div class="col-md-6">
                     <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span></label>
@@ -336,6 +360,7 @@ $items = [[
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
@@ -387,7 +412,14 @@ $items = [[
         form.addEventListener('submit', function (e) {
             const siteEl = document.getElementById('site_id');
             const catEl = document.getElementById('cost_category_id');
-            const siteVal = siteEl ? (parseInt(siteEl.value || '0', 10) || 0) : 0;
+            const lockedSiteId = <?= $siteLockedFromHub ? (int) $prefillSiteId : 0 ?>;
+            function resolveSiteId() {
+                if (lockedSiteId > 0) {
+                    return lockedSiteId;
+                }
+                return siteEl ? (parseInt(siteEl.value || '0', 10) || 0) : 0;
+            }
+            const siteVal = resolveSiteId();
             if (siteEl && !siteEl.disabled && siteEl.required && siteVal <= 0) {
                 e.preventDefault();
                 alert('กรุณาเลือกไซต์งาน (โครงการ)');
@@ -427,12 +459,20 @@ $items = [[
 
 (function () {
     var catMap = <?= json_encode($siteCategoryMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;
+    var lockedSiteId = <?= $siteLockedFromHub ? (int) $prefillSiteId : 0 ?>;
     var siteEl = document.getElementById('site_id');
     var catEl = document.getElementById('cost_category_id');
     if (!catEl) return;
 
+    function resolveSiteId() {
+        if (lockedSiteId > 0) {
+            return lockedSiteId;
+        }
+        return siteEl ? parseInt(siteEl.value || '0', 10) || 0 : 0;
+    }
+
     function populateCategories() {
-        var siteId = siteEl ? parseInt(siteEl.value || '0', 10) || 0 : 0;
+        var siteId = resolveSiteId();
         var prev = parseInt(catEl.value || '0', 10) || 0;
         catEl.innerHTML = '';
         if (siteId <= 0) {
@@ -465,29 +505,138 @@ $items = [[
 
     if (siteEl) {
         siteEl.addEventListener('change', populateCategories);
+        if (lockedSiteId > 0) {
+            siteEl.value = String(lockedSiteId);
+        }
     }
     populateCategories();
 })();
 
+const SUPPLIER_PAYMENT_MAP = <?= json_encode($supplierPaymentMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+
 (function () {
     const searchInput = document.getElementById('supplier_search');
     const supplierIdInput = document.getElementById('supplier_id');
+    const poNoteEl = document.getElementById('po_note');
     const datalist = document.getElementById('supplier_list');
-    if (!searchInput || !supplierIdInput || !datalist) return;
+    if (!searchInput || !supplierIdInput || !datalist) {
+        return;
+    }
+
+    let lastPromptedSupplierId = '';
+    let autoInsertedNote = '';
+
     function syncSupplierId() {
         const typed = (searchInput.value || '').trim();
-        supplierIdInput.value = '';
-        if (typed === '') return;
+        if (typed === '') {
+            supplierIdInput.value = '';
+            return '';
+        }
+        let matchedId = '';
         datalist.querySelectorAll('option').forEach(function (opt) {
-            if (supplierIdInput.value === '' && (opt.value || '').trim().toLowerCase() === typed.toLowerCase()) {
-                supplierIdInput.value = (opt.getAttribute('data-id') || '').trim();
+            const optValue = (opt.value || '').trim();
+            if (matchedId === '' && optValue.toLowerCase() === typed.toLowerCase()) {
+                matchedId = (opt.getAttribute('data-id') || '').trim();
+            }
+        });
+        supplierIdInput.value = matchedId;
+        return matchedId;
+    }
+
+    function escHtml(text) {
+        return String(text || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function buildPaymentInfoHtml(info) {
+        const rows = [];
+        if (info.bank) {
+            const logo = info.bank_logo
+                ? '<img src="' + escHtml(info.bank_logo) + '" alt="" style="width:22px;height:22px;object-fit:contain;border-radius:4px;vertical-align:middle;margin-right:6px;">'
+                : '';
+            rows.push('<div class="mb-1"><span class="text-muted small">ธนาคาร</span><div class="fw-semibold">' + logo + escHtml(info.bank) + '</div></div>');
+        }
+        if (info.account_name) {
+            rows.push('<div class="mb-1"><span class="text-muted small">ชื่อบัญชี</span><div class="fw-semibold">' + escHtml(info.account_name) + '</div></div>');
+        }
+        if (info.account_number) {
+            rows.push('<div class="mb-0"><span class="text-muted small">เลขที่บัญชี</span><div class="fw-semibold font-monospace">' + escHtml(info.account_number) + '</div></div>');
+        }
+        return '<div class="text-start small">' +
+            '<div class="mb-2 fw-bold text-dark">' + escHtml(info.name) + '</div>' +
+            '<div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">' + rows.join('') + '</div>' +
+            '</div>';
+    }
+
+    function stripAutoInsertedNote(note) {
+        let text = String(note || '');
+        if (autoInsertedNote && text.indexOf(autoInsertedNote) >= 0) {
+            text = text.replace(autoInsertedNote, '').replace(/^\s*\n+/, '').replace(/\n+\s*$/, '');
+        }
+        return text.trim();
+    }
+
+    function applyPaymentNote(noteText) {
+        if (!poNoteEl || !noteText) return;
+        const base = stripAutoInsertedNote(poNoteEl.value);
+        autoInsertedNote = noteText;
+        poNoteEl.value = base === '' ? noteText : (base + '\n\n' + noteText);
+        if (poNoteEl.value.length > 500) {
+            poNoteEl.value = poNoteEl.value.slice(0, 500);
+        }
+    }
+
+    function maybePromptSupplierPayment(supplierId) {
+        if (!supplierId || supplierId === lastPromptedSupplierId) {
+            return;
+        }
+        const info = SUPPLIER_PAYMENT_MAP[supplierId];
+        if (!info || !info.note_text) {
+            lastPromptedSupplierId = supplierId;
+            return;
+        }
+        lastPromptedSupplierId = supplierId;
+        if (typeof Swal === 'undefined') {
+            applyPaymentNote(info.note_text);
+            return;
+        }
+        Swal.fire({
+            icon: 'question',
+            title: 'ใส่ข้อมูลบัญชีในหมายเหตุ PO?',
+            html: '<p class="small text-muted mb-3">ผู้ขายรายนี้มีข้อมูลบัญชีรับโอน — ต้องการใส่ลงหมายเหตุใบสั่งซื้อหรือไม่</p>' + buildPaymentInfoHtml(info),
+            showCancelButton: true,
+            confirmButtonText: 'ใส่ในหมายเหตุ',
+            cancelButtonText: 'ไม่ใส่',
+            confirmButtonColor: '#ea580c',
+            reverseButtons: true,
+            focusCancel: true,
+            width: '28rem',
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                applyPaymentNote(info.note_text);
             }
         });
     }
+
+    function onSupplierChange() {
+        const matchedId = syncSupplierId();
+        if (!matchedId) {
+            lastPromptedSupplierId = '';
+            return;
+        }
+        maybePromptSupplierPayment(matchedId);
+    }
+
     searchInput.addEventListener('input', syncSupplierId);
-    searchInput.addEventListener('change', syncSupplierId);
+    searchInput.addEventListener('change', onSupplierChange);
+
     const form = searchInput.closest('form');
-    if (form) form.addEventListener('submit', syncSupplierId);
+    if (form) {
+        form.addEventListener('submit', syncSupplierId);
+    }
 })();
 
 function addRow() {

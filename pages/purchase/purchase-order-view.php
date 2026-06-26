@@ -117,7 +117,7 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/document-print.css')) ?>">
+    <?php require_once dirname(__DIR__, 2) . '/includes/document_color_css.php'; tnc_doc_color_render_head_assets(); ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <?php if ($woHistoryPrintMode !== null): ?>
@@ -130,10 +130,6 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
     
     <style>
         :root {
-            --brand-color: #ea580c;
-            --brand-color-deep: #c2410c;
-            --brand-color-soft: #fff3e6;
-            --brand-border-soft: #fed7aa;
             --dark: #333;
         }
         body {
@@ -151,7 +147,7 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
             top: 0;
             z-index: 100;
             background: #fff;
-            border-bottom: 1px solid var(--tnc-orange-border, #fdba74);
+            border-bottom: 1px solid var(--brand-border-soft, var(--doc-po-border, #fed7aa));
             box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
         }
 
@@ -263,7 +259,7 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
 
         /* PR ฝังในหน้า PO — คงโทนเขียวของ PR (ไม่ใช้ส้มของ PO) */
         .pr-bundle-inline {
-            --brand-color: #28a745;
+            --brand-color: var(--doc-pr-primary, #28a745);
             --brand-color-deep: #1e7e34;
         }
 
@@ -351,14 +347,14 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
             width: 100%;
             max-width: 100%;
             box-sizing: border-box;
-            background: #fff9f0;
-            border: 1px solid #fed7aa;
+            background: var(--doc-po-soft, var(--brand-color-soft, #fff9f0));
+            border: 1px solid var(--doc-po-border, var(--brand-border-soft, #fed7aa));
             border-radius: 0.5rem;
             padding: 0.75rem 1rem;
         }
 
         .company-logo { max-height: 84px; width: auto; max-width: 220px; object-fit: contain; }
-        .po-purchase-order-doc .invoice-title { font-size: 28px; font-weight: 800; color: var(--brand-color); line-height: 1.1; }
+        .po-purchase-order-doc .invoice-title { font-size: 28px; font-weight: 800; color: var(--doc-po-primary, var(--brand-color, #ea580c)); line-height: 1.1; }
         .table-custom { margin-top: 12px; margin-bottom: 0; }
         .po-purchase-order-doc .po-company-name {
             font-size: 1.25rem;
@@ -375,7 +371,7 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
         .po-purchase-order-doc .po-note-heading {
             font-size: 0.8rem;
             font-weight: 700;
-            color: #9a3412;
+            color: var(--doc-po-deep, var(--brand-color-deep, #9a3412));
             margin-bottom: 0.35rem;
         }
 
@@ -476,7 +472,7 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: var(--brand-color);
+            background: var(--doc-po-primary, var(--brand-color, #ea580c));
             color: #fff;
             padding: 12px;
             border-radius: 5px;
@@ -739,7 +735,7 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
         <?php endif; ?>
     </style>
 </head>
-<body class="purchase-module<?= ($poEmbed || $poAutoprint || $woHistoryPrintMode !== null) ? ' po-doc-embed' . ($poAutoprint ? ' po-doc-autoprint' : '') . ($woHistoryPrintMode !== null ? ' po-wo-history-print' : '') : ' tnc-app-body tnc-po-boot-lock' ?>"<?= ($poEmbed || $poAutoprint || $woHistoryPrintMode !== null) ? '' : ' data-tnc-boot-title="กำลังโหลดใบสั่งซื้อ…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้บันทึกเลขบิลและดำเนินการต่อเมื่อโหลดเสร็จ"' ?>>
+<body class="purchase-module tnc-doc-po-view<?= ($poEmbed || $poAutoprint || $woHistoryPrintMode !== null) ? ' po-doc-embed' . ($poAutoprint ? ' po-doc-autoprint' : '') . ($woHistoryPrintMode !== null ? ' po-wo-history-print' : '') : ' tnc-app-body tnc-po-boot-lock' ?>"<?= ($poEmbed || $poAutoprint || $woHistoryPrintMode !== null) ? '' : ' data-tnc-boot-title="กำลังโหลดใบสั่งซื้อ…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้บันทึกเลขบิลและดำเนินการต่อเมื่อโหลดเสร็จ"' ?>>
 
 <?php if (!$poEmbed && !$poAutoprint && $woHistoryPrintMode === null): ?>
 <div class="no-print tnc-app-chrome">
@@ -1421,6 +1417,7 @@ fetch(window.tncPoLiveDatasetsUrl + '?dataset=po_action_row&po_id=' + encodeURIC
 $tncPrintOnlyCssPath = dirname(__DIR__, 2) . '/assets/css/print-document-only.css';
 $tncPrintOnlyCssVer = is_file($tncPrintOnlyCssPath) ? (string) filemtime($tncPrintOnlyCssPath) : (string) time();
 $tncPrintOnlyCss = app_path('assets/css/print-document-only.css') . '?v=' . rawurlencode($tncPrintOnlyCssVer);
+tnc_doc_color_render_print_style_tag();
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($tncPrintOnlyCss, ENT_QUOTES, 'UTF-8') ?>" media="print">
 <style media="print">

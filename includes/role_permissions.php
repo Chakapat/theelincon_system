@@ -25,7 +25,7 @@ function tnc_role_action_permission_definitions(): array
 {
     return [
         'pr.create' => ['label' => 'สร้าง PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'บันทึกใบขอซื้อใหม่', 'kind' => 'action'],
-        'pr.update' => ['label' => 'แก้ไข PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'แก้ไขใบขอซื้อที่ยังไม่ล็อก', 'kind' => 'action'],
+        'pr.update' => ['label' => 'แก้ไข PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'แก้ไข PR (รวมที่มี PO แล้ว — PO ไม่อัปเดตตามอัตโนมัติ)', 'kind' => 'action'],
         'pr.delete' => ['label' => 'ลบ PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'ลบใบขอซื้อ (ต้องยืนยันรหัสผ่าน)', 'kind' => 'action'],
         'pr.approve' => ['label' => 'อนุมัติ / ไม่อนุมัติ PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'กดอนุมัติบนเว็บ', 'kind' => 'action'],
         'pr.send_line' => ['label' => 'ส่ง PR ขออนุมัติ LINE', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'ส่งคำขออนุมัติไปกลุ่ม LINE', 'kind' => 'action'],
@@ -103,6 +103,7 @@ function tnc_role_permission_defaults(): array
         'page.internal.roles' => false,
         'page.internal.audit' => false,
         'page.internal.line' => false,
+        'page.internal.doc_colors' => false,
     ];
 
     $accounting = array_merge($allTrue, $accountingPagesOn, [

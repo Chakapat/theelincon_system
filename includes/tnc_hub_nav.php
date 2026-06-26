@@ -46,6 +46,7 @@ function tnc_hub_nav_section_page_keys(): array
             'page.internal.roles',
             'page.internal.audit',
             'page.internal.line',
+            'page.internal.doc_colors',
         ],
         'hub_tools' => [
             'page.tools.po_payment',
@@ -97,6 +98,7 @@ function tnc_hub_nav_page_meta(): array
         'page.internal.roles' => ['icon' => 'bi-sliders'],
         'page.internal.audit' => ['icon' => 'bi-journal-text'],
         'page.internal.line' => ['icon' => 'bi-line'],
+        'page.internal.doc_colors' => ['icon' => 'bi-palette'],
         'page.tools.po_payment' => ['icon' => 'bi-paperclip'],
     ];
 }

@@ -166,7 +166,7 @@ if (!function_exists('tnc_purchase_pr_list_flash')) {
             $message = match ($error) {
                 'invalid_pr' => 'ไม่พบรหัสใบขอซื้อที่ถูกต้อง',
                 'pr_has_po' => 'ใบขอซื้อนี้มีใบสั่งซื้อ (PO) แล้ว ไม่สามารถแก้ไขได้',
-                'pr_approved_locked' => 'ใบขอซื้ออนุมัติแล้ว ไม่สามารถแก้ไขได้',
+                'pr_approved_locked' => 'ไม่มีสิทธิ์แก้ไข PR นี้',
                 'delete_pr_failed' => 'ไม่สามารถลบใบขอซื้อได้ กรุณาลองใหม่หรือติดต่อผู้ดูแลระบบ',
                 default => 'เกิดข้อผิดพลาด (' . $error . ')',
             };
@@ -239,7 +239,7 @@ if (!function_exists('tnc_purchase_pr_view_flash')) {
         if (!empty($get['error']) && (string) $get['error'] === 'pr_approved_locked') {
             return [
                 'type' => 'warning',
-                'message' => 'ใบขอซื้ออนุมัติแล้ว — เฉพาะ Admin เท่านั้นที่แก้ไขได้',
+                'message' => 'ไม่มีสิทธิ์แก้ไข PR นี้',
             ];
         }
 
@@ -254,7 +254,21 @@ if (!function_exists('tnc_purchase_pr_view_flash')) {
         }
 
         if (!empty($get['updated'])) {
-            return ['type' => 'success', 'message' => 'แก้ไขใบขอซื้อเรียบร้อยแล้ว', 'audio' => 'update'];
+            $message = 'แก้ไขใบขอซื้อเรียบร้อยแล้ว';
+            $poSynced = (int) ($get['po_synced'] ?? 0);
+            if ($poSynced > 0) {
+                $message .= ' — อัปเดต PO ที่เชื่อม ' . number_format($poSynced) . ' ใบแล้ว';
+            }
+            $poSyncError = trim((string) ($get['po_sync_error'] ?? ''));
+            if ($poSyncError !== '') {
+                return [
+                    'type' => 'warning',
+                    'message' => $message . ' — บาง PO อัปเดตไม่ได้: ' . $poSyncError,
+                    'audio' => 'update',
+                ];
+            }
+
+            return ['type' => 'success', 'message' => $message, 'audio' => 'update'];
         }
 
         if (!empty($get['web_approved'])) {

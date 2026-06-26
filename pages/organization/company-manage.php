@@ -8,6 +8,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/banks.php';
+require_once dirname(__DIR__, 2) . '/includes/party_logo.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -19,7 +20,7 @@ if (!user_can('page.org.company')) {
     exit();
 }
 
-$is_admin = true;
+$is_admin = user_is_admin_role();
 
 $companies = Db::tableRows('company');
 Db::sortRows($companies, 'id', true);
@@ -160,7 +161,7 @@ function company_type_label_th(string $type): string
                             <tr>
                                 <td class="ps-4 tnc-mobile-primary" data-label="ชื่อ / ประเภท">
                                     <div class="d-flex align-items-center">
-                                        <?php $rowLogoUrl = tnc_company_logo_url($row['logo'] ?? ''); ?>
+                                        <?php $rowLogoUrl = tnc_party_logo_public_url($row['logo'] ?? ''); ?>
                                         <?php if ($rowLogoUrl !== ''): ?>
                                             <img src="<?= htmlspecialchars($rowLogoUrl, ENT_QUOTES, 'UTF-8') ?>" class="logo-preview me-3 border">
                                         <?php else: ?>
@@ -219,9 +220,16 @@ function company_type_label_th(string $type): string
                 </div>
                 <div class="modal-body p-4 pt-0">
                     <input type="hidden" name="id" id="edit_id">
+                    <input type="hidden" name="remove_logo" id="edit_remove_logo" value="0">
                     <div class="text-center mb-3">
                         <div id="edit_logo_preview" class="mb-2"></div>
-                        <input type="file" name="logo" class="form-control bg-light border-0 py-2 rounded-3" accept="image/*">
+                        <div class="d-flex flex-wrap justify-content-center gap-2 mb-2" id="edit_logo_actions" hidden>
+                            <button type="button" class="btn btn-sm btn-outline-danger" id="edit_logo_remove_btn">
+                                <i class="bi bi-trash3 me-1"></i>ลบโลโก้
+                            </button>
+                        </div>
+                        <input type="file" name="logo" id="edit_logo_file" class="form-control bg-light border-0 py-2 rounded-3" accept="image/*">
+                        <div class="form-text">อัปโหลดไฟล์ใหม่จะแทนที่โลโก้เดิม</div>
                     </div>
                     <div class="mb-3">
                         <label class="small fw-bold">ประเภท</label>
@@ -271,7 +279,6 @@ function company_type_label_th(string $type): string
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
 const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
 const uploadsLogosBase = <?= json_encode(upload_logos_base_url(), JSON_UNESCAPED_SLASHES) ?>;
-const defaultCompanyLogoUrl = <?= json_encode(tnc_company_logo_url(''), JSON_UNESCAPED_SLASHES) ?>;
 const BANK_LOGOS = <?= json_encode(tnc_bank_logo_url_map(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const COMPANY_FORM_LABELS = {
     company: {
@@ -380,9 +387,43 @@ function confirmDelete(id, type) {
     });
 }
 
+function renderCompanyLogoPreview(storedFilename, companyType, logoUrl) {
+    const icon = companyType === 'individual' ? 'person' : 'building';
+    const url = String(logoUrl || '').trim();
+    if (url) {
+        return '<img src="' + url.replace(/"/g, '&quot;') + '" class="logo-preview border p-1 shadow-sm mx-auto" style="width:100px;height:100px;object-fit:contain" alt="">';
+    }
+    const filename = String(storedFilename || '').trim();
+    if (filename) {
+        return '<img src="' + uploadsLogosBase + encodeURIComponent(filename) + '" class="logo-preview border p-1 shadow-sm mx-auto" style="width:100px;height:100px;object-fit:contain" alt="">';
+    }
+    return '<div class="logo-preview mx-auto d-flex align-items-center justify-content-center border" style="width:100px;height:100px"><i class="bi bi-' + icon + ' fs-2 text-muted"></i></div>';
+}
+
+function syncEditLogoRemoveUi(hasLogo) {
+    const actions = document.getElementById('edit_logo_actions');
+    const removeInput = document.getElementById('edit_remove_logo');
+    if (actions) {
+        actions.hidden = !hasLogo;
+    }
+    if (removeInput && hasLogo) {
+        removeInput.value = '0';
+    }
+}
+
 function editCompany(id) {
     fetch(`${actionHandlerUrl}?action=get_data&type=company&id=${id}&_csrf=${encodeURIComponent(csrfToken)}`)
-    .then(res => res.json()).then(data => {
+    .then(function (res) {
+        if (!res.ok) {
+            throw new Error('forbidden');
+        }
+        return res.json();
+    })
+    .then(function (data) {
+        if (!data || data.error) {
+            Swal.fire({ icon: 'error', title: 'โหลดข้อมูลไม่สำเร็จ', confirmButtonColor: '#ea580c' });
+            return;
+        }
         ['id','name','tax_id','address','phone','email','bank_account_name','bank_account_number'].forEach(function (k) {
             const el = document.getElementById('edit_' + k);
             if (el) el.value = data[k] || '';
@@ -393,20 +434,70 @@ function editCompany(id) {
             updateBankLogoPreview('edit', bankSel.value);
         }
         const typeSel = document.getElementById('edit_company_type');
+        const companyType = (data.company_type === 'individual') ? 'individual' : 'company';
         if (typeSel) {
-            typeSel.value = (data.company_type === 'individual') ? 'individual' : 'company';
+            typeSel.value = companyType;
             applyCompanyTypeUi('edit', typeSel.value);
         }
-        document.getElementById('edit_logo_preview').innerHTML = defaultCompanyLogoUrl
-            ? `<img src="${defaultCompanyLogoUrl}" class="logo-preview border p-1 shadow-sm mb-2" style="width:100px;height:100px;object-fit:contain">`
-            : `<div class="logo-preview mx-auto d-flex align-items-center justify-content-center border mb-2" style="width:100px;height:100px"><i class="bi bi-image fs-2"></i></div>`;
+        const removeInput = document.getElementById('edit_remove_logo');
+        const fileInput = document.getElementById('edit_logo_file');
+        if (removeInput) removeInput.value = '0';
+        if (fileInput) fileInput.value = '';
+        const preview = document.getElementById('edit_logo_preview');
+        const logoUrl = data.logo_url || '';
+        const hasLogo = !!(logoUrl || (data.logo && String(data.logo).trim()));
+        if (preview) {
+            preview.innerHTML = renderCompanyLogoPreview(data.logo || '', companyType, logoUrl);
+        }
+        syncEditLogoRemoveUi(hasLogo);
         new bootstrap.Modal(document.getElementById('editCompanyModal')).show();
+    })
+    .catch(function () {
+        Swal.fire({ icon: 'error', title: 'โหลดข้อมูลไม่สำเร็จ', confirmButtonColor: '#ea580c' });
     });
 }
+
+(function () {
+    const removeBtn = document.getElementById('edit_logo_remove_btn');
+    const removeInput = document.getElementById('edit_remove_logo');
+    const fileInput = document.getElementById('edit_logo_file');
+    const preview = document.getElementById('edit_logo_preview');
+    const typeSel = document.getElementById('edit_company_type');
+    const modal = document.getElementById('editCompanyModal');
+
+    if (removeBtn && removeInput && preview) {
+        removeBtn.addEventListener('click', function () {
+            removeInput.value = '1';
+            const companyType = typeSel ? typeSel.value : 'company';
+            preview.innerHTML = renderCompanyLogoPreview('', companyType, '');
+            syncEditLogoRemoveUi(false);
+            if (fileInput) fileInput.value = '';
+        });
+    }
+    if (fileInput && removeInput && preview) {
+        fileInput.addEventListener('change', function () {
+            if (fileInput.files && fileInput.files.length > 0) {
+                removeInput.value = '0';
+                const companyType = typeSel ? typeSel.value : 'company';
+                const objectUrl = URL.createObjectURL(fileInput.files[0]);
+                preview.innerHTML = renderCompanyLogoPreview('', companyType, objectUrl);
+                syncEditLogoRemoveUi(true);
+            }
+        });
+    }
+    if (modal && removeInput) {
+        modal.addEventListener('hidden.bs.modal', function () {
+            removeInput.value = '0';
+            if (fileInput) fileInput.value = '';
+        });
+    }
+})();
 
 const params = new URLSearchParams(window.location.search);
 if (params.get('success')) Swal.fire({ icon: 'success', title: 'สำเร็จ!', confirmButtonColor: '#ea580c' });
 if (params.has('deleted')) Swal.fire({ icon: 'success', title: 'ลบเรียบร้อย!', confirmButtonColor: '#ea580c' });
+if (params.get('error') === 'logo_upload_failed') Swal.fire({ icon: 'error', title: 'อัปโหลดโลโก้ไม่สำเร็จ', confirmButtonColor: '#ea580c' });
+if (params.get('error') === 'logo_upload_type') Swal.fire({ icon: 'error', title: 'ไฟล์โลโก้ไม่รองรับ', text: 'ใช้ JPG, PNG, WEBP หรือ GIF', confirmButtonColor: '#ea580c' });
 if (params.get('error') === 'confirm_password_required') Swal.fire({ icon: 'warning', title: 'กรุณากรอกรหัสผ่านเพื่อยืนยันการลบ', confirmButtonColor: '#ea580c' });
 if (params.get('error') === 'confirm_password_invalid') Swal.fire({ icon: 'error', title: 'รหัสผ่านไม่ถูกต้อง', confirmButtonColor: '#ea580c' });
 (function () {
