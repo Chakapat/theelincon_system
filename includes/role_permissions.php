@@ -36,6 +36,7 @@ function tnc_role_action_permission_definitions(): array
         'invoice.edit' => ['label' => 'แก้ไข Invoice', 'group' => 'Invoice / Tax', 'hint' => 'แก้ไขใบแจ้งหนี้', 'kind' => 'action'],
         'invoice.delete' => ['label' => 'ลบ Invoice', 'group' => 'Invoice / Tax', 'hint' => 'ลบใบแจ้งหนี้', 'kind' => 'action'],
         'invoice.tax_delete' => ['label' => 'ลบ Tax Invoice', 'group' => 'Invoice / Tax', 'hint' => 'ลบใบกำกับภาษี', 'kind' => 'action'],
+        'site.manage' => ['label' => 'จัดการไซต์งาน', 'group' => 'Site Workspace', 'hint' => 'สร้างไซต์ ตั้งงบ และหมวดค่าใช้จ่าย', 'kind' => 'action'],
     ];
 }
 
@@ -83,9 +84,11 @@ function tnc_role_permission_defaults(): array
         'page.invoice.tax' => true,
         'page.org.customer' => true,
         'page.org.company' => true,
-        'page.org.sites' => true,
+        'site.manage' => true,
         'page.org.suppliers' => true,
         'page.org.contractors' => true,
+        'page.site.picker' => true,
+        'page.site.hub' => true,
         'page.pr' => true,
         'page.po' => true,
         'page.wo' => true,
@@ -106,6 +109,7 @@ function tnc_role_permission_defaults(): array
         'pr.delete' => false,
         'pr.send_line' => false,
         'po.delete' => false,
+        'site.manage' => false,
         'invoice.delete' => false,
         'invoice.tax_delete' => false,
     ]);
@@ -114,6 +118,7 @@ function tnc_role_permission_defaults(): array
         'page.index' => true,
         'page.invoice.view' => true,
         'page.pr' => true,
+        'page.site.picker' => true,
         'page.account.profile' => true,
     ];
     if (function_exists('tnc_role_page_registry_flat')) {
@@ -226,6 +231,10 @@ function tnc_role_permissions_matrix(): array
             if (array_key_exists($key, $roleStored)) {
                 $merged[$role][$key] = filter_var($roleStored[$key], FILTER_VALIDATE_BOOLEAN);
             }
+        }
+        $legacySites = $roleStored['page.org.sites'] ?? $roleStored['page_org_sites'] ?? null;
+        if ($legacySites !== null && filter_var($legacySites, FILTER_VALIDATE_BOOLEAN)) {
+            $merged[$role]['site.manage'] = true;
         }
     }
 

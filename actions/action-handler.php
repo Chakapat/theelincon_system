@@ -11,6 +11,7 @@ require_once __DIR__ . '/../includes/line_pr_approval.php';
 require_once __DIR__ . '/../includes/hire_line_items.php';
 require_once __DIR__ . '/../includes/purchase_print/vat_print_summary.php';
 require_once __DIR__ . '/../includes/site_cost_categories.php';
+require_once __DIR__ . '/../includes/site_budget.php';
 require_once __DIR__ . '/../includes/contractors.php';
 require_once __DIR__ . '/../includes/suppliers.php';
 
@@ -302,155 +303,8 @@ function tnc_po_try_auto_bill_on_complete(int $poId, int $createdBy): ?int
 
 /**
  * Delete all bill records linked to a PO from both /purchase_bills and /bills.
- *
- * @return array{purchase_bills: list<array<string,mixed>>, bills: list<array<string,mixed>>}
  */
-function tnc_delete_linked_bills_by_po(int $poId): array
-{
-    $deletedPurchaseBills = [];
-    $deletedBills = [];
-    if ($poId <= 0) {
-        return ['purchase_bills' => $deletedPurchaseBills, 'bills' => $deletedBills];
-    }
-
-    foreach (Db::tableKeyed('purchase_bills') as $pbPk => $pbRow) {
-        if (!is_array($pbRow) || (int) ($pbRow['source_po_id'] ?? 0) !== $poId) {
-            continue;
-        }
-        $pbId = (int) ($pbRow['id'] ?? 0);
-        if ($pbId > 0) {
-            Db::deleteWhereEquals('purchase_bill_items', 'bill_id', (string) $pbId);
-            Db::deleteWhereEquals('purchase_bill_items', 'purchase_bill_id', (string) $pbId);
-            Db::deleteWhereEquals('purchase_bill_items', 'purchase_bills_id', (string) $pbId);
-        }
-        $deletedPurchaseBills[] = $pbRow;
-        Db::deleteRow('purchase_bills', (string) $pbPk);
-    }
-
-    foreach (Db::tableKeyed('bills') as $bPk => $bRow) {
-        if (!is_array($bRow) || (int) ($bRow['po_id'] ?? 0) !== $poId) {
-            continue;
-        }
-        $deletedBills[] = $bRow;
-        Db::deleteRow('bills', (string) $bPk);
-    }
-
-    return ['purchase_bills' => $deletedPurchaseBills, 'bills' => $deletedBills];
-}
-
-function tnc_po_delete_line_items(int $poId): void
-{
-    if ($poId <= 0) {
-        return;
-    }
-    foreach (Db::tableKeyed('purchase_order_items') as $itemPk => $itemRow) {
-        if (!is_array($itemRow)) {
-            continue;
-        }
-        $pid = (int) ($itemRow['po_id'] ?? 0);
-        $poidAlt = (int) ($itemRow['purchase_order_id'] ?? 0);
-        if ($pid === $poId || $poidAlt === $poId) {
-            Db::deleteRow('purchase_order_items', (string) $itemPk);
-        }
-    }
-}
-
-/**
- * ลบ PO และข้อมูลที่ผูก (บิล, งวดชำระ, รายการ, ประวัติงวดสัญญา)
- *
- * @return list<array{verb: string, entity_type: string, entity_id: string, snapshot: array<string, mixed>}>
- */
-function tnc_delete_purchase_order_cascade(int $poId): array
-{
-    $nested = [];
-    if ($poId <= 0) {
-        return $nested;
-    }
-    $poDel = Db::row('purchase_orders', (string) $poId);
-    if ($poDel === null) {
-        return $nested;
-    }
-
-    $linkedBillDeleted = tnc_delete_linked_bills_by_po($poId);
-    foreach ($linkedBillDeleted['purchase_bills'] as $pbDel) {
-        $nested[] = ['verb' => 'delete', 'entity_type' => 'purchase_bill', 'entity_id' => (string) ((int) ($pbDel['id'] ?? 0)), 'snapshot' => $pbDel];
-    }
-    foreach ($linkedBillDeleted['bills'] as $bDel) {
-        $nested[] = ['verb' => 'delete', 'entity_type' => 'bill', 'entity_id' => (string) ((int) ($bDel['id'] ?? 0)), 'snapshot' => $bDel];
-    }
-    foreach (Purchase::purgeHireContractPaymentsForPo($poId) as $hcpDel) {
-        $nested[] = ['verb' => 'delete', 'entity_type' => 'hire_contract_payment', 'entity_id' => (string) ((int) ($hcpDel['id'] ?? 0)), 'snapshot' => $hcpDel];
-    }
-    Db::deleteWhereEquals('po_payments', 'po_id', (string) $poId);
-    tnc_po_delete_line_items($poId);
-    Db::deleteRow('purchase_orders', (string) $poId);
-    $nested[] = ['verb' => 'delete', 'entity_type' => 'purchase_order', 'entity_id' => (string) $poId, 'snapshot' => $poDel];
-
-    return $nested;
-}
-
-/**
- * ลบ PR และข้อมูลที่ผูกทั้งหมด (PO, สัญญาจ้าง, งวดจ่าย, รายการ PR)
- *
- * @return list<array{verb: string, entity_type: string, entity_id: string, snapshot: array<string, mixed>}>
- */
-function tnc_delete_pr_cascade(int $prId): array
-{
-    $nested = [];
-    if ($prId <= 0) {
-        return $nested;
-    }
-
-    foreach (Purchase::purgeHireContractPaymentsForPr($prId) as $hcpDel) {
-        $hcpId = (int) ($hcpDel['id'] ?? 0);
-        $nested[] = [
-            'verb' => 'delete',
-            'entity_type' => 'hire_contract_payment',
-            'entity_id' => (string) ($hcpId > 0 ? $hcpId : 0),
-            'snapshot' => $hcpDel,
-        ];
-    }
-
-    foreach (Purchase::collectPurchaseOrdersForPr($prId) as $poDel) {
-        $poId = (int) ($poDel['id'] ?? 0);
-        if ($poId > 0) {
-            $nested = array_merge($nested, tnc_delete_purchase_order_cascade($poId));
-        }
-    }
-
-    foreach (Db::filter('hire_contracts', static fn (array $r): bool => isset($r['pr_id']) && (int) $r['pr_id'] === $prId) as $hc) {
-        $hcId = (int) ($hc['id'] ?? 0);
-        if ($hcId > 0) {
-            $nested[] = ['verb' => 'delete', 'entity_type' => 'hire_contract', 'entity_id' => (string) $hcId, 'snapshot' => $hc];
-            Db::deleteRow('hire_contracts', (string) $hcId);
-        }
-    }
-
-    foreach (Db::filter('purchase_request_items', static fn (array $r): bool => isset($r['pr_id']) && (int) $r['pr_id'] === $prId) as $pri) {
-        $priId = (int) ($pri['id'] ?? 0);
-        if ($priId > 0) {
-            $nested[] = ['verb' => 'delete', 'entity_type' => 'purchase_request_item', 'entity_id' => (string) $priId, 'snapshot' => $pri];
-        }
-    }
-    Db::deleteWhereEquals('purchase_request_items', 'pr_id', (string) $prId);
-
-    foreach (Db::tableKeyed('web_notifications') as $notifKey => $notifRow) {
-        if (!is_array($notifRow)) {
-            continue;
-        }
-        if ((string) ($notifRow['entity_type'] ?? '') !== 'purchase_request') {
-            continue;
-        }
-        if ((int) ($notifRow['entity_id'] ?? 0) !== $prId) {
-            continue;
-        }
-        $notifId = (string) (($notifRow['id'] ?? 0) ?: $notifKey);
-        $nested[] = ['verb' => 'delete', 'entity_type' => 'web_notification', 'entity_id' => $notifId, 'snapshot' => $notifRow];
-        Db::deleteRow('web_notifications', $notifId);
-    }
-
-    return $nested;
-}
+require_once __DIR__ . '/../includes/purchase_cascade_delete.php';
 
 function renderPoCreatedPopupAndRedirect(string $poNumber, ?string $redirectBase = null, bool $paymentExtrasSaved = false)
 {
@@ -1860,6 +1714,15 @@ if ($action === 'create_po_from_pr') {
         $prCostCategoryName = tnc_site_category_name($prCostCategoryId);
     }
 
+    require_once dirname(__DIR__) . '/includes/site_budget.php';
+    tnc_site_budget_abort_if_invalid(
+        $prSiteId,
+        $prCostCategoryId,
+        (float) $total_amount,
+        null,
+        $poCreateFromPrUrl
+    );
+
     $po_id = Db::nextNumericId('purchase_orders', 'id');
     $optionalExtras = tnc_po_optional_create_extras(
         $po_id,
@@ -2297,6 +2160,16 @@ if ($action === 'create_po_direct') {
         $quoteAttachmentSize = (int) ($f['size'] ?? 0);
     }
 
+    if ($isStandalonePurchasePo) {
+        tnc_site_budget_abort_if_invalid(
+            $poSiteId,
+            $poCostCategoryId,
+            (float) $totals['net'],
+            null,
+            $poCreateDirectUrl
+        );
+    }
+
     Db::setRow('purchase_orders', (string) $po_id, array_merge([
         'id' => $po_id,
         'po_number' => $po_number,
@@ -2608,6 +2481,14 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
             $editCostCategoryName = '';
         }
     }
+
+    tnc_site_budget_abort_if_invalid(
+        $editSiteId,
+        $editCostCategoryId,
+        (float) $totals['net'],
+        $po_id,
+        $editUrl . '?id=' . $po_id
+    );
 
     $beforeSnap = $existing;
     Db::setRow('purchase_orders', $pk, array_merge($existing, [

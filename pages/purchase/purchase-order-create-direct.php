@@ -39,6 +39,21 @@ usort($sites, static function (array $a, array $b): int {
 require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
 $siteCategoryMap = tnc_site_categories_map_by_site();
 
+$prefillSiteId = isset($_GET['site_id']) ? (int) $_GET['site_id'] : 0;
+$siteLockedFromHub = false;
+$lockedSiteHubUrl = '';
+if ($prefillSiteId > 0) {
+    foreach ($sites as $siteRowCheck) {
+        if ((int) ($siteRowCheck['id'] ?? 0) === $prefillSiteId) {
+            $siteLockedFromHub = true;
+            $lockedSiteHubUrl = app_path('pages/sites/site-hub.php?site_id=' . $prefillSiteId);
+            break;
+        }
+    }
+    if (!$siteLockedFromHub) {
+        $prefillSiteId = 0;
+    }
+}
 $issueDateDisplay = date('d/m/Y');
 $poVatEnabled = 0;
 $poVatMode = 'exclusive';
@@ -77,6 +92,12 @@ $items = [[
         .summary-grand { padding-top: 0.35rem; margin-top: 0.25rem; border-top: 2px dashed rgba(253, 126, 20, 0.25); }
         .po-vat-panel { background: #fffbf5; border: 1px solid var(--tnc-orange-border); border-radius: 0.75rem; }
         .po-actions-bar { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eef2f7; }
+        .site-field-locked .form-select:disabled {
+            background-color: #f8fafc;
+            color: #334155;
+            cursor: not-allowed;
+            opacity: 1;
+        }
     </style>
     <?php
     $poLineMobileCss = dirname(__DIR__, 2) . '/assets/css/po-line-table-mobile.css';
@@ -104,6 +125,8 @@ $items = [[
                 'cash_paid_by_required' => 'กรุณากรอก «จ่ายโดย» เมื่อเลือกชำระด้วยเงินสด',
                 'need_site' => 'กรุณาเลือกไซต์งาน (โครงการ)',
                 'need_cost_category' => 'กรุณาเลือกหมวดค่าใช้จ่ายของไซต์',
+                'site_budget_exceeded' => 'งบไซต์ไม่พอ — ไม่สามารถออก PO ได้ (เกินวงเงินรวมของไซต์)',
+                'site_budget_cat_exceeded' => 'งบหมวดไม่พอ — ไม่สามารถออก PO ได้ (เกินวงเงินหมวดที่กำหนด)',
                 'upload_failed', 'upload_type' => 'อัปโหลดสลิปไม่สำเร็จ — ใช้ไฟล์รูปหรือ PDF',
                 default => 'บันทึกใบสั่งซื้อไม่สำเร็จ กรุณาตรวจสอบข้อมูลและลองใหม่',
             };
@@ -112,7 +135,7 @@ $items = [[
     <?php endif; ?>
 
     <?php if (count($sites) === 0): ?>
-        <div class="alert alert-warning py-2 mb-3">ยังไม่มีไซต์งานในระบบ — กรุณา<a href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>">เพิ่มไซต์งาน</a>ก่อนออก PO</div>
+        <div class="alert alert-warning py-2 mb-3">ยังไม่มีไซต์งานในระบบ — กรุณา<a href="<?= htmlspecialchars(app_path('pages/sites/site-picker.php'), ENT_QUOTES, 'UTF-8') ?>">เพิ่มไซต์งาน</a>ก่อนออก PO</div>
     <?php endif; ?>
 
     <form action="<?= htmlspecialchars($handlerUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1">
@@ -163,14 +186,14 @@ $items = [[
             </div>
             <?php if (count($sites) > 0): ?>
             <div class="row g-3 g-md-4 mt-1 pt-3 border-top border-light">
-                <div class="col-md-6">
+                <div class="col-md-6<?= $siteLockedFromHub ? ' site-field-locked' : '' ?>">
                     <label class="po-field-label" for="site_id">ไซต์งาน / โครงการ <span class="text-danger">*</span></label>
-                    <select name="site_id" id="site_id" class="form-select" required>
-                        <option value="" disabled selected>— เลือกไซต์งาน —</option>
+                    <select id="site_id" class="form-select"<?= $siteLockedFromHub ? ' disabled' : ' name="site_id" required' ?>>
+                        <option value="" disabled<?= $prefillSiteId <= 0 ? ' selected' : '' ?>>— เลือกไซต์งาน —</option>
                         <?php foreach ($sites as $site): ?>
                             <?php $sid = (int) ($site['id'] ?? 0); ?>
                             <?php if ($sid <= 0) { continue; } ?>
-                            <option value="<?= $sid ?>"><?= htmlspecialchars((string) ($site['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
+                            <option value="<?= $sid ?>"<?= $prefillSiteId === $sid ? ' selected' : '' ?>><?= htmlspecialchars((string) ($site['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -364,10 +387,17 @@ $items = [[
         form.addEventListener('submit', function (e) {
             const siteEl = document.getElementById('site_id');
             const catEl = document.getElementById('cost_category_id');
-            if (siteEl && siteEl.required && !(parseInt(siteEl.value || '0', 10) > 0)) {
+            const siteVal = siteEl ? (parseInt(siteEl.value || '0', 10) || 0) : 0;
+            if (siteEl && !siteEl.disabled && siteEl.required && siteVal <= 0) {
                 e.preventDefault();
                 alert('กรุณาเลือกไซต์งาน (โครงการ)');
                 siteEl.focus();
+                return;
+            }
+            if (siteVal <= 0) {
+                e.preventDefault();
+                alert('กรุณาเลือกไซต์งาน (โครงการ)');
+                if (siteEl) siteEl.focus();
                 return;
             }
             if (catEl && catEl.required && !(parseInt(catEl.value || '0', 10) > 0)) {

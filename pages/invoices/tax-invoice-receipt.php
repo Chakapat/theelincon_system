@@ -1405,8 +1405,9 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
 
     <div class="row align-items-start mb-2">
         <div class="col-6 inv-company-col">
-            <?php if(!empty($data['logo'])): ?>
-                <img src="<?= htmlspecialchars(upload_logo_url($data['logo'])) ?>" class="company-logo" alt="Logo">
+            <?php $tncCompanyLogoUrl = tnc_company_logo_url($data['logo'] ?? ''); ?>
+            <?php if ($tncCompanyLogoUrl !== ''): ?>
+                <img src="<?= htmlspecialchars($tncCompanyLogoUrl, ENT_QUOTES, 'UTF-8') ?>" class="company-logo" alt="Logo">
             <?php endif; ?>
             <div class="inv-company-name"><?= $data['name']; ?></div>
             <div class="inv-company-detail text-muted">

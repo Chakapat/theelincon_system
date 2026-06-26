@@ -141,6 +141,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .signin-card .card-header {
             background: linear-gradient(135deg, var(--tnc-orange) 0%, #ff922b 100%);
         }
+        .signin-brand-logo {
+            max-width: min(220px, 78vw);
+            height: auto;
+            max-height: 72px;
+            object-fit: contain;
+            display: inline-block;
+            filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.18));
+        }
         .signin-hero-icon {
             width: 64px;
             height: 64px;
@@ -461,9 +469,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             <div class="card signin-card border-0 rounded-4 overflow-hidden">
                 <div class="card-header py-4 border-0 text-center">
-                    <div class="signin-hero-icon d-inline-flex align-items-center justify-content-center bg-white text-warning rounded-circle shadow-sm">
-                        <i class="bi bi-box-arrow-in-right fs-2"></i>
-                    </div>
+                    <?php $tncSigninLogoUrl = function_exists('tnc_company_logo_light_url') ? tnc_company_logo_light_url() : ''; ?>
+                    <?php if ($tncSigninLogoUrl !== ''): ?>
+                        <img src="<?= htmlspecialchars($tncSigninLogoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="THEELIN CON" class="signin-brand-logo">
+                    <?php else: ?>
+                        <div class="signin-hero-icon d-inline-flex align-items-center justify-content-center bg-white text-warning rounded-circle shadow-sm">
+                            <i class="bi bi-box-arrow-in-right fs-2"></i>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="card-body p-5 pt-4">

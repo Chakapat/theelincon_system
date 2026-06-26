@@ -216,7 +216,7 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
         <div class="row g-3">
             <?php if (!$sites): ?>
                 <div class="col-12">
-                    <div class="alert alert-warning mb-0">ยังไม่มีไซต์งานในระบบ กรุณาเพิ่มที่หน้า <a href="<?= htmlspecialchars(app_path('pages/organization/sites.php')) ?>">จัดการไซต์</a></div>
+                    <div class="alert alert-warning mb-0">ยังไม่มีไซต์งานในระบบ กรุณาเพิ่มที่หน้า <a href="<?= htmlspecialchars(app_path('pages/sites/site-picker.php')) ?>">เลือกไซต์งาน</a></div>
                 </div>
             <?php else: ?>
                 <?php foreach ($sites as $site): ?>

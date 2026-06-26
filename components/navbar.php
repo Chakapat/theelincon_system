@@ -210,11 +210,24 @@ foreach ($tncMobileCss as $tncMobileCssFile) {
         .tnc-nav-popover { width: auto; }
     }
 
+    .tnc-navbar-logo {
+        height: 2rem;
+        width: auto;
+        max-width: 7.5rem;
+        object-fit: contain;
+        flex-shrink: 0;
+    }
+
 </style>
 <nav class="navbar navbar-expand-lg navbar-dark shadow-sm py-2 mb-3 mb-md-3 tnc-navbar-compact tnc-navbar" style="min-height: 3.25rem;">
     <div class="container py-0">
         <a class="navbar-brand fw-bold d-flex align-items-center gap-2 flex-shrink-0 py-1 fs-6" href="<?= htmlspecialchars(app_path('index.php')) ?>">
-            <i class="bi bi-receipt-cutoff fs-5"></i>
+            <?php $tncNavLogoUrl = function_exists('tnc_company_logo_light_url') ? tnc_company_logo_light_url() : ''; ?>
+            <?php if ($tncNavLogoUrl !== ''): ?>
+                <img src="<?= htmlspecialchars($tncNavLogoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="THEELIN CON" class="tnc-navbar-logo">
+            <?php else: ?>
+                <i class="bi bi-receipt-cutoff fs-5"></i>
+            <?php endif; ?>
             <span class="d-none d-sm-inline">THEELIN CON CO.,LTD.</span>
             <span class="d-inline d-sm-none">TNC</span>
         </a>

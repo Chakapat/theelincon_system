@@ -84,7 +84,7 @@ if ($isEdit) {
         }
     }
 }
-$editSiteId = $isEdit ? (int) ($editPr['site_id'] ?? 0) : 0;
+$editSiteId = $isEdit ? (int) ($editPr['site_id'] ?? 0) : (int) ($_GET['site_id'] ?? 0);
 $editDetails = $isEdit ? trim((string) ($editPr['details'] ?? '')) : '';
 if ($isEdit && $editDetails === '') {
     $editDetails = trim((string) ($editPr['hire_scope_details'] ?? ''));
@@ -131,6 +131,20 @@ usort($sites, static function (array $a, array $b): int {
 require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
 $siteCategoryMap = tnc_site_categories_map_by_site(); // [siteId => [{id,name}], 0 = หมวดกลาง]
 $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
+
+$siteLockedFromHub = false;
+$lockedSiteHubUrl = '';
+$hubSiteIdParam = !$isEdit ? (int) ($_GET['site_id'] ?? 0) : 0;
+if ($hubSiteIdParam > 0 && !$isEdit) {
+    foreach ($sites as $siteRowCheck) {
+        if ((int) ($siteRowCheck['id'] ?? 0) === $hubSiteIdParam) {
+            $siteLockedFromHub = true;
+            $editSiteId = $hubSiteIdParam;
+            $lockedSiteHubUrl = app_path('pages/sites/site-hub.php?site_id=' . $hubSiteIdParam);
+            break;
+        }
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -170,6 +184,12 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
             background: #fff7ed;
             border-color: var(--tnc-orange);
             color: var(--tnc-orange);
+        }
+        .site-field-locked .form-select:disabled {
+            background-color: #f8fafc;
+            color: #334155;
+            cursor: not-allowed;
+            opacity: 1;
         }
         .pr-vat-toolbar {
             display: flex;
@@ -304,9 +324,9 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                     <?php endif; ?>
                 </div>
                 <?php if (count($sites) > 0): ?>
-                <div class="col-md-6">
+                <div class="col-md-6<?= $siteLockedFromHub ? ' site-field-locked' : '' ?>">
                     <label class="po-field-label" for="site_id">ไซต์งาน <span class="text-danger">*</span></label>
-                    <select name="site_id" id="site_id" class="form-select" required>
+                    <select id="site_id" class="form-select"<?= $siteLockedFromHub ? ' disabled' : ' name="site_id" required' ?>>
                         <option value="" disabled<?= $editSiteId <= 0 ? ' selected' : '' ?>>— เลือกไซต์งาน —</option>
                         <?php foreach ($sites as $site): ?>
                             <?php $sid = (int) ($site['id'] ?? 0); ?>
@@ -314,6 +334,10 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                             <option value="<?= $sid ?>"<?= $sid === $editSiteId ? ' selected' : '' ?>><?= htmlspecialchars((string) ($site['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <?php if ($siteLockedFromHub): ?>
+                        <input type="hidden" name="site_id" value="<?= $editSiteId ?>">
+                        <div class="form-text"><i class="bi bi-lock-fill me-1"></i>ล็อกจาก Site Hub — <a href="<?= htmlspecialchars($lockedSiteHubUrl, ENT_QUOTES, 'UTF-8') ?>">กลับเมนูไซต์</a></div>
+                    <?php endif; ?>
                 </div>
                 <?php endif; ?>
                 <div class="col-md-6">
@@ -321,7 +345,7 @@ $editCostCategoryId = $isEdit ? (int) ($editPr['cost_category_id'] ?? 0) : 0;
                     <select name="cost_category_id" id="cost_category_id" class="form-select"<?= count($sites) > 0 ? ' required' : '' ?>>
                         <option value="" disabled<?= $editCostCategoryId <= 0 ? ' selected' : '' ?>>— เลือกหมวด —</option>
                     </select>
-                    <div class="form-text">เลือกไซต์ก่อน — เพิ่มหมวดได้ที่หน้า <a href="<?= htmlspecialchars(app_path('pages/organization/sites.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">«ไซต์งาน»</a></div>
+                    <div class="form-text">เลือกไซต์ก่อน — เพิ่มหมวดได้ที่ <a href="<?= htmlspecialchars(app_path('pages/sites/site-picker.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Site Picker / Site Hub</a></div>
                 </div>
                 <div class="col-md-6 d-none" id="hire_field_contractor">
                     <label class="po-field-label" for="contractor_search">ผู้รับจ้าง <span class="text-danger">*</span></label>

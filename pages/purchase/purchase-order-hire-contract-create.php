@@ -27,7 +27,7 @@ usort($contractorRows, static function (array $a, array $b): int {
 
 $sites = Db::tableRows('sites');
 Db::sortRows($sites, 'name', false);
-$sitesUrl = app_path('pages/organization/sites.php');
+$sitesUrl = app_path('pages/sites/site-picker.php');
 
 $po_number = Purchase::generateWorkOrderNumber();
 $errorCode = trim((string) ($_GET['error'] ?? ''));

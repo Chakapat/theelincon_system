@@ -54,8 +54,9 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
     <div class="po-doc-content">
     <div class="row align-items-start mb-2">
         <div class="col-6">
-            <?php if (!empty($data['logo'])): ?>
-                <img src="<?= htmlspecialchars(upload_logo_url($data['logo'])) ?>" class="company-logo" alt="Logo">
+            <?php $tncCompanyLogoUrl = tnc_company_logo_url($data['logo'] ?? ''); ?>
+            <?php if ($tncCompanyLogoUrl !== ''): ?>
+                <img src="<?= htmlspecialchars($tncCompanyLogoUrl, ENT_QUOTES, 'UTF-8') ?>" class="company-logo" alt="Logo">
             <?php endif; ?>
             <div class="fw-bold mt-2 po-company-name"><?= $data['name']; ?></div>
             <div class="small text-muted po-company-detail">

@@ -160,8 +160,9 @@ function company_type_label_th(string $type): string
                             <tr>
                                 <td class="ps-4 tnc-mobile-primary" data-label="ชื่อ / ประเภท">
                                     <div class="d-flex align-items-center">
-                                        <?php if($row['logo']): ?>
-                                            <img src="<?= htmlspecialchars(upload_logo_url($row['logo'])) ?>" class="logo-preview me-3 border">
+                                        <?php $rowLogoUrl = tnc_company_logo_url($row['logo'] ?? ''); ?>
+                                        <?php if ($rowLogoUrl !== ''): ?>
+                                            <img src="<?= htmlspecialchars($rowLogoUrl, ENT_QUOTES, 'UTF-8') ?>" class="logo-preview me-3 border">
                                         <?php else: ?>
                                             <div class="logo-preview me-3 d-flex align-items-center justify-content-center border text-muted"><i class="bi bi-<?= $ctype === 'individual' ? 'person' : 'building' ?>"></i></div>
                                         <?php endif; ?>
@@ -270,6 +271,7 @@ function company_type_label_th(string $type): string
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
 const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
 const uploadsLogosBase = <?= json_encode(upload_logos_base_url(), JSON_UNESCAPED_SLASHES) ?>;
+const defaultCompanyLogoUrl = <?= json_encode(tnc_company_logo_url(''), JSON_UNESCAPED_SLASHES) ?>;
 const BANK_LOGOS = <?= json_encode(tnc_bank_logo_url_map(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const COMPANY_FORM_LABELS = {
     company: {
@@ -395,7 +397,9 @@ function editCompany(id) {
             typeSel.value = (data.company_type === 'individual') ? 'individual' : 'company';
             applyCompanyTypeUi('edit', typeSel.value);
         }
-        document.getElementById('edit_logo_preview').innerHTML = data.logo ? `<img src="${uploadsLogosBase}${encodeURIComponent(data.logo)}" class="logo-preview border p-1 shadow-sm mb-2" style="width:100px;height:100px">` : `<div class="logo-preview mx-auto d-flex align-items-center justify-content-center border mb-2" style="width:100px;height:100px"><i class="bi bi-image fs-2"></i></div>`;
+        document.getElementById('edit_logo_preview').innerHTML = defaultCompanyLogoUrl
+            ? `<img src="${defaultCompanyLogoUrl}" class="logo-preview border p-1 shadow-sm mb-2" style="width:100px;height:100px;object-fit:contain">`
+            : `<div class="logo-preview mx-auto d-flex align-items-center justify-content-center border mb-2" style="width:100px;height:100px"><i class="bi bi-image fs-2"></i></div>`;
         new bootstrap.Modal(document.getElementById('editCompanyModal')).show();
     });
 }

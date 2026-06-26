@@ -150,6 +150,18 @@ if (!function_exists('tnc_purchase_po_resolve_site_name')) {
     }
 }
 
+if (!function_exists('tnc_purchase_po_resolve_site_id')) {
+    function tnc_purchase_po_resolve_site_id(array $po, ?array $pr = null): int
+    {
+        $siteId = (int) ($po['site_id'] ?? 0);
+        if ($siteId <= 0 && is_array($pr)) {
+            $siteId = (int) ($pr['site_id'] ?? 0);
+        }
+
+        return $siteId;
+    }
+}
+
 /**
  * จัดกลุ่มรายการ PO ตาม po_id (โหลดครั้งเดียวสำหรับหน้ารายการ)
  *

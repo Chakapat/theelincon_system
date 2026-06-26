@@ -12,6 +12,7 @@ require_once dirname(__DIR__, 2) . '/includes/purchase_po_payment_slips.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_table_skeleton.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_flash.php';
+require_once dirname(__DIR__, 2) . '/includes/site_budget.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -20,6 +21,11 @@ if (!isset($_SESSION['user_id'])) {
 
 $poCanDelete = user_can('po.delete');
 $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
+$siteFilter = tnc_site_list_filter_from_request();
+$filterSiteId = (int) ($siteFilter['site_id'] ?? 0);
+$filterSiteName = (string) ($siteFilter['site_name'] ?? '');
+$siteFilterQuery = (string) ($siteFilter['query'] ?? '');
+$siteHubUrl = (string) ($siteFilter['hub_url'] ?? '');
 
 $suppliers = Db::tableKeyed('suppliers');
 $users = Db::tableKeyed('users');
@@ -79,6 +85,12 @@ foreach (Db::tableRows('purchase_orders') as $po) {
     $poId = (int) ($po['id'] ?? 0);
     $prIdForItems = (int) ($po['pr_id'] ?? 0);
     $prForItems = ($prIdForItems > 0 && isset($prById[$prIdForItems])) ? $prById[$prIdForItems] : null;
+    if ($filterSiteId > 0) {
+        $poSiteIdResolved = tnc_purchase_po_resolve_site_id($po, is_array($prForItems) ? $prForItems : null);
+        if ($poSiteIdResolved !== $filterSiteId) {
+            continue;
+        }
+    }
     $poItems = $poItemsByPoId[$poId] ?? [];
     if ($poItems === []) {
         $poItems = tnc_purchase_po_load_items($poId, $po, is_array($prForItems) ? $prForItems : null);
@@ -341,17 +353,24 @@ $ignoredCountAll = count($ignoredPoList);
                 <span class="po-list-title__icon me-2" aria-hidden="true"><i class="bi bi-file-earmark-check-fill"></i></span>
                 รายการใบสั่งซื้อ (PO)
             </h1>
+            <?php if ($filterSiteId > 0 && $filterSiteName !== ''): ?>
+                <p class="text-muted small mb-0 mt-2">
+                    ไซต์: <span class="fw-semibold"><?= htmlspecialchars($filterSiteName, ENT_QUOTES, 'UTF-8') ?></span>
+                    · <a href="<?= htmlspecialchars($siteHubUrl, ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">กลับ Site Hub</a>
+                    · <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-secondary">ดูทุกไซต์</a>
+                </p>
+            <?php endif; ?>
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm no-print d-none" id="poBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก" aria-hidden="true">
                 <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
             </button>
             <?php if (user_can('po.create')): ?>
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-3 shadow-sm">
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php') . ($filterSiteId > 0 ? ('?site_id=' . $filterSiteId) : ''), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-3 shadow-sm">
                 <i class="bi bi-plus-lg me-1"></i>สร้างใบสั่งซื้อ
             </a>
             <?php endif; ?>
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3 shadow-sm">
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php') . $siteFilterQuery, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3 shadow-sm">
                 <i class="bi bi-arrow-left-circle me-1"></i>รายการใบขอซื้อ
             </a>
         </div>
@@ -415,8 +434,8 @@ $ignoredCountAll = count($ignoredPoList);
                     <?php if (count($po_rows) === 0): ?>
                         <tr><td colspan="6" class="po-empty-state text-center text-muted">
                             <i class="bi bi-inbox d-block mb-2" aria-hidden="true"></i>
-                            <div class="fw-semibold text-dark">ยังไม่มีใบสั่งซื้อ</div>
-                            <div class="small mt-1"><?php if (user_can('po.create')): ?><a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ออก PO โดยตรง</a> · <?php endif; ?>จาก<a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ใบขอซื้อ (PR)</a> · สัญญาจ้าง: <a href="<?= htmlspecialchars($woListUrl, ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">Work Order (WO)</a></div>
+                            <div class="fw-semibold text-dark"><?= $filterSiteId > 0 ? 'ยังไม่มี PO ของไซต์นี้' : 'ยังไม่มีใบสั่งซื้อ' ?></div>
+                            <div class="small mt-1"><?php if (user_can('po.create')): ?><a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php') . ($filterSiteId > 0 ? ('?site_id=' . $filterSiteId) : ''), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ออก PO โดยตรง</a> · <?php endif; ?>จาก<a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php') . $siteFilterQuery, ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ใบขอซื้อ (PR)</a> · สัญญาจ้าง: <a href="<?= htmlspecialchars($woListUrl, ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">Work Order (WO)</a></div>
                         </td></tr>
                     <?php else: ?>
                         <?= tnc_purchase_table_skeleton_tr(6, 'po') ?>

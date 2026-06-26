@@ -96,8 +96,9 @@ if (!in_array($paymentMethod, ['cash', 'transfer', 'cheque'], true)) {
     <div class="doc-content">
     <div class="row align-items-start">
         <div class="col-6">
-            <?php if (!empty($com['logo'])): ?>
-                <img src="<?= htmlspecialchars(upload_logo_url((string) $com['logo']), ENT_QUOTES, 'UTF-8') ?>" class="company-logo mb-2" alt="Company Logo">
+            <?php $tncCompanyLogoUrl = tnc_company_logo_url($com['logo'] ?? ''); ?>
+            <?php if ($tncCompanyLogoUrl !== ''): ?>
+                <img src="<?= htmlspecialchars($tncCompanyLogoUrl, ENT_QUOTES, 'UTF-8') ?>" class="company-logo mb-2" alt="Company Logo">
             <?php endif; ?>
             <div class="fw-bold fs-5"><?= htmlspecialchars((string) ($com['name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
             <div class="small text-muted"><?= htmlspecialchars((string) ($com['address'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>

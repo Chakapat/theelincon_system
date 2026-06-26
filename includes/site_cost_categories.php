@@ -6,7 +6,7 @@ declare(strict_types=1);
  * หมวดค่าใช้จ่ายตามไซต์ (Site Cost Categories) — แบบผสม
  *   - site_id = 0  : หมวดกลาง ใช้ได้ทุกไซต์
  *   - site_id > 0  : หมวดเฉพาะไซต์นั้น
- * ตาราง: site_cost_categories { id, site_id, name, sort_order, active }
+ * ตาราง: site_cost_categories { id, site_id, name, sort_order, active, budget_percent? }
  */
 
 use Theelincon\Rtdb\Db;
@@ -115,15 +115,68 @@ if (!function_exists('tnc_site_category_is_valid_for_site')) {
     }
 }
 
+if (!function_exists('tnc_site_category_percent_sum')) {
+    /** รวม budget_percent ของหมวดเฉพาะไซต์ (site_id > 0) */
+    function tnc_site_category_percent_sum(int $siteId, ?int $excludeCategoryId = null): float
+    {
+        if ($siteId <= 0) {
+            return 0.0;
+        }
+        $sum = 0.0;
+        foreach (tnc_site_categories_all(true) as $r) {
+            $cid = (int) ($r['id'] ?? 0);
+            if ($cid <= 0 || ($excludeCategoryId !== null && $excludeCategoryId > 0 && $cid === $excludeCategoryId)) {
+                continue;
+            }
+            if ((int) ($r['site_id'] ?? 0) !== $siteId) {
+                continue;
+            }
+            if (!array_key_exists('budget_percent', $r) || $r['budget_percent'] === '' || $r['budget_percent'] === null) {
+                continue;
+            }
+            $pct = round((float) $r['budget_percent'], 2);
+            if ($pct > 0.0) {
+                $sum += $pct;
+            }
+        }
+
+        return round($sum, 2);
+    }
+}
+
+if (!function_exists('tnc_site_category_percent_would_exceed')) {
+    function tnc_site_category_percent_would_exceed(int $siteId, ?float $newPercent, ?int $excludeCategoryId = null): bool
+    {
+        if ($siteId <= 0 || $newPercent === null || $newPercent <= 0.0) {
+            return false;
+        }
+        $sum = tnc_site_category_percent_sum($siteId, $excludeCategoryId);
+
+        return round($sum + $newPercent, 2) > 100.0 + 0.0001;
+    }
+}
+
 if (!function_exists('tnc_site_category_save')) {
-    /** สร้าง/แก้ไขหมวด คืนค่า id */
-    function tnc_site_category_save(int $id, int $siteId, string $name, int $sortOrder = 0): int
+    /**
+     * สร้าง/แก้ไขหมวด คืนค่า id
+     *
+     * @return int|array{id:int}|array{error:string} 0 = ชื่อว่าง, array error = รวม % เกิน 100
+     */
+    function tnc_site_category_save(int $id, int $siteId, string $name, int $sortOrder = 0, ?float $budgetPercent = null)
     {
         $name = trim($name);
         if ($name === '') {
             return 0;
         }
         $name = mb_substr($name, 0, 150);
+        $pctStored = null;
+        if ($budgetPercent !== null) {
+            $pctStored = round(max(0.0, min(100.0, $budgetPercent)), 2);
+        }
+        if ($siteId > 0 && $pctStored !== null && $pctStored > 0.0 && tnc_site_category_percent_would_exceed($siteId, $pctStored, $id > 0 ? $id : null)) {
+            return ['error' => 'percent_sum_exceeded'];
+        }
+        $pctField = $pctStored !== null ? $pctStored : '';
         if ($id > 0) {
             $pk = Db::pkForLogicalId('site_cost_categories', $id);
             $cur = $pk !== null ? Db::row('site_cost_categories', $pk) : null;
@@ -132,6 +185,7 @@ if (!function_exists('tnc_site_category_save')) {
                     'name' => $name,
                     'site_id' => $siteId,
                     'sort_order' => $sortOrder,
+                    'budget_percent' => $pctField,
                 ]));
 
                 return $id;
@@ -144,6 +198,7 @@ if (!function_exists('tnc_site_category_save')) {
             'name' => $name,
             'sort_order' => $sortOrder,
             'active' => 1,
+            'budget_percent' => $pctField,
         ]);
 
         return $nid;

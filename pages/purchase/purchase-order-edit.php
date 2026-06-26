@@ -43,7 +43,7 @@ if (Purchase::poPaidLocksMutation($po)) {
 
 $supplierRows = Db::tableRows('suppliers');
 Db::sortRows($supplierRows, 'name', false);
-$supplierById = Db::tableKeyed('suppliers');
+$supplierById = Db::tableKeyed('suppliers'); 
 $supplierId = (int) ($po['supplier_id'] ?? 0);
 $supplierName = trim((string) (($supplierById[(string) $supplierId]['name'] ?? '')));
 
@@ -274,6 +274,12 @@ if (!$isHirePo) {
         <?php endif; ?>
         <?php if ($errorCode === 'need_cost_category'): ?>
             <div class="alert alert-warning py-2 mb-3">กรุณาเลือกหมวดค่าใช้จ่ายของไซต์</div>
+        <?php endif; ?>
+        <?php if ($errorCode === 'site_budget_exceeded'): ?>
+            <div class="alert alert-danger py-2 mb-3">งบไซต์ไม่พอ — ไม่สามารถบันทึก PO ได้ (เกินวงเงินรวมของไซต์)</div>
+        <?php endif; ?>
+        <?php if ($errorCode === 'site_budget_cat_exceeded'): ?>
+            <div class="alert alert-danger py-2 mb-3">งบหมวดไม่พอ — ไม่สามารถบันทึก PO ได้ (เกินวงเงินหมวดที่กำหนด)</div>
         <?php endif; ?>
 
         <header class="po-create-hero p-4 p-md-4 mb-4">

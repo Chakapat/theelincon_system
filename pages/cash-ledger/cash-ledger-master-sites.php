@@ -14,5 +14,5 @@ if (!isset($_SESSION['role']) || !in_array((string) $_SESSION['role'], ['admin',
     header('Location: ' . app_path('index.php'));
     exit;
 }
-header('Location: ' . app_path('pages/organization/sites.php'));
+header('Location: ' . app_path('pages/sites/site-picker.php'));
 exit;

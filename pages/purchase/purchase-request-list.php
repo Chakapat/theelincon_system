@@ -10,6 +10,7 @@ require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/line_pr_approval.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_table_skeleton.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_flash.php';
+require_once dirname(__DIR__, 2) . '/includes/site_budget.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -17,6 +18,11 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
+$siteFilter = tnc_site_list_filter_from_request();
+$filterSiteId = (int) ($siteFilter['site_id'] ?? 0);
+$filterSiteName = (string) ($siteFilter['site_name'] ?? '');
+$siteFilterQuery = (string) ($siteFilter['query'] ?? '');
+$siteHubUrl = (string) ($siteFilter['hub_url'] ?? '');
 
 $users = Db::tableKeyed('users');
 $companies = Db::tableRows('company');
@@ -30,6 +36,12 @@ foreach ($pr_rows as &$row) {
 }
 unset($row);
 Db::sortRows($pr_rows, 'created_at', true);
+
+if ($filterSiteId > 0) {
+    $pr_rows = array_values(array_filter($pr_rows, static function (array $row) use ($filterSiteId): bool {
+        return (int) ($row['site_id'] ?? 0) === $filterSiteId;
+    }));
+}
 
 $pr_ids_with_po = [];
 /** PR id => true when linked PO status is cancelled (lowercase in DB) */
@@ -139,17 +151,24 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
             <p class="purchase-page-kicker">Purchase Module</p>
             <h1 class="purchase-list-title mb-0">
                 <span class="po-list-title__icon me-2 text-tnc-orange" aria-hidden="true"><i class="bi bi-cart-check-fill"></i></span>
-                รายการใบขอซื้อ (PR)
+                รายการใบขอซื้อทั้งหมด (PR)
             </h1>
+            <?php if ($filterSiteId > 0 && $filterSiteName !== ''): ?>
+                <p class="text-muted small mb-0 mt-2">
+                    ไซต์: <span class="fw-semibold"><?= htmlspecialchars($filterSiteName, ENT_QUOTES, 'UTF-8') ?></span>
+                    · <a href="<?= htmlspecialchars($siteHubUrl, ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">กลับ Site Hub</a>
+                    · <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-secondary">ดูทุกไซต์</a>
+                </p>
+            <?php endif; ?>
         </div>
         <div class="d-flex flex-wrap gap-2 no-print align-items-center">
             <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm d-none" id="prBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก" aria-hidden="true">
                 <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
             </button>
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4 shadow-sm">
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php') . ($filterSiteId > 0 ? ('?site_id=' . $filterSiteId) : ''), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4 shadow-sm">
                 <i class="bi bi-plus-lg"></i> สร้างใบขอซื้อใหม่
             </a>
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-orange rounded-pill px-3 shadow-sm">
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php') . $siteFilterQuery, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-orange rounded-pill px-3 shadow-sm">
                 <i class="bi bi-arrow-right-circle me-1"></i>ไปหน้ารายการใบสั่งซื้อ
             </a>
         </div>
@@ -287,7 +306,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">ไม่พบข้อมูลใบขอซื้อ</td>
+                            <td colspan="7" class="text-center py-4 text-muted"><?= $filterSiteId > 0 ? 'ไม่พบ PR ของไซต์นี้' : 'ไม่พบข้อมูลใบขอซื้อ' ?></td>
                         </tr>
                     <?php endif; ?>
                 </tbody>

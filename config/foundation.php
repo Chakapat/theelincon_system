@@ -62,6 +62,50 @@ if (!function_exists('upload_logo_url')) {
     }
 }
 
+if (!function_exists('tnc_default_company_logo_filename')) {
+    function tnc_default_company_logo_filename(): string
+    {
+        return 'theelincon-logo.png';
+    }
+}
+
+if (!function_exists('tnc_company_logo_url')) {
+    /** Company (employer) logo URL — uses bundled brand asset, then uploads/logos fallback. */
+    function tnc_company_logo_url(?string $storedFilename = null): string
+    {
+        $bundledRel = 'assets/img/' . tnc_default_company_logo_filename();
+        $bundledAbs = ROOT_PATH . '/' . $bundledRel;
+        if (is_file($bundledAbs)) {
+            return app_path($bundledRel);
+        }
+
+        if ($storedFilename !== null && $storedFilename !== '') {
+            $basename = basename(str_replace('\\', '/', trim($storedFilename)));
+            if ($basename !== '' && $basename !== '.' && $basename !== '..') {
+                $uploadAbs = ROOT_PATH . '/uploads/logos/' . $basename;
+                if (is_file($uploadAbs)) {
+                    return upload_logo_url($basename);
+                }
+            }
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('tnc_company_logo_light_url')) {
+    /** White/light logo for orange navbar and sign-in header. */
+    function tnc_company_logo_light_url(): string
+    {
+        $rel = 'assets/img/theelincon-logo-light.png';
+        if (is_file(ROOT_PATH . '/' . $rel)) {
+            return app_path($rel);
+        }
+
+        return tnc_company_logo_url('');
+    }
+}
+
 if (!function_exists('csrf_token')) {
     /** Session-bound CSRF token (generate once per session). */
     function csrf_token(): string

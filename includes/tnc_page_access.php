@@ -69,12 +69,6 @@ function tnc_role_permission_menu_tree(): array
                     'paths' => ['pages/organization/company-manage.php'],
                     'actions' => [],
                 ],
-                'page.org.sites' => [
-                    'label' => 'ไซต์งาน (Sites)',
-                    'path' => 'pages/organization/sites.php',
-                    'paths' => ['pages/organization/sites.php'],
-                    'actions' => [],
-                ],
                 'page.org.members' => [
                     'label' => 'จัดการสมาชิก (Members)',
                     'path' => 'pages/organization/member-manage.php',
@@ -104,6 +98,18 @@ function tnc_role_permission_menu_tree(): array
         'hub_purchase' => [
             'label' => 'จัดซื้อ / จัดจ้าง (Purchase / Hire)',
             'pages' => [
+                'page.site.picker' => [
+                    'label' => 'เข้าไซต์งาน (Site Hub)',
+                    'path' => 'pages/sites/site-picker.php',
+                    'paths' => ['pages/sites/site-picker.php'],
+                    'actions' => ['site.manage'],
+                ],
+                'page.site.hub' => [
+                    'label' => 'เมนูไซต์งาน',
+                    'path' => 'pages/sites/site-hub.php',
+                    'paths' => ['pages/sites/site-hub.php'],
+                    'actions' => ['pr.create', 'po.create'],
+                ],
                 'page.pr' => [
                     'label' => 'ใบขอซื้อ (PR)',
                     'path' => 'pages/purchase/purchase-request-list.php',
