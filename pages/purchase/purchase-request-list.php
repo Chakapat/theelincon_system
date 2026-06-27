@@ -46,7 +46,7 @@ if ($filterSiteId > 0) {
 $pr_ids_with_po = [];
 /** PR id => true when linked PO status is cancelled (lowercase in DB) */
 $pr_ids_po_cancelled = [];
-foreach (Db::tableRows('purchase_orders') as $poRow) {
+foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
     $pRid = (int) ($poRow['pr_id'] ?? 0);
     if ($pRid > 0) {
         $pr_ids_with_po[$pRid] = true;

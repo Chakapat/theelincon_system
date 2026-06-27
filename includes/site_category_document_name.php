@@ -41,3 +41,42 @@ if (!function_exists('tnc_site_category_document_name')) {
         return $storedName;
     }
 }
+
+if (!function_exists('tnc_site_category_document_parent_name')) {
+    /** ชื่อหมวดหลักสำหรับพิมพ์ PR/PO — ถ้าเลือกหมวดย่อย แสดงหมวดหลัก */
+    function tnc_site_category_document_parent_name(int $id, string $storedName = ''): string
+    {
+        if ($id > 0) {
+            if (function_exists('tnc_site_category_parent_id')) {
+                $parentId = tnc_site_category_parent_id($id);
+                if ($parentId > 0) {
+                    $parentName = function_exists('tnc_site_category_name')
+                        ? tnc_site_category_name($parentId)
+                        : '';
+                    if ($parentName !== '') {
+                        return $parentName;
+                    }
+                    $parentRow = Db::rowByIdField('site_cost_categories', $parentId);
+                    if (is_array($parentRow)) {
+                        $name = trim((string) ($parentRow['name'] ?? ''));
+                        if ($name !== '') {
+                            return $name;
+                        }
+                    }
+                }
+            }
+
+            return tnc_site_category_document_name($id, $storedName);
+        }
+
+        $storedName = trim($storedName);
+        if ($storedName === '') {
+            return '';
+        }
+        if (str_contains($storedName, ' › ')) {
+            return trim((string) explode(' › ', $storedName)[0]);
+        }
+
+        return $storedName;
+    }
+}

@@ -361,11 +361,11 @@ if (user_can('page.po')) {
         .site-card__status--neutral { background: #f8fafc; color: #475569; }
         .site-fav-btn {
             position: absolute;
-            top: 0.65rem;
-            right: 0.65rem;
+            top: 0.5rem;
+            right: 0.5rem;
             z-index: 2;
-            width: 2rem;
-            height: 2rem;
+            width: 2.75rem;
+            height: 2.75rem;
             padding: 0;
             border: 1px solid transparent;
             border-radius: 999px;
@@ -902,7 +902,10 @@ if (user_can('page.po')) {
                     </div>
                 </div>
             <?php endfor; ?>
-            <?php $siteSortIndex = 0; ?>
+            <?php
+            $siteBudgetUsedMap = tnc_site_budget_site_used_map();
+            $siteSortIndex = 0;
+            ?>
             <?php foreach ($sites as $site): ?>
                 <?php
                 $sid = (int) ($site['id'] ?? 0);
@@ -910,7 +913,7 @@ if (user_can('page.po')) {
                     continue;
                 }
                 $isFavorite = !empty($favoriteSiteIdSet[$sid]);
-                $summary = tnc_site_budget_site_summary($sid);
+                $summary = tnc_site_budget_site_summary_light($sid, $site, $siteBudgetUsedMap[$sid] ?? 0.0);
                 $limit = $summary['limit'];
                 $used = (float) ($summary['used'] ?? 0);
                 $remaining = $summary['remaining'];

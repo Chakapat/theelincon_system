@@ -8,6 +8,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/tax_invoice_ref_search_catalog.php';
+require_once dirname(__DIR__, 2) . '/includes/invoice_cancel_helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -15,6 +16,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $is_admin = user_can('invoice.tax_delete');
+$can_cancel_tax = user_can('invoice.tax_cancel');
+$can_edit_tax = user_can('invoice.edit');
 $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 
 $taxRows = Db::tableRows('tax_invoices');
@@ -45,6 +48,8 @@ foreach ($taxRows as $tax) {
         'customer_logo' => trim((string) ($cust['logo'] ?? '')),
         'issuer_name' => trim((string) (($issuer['fname'] ?? '') . ' ' . ($issuer['lname'] ?? ''))),
         'grand_total' => $grand,
+        'is_cancelled' => tnc_tax_invoice_is_cancelled($tax) || tnc_invoice_is_cancelled($inv),
+        'is_tax_cancelled' => tnc_tax_invoice_is_cancelled($tax),
     ];
     $grandTotalSum += $grand;
 }
@@ -210,6 +215,18 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
             border-color: rgba(220, 53, 69, 0.25);
         }
         .btn-invoice-action-delete:hover { background: rgba(220, 53, 69, 0.2); color: #842029; }
+        .inv-badge-cancelled {
+            background-color: rgba(220, 53, 69, 0.14);
+            color: #842029;
+            border: 1px solid rgba(220, 53, 69, 0.42);
+            font-weight: 600;
+        }
+        .btn-invoice-action-cancel {
+            background: rgba(220, 53, 69, 0.08);
+            color: #842029;
+            border: 1px solid rgba(220, 53, 69, 0.2);
+        }
+        .btn-invoice-action-cancel:hover { background: rgba(220, 53, 69, 0.18); color: #58151c; }
         #taxTable_wrapper .dataTables_paginate {
             padding-left: 1rem;
             padding-right: 1rem;
@@ -328,6 +345,11 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+    window.tncActionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    window.tncCsrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
+    </script>
+    <script src="<?= htmlspecialchars(app_path('assets/js/tnc-invoice-cancel.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 </head>
 <body class="tnc-app-body tnc-layout-list">
 
@@ -383,9 +405,9 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
                             $custLogo = trim((string) ($row['customer_logo'] ?? ''));
                             $taxSortOrder = sprintf('%010d', (int) ($row['tax_id'] ?? 0));
                             ?>
-                            <tr<?= $taxDateAttr !== '' ? ' data-tax-date="' . $taxDateAttr . '"' : '' ?>>
+                            <tr<?= $taxDateAttr !== '' ? ' data-tax-date="' . $taxDateAttr . '"' : '' ?><?= !empty($row['is_cancelled']) ? ' class="inv-row-cancelled"' : '' ?>>
                                 <td class="tnc-mobile-primary" data-label="เลขที่" data-order="<?= htmlspecialchars($taxSortOrder, ENT_QUOTES, 'UTF-8') ?>">
-                                    <div><span class="badge rounded-pill inv-badge-tax-issued px-3"><?= htmlspecialchars($row['tax_invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></div>
+                                    <div><span class="badge rounded-pill <?= !empty($row['is_cancelled']) ? 'inv-badge-cancelled' : 'inv-badge-tax-issued' ?> px-3"><?= htmlspecialchars($row['tax_invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></div>
                                     <?php if ($row['invoice_number'] !== ''): ?>
                                         <div class="tax-ref-invoice mt-1" title="อ้างอิงจากใบแจ้งหนี้"><span class="tax-ref-invoice-arrow" aria-hidden="true">→</span> <span class="tax-ref-invoice-no"><?= htmlspecialchars($row['invoice_number'], ENT_QUOTES, 'UTF-8') ?></span></div>
                                     <?php endif; ?>
@@ -403,7 +425,12 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
                                 <td class="text-end pe-4 tnc-mobile-actions" data-label="จัดการ">
                                     <div class="d-inline-flex flex-wrap align-items-center justify-content-end gap-2">
                                         <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>" class="btn btn-invoice-action btn-invoice-action-view" title="ดูเอกสาร Tax INV"><i class="bi bi-eye-fill"></i></a>
+                                        <?php if ($can_edit_tax && empty($row['is_cancelled'])): ?>
                                         <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>&edit=1" class="btn btn-invoice-action btn-invoice-action-edit" title="แก้ไข Tax INV"><i class="bi bi-pencil-square"></i></a>
+                                        <?php endif; ?>
+                                        <?php if ($can_cancel_tax && empty($row['is_tax_cancelled'])): ?>
+                                        <button type="button" class="btn btn-invoice-action btn-invoice-action-cancel" data-tnc-cancel-tax-invoice data-tax-id="<?= (int) $row['tax_id'] ?>" data-invoice-id="<?= (int) $row['invoice_id'] ?>" title="ยกเลิก Tax INV"><i class="bi bi-x-circle"></i></button>
+                                        <?php endif; ?>
                                         <?php if ($is_admin): ?>
                                             <a href="<?= htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-8') ?>?action=delete&type=tax_invoice&id=<?= (int) $row['tax_id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-invoice-action btn-invoice-action-delete tnc-delete-post" title="ลบรายการ Tax INV (ต้องใส่รหัสผ่าน)"><i class="bi bi-trash3-fill"></i></a>
                                         <?php endif; ?>
@@ -612,6 +639,24 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
             params.delete('deleted');
             var qs2 = params.toString();
             window.history.replaceState({}, '', window.location.pathname + (qs2 ? '?' + qs2 : '') + window.location.hash);
+        } else if (params.get('cancelled') === '1') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'ยกเลิกใบกำกับภาษีเรียบร้อยแล้ว',
+                showConfirmButton: false,
+                timer: 2800,
+                timerProgressBar: true
+            });
+            params.delete('cancelled');
+            var qs3 = params.toString();
+            window.history.replaceState({}, '', window.location.pathname + (qs3 ? '?' + qs3 : '') + window.location.hash);
+        } else if (params.get('error') === 'need_cancel_reason') {
+            Swal.fire({ icon: 'warning', title: 'กรุณาระบุเหตุผล', confirmButtonColor: '#ea580c' });
+            params.delete('error');
+            var qs4 = params.toString();
+            window.history.replaceState({}, '', window.location.pathname + (qs4 ? '?' + qs4 : '') + window.location.hash);
         }
     });
 })();

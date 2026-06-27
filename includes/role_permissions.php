@@ -34,7 +34,9 @@ function tnc_role_action_permission_definitions(): array
         'po.cancel' => ['label' => 'ยกเลิก PO', 'group' => 'ใบสั่งซื้อ (PO)', 'hint' => 'เปลี่ยนสถานะเป็นยกเลิก', 'kind' => 'action'],
         'po.delete' => ['label' => 'ลบ PO', 'group' => 'ใบสั่งซื้อ (PO)', 'hint' => 'ลบใบสั่งซื้อที่ยังไม่จ่าย', 'kind' => 'action'],
         'invoice.edit' => ['label' => 'แก้ไข Invoice', 'group' => 'Invoice / Tax', 'hint' => 'แก้ไขใบแจ้งหนี้', 'kind' => 'action'],
+        'invoice.cancel' => ['label' => 'ยกเลิก Invoice', 'group' => 'Invoice / Tax', 'hint' => 'เปลี่ยนสถานะเป็นยกเลิก (ระบุเหตุผล)', 'kind' => 'action'],
         'invoice.delete' => ['label' => 'ลบ Invoice', 'group' => 'Invoice / Tax', 'hint' => 'ลบใบแจ้งหนี้', 'kind' => 'action'],
+        'invoice.tax_cancel' => ['label' => 'ยกเลิก Tax Invoice', 'group' => 'Invoice / Tax', 'hint' => 'เปลี่ยนสถานะใบกำกับภาษีเป็นยกเลิก (ระบุเหตุผล)', 'kind' => 'action'],
         'invoice.tax_delete' => ['label' => 'ลบ Tax Invoice', 'group' => 'Invoice / Tax', 'hint' => 'ลบใบกำกับภาษี', 'kind' => 'action'],
         'site.manage' => ['label' => 'จัดการไซต์งาน', 'group' => 'Site Workspace', 'hint' => 'สร้างไซต์ ตั้งงบ และหมวดค่าใช้จ่าย', 'kind' => 'action'],
     ];
@@ -113,6 +115,8 @@ function tnc_role_permission_defaults(): array
         'site.manage' => false,
         'invoice.delete' => false,
         'invoice.tax_delete' => false,
+        'invoice.cancel' => true,
+        'invoice.tax_cancel' => true,
     ]);
 
     $userPagesOn = [
@@ -140,6 +144,8 @@ function tnc_role_permission_defaults(): array
         'po.delete' => false,
         'invoice.edit' => false,
         'invoice.delete' => false,
+        'invoice.cancel' => false,
+        'invoice.tax_cancel' => false,
         'invoice.tax_delete' => false,
     ]);
 

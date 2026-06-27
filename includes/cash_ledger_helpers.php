@@ -176,3 +176,37 @@ function cash_ledger_auto_archive_monthly_if_due(): bool
 
     return true;
 }
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function cash_ledger_chronological_rows(): array
+{
+    $rows = [];
+    foreach (\Theelincon\Rtdb\Db::tableRows('cash_ledger') as $row) {
+        $entryDate = (string) ($row['entry_date'] ?? '');
+        if ($entryDate === '') {
+            continue;
+        }
+        $rows[] = $row;
+    }
+    usort(
+        $rows,
+        static function (array $a, array $b): int {
+            $cmp = strcmp((string) ($a['entry_date'] ?? ''), (string) ($b['entry_date'] ?? ''));
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+
+            return (int) ($a['id'] ?? 0) <=> (int) ($b['id'] ?? 0);
+        }
+    );
+
+    return $rows;
+}
+
+function cash_ledger_row_amount_delta(array $row): float
+{
+    $amount = (float) ($row['amount'] ?? 0);
+    return (($row['entry_type'] ?? '') === 'income') ? $amount : -$amount;
+}

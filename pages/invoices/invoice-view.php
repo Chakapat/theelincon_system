@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/banks.php';
+require_once dirname(__DIR__, 2) . '/includes/invoice_cancel_helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -32,6 +33,11 @@ $inv = Db::rowByIdField('invoices', $id);
 if (!$inv) {
     die('ไม่พบข้อมูล');
 }
+
+$isInvCancelled = tnc_invoice_is_cancelled($inv);
+$invCancelReason = tnc_doc_cancellation_reason($inv);
+$canCancelInvoice = user_can('invoice.cancel') && !$isInvCancelled;
+$canEditInvoice = user_can('invoice.edit') && !$isInvCancelled;
 
 $cust = Db::row('customers', (string) ($inv['customer_id'] ?? ''));
 $com = Db::row('company', (string) ($inv['company_id'] ?? ''));
@@ -254,6 +260,26 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
         .sig-space { height: 80px; }
         .sig-box { border-top: 1px solid #333; padding-top: 15px; font-size: 13px; font-weight: 600; }
 
+        .doc-cancelled-watermark {
+            position: absolute;
+            left: 50%;
+            top: 48%;
+            transform: translate(-50%, -50%) rotate(-32deg);
+            font-size: clamp(1.75rem, 6.5vw, 2.85rem);
+            font-weight: 800;
+            color: rgba(220, 38, 38, 0.42);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 50;
+            letter-spacing: 0.12em;
+            user-select: none;
+        }
+        .doc-cancel-reason-print {
+            font-size: 11px;
+            color: #991b1b;
+            margin-top: 0.35rem;
+        }
+
         <?php if ($autoprint): ?>
         body.invoice-autoprint {
             margin: 0;
@@ -330,15 +356,38 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
 <div class="tnc-inv-chrome no-print">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 </div>
+<?php if (isset($_GET['cancelled']) && (string) $_GET['cancelled'] === '1'): ?>
+<div class="container mt-3 no-print"><div class="alert alert-success mb-0 py-2">ยกเลิกใบแจ้งหนี้เรียบร้อยแล้ว</div></div>
+<?php elseif (isset($_GET['error']) && (string) $_GET['error'] === 'need_cancel_reason'): ?>
+<div class="container mt-3 no-print"><div class="alert alert-warning mb-0 py-2">กรุณาระบุเหตุผลการยกเลิก</div></div>
+<?php endif; ?>
 <header class="tnc-inv-chrome doc-view-shell no-print">
     <div class="doc-view-shell-inner">
         <div class="doc-view-toolbar-row js-tnc-doc-toolbar">
             <div class="doc-view-toolbar-main">
                 <span class="doc-view-toolbar-id"><?= htmlspecialchars($invDocTitle, ENT_QUOTES, 'UTF-8') ?></span>
                 <span class="doc-view-toolbar-sep" aria-hidden="true">—</span>
-                <span class="doc-view-toolbar-meta">ต้นฉบับ + สำเนา (2 แผ่น)</span>
+                <?php if ($isInvCancelled): ?>
+                    <span class="badge rounded-pill px-3 py-2 text-bg-danger">ยกเลิกแล้ว</span>
+                <?php else: ?>
+                    <span class="doc-view-toolbar-meta">ต้นฉบับ + สำเนา (2 แผ่น)</span>
+                <?php endif; ?>
+                <?php if ($isInvCancelled && $invCancelReason !== ''): ?>
+                    <span class="doc-view-toolbar-sep" aria-hidden="true">—</span>
+                    <span class="small text-danger">เหตุผล: <?= htmlspecialchars($invCancelReason, ENT_QUOTES, 'UTF-8') ?></span>
+                <?php endif; ?>
             </div>
             <div class="doc-view-toolbar-actions">
+                <?php if ($canEditInvoice): ?>
+                <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php'), ENT_QUOTES, 'UTF-8') ?>?action=edit&amp;id=<?= (int) $id ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action">
+                    <i class="bi bi-pencil-square me-1"></i>แก้ไข
+                </a>
+                <?php endif; ?>
+                <?php if ($canCancelInvoice): ?>
+                <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 js-tnc-doc-action" data-tnc-cancel-invoice data-invoice-id="<?= (int) $id ?>" data-return-to="view">
+                    <i class="bi bi-x-circle me-1"></i>ยกเลิก Invoice
+                </button>
+                <?php endif; ?>
                 <a href="<?= htmlspecialchars(app_path('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="back">
                     <i class="bi bi-arrow-left me-1"></i>หน้าหลัก
                 </a>
@@ -355,6 +404,9 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
 <?php foreach ($print_modes as $pm): ?>
 <div class="invoice-sheet">
 <div class="invoice-box inv-sales-doc">
+    <?php if ($isInvCancelled): ?>
+    <div class="doc-cancelled-watermark" aria-hidden="true">ยกเลิกใบแจ้งหนี้</div>
+    <?php endif; ?>
     <div class="inv-doc-main">
     <div class="inv-doc-content">
     <div class="doc-label-container">
@@ -395,6 +447,12 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
                     <?php if ($customer_address_one_line !== '' && $customer_tax_trim !== ''): ?> | <?php endif; ?>
                     <?php if ($customer_tax_trim !== ''): ?><span class="tax-id-keep"><?= htmlspecialchars($customer_tax_trim, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
                 </span>
+            </div>
+            <?php endif; ?>
+            <?php if ($isInvCancelled && $invCancelReason !== ''): ?>
+            <div class="doc-site-block mt-2 doc-cancel-reason-print">
+                <span class="doc-site-label">เหตุผลการยกเลิก:</span>
+                <span class="doc-site-value"><?= htmlspecialchars($invCancelReason, ENT_QUOTES, 'UTF-8') ?></span>
             </div>
             <?php endif; ?>
         </div>
@@ -589,5 +647,13 @@ tnc_doc_color_render_print_style_tag();
         margin-top: 22mm !important;
     }
 </style>
+<?php if (!$embed && !$autoprint): ?>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+window.tncActionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+window.tncCsrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
+</script>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-invoice-cancel.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<?php endif; ?>
 </body>
 </html>

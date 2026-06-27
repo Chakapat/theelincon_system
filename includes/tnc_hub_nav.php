@@ -60,10 +60,10 @@ function tnc_hub_nav_section_page_keys(): array
 function tnc_hub_nav_hub_meta(): array
 {
     return [
-        'hub_master' => ['icon' => 'bi-folder2', 'ico_class' => 'home-hub-ico--master', 'short_label' => 'ข้อมูลหลัก'],
-        'hub_purchase' => ['icon' => 'bi-cart3', 'ico_class' => 'home-hub-ico--purchase', 'sidebar_label' => 'ระบบจัดซื้อ (Purchase)', 'short_label' => 'ระบบจัดซื้อ'],
-        'hub_docs' => ['icon' => 'bi-file-earmark-text', 'ico_class' => 'home-hub-ico--docs', 'sidebar_label' => 'ระบบเอกสาร (Documents)', 'short_label' => 'ระบบเอกสาร'],
-        'hub_cash' => ['icon' => 'bi-cash-stack', 'ico_class' => 'home-hub-ico--cash', 'sidebar_label' => 'ระบบการเงิน (Cash)', 'short_label' => 'ระบบการเงิน'],
+        'hub_master' => ['icon' => 'bi-folder2', 'ico_class' => 'home-hub-ico--master', 'short_label' => 'ข้อมูลหลัก', 'hint' => 'ลูกค้า บริษัท ผู้ขาย ผู้รับจ้าง'],
+        'hub_purchase' => ['icon' => 'bi-cart3', 'ico_class' => 'home-hub-ico--purchase', 'sidebar_label' => 'ระบบจัดซื้อ', 'short_label' => 'จัดซื้อ', 'hint' => 'เลือกไซต์ สร้าง PR/PO'],
+        'hub_docs' => ['icon' => 'bi-file-earmark-text', 'ico_class' => 'home-hub-ico--docs', 'sidebar_label' => 'ระบบเอกสาร', 'short_label' => 'เอกสาร', 'hint' => 'ใบสั่งงาน WO'],
+        'hub_cash' => ['icon' => 'bi-cash-stack', 'ico_class' => 'home-hub-ico--cash', 'sidebar_label' => 'ระบบการเงิน', 'short_label' => 'การเงิน', 'hint' => 'VAT รายงานไซต์ สดย่อย'],
         'hub_home' => ['icon' => 'bi-house-door', 'ico_class' => 'home-hub-ico--master', 'short_label' => 'หน้าแรก'],
         'hub_hr' => ['icon' => 'bi-person-badge', 'ico_class' => 'home-hub-ico--docs'],
         'hub_internal' => ['icon' => 'bi-shield-lock', 'ico_class' => 'home-hub-ico--docs'],
@@ -188,6 +188,7 @@ function tnc_hub_nav_build_for_user(): array
             'key' => $hubKey,
             'label' => $hubLabel,
             'short_label' => (string) ($meta['short_label'] ?? preg_replace('/\s*\([^)]*\)\s*$/u', '', $hubLabel)),
+            'hint' => (string) ($meta['hint'] ?? ''),
             'tree_label' => (string) $tree[$hubKey]['label'],
             'icon' => (string) $meta['icon'],
             'ico_class' => (string) $meta['ico_class'],
@@ -238,6 +239,27 @@ function tnc_hub_nav_render_sidebar(array $opts = []): void
     $pageMeta = tnc_hub_nav_page_meta();
     $currentKey = $nav['current_page_key'];
 
+    $activeHubKey = null;
+    foreach (tnc_hub_nav_sidebar_hub_keys() as $scanHubKey) {
+        if (!isset($sections[$scanHubKey])) {
+            continue;
+        }
+        foreach ($sections[$scanHubKey] as $scanPageKey) {
+            if (tnc_hub_nav_page_is_active($scanPageKey, $currentKey)) {
+                $activeHubKey = $scanHubKey;
+                break;
+            }
+        }
+        if ($activeHubKey !== null) {
+            break;
+        }
+    }
+    ?>
+    <div class="home-hub-sidebar-intro px-3 pt-3 pb-2 border-bottom border-light-subtle">
+        <p class="home-hub-sidebar-intro__title fw-bold mb-0">เมนูระบบ</p>
+    </div>
+    <?php
+
     $renderLink = static function (string $pageKey) use ($flat, $pageMeta, $currentKey): void {
         if (!isset($flat[$pageKey]) || !user_can_access_page($pageKey)) {
             return;
@@ -275,13 +297,25 @@ function tnc_hub_nav_render_sidebar(array $opts = []): void
         $hubLabel = (string) ($meta['sidebar_label'] ?? $tree[$hubKey]['label']);
         $collapseId = 'hub-collapse-' . preg_replace('/[^a-z0-9_-]/i', '', $hubKey);
         $toggleId = 'hub-toggle-' . preg_replace('/[^a-z0-9_-]/i', '', $hubKey);
-        $isFirst = $hubKey === 'hub_master';
-        $expanded = $isFirst && !$startCollapsed;
+        $hubHasActive = false;
+        foreach ($sections[$hubKey] as $hubPageKey) {
+            if (tnc_hub_nav_page_is_active($hubPageKey, $currentKey)) {
+                $hubHasActive = true;
+                break;
+            }
+        }
+        $expanded = $hubHasActive || ($activeHubKey === null && $hubKey === 'hub_master' && !$startCollapsed);
+        $hubHint = trim((string) ($meta['hint'] ?? ''));
         ?>
         <div class="home-hub-section">
-            <button type="button" class="home-hub-toggle<?= $expanded ? '' : ' collapsed' ?>" data-bs-toggle="collapse" data-bs-target="#<?= htmlspecialchars($collapseId, ENT_QUOTES, 'UTF-8') ?>" aria-expanded="<?= $expanded ? 'true' : 'false' ?>" aria-controls="<?= htmlspecialchars($collapseId, ENT_QUOTES, 'UTF-8') ?>" id="<?= htmlspecialchars($toggleId, ENT_QUOTES, 'UTF-8') ?>">
+            <button type="button" class="home-hub-toggle<?= $expanded ? '' : ' collapsed' ?><?= $hubHasActive ? ' has-active-child' : '' ?>" data-bs-toggle="collapse" data-bs-target="#<?= htmlspecialchars($collapseId, ENT_QUOTES, 'UTF-8') ?>" aria-expanded="<?= $expanded ? 'true' : 'false' ?>" aria-controls="<?= htmlspecialchars($collapseId, ENT_QUOTES, 'UTF-8') ?>" id="<?= htmlspecialchars($toggleId, ENT_QUOTES, 'UTF-8') ?>">
                 <span class="home-hub-ico <?= htmlspecialchars((string) $meta['ico_class'], ENT_QUOTES, 'UTF-8') ?> flex-shrink-0"><i class="<?= htmlspecialchars((string) $meta['icon'], ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"></i></span>
-                <span class="fw-semibold text-dark"><?= htmlspecialchars($hubLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="home-hub-toggle__text min-w-0">
+                    <span class="fw-semibold text-dark d-block"><?= htmlspecialchars($hubLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                    <?php if ($hubHint !== ''): ?>
+                    <span class="home-hub-toggle__hint small text-muted d-block"><?= htmlspecialchars($hubHint, ENT_QUOTES, 'UTF-8') ?></span>
+                    <?php endif; ?>
+                </span>
                 <i class="bi bi-chevron-down home-hub-chevron" aria-hidden="true"></i>
             </button>
             <div id="<?= htmlspecialchars($collapseId, ENT_QUOTES, 'UTF-8') ?>" class="collapse<?= $expanded ? ' show' : '' ?> home-hub-panel" aria-labelledby="<?= htmlspecialchars($toggleId, ENT_QUOTES, 'UTF-8') ?>">

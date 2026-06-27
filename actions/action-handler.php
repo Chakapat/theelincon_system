@@ -27,7 +27,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // POST-only actions: prevent direct GET access to write endpoints.
-if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'receive_po_bill' || $action === 'add_po_payment_slips' || $action === 'remove_po_payment_slip' || $action === 'replace_po_payment_slip' || $action === 'update_po_direct' || $action === 'cancel_purchase_order' || $action === 'ignore_incomplete_po' || $action === 'unignore_incomplete_po' || $action === 'update_my_profile' || $action === 'send_pr_line_approval' || $action === 'pr_web_decision')
+if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'receive_po_bill' || $action === 'add_po_payment_slips' || $action === 'remove_po_payment_slip' || $action === 'replace_po_payment_slip' || $action === 'update_po_direct' || $action === 'cancel_purchase_order' || $action === 'cancel_invoice' || $action === 'cancel_tax_invoice' || $action === 'ignore_incomplete_po' || $action === 'unignore_incomplete_po' || $action === 'update_my_profile' || $action === 'send_pr_line_approval' || $action === 'pr_web_decision')
     && strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
     $fallback = match ($action) {
         'create_po_direct' => app_path('pages/purchase/purchase-order-create-direct.php'),
@@ -2653,6 +2653,98 @@ if ($action === 'cancel_purchase_order' && ($_SERVER['REQUEST_METHOD'] ?? '') ==
         tnc_action_redirect($woListUrl . '?cancelled=1');
     }
     tnc_action_redirect($listUrl . '?cancelled=1');
+}
+
+require_once __DIR__ . '/../includes/invoice_cancel_helpers.php';
+
+if ($action === 'cancel_invoice' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    tnc_require_can('invoice.cancel', 'ไม่มีสิทธิ์ยกเลิกใบแจ้งหนี้');
+    $listUrl = app_path('index.php');
+    $viewUrl = app_path('pages/invoices/invoice-view.php');
+    $invoiceId = (int) ($_POST['invoice_id'] ?? 0);
+    $reason = trim((string) ($_POST['cancellation_reason'] ?? ''));
+    if ($invoiceId <= 0) {
+        tnc_action_redirect($listUrl . '?error=invalid');
+    }
+    if ($reason === '') {
+        $returnToReason = trim((string) ($_POST['return_to'] ?? ''));
+        if ($returnToReason === 'view') {
+            tnc_action_redirect($viewUrl . '?id=' . $invoiceId . '&error=need_cancel_reason');
+        }
+        tnc_action_redirect($listUrl . '?error=need_cancel_reason');
+    }
+    $pk = Db::pkForLogicalId('invoices', $invoiceId);
+    $existing = Db::row('invoices', $pk);
+    if ($existing === null) {
+        tnc_action_redirect($listUrl . '?error=not_found');
+    }
+    if (tnc_invoice_is_cancelled($existing)) {
+        tnc_action_redirect($listUrl . '?error=already_cancelled');
+    }
+    $beforeSnap = $existing;
+    $cancelFields = tnc_invoice_cancel_fields($reason);
+    Db::mergeRow('invoices', $pk, $cancelFields);
+    tnc_invoice_cancel_linked_tax_invoices($invoiceId, $reason);
+    $afterSnap = Db::row('invoices', $pk);
+    $invNo = $afterSnap !== null ? trim((string) ($afterSnap['invoice_number'] ?? '')) : '';
+    tnc_audit_log('update', 'invoice', (string) $invoiceId, $invNo !== '' ? $invNo : ('#' . $invoiceId), [
+        'source' => 'action-handler',
+        'action' => 'cancel_invoice',
+        'before' => $beforeSnap,
+        'after' => $afterSnap,
+        'meta' => ['cancellation_reason' => $reason],
+    ]);
+    $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+    if ($returnTo === 'view') {
+        tnc_action_redirect($viewUrl . '?id=' . $invoiceId . '&cancelled=1');
+    }
+    tnc_action_redirect($listUrl . '?cancelled=1');
+}
+
+if ($action === 'cancel_tax_invoice' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    tnc_require_can('invoice.tax_cancel', 'ไม่มีสิทธิ์ยกเลิกใบกำกับภาษี');
+    $taxListUrl = app_path('pages/invoices/tax-invoice-list.php');
+    $taxViewUrl = app_path('pages/invoices/tax-invoice-receipt.php');
+    $taxId = (int) ($_POST['tax_id'] ?? 0);
+    $reason = trim((string) ($_POST['cancellation_reason'] ?? ''));
+    if ($taxId <= 0) {
+        tnc_action_redirect($taxListUrl . '?error=invalid');
+    }
+    if ($reason === '') {
+        $returnToReason = trim((string) ($_POST['return_to'] ?? ''));
+        if ($returnToReason === 'view') {
+            $invIdGuess = (int) ($_POST['invoice_id'] ?? 0);
+            if ($invIdGuess > 0) {
+                tnc_action_redirect($taxViewUrl . '?id=' . $invIdGuess . '&error=need_cancel_reason');
+            }
+        }
+        tnc_action_redirect($taxListUrl . '?error=need_cancel_reason');
+    }
+    $tpk = Db::pkForLogicalId('tax_invoices', $taxId);
+    $existing = Db::row('tax_invoices', $tpk);
+    if ($existing === null) {
+        tnc_action_redirect($taxListUrl . '?error=not_found');
+    }
+    if (tnc_tax_invoice_is_cancelled($existing)) {
+        tnc_action_redirect($taxListUrl . '?error=already_cancelled');
+    }
+    $invoiceId = (int) ($existing['invoice_id'] ?? 0);
+    $beforeSnap = $existing;
+    Db::mergeRow('tax_invoices', $tpk, tnc_invoice_cancel_fields($reason));
+    $afterSnap = Db::row('tax_invoices', $tpk);
+    $taxNo = $afterSnap !== null ? trim((string) ($afterSnap['tax_invoice_number'] ?? '')) : '';
+    tnc_audit_log('update', 'tax_invoice', (string) $taxId, $taxNo !== '' ? $taxNo : ('#' . $taxId), [
+        'source' => 'action-handler',
+        'action' => 'cancel_tax_invoice',
+        'before' => $beforeSnap,
+        'after' => $afterSnap,
+        'meta' => ['cancellation_reason' => $reason, 'invoice_id' => $invoiceId],
+    ]);
+    $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+    if ($returnTo === 'view' && $invoiceId > 0) {
+        tnc_action_redirect($taxViewUrl . '?id=' . $invoiceId . '&cancelled=1');
+    }
+    tnc_action_redirect($taxListUrl . '?cancelled=1');
 }
 
 /** ปัดทิ้ง/คืนค่า PO ที่ไม่สมบูรณ์ — ไม่ให้นับในกล่องแจ้งเตือน (สำหรับใบเก่าที่กรอกย้อนหลังไม่ได้แล้ว) */

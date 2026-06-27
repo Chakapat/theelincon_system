@@ -8,6 +8,7 @@ session_start();
 require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/tnc_action_response.php';
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
+require_once __DIR__ . '/../includes/invoice_cancel_helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -51,6 +52,10 @@ if ($invoice_number === '') {
 }
 
 $beforeInv = Db::row('invoices', (string) $invoice_id) ?? [];
+if (tnc_invoice_is_cancelled($beforeInv)) {
+    header('Location: ' . app_path('pages/invoices/invoice-view.php') . '?id=' . $invoice_id . '&error=cancelled');
+    exit;
+}
 $beforeLines = [];
 foreach (Db::filter('invoice_items', static function (array $r) use ($invoice_id): bool {
     return isset($r['invoice_id']) && (int) $r['invoice_id'] === $invoice_id;

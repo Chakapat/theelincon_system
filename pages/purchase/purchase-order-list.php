@@ -31,14 +31,17 @@ $suppliers = Db::tableKeyed('suppliers');
 $users = Db::tableKeyed('users');
 
 $siteNameById = [];
-foreach (Db::tableRows('sites') as $site) {
+foreach (Db::tableKeyed('sites') as $site) {
+    if (!is_array($site)) {
+        continue;
+    }
     $sid = (int) ($site['id'] ?? 0);
     if ($sid > 0) {
         $siteNameById[$sid] = trim((string) ($site['name'] ?? ''));
     }
 }
 $prById = [];
-foreach (Db::tableRows('purchase_requests') as $pr) {
+foreach (Db::tableKeyed('purchase_requests') as $pr) {
     $pid = (int) ($pr['id'] ?? 0);
     if ($pid > 0) {
         $prById[$pid] = $pr;
@@ -78,7 +81,7 @@ $woListUrl = app_path('pages/purchase/work-order-list.php');
 $poItemsByPoId = tnc_purchase_po_items_group_by_po_id();
 
 $po_rows = [];
-foreach (Db::tableRows('purchase_orders') as $po) {
+foreach (tnc_site_budget_purchase_orders_cached() as $po) {
     if (Purchase::isWorkOrder($po)) {
         continue;
     }

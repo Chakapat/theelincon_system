@@ -27,6 +27,7 @@ if (!$isAdmin) {
     exit;
 }
 $cashHandlerUrl = app_path('actions/cash-ledger-handler.php');
+$dashboardUrl = app_path('pages/cash-ledger/cash-ledger-dashboard.php');
 $csrfQ = '&_csrf=' . rawurlencode(csrf_token());
 
 $month = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['month'] ?? '')) ? $_GET['month'] : date('Y-m');
@@ -43,9 +44,6 @@ if ($editId > 0) {
     }
 }
 
-$sumIncome = 0.0;
-$sumExpense = 0.0;
-$net = 0.0;
 $rows = [];
 $rowCount = 0;
 
@@ -68,44 +66,20 @@ try {
 
 $users = Db::tableKeyed('users');
 
-// ยอดคงเหลือล่าสุด (สะสมทุกรายการ เรียงวันที่แล้ว id — ตรงกับรายการล่าสุดในระบบ)
+$allLedgerChrono = cash_ledger_chronological_rows();
 $latestBalanceAllTime = 0.0;
-$allLedgerChrono = [];
-foreach (Db::tableRows('cash_ledger') as $cAll) {
-    $edAll = (string) ($cAll['entry_date'] ?? '');
-    if ($edAll === '') {
-        continue;
-    }
-    $allLedgerChrono[] = $cAll;
-}
-usort(
-    $allLedgerChrono,
-    static function (array $a, array $b): int {
-        $cmp = strcmp((string) ($a['entry_date'] ?? ''), (string) ($b['entry_date'] ?? ''));
-        if ($cmp !== 0) {
-            return $cmp;
-        }
-
-        return (int) ($a['id'] ?? 0) <=> (int) ($b['id'] ?? 0);
-    }
-);
-foreach ($allLedgerChrono as $cAll) {
-    $amtAll = (float) ($cAll['amount'] ?? 0);
-    $latestBalanceAllTime += (($cAll['entry_type'] ?? '') === 'income') ? $amtAll : -$amtAll;
-}
-
-// ยอดยกมาต้นเดือน: คำนวณจากรายการก่อนหน้าเดือนที่เลือก
 $openingBalance = 0.0;
-foreach (Db::tableRows('cash_ledger') as $cPrev) {
-    $edPrev = (string) ($cPrev['entry_date'] ?? '');
-    if ($edPrev === '' || $edPrev >= $ymStart) {
-        continue;
+foreach ($allLedgerChrono as $cAll) {
+    $delta = cash_ledger_row_amount_delta($cAll);
+    $edAll = (string) ($cAll['entry_date'] ?? '');
+    if ($edAll !== '' && $edAll < $ymStart) {
+        $openingBalance += $delta;
     }
-    $amtPrev = (float) ($cPrev['amount'] ?? 0);
-    $openingBalance += (($cPrev['entry_type'] ?? '') === 'income') ? $amtPrev : -$amtPrev;
+    $latestBalanceAllTime += $delta;
 }
 
-foreach (Db::tableRows('cash_ledger') as $c) {
+$rows = [];
+foreach ($allLedgerChrono as $c) {
     $ed = (string) ($c['entry_date'] ?? '');
     if ($ed < $ymStart || $ed > $ymEnd) {
         continue;
@@ -120,7 +94,6 @@ foreach (Db::tableRows('cash_ledger') as $c) {
     ]);
 }
 
-// คำนวณยอดคงเหลือรายบรรทัดโดยเรียงเวลาเก่า -> ใหม่ก่อน
 $rowsAsc = $rows;
 usort($rowsAsc, static function (array $a, array $b): int {
     $cmp = strcmp((string) ($a['entry_date'] ?? ''), (string) ($b['entry_date'] ?? ''));
@@ -135,8 +108,7 @@ $runningBalance = $openingBalance;
 $balanceById = [];
 foreach ($rowsAsc as $rAsc) {
     $rowId = (int) ($rAsc['id'] ?? 0);
-    $amt = (float) ($rAsc['amount'] ?? 0);
-    $runningBalance += (($rAsc['entry_type'] ?? '') === 'income') ? $amt : -$amt;
+    $runningBalance += cash_ledger_row_amount_delta($rAsc);
     $balanceById[$rowId] = $runningBalance;
 }
 
@@ -146,7 +118,12 @@ foreach ($rows as &$rowRef) {
 }
 unset($rowRef);
 
-// แสดงผลล่าสุดขึ้นก่อนเหมือนเดิม
+foreach ($rowsAsc as &$rowAscRef) {
+    $rowId = (int) ($rowAscRef['id'] ?? 0);
+    $rowAscRef['running_balance'] = $balanceById[$rowId] ?? $openingBalance;
+}
+unset($rowAscRef);
+
 usort($rows, static function (array $a, array $b): int {
     $cmp = strcmp((string) ($b['entry_date'] ?? ''), (string) ($a['entry_date'] ?? ''));
     if ($cmp !== 0) {
@@ -157,7 +134,8 @@ usort($rows, static function (array $a, array $b): int {
 });
 
 $rowCount = count($rows);
-$perPage = 10;
+$perPageParam = isset($_GET['per_page']) ? (int) $_GET['per_page'] : 10;
+$perPage = in_array($perPageParam, [10, 25, 50], true) ? $perPageParam : 10;
 $page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
 if ($page < 1) {
     $page = 1;
@@ -170,6 +148,9 @@ $offset = ($page - 1) * $perPage;
 $pagedRows = array_slice($rows, $offset, $perPage);
 $showFrom = $rowCount === 0 ? 0 : ($offset + 1);
 $showTo = $rowCount === 0 ? 0 : min($offset + count($pagedRows), $rowCount);
+
+$sumIncome = 0.0;
+$sumExpense = 0.0;
 foreach ($rows as $r) {
     if (($r['entry_type'] ?? '') === 'income') {
         $sumIncome += (float) ($r['amount'] ?? 0);
@@ -178,6 +159,15 @@ foreach ($rows as $r) {
     }
 }
 $net = $sumIncome - $sumExpense;
+$periodEndBalance = $openingBalance + $net;
+$formExpanded = true;
+$ledgerAmountValue = '';
+if ($editRow) {
+    $ledgerAmountValue = rtrim(rtrim(number_format((float) ($editRow['amount'] ?? 0), 2, '.', ''), '0'), '.');
+}
+$periodFilterLabel = $searchDate !== ''
+    ? 'วันที่ ' . date('d/m/Y', strtotime($searchDate))
+    : $periodLabelTh;
 
 ?>
 <!DOCTYPE html>
@@ -190,13 +180,73 @@ $net = $sumIncome - $sumExpense;
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/cash-ledger-print.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/cash-ledger-print.css') . '?v=' . (@filemtime(dirname(__DIR__, 2) . '/assets/css/cash-ledger-print.css') ?: time()), ENT_QUOTES, 'UTF-8') ?>">
     <style>
         body { font-family: 'Sarabun', sans-serif; background: #fffaf5; }
         .cash-ledger-shell { max-width: 1360px; }
-        .card-dash { border-radius: 16px; border: 1px solid rgba(0,0,0,.06); box-shadow: 0 4px 20px rgba(0,0,0,.06); background: #fff; }
-        .card-stats { border-left: 5px solid #ea580c; transition: transform 0.2s, box-shadow 0.2s; background: #fff; }
-        .card-stats:hover { transform: translateY(-3px); }
+        .card-dash { border-radius: 14px; border: 1px solid #e2e8f0; background: #fff; }
+        .ledger-kpi {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fff;
+            padding: 0.85rem 1rem;
+        }
+        .ledger-kpi--income { background: #f0fdf4; border-color: #bbf7d0; }
+        .ledger-kpi--expense { background: #fef2f2; border-color: #fecaca; }
+        .ledger-kpi--balance { background: #fff7ed; border-color: #fed7aa; }
+        .ledger-kpi__label { font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.15rem; }
+        .ledger-kpi__value {
+            font-size: 1.15rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            color: #0f172a;
+            line-height: 1.2;
+        }
+        .ledger-period-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.65rem 1rem;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #fed7aa;
+            border-radius: 12px;
+            background: #fff7ed;
+        }
+        .ledger-period-bar__label { font-size: 0.8125rem; font-weight: 700; color: #9a3412; }
+        .ledger-period-bar__chip {
+            font-size: 0.9375rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .ledger-table-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem 1rem;
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .ledger-table-head__meta { font-size: 0.8125rem; color: #64748b; }
+        .table-cash-report thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: #f8fafc;
+            box-shadow: 0 1px 0 #fdba74;
+        }
+        .table-cash-report .ledger-money {
+            font-variant-numeric: tabular-nums;
+        }
+        .ledger-opening-row td {
+            background: #f8fafc;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .ledger-opening-row .ledger-cell-desc {
+            font-weight: 700;
+            color: #334155;
+        }
         .ledger-hero-title { letter-spacing: 0.01em; }
         .ledger-subtitle { color: #6c757d; font-size: 0.93rem; margin-bottom: 0; }
         .ledger-cta-btn {
@@ -253,8 +303,8 @@ $net = $sumIncome - $sumExpense;
             border-radius: .55rem;
         }
 
-        /* Mobile: card list instead of stacked label/value rows */
-        @media (max-width: 767.98px) {
+        /* Mobile: card list instead of stacked label/value rows (screen only — ไม่กระทบ print) */
+        @media screen and (max-width: 767.98px) {
             .container.pb-5 {
                 padding-left: 0.75rem;
                 padding-right: 0.75rem;
@@ -308,11 +358,12 @@ $net = $sumIncome - $sumExpense;
                 flex: 0 0 auto;
                 width: 50%;
             }
-            .no-print.row.g-4.mb-4 > .col-md-4:last-child {
+            .no-print.row.g-4.mb-4 > .col-md-4:last-child,
+            .no-print.row.g-4.mb-4 > .col-md-6 {
                 width: 100%;
             }
-            .no-print.row.g-4.mb-4 > [class*="col-"] .card-stats {
-                padding: 0.85rem !important;
+            .no-print.row.g-4.mb-4 > [class*="col-"] .ledger-kpi {
+                padding: 0.75rem !important;
             }
             .card-dash > .card-header {
                 padding: 0.85rem 1rem !important;
@@ -458,138 +509,54 @@ $net = $sumIncome - $sumExpense;
             }
         }
 
-        /* Hard reset for print layout (prevent mobile-card styles in print preview) */
-        @media print {
-            .cash-ledger-shell {
-                max-width: 100% !important;
-            }
-            /* Report-only print mode: hide all system controls */
-            .no-print,
-            .btn,
-            button,
-            input,
-            select,
-            textarea,
-            form,
-            .table-cash-report .col-action,
-            .table-cash-report th.no-print,
-            .table-cash-report td.no-print {
-                display: none !important;
-                visibility: hidden !important;
-            }
-            /* Force-hide filter modal in print */
-            .ledger-filter-modal,
-            #ledgerFilterModal {
-                display: none !important;
-                visibility: hidden !important;
-                height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: hidden !important;
-            }
-            .card-dash,
-            .card,
-            .card-body,
-            .card-header {
-                border: 0 !important;
-                border-radius: 0 !important;
-                box-shadow: none !important;
-                background: transparent !important;
-            }
-            .table-cash-report {
-                table-layout: fixed !important;
-                width: 100% !important;
-                border-collapse: collapse !important;
-            }
-            .table-cash-report .col-date { width: 18% !important; }
-            .table-cash-report .col-desc { width: 38% !important; }
-            .table-cash-report .col-in,
-            .table-cash-report .col-out,
-            .table-cash-report .col-balance { width: 14.66% !important; }
-            .table-cash-report .col-action { width: 0 !important; }
-            .table-cash-report thead {
-                display: table-header-group !important;
-            }
-            .table-cash-report tbody {
-                display: table-row-group !important;
-            }
-            .table-cash-report tbody tr {
-                display: table-row !important;
-                margin: 0 !important;
-                border: 0 !important;
-                border-radius: 0 !important;
-                box-shadow: none !important;
-                background: transparent !important;
-                transform: none !important;
-            }
-            .table-cash-report tbody td {
-                display: table-cell !important;
-                text-align: left !important;
-                border-bottom: 1px solid #ccc !important;
-                padding: 0.35rem 0.45rem !important;
-                vertical-align: top !important;
-            }
-            .table-cash-report tbody td.no-print,
-            .table-cash-report thead th.no-print {
-                display: none !important;
-            }
-            .table-cash-report thead th:nth-child(3),
-            .table-cash-report thead th:nth-child(4),
-            .table-cash-report thead th:nth-child(5),
-            .table-cash-report tbody td:nth-child(3),
-            .table-cash-report tbody td:nth-child(4),
-            .table-cash-report tbody td:nth-child(5) {
-                text-align: right !important;
-                white-space: nowrap !important;
-            }
-            .table-cash-report thead th:nth-child(2),
-            .table-cash-report tbody td:nth-child(2) {
-                word-break: break-word !important;
-                overflow-wrap: anywhere !important;
-            }
-            .table-cash-report tbody td::before {
-                content: none !important;
-                display: none !important;
-            }
-            .table-wrap-screen {
-                max-height: none !important;
-                overflow: visible !important;
-                padding: 0 !important;
-            }
-        }
     </style>
 </head>
-<body class="tnc-app-body tnc-layout-list">
+<body class="tnc-app-body tnc-layout-list cash-ledger-print-page">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container pb-5 cash-ledger-shell">
-    <div class="tnc-page-head no-print mb-4 flex-wrap gap-3">
+    <div class="tnc-page-head no-print mb-3 flex-wrap gap-3">
         <div>
-            <p class="tnc-page-kicker">Cash Ledger</p>
-            <h1 class="tnc-list-title ledger-hero-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-speedometer2"></i></span>รายการบันทึกสดย่อย (Petty Cash Ledger)</h1>
+            <p class="tnc-page-kicker">สดย่อย</p>
+            <h1 class="tnc-list-title ledger-hero-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-speedometer2"></i></span>รายการบันทึกสดย่อย</h1>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <button type="button" class="btn ledger-cta-btn ledger-cta-secondary px-3 ledger-filter-open-btn" data-bs-toggle="modal" data-bs-target="#ledgerFilterModal">
-                <i class="bi bi-funnel me-1"></i>Filter<?php if ($searchDate !== ''): ?><span class="badge rounded-pill text-bg-warning ms-1">1</span><?php endif; ?>
+            <button type="button" class="btn ledger-cta-btn ledger-cta-secondary px-3" data-bs-toggle="modal" data-bs-target="#ledgerFilterModal">
+                <i class="bi bi-funnel me-1"></i>กรองรายการ<?php if ($searchDate !== ''): ?><span class="badge rounded-pill text-bg-warning ms-1">1</span><?php endif; ?>
             </button>
             <button type="button" class="btn ledger-cta-btn ledger-cta-secondary px-3" onclick="window.print()">
                 <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
             </button>
-            <button type="button" class="btn ledger-cta-btn ledger-cta-primary px-3" data-bs-toggle="collapse" data-bs-target="#ledgerFormCollapse" aria-expanded="true" aria-controls="ledgerFormCollapse" id="toggleLedgerFormBtn">
-                <i class="bi bi-cash-stack me-1"></i><?= $editRow ? 'แก้ไขรายการ' : 'เพิ่มรายการ' ?> <i class="bi bi-chevron-up ms-1" id="toggleLedgerFormIcon"></i>
+            <button type="button" class="btn ledger-cta-btn ledger-cta-primary px-3" data-bs-toggle="collapse" data-bs-target="#ledgerFormCollapse" aria-expanded="<?= $formExpanded ? 'true' : 'false' ?>" aria-controls="ledgerFormCollapse" id="toggleLedgerFormBtn">
+                <i class="bi bi-cash-stack me-1"></i><?= $editRow ? 'แก้ไขรายการ' : 'เพิ่มรายการ' ?> <i class="bi <?= $formExpanded ? 'bi-chevron-up' : 'bi-chevron-down' ?> ms-1" id="toggleLedgerFormIcon"></i>
             </button>
         </div>
     </div>
 
+    <div class="ledger-period-bar no-print">
+        <span class="ledger-period-bar__label">งวดที่ดู</span>
+        <span class="ledger-period-bar__chip"><?= htmlspecialchars($periodFilterLabel, ENT_QUOTES, 'UTF-8') ?></span>
+        <form method="get" action="<?= htmlspecialchars($dashboardUrl, ENT_QUOTES, 'UTF-8') ?>" class="d-flex flex-wrap align-items-center gap-2 ms-lg-auto">
+            <label class="small fw-bold text-secondary mb-0" for="ledger_inline_month">เปลี่ยนเดือน</label>
+            <input type="month" name="month" id="ledger_inline_month" class="form-control form-control-sm rounded-3" style="width: auto;" value="<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>">
+            <?php if ($searchDate !== ''): ?>
+            <input type="hidden" name="entry_date" value="<?= htmlspecialchars($searchDate, ENT_QUOTES, 'UTF-8') ?>">
+            <?php endif; ?>
+            <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill">แสดง</button>
+        </form>
+    </div>
+
     <div class="no-print card card-dash mb-4" id="ledger-form-card">
-        <div class="collapse show" id="ledgerFormCollapse">
+        <div class="collapse<?= $formExpanded ? ' show' : '' ?>" id="ledgerFormCollapse">
         <div class="card-body p-4">
             <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
                 <h5 class="fw-bold mb-0"><?= $editRow ? 'แก้ไขรายการ' : 'เพิ่มรายการ' ?></h5>
             </div>
-            <form method="post" action="<?= htmlspecialchars($cashHandlerUrl, ENT_QUOTES, 'UTF-8') ?>?action=save&redirect_to=dashboard" class="row g-3" id="ledgerForm" data-tnc-soft-reload="1">
+            <form method="post" action="<?= htmlspecialchars($cashHandlerUrl, ENT_QUOTES, 'UTF-8') ?>?action=save&redirect_to=dashboard" class="row g-3" id="ledgerForm" data-tnc-fullnav="1" data-tnc-ledger-form="1">
                 <?php csrf_field(); ?>
+                <input type="hidden" name="action" value="save">
+                <input type="hidden" name="redirect_to" value="dashboard">
                 <input type="hidden" name="redirect_month" value="<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>">
                 <?php if ($editRow): ?>
                     <input type="hidden" name="id" value="<?= (int) $editRow['id'] ?>">
@@ -612,12 +579,12 @@ $net = $sumIncome - $sumExpense;
                 </div>
                 <div class="col-md-3 col-lg-3">
                     <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
-                    <input type="number" name="amount" class="form-control rounded-3" required step="0.01" min="0.01" value="<?= htmlspecialchars(number_format((float) ($editRow['amount'] ?? 0), 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="number" name="amount" class="form-control rounded-3" required step="0.01" min="0.01" placeholder="0.00" value="<?= htmlspecialchars($ledgerAmountValue, ENT_QUOTES, 'UTF-8') ?>">
                 </div>
 
                 <div class="col-12 ledger-form-actions">
                     <?php if ($editRow): ?>
-                        <a href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php') . '?month=' . urlencode($month), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill">ยกเลิก</a>
+                        <a href="<?= htmlspecialchars($dashboardUrl . '?month=' . urlencode($month), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill">ยกเลิก</a>
                     <?php endif; ?>
                     <button type="submit" class="btn btn-orange rounded-pill px-4 fw-bold ledger-form-submit">
                         <i class="bi bi-check-lg me-1"></i><?= $editRow ? 'บันทึกการแก้ไข' : 'บันทึกรายการ' ?>
@@ -635,7 +602,7 @@ $net = $sumIncome - $sumExpense;
                     <h5 class="modal-title fw-bold" id="ledgerFilterModalLabel"><i class="bi bi-funnel text-tnc-orange me-2"></i>กรองรายการ</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
                 </div>
-                <form method="get" action="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger-dashboard.php'), ENT_QUOTES, 'UTF-8') ?>">
+                <form method="get" action="<?= htmlspecialchars($dashboardUrl, ENT_QUOTES, 'UTF-8') ?>">
                     <div class="modal-body pt-2">
                         <div class="mb-3">
                             <label class="form-label fw-bold small mb-1" for="filter_month">เดือนที่ดู</label>
@@ -649,7 +616,7 @@ $net = $sumIncome - $sumExpense;
                     </div>
                     <div class="modal-footer border-0 pt-0 flex-column flex-sm-row gap-2">
                         <?php if ($searchDate !== ''): ?>
-                            <a href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger-dashboard.php') . '?month=' . urlencode($month), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-danger rounded-pill w-100 w-sm-auto order-sm-1">ล้างวันที่</a>
+                            <a href="<?= htmlspecialchars($dashboardUrl . '?month=' . urlencode($month), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-danger rounded-pill w-100 w-sm-auto order-sm-1">ล้างวันที่</a>
                         <?php endif; ?>
                         <button type="button" class="btn btn-light rounded-pill w-100 w-sm-auto" data-bs-dismiss="modal">ยกเลิก</button>
                         <button type="submit" class="btn btn-orange rounded-pill w-100 w-sm-auto ledger-filter-submit">แสดงผล</button>
@@ -661,54 +628,97 @@ $net = $sumIncome - $sumExpense;
 
     <div class="d-none d-print-block report-print-header text-center border-bottom border-2 border-dark pb-3 mb-3">
         <h1 class="h4 fw-bold mb-1">THEELIN CON CO.,LTD.</h1>
-        <h2 class="h5 fw-bold mb-2">รายงานสรุปรายรับ — รายจ่ายภายใน</h2>
-        <p class="mb-1 fw-semibold">งวดบัญชี: <?= htmlspecialchars($periodLabelTh, ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>)</p>
+        <h2 class="h5 fw-bold mb-2">รายงานสรุปรายรับรายจ่ายภายใน</h2>
+        <p class="mb-1 fw-semibold">งวดบัญชี: <?= htmlspecialchars($periodFilterLabel, ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>)</p>
         <p class="small mb-2">พิมพ์เมื่อ <?= htmlspecialchars($printedAtThai, ENT_QUOTES, 'UTF-8') ?> &nbsp;|&nbsp; ผู้พิมพ์: <?= htmlspecialchars($printedBy, ENT_QUOTES, 'UTF-8') ?></p>
         <div class="row justify-content-center g-2 small">
             <div class="col-auto border rounded px-3 py-2 mx-1">
-                <span class="text-muted">รายรับรวม</span>
-                <span class="fw-bold text-success d-block">฿<?= number_format($sumIncome, 2) ?></span>
+                <span class="fw-semibold d-block">ยอดยกมา</span>
+                <span class="fw-bold d-block ledger-money">฿<?= number_format($openingBalance, 2) ?></span>
             </div>
             <div class="col-auto border rounded px-3 py-2 mx-1">
-                <span class="text-muted">รายจ่ายรวม</span>
-                <span class="fw-bold text-danger d-block">฿<?= number_format($sumExpense, 2) ?></span>
+                <span class="fw-semibold d-block">รายรับในงวด</span>
+                <span class="fw-bold text-success d-block ledger-money">฿<?= number_format($sumIncome, 2) ?></span>
             </div>
             <div class="col-auto border rounded px-3 py-2 mx-1">
-                <span class="text-muted">คงเหลือล่าสุด</span>
-                <span class="fw-bold d-block <?= $latestBalanceAllTime < 0 ? 'text-danger' : '' ?>">฿<?= number_format($latestBalanceAllTime, 2) ?></span>
+                <span class="fw-semibold d-block">รายจ่ายในงวด</span>
+                <span class="fw-bold text-danger d-block ledger-money">฿<?= number_format($sumExpense, 2) ?></span>
             </div>
             <div class="col-auto border rounded px-3 py-2 mx-1">
-                <span class="text-muted">จำนวนรายการบันทึก</span>
+                <span class="fw-semibold d-block">คงเหลือปลายงวด</span>
+                <span class="fw-bold d-block ledger-money <?= $periodEndBalance < 0 ? 'text-danger' : '' ?>">฿<?= number_format($periodEndBalance, 2) ?></span>
+            </div>
+            <div class="col-auto border rounded px-3 py-2 mx-1">
+                <span class="fw-semibold d-block">จำนวนรายการ</span>
                 <span class="fw-bold d-block"><?= number_format($rowCount) ?> รายการ</span>
             </div>
         </div>
+        <p class="small text-muted mt-2 mb-0">คงเหลือล่าสุดในระบบ (สะสม): ฿<?= number_format($latestBalanceAllTime, 2) ?></p>
     </div>
 
-    <div class="no-print row g-4 mb-4">
-        <div class="col-md-4">
-            <div class="card card-stats border-0 shadow-sm p-3 rounded-4" style="border-left-color: #198754;">
-                <h6 class="text-muted mb-1 small">รายรับ</h6>
-                <h3 class="fw-bold text-success mb-0">฿<?= number_format($sumIncome, 2) ?></h3>
+    <div class="no-print row g-3 mb-4">
+        <div class="col-md-4 col-6">
+            <div class="ledger-kpi ledger-kpi--income h-100">
+                <div class="ledger-kpi__label">ยอดยกมา</div>
+                <div class="ledger-kpi__value">฿<?= number_format($openingBalance, 2) ?></div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card card-stats border-0 shadow-sm p-3 rounded-4" style="border-left-color: #dc3545;">
-                <h6 class="text-muted mb-1 small">รายจ่าย</h6>
-                <h3 class="fw-bold text-danger mb-0">฿<?= number_format($sumExpense, 2) ?></h3>
+        <div class="col-md-4 col-6">
+            <div class="ledger-kpi ledger-kpi--income h-100">
+                <div class="ledger-kpi__label">รายรับในงวด</div>
+                <div class="ledger-kpi__value text-success">฿<?= number_format($sumIncome, 2) ?></div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card card-stats border-0 shadow-sm p-3 rounded-4" style="border-left-color: #ea580c;">
-                <h6 class="text-muted mb-1 small">คงเหลือล่าสุด</h6>
-                <h3 class="fw-bold mb-0 <?= $latestBalanceAllTime >= 0 ? 'text-dark' : 'text-danger' ?>">฿<?= number_format($latestBalanceAllTime, 2) ?></h3>
+        <div class="col-md-4 col-6">
+            <div class="ledger-kpi ledger-kpi--expense h-100">
+                <div class="ledger-kpi__label">รายจ่ายในงวด</div>
+                <div class="ledger-kpi__value text-danger">฿<?= number_format($sumExpense, 2) ?></div>
+            </div>
+        </div>
+        <div class="col-md-6 col-6">
+            <div class="ledger-kpi ledger-kpi--balance h-100">
+                <div class="ledger-kpi__label">คงเหลือปลายงวด</div>
+                <div class="ledger-kpi__value <?= $periodEndBalance < 0 ? 'text-danger' : '' ?>">฿<?= number_format($periodEndBalance, 2) ?></div>
+            </div>
+        </div>
+        <div class="col-md-6 col-6">
+            <div class="ledger-kpi h-100">
+                <div class="ledger-kpi__label">คงเหลือล่าสุดในระบบ</div>
+                <div class="ledger-kpi__value <?= $latestBalanceAllTime < 0 ? 'text-danger' : '' ?>">฿<?= number_format($latestBalanceAllTime, 2) ?></div>
             </div>
         </div>
     </div>
 
     <div class="card card-dash">
+        <div class="ledger-table-head no-print">
+            <div>
+                <h2 class="h6 fw-bold mb-0">รายการในงวด</h2>
+                <p class="ledger-table-head__meta mb-0">แสดง <?= number_format($showFrom) ?>–<?= number_format($showTo) ?> จาก <?= number_format($rowCount) ?> รายการ</p>
+            </div>
+            <form method="get" action="<?= htmlspecialchars($dashboardUrl, ENT_QUOTES, 'UTF-8') ?>" class="d-flex align-items-center gap-2">
+                <input type="hidden" name="month" value="<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>">
+                <?php if ($searchDate !== ''): ?>
+                <input type="hidden" name="entry_date" value="<?= htmlspecialchars($searchDate, ENT_QUOTES, 'UTF-8') ?>">
+                <?php endif; ?>
+                <label class="small fw-bold text-secondary mb-0" for="ledger_per_page">แสดง</label>
+                <select name="per_page" id="ledger_per_page" class="form-select form-select-sm rounded-3" style="width: auto;" onchange="this.form.submit()">
+                    <?php foreach ([10, 25, 50] as $perPageOpt): ?>
+                    <option value="<?= $perPageOpt ?>"<?= $perPage === $perPageOpt ? ' selected' : '' ?>><?= $perPageOpt ?> รายการ</option>
+                    <?php endforeach; ?>
+                </select>
+            </form>
+        </div>
         <div class="card-body p-0">
             <div class="table-wrap-screen px-0">
                 <table class="table table-hover align-middle mb-0 table-cash-report">
+                    <colgroup>
+                        <col class="ledger-col-date">
+                        <col class="ledger-col-desc">
+                        <col class="ledger-col-in">
+                        <col class="ledger-col-out">
+                        <col class="ledger-col-balance">
+                        <col class="ledger-col-action no-print">
+                    </colgroup>
                     <thead class="table-light">
                         <tr>
                             <th class="py-3 ps-3 col-date">วันที่</th>
@@ -721,29 +731,43 @@ $net = $sumIncome - $sumExpense;
                     </thead>
                     <tbody>
                         <?php if ($rowCount === 0): ?>
-                            <tr><td colspan="6" class="text-center text-muted py-5">ยังไม่มีรายการในเดือนนี้</td></tr>
+                            <tr><td colspan="6" class="text-center text-muted py-5">ยังไม่มีรายการในงวดนี้</td></tr>
                         <?php else: ?>
-                            <?php $n = 0; foreach ($rows as $row): $n++;
-                                $isInCurrentPage = $n > $offset && $n <= ($offset + $perPage);
+                            <tr class="ledger-opening-row">
+                                <td class="ledger-cell-date text-secondary small text-nowrap ps-3">—</td>
+                                <td class="ledger-cell-desc col-desc fw-semibold">ยอดยกมา</td>
+                                <td class="ledger-cell-in ledger-cell-empty ledger-money small text-end"></td>
+                                <td class="ledger-cell-out ledger-cell-empty ledger-money small text-end"></td>
+                                <td class="ledger-cell-balance ledger-money small text-end fw-bold text-nowrap <?= $openingBalance < 0 ? 'text-danger' : 'text-dark' ?>">
+                                    <?= number_format($openingBalance, 2) ?>
+                                </td>
+                                <td class="ledger-cell-actions pe-3 text-center no-print"></td>
+                            </tr>
+                            <?php foreach ($pagedRows as $row):
                                 $lid = (int) $row['id'];
                                 $canManage = $isAdmin || (int) ($row['created_by'] ?? 0) === $me;
                                 $memo = trim((string) ($row['description'] ?? ''));
+                                $editQuery = ['month' => $month, 'page' => $page, 'per_page' => $perPage, 'edit' => $lid];
+                                if ($searchDate !== '') {
+                                    $editQuery['entry_date'] = $searchDate;
+                                }
+                                $editUrl = $dashboardUrl . '?' . http_build_query($editQuery);
                                 ?>
-                                <tr class="ledger-entry-row"<?= $isInCurrentPage ? '' : ' d-none d-print-table-row"' ?>>
+                                <tr class="ledger-entry-row ledger-screen-row">
                                     <td class="ledger-cell-date text-secondary small text-nowrap ps-3"><?= date('d/m/Y', strtotime($row['entry_date'])) ?></td>
                                     <td class="ledger-cell-desc col-desc"><?= nl2br(htmlspecialchars($memo !== '' ? $memo : '—', ENT_QUOTES, 'UTF-8')) ?></td>
-                                    <td class="ledger-cell-in small text-end fw-bold text-success text-nowrap<?= $row['entry_type'] === 'income' ? '' : ' ledger-cell-empty' ?>"><?= $row['entry_type'] === 'income' ? number_format((float) $row['amount'], 2) : '' ?></td>
-                                    <td class="ledger-cell-out small text-end fw-bold text-danger text-nowrap<?= $row['entry_type'] === 'expense' ? '' : ' ledger-cell-empty' ?>"><?= $row['entry_type'] === 'expense' ? number_format((float) $row['amount'], 2) : '' ?></td>
-                                    <td class="ledger-cell-balance small text-end fw-semibold text-nowrap <?= ((float) ($row['running_balance'] ?? 0)) < 0 ? 'text-danger' : 'text-dark' ?>">
+                                    <td class="ledger-cell-in ledger-money small text-end fw-bold text-success text-nowrap<?= $row['entry_type'] === 'income' ? '' : ' ledger-cell-empty' ?>"><?= $row['entry_type'] === 'income' ? number_format((float) $row['amount'], 2) : '' ?></td>
+                                    <td class="ledger-cell-out ledger-money small text-end fw-bold text-danger text-nowrap<?= $row['entry_type'] === 'expense' ? '' : ' ledger-cell-empty' ?>"><?= $row['entry_type'] === 'expense' ? number_format((float) $row['amount'], 2) : '' ?></td>
+                                    <td class="ledger-cell-balance ledger-money small text-end fw-semibold text-nowrap <?= ((float) ($row['running_balance'] ?? 0)) < 0 ? 'text-danger' : 'text-dark' ?>">
                                         <?= number_format((float) ($row['running_balance'] ?? 0), 2) ?>
                                     </td>
                                     <td class="ledger-cell-actions pe-3 text-center no-print">
                                         <?php if ($canManage): ?>
-                                            <a href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php') . '?' . http_build_query(['month' => $month, 'page' => $page, 'edit' => $lid]), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-warning" title="แก้ไข">
-                                                <i class="bi bi-pencil-square"></i>
+                                            <a href="<?= htmlspecialchars($editUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-warning" title="แก้ไข" aria-label="แก้ไขรายการ <?= htmlspecialchars($memo !== '' ? $memo : (string) $lid, ENT_QUOTES, 'UTF-8') ?>">
+                                                <i class="bi bi-pencil-square" aria-hidden="true"></i>
                                             </a>
-                                            <a href="<?= htmlspecialchars($cashHandlerUrl . '?action=delete&redirect_to=dashboard&id=' . $lid . '&month=' . urlencode($month) . $csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger tnc-delete-post" title="ลบ (ต้องใส่รหัสผ่าน)">
-                                                <i class="bi bi-trash-fill"></i>
+                                            <a href="<?= htmlspecialchars($cashHandlerUrl . '?action=delete&redirect_to=dashboard&id=' . $lid . '&month=' . urlencode($month) . $csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-danger tnc-delete-post" title="ลบ (ต้องใส่รหัสผ่าน)" aria-label="ลบรายการ <?= htmlspecialchars($memo !== '' ? $memo : (string) $lid, ENT_QUOTES, 'UTF-8') ?>">
+                                                <i class="bi bi-trash-fill" aria-hidden="true"></i>
                                             </a>
                                         <?php else: ?>
                                             <span class="text-muted small">-</span>
@@ -751,10 +775,63 @@ $net = $sumIncome - $sumExpense;
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
+                            <?php foreach ($rowsAsc as $row):
+                                $memo = trim((string) ($row['description'] ?? ''));
+                                ?>
+                                <tr class="ledger-entry-row ledger-print-chrono-row d-none d-print-table-row">
+                                    <td class="ledger-cell-date text-secondary small text-nowrap ps-3"><?= date('d/m/Y', strtotime($row['entry_date'])) ?></td>
+                                    <td class="ledger-cell-desc col-desc"><?= nl2br(htmlspecialchars($memo !== '' ? $memo : '—', ENT_QUOTES, 'UTF-8')) ?></td>
+                                    <td class="ledger-cell-in ledger-money small text-end fw-bold text-success text-nowrap<?= $row['entry_type'] === 'income' ? '' : ' ledger-cell-empty' ?>"><?= $row['entry_type'] === 'income' ? number_format((float) $row['amount'], 2) : '' ?></td>
+                                    <td class="ledger-cell-out ledger-money small text-end fw-bold text-danger text-nowrap<?= $row['entry_type'] === 'expense' ? '' : ' ledger-cell-empty' ?>"><?= $row['entry_type'] === 'expense' ? number_format((float) $row['amount'], 2) : '' ?></td>
+                                    <td class="ledger-cell-balance ledger-money small text-end fw-semibold text-nowrap <?= ((float) ($row['running_balance'] ?? 0)) < 0 ? 'text-danger' : 'text-dark' ?>">
+                                        <?= number_format((float) ($row['running_balance'] ?? 0), 2) ?>
+                                    </td>
+                                    <td class="ledger-cell-actions pe-3 text-center no-print"></td>
+                                </tr>
+                            <?php endforeach; ?>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
+            <?php if ($rowCount > 0): ?>
+            <div class="cash-report-final-summary d-none d-print-block px-3 py-3">
+                <h6 class="fw-bold mb-2">สรุปงวด <?= htmlspecialchars($periodFilterLabel, ENT_QUOTES, 'UTF-8') ?></h6>
+                <table class="table table-sm table-bordered mb-3">
+                    <tbody>
+                        <tr>
+                            <td>ยอดยกมา</td>
+                            <td class="text-end fw-bold ledger-money">฿<?= number_format($openingBalance, 2) ?></td>
+                        </tr>
+                        <tr>
+                            <td>รายรับในงวด</td>
+                            <td class="text-end fw-bold text-success ledger-money">฿<?= number_format($sumIncome, 2) ?></td>
+                        </tr>
+                        <tr>
+                            <td>รายจ่ายในงวด</td>
+                            <td class="text-end fw-bold text-danger ledger-money">฿<?= number_format($sumExpense, 2) ?></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">คงเหลือปลายงวด</td>
+                            <td class="text-end fw-bold ledger-money <?= $periodEndBalance < 0 ? 'text-danger' : '' ?>">฿<?= number_format($periodEndBalance, 2) ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="ledger-print-sign row g-3 small">
+                    <div class="col-4 text-center">
+                        <div class="ledger-print-sign__line"></div>
+                        <div>ผู้จัดทำรายงาน</div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="ledger-print-sign__line"></div>
+                        <div>ผู้ตรวจสอบ</div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="ledger-print-sign__line"></div>
+                        <div>ผู้อนุมัติ</div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
             <?php if ($totalPages > 1): ?>
                 <div class="no-print d-flex justify-content-between align-items-center px-3 py-3 border-top bg-white">
                     <div class="small text-muted">หน้า <?= number_format($page) ?> / <?= number_format($totalPages) ?></div>
@@ -762,8 +839,12 @@ $net = $sumIncome - $sumExpense;
                         <?php
                         $prevPage = $page - 1;
                         $nextPage = $page + 1;
-                        $prevUrl = app_path('pages/cash-ledger/cash-ledger-dashboard.php') . '?' . http_build_query(['month' => $month, 'entry_date' => $searchDate, 'page' => $prevPage]);
-                        $nextUrl = app_path('pages/cash-ledger/cash-ledger-dashboard.php') . '?' . http_build_query(['month' => $month, 'entry_date' => $searchDate, 'page' => $nextPage]);
+                        $pageQuery = ['month' => $month, 'per_page' => $perPage];
+                        if ($searchDate !== '') {
+                            $pageQuery['entry_date'] = $searchDate;
+                        }
+                        $prevUrl = $dashboardUrl . '?' . http_build_query(array_merge($pageQuery, ['page' => $prevPage]));
+                        $nextUrl = $dashboardUrl . '?' . http_build_query(array_merge($pageQuery, ['page' => $nextPage]));
                         ?>
                         <?php if ($page > 1): ?>
                             <a href="<?= htmlspecialchars($prevUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-secondary rounded-pill">
@@ -828,7 +909,14 @@ if (ledgerFormCollapse && toggleLedgerFormBtn && toggleLedgerFormIcon) {
     ledgerFormCollapse.addEventListener('hidden.bs.collapse', updateLedgerFormToggle);
     updateLedgerFormToggle();
 }
-
 </script>
+<?php
+$cashLedgerFormJsPath = dirname(__DIR__, 2) . '/assets/js/cash-ledger-form.js';
+$cashLedgerFormJsVer = @filemtime($cashLedgerFormJsPath);
+if (!is_int($cashLedgerFormJsVer) || $cashLedgerFormJsVer <= 0) {
+    $cashLedgerFormJsVer = time();
+}
+?>
+<script src="<?= htmlspecialchars(app_path('assets/js/cash-ledger-form.js') . '?v=' . $cashLedgerFormJsVer, ENT_QUOTES, 'UTF-8') ?>"></script>
 </body>
 </html>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 session_start();
 require_once __DIR__ . '/config/connect_database.php';
 require_once __DIR__ . '/includes/tnc_hub_nav.php';
+require_once __DIR__ . '/includes/invoice_cancel_helpers.php';
 
 use Theelincon\Rtdb\Portal;
 
@@ -17,6 +18,7 @@ $is_admin = user_is_admin_role();
 $is_admin_only = user_is_admin_only_role();
 $can_edit_invoice = user_can('invoice.edit');
 $can_delete_invoice = user_can('invoice.delete');
+$can_cancel_invoice = user_can('invoice.cancel');
 $is_finance_hub = user_is_finance_role();
 
 if (isset($_GET['ajax_search'])) {
@@ -26,23 +28,29 @@ if (isset($_GET['ajax_search'])) {
     if (count($rows) > 0) {
         foreach ($rows as $row): ?>
             <?php
+            $isInvCancelled = tnc_invoice_is_cancelled($row);
             $issueRaw = trim((string) ($row['issue_date'] ?? ''));
             $issueTs = $issueRaw !== '' ? strtotime($issueRaw) : false;
             $dateDisplay = $issueTs !== false ? date('d/m/Y', $issueTs) : '—';
             $createdOrder = sprintf('%010d', (int) ($row['id'] ?? 0));
             ?>
-            <tr>
+            <tr<?= $isInvCancelled ? ' class="inv-row-cancelled"' : '' ?>>
                 <td data-order="<?= htmlspecialchars($createdOrder, ENT_QUOTES, 'UTF-8') ?>"><?php
-                    $hasTaxInv = !empty($row['has_tax_invoice']);
-                    $invBadgeClass = $hasTaxInv
-                        ? 'badge rounded-pill inv-badge-tax-issued px-3'
-                        : 'badge rounded-pill inv-badge-tax-pending px-3';
-                    $invBadgeTitle = $hasTaxInv ? 'ออกใบกำกับภาษีแล้ว' : 'ยังไม่ออกใบกำกับภาษี';
+                    if ($isInvCancelled) {
+                        $invBadgeClass = 'badge rounded-pill inv-badge-cancelled px-3';
+                        $invBadgeTitle = 'ยกเลิกแล้ว';
+                    } else {
+                        $hasTaxInv = !empty($row['has_tax_invoice']);
+                        $invBadgeClass = $hasTaxInv
+                            ? 'badge rounded-pill inv-badge-tax-issued px-3'
+                            : 'badge rounded-pill inv-badge-tax-pending px-3';
+                        $invBadgeTitle = $hasTaxInv ? 'ออกใบกำกับภาษีแล้ว' : 'ยังไม่ออกใบกำกับภาษี';
+                    }
                     ?>
                     <?php
                     $invNoDisplay = (string) ($row['invoice_number'] ?? '');
                     ?>
-                    <div><span class="<?= htmlspecialchars($invBadgeClass, ENT_QUOTES, 'UTF-8') ?> index-inv-no-copy" role="button" tabindex="0" data-invoice-copy="<?= htmlspecialchars($invNoDisplay, ENT_QUOTES, 'UTF-8') ?>" title="คลิกเพื่อคัดลอกเลขที่"><?= htmlspecialchars($invNoDisplay, ENT_QUOTES, 'UTF-8'); ?></span></div>
+                    <div><span class="<?= htmlspecialchars($invBadgeClass, ENT_QUOTES, 'UTF-8') ?> index-inv-no-copy" role="button" tabindex="0" data-invoice-copy="<?= htmlspecialchars($invNoDisplay, ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars($invBadgeTitle, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($invNoDisplay, ENT_QUOTES, 'UTF-8'); ?></span></div>
                     <div class="small text-muted mt-1"><?= htmlspecialchars($dateDisplay, ENT_QUOTES, 'UTF-8') ?></div>
                 </td>
                 <td class="fw-semibold">
@@ -63,8 +71,11 @@ if (isset($_GET['ajax_search'])) {
                     <div class="d-inline-flex flex-wrap align-items-center justify-content-end gap-2">
                         <button type="button" class="btn btn-invoice-action btn-invoice-action-view" data-tnc-invoice="view" data-invoice-id="<?= (int) $row['id']; ?>" title="ดูใบแจ้งหนี้"><i class="bi bi-eye-fill"></i></button>
                         <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php')) ?>?id=<?= $row['id']; ?>" class="btn btn-invoice-action btn-invoice-action-tax" title="ใบกำกับภาษี/ใบเสร็จ"><i class="bi bi-file-earmark-check-fill"></i></a>
-                        <?php if ($can_edit_invoice): ?>
+                        <?php if ($can_edit_invoice && !$isInvCancelled): ?>
                             <a href="<?= htmlspecialchars(app_path('pages/invoices/invoice.php'), ENT_QUOTES, 'UTF-8') ?>?action=edit&amp;id=<?= (int) $row['id']; ?>" class="btn btn-invoice-action btn-invoice-action-edit" title="แก้ไข"><i class="bi bi-pencil-square"></i></a>
+                        <?php endif; ?>
+                        <?php if ($can_cancel_invoice && !$isInvCancelled): ?>
+                            <button type="button" class="btn btn-invoice-action btn-invoice-action-cancel" data-tnc-cancel-invoice data-invoice-id="<?= (int) $row['id'] ?>" title="ยกเลิกใบแจ้งหนี้"><i class="bi bi-x-circle"></i></button>
                         <?php endif; ?>
                         <?php if ($can_delete_invoice): ?>
                             <button type="button" onclick="deleteItem(<?= $row['id']; ?>, 'invoice')" class="btn btn-invoice-action btn-invoice-action-delete" title="ลบ"><i class="bi bi-trash3-fill"></i></button>
@@ -97,7 +108,7 @@ if ($index_display_name === '') {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/index-page.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/index-page.css') . '?v=' . rawurlencode((string) @filemtime(__DIR__ . '/assets/css/index-page.css')), ENT_QUOTES, 'UTF-8') ?>">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="tnc-app-body tnc-index-page tnc-has-hub-fab tnc-index-desktop-sidebar">
@@ -174,6 +185,8 @@ if ($index_display_name === '') {
             <span class="index-inv-legend__item"><span class="index-inv-legend__swatch index-inv-legend__swatch--pending" aria-hidden="true"></span>สีเหลือง = ยังไม่ออกใบกำกับภาษี</span>
             <span class="index-inv-legend__sep d-none d-sm-inline" aria-hidden="true">·</span>
             <span class="index-inv-legend__item"><span class="index-inv-legend__swatch index-inv-legend__swatch--issued" aria-hidden="true"></span>สีเขียว = ออกใบกำกับภาษีแล้ว</span>
+            <span class="index-inv-legend__sep d-none d-sm-inline" aria-hidden="true">·</span>
+            <span class="index-inv-legend__item"><span class="index-inv-legend__swatch index-inv-legend__swatch--cancelled" aria-hidden="true"></span>สีแดง = ยกเลิกแล้ว</span>
         </div>
     </div>
     </div>
@@ -198,11 +211,15 @@ if ($index_display_name === '') {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-invoice-cancel.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php include __DIR__ . '/includes/datatables_bundle.php'; ?>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
+window.tncActionHandlerUrl = actionHandlerUrl;
 const invoicePhpUrl = <?= json_encode(app_path('pages/invoices/invoice.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
+window.tncCsrfToken = csrfToken;
 const indexUserIsAdminOnly = <?= $is_admin_only ? 'true' : 'false' ?>;
 document.querySelector('.js-hub-member-manage')?.addEventListener('click', function (e) {
     if (indexUserIsAdminOnly) {
@@ -555,6 +572,20 @@ window.onload = () => {
             const q = u.searchParams.toString();
             history.replaceState({}, '', u.pathname + (q ? '?' + q : '') + u.hash);
         });
+    } else if (params.get('cancelled') === '1') {
+        Swal.fire({ icon: 'success', title: 'ยกเลิกสำเร็จ', text: 'ยกเลิกใบแจ้งหนี้เรียบร้อยแล้ว', confirmButtonColor: '#ea580c' }).then(clearParam('cancelled'));
+    } else if (params.get('error') === 'need_cancel_reason') {
+        Swal.fire({ icon: 'warning', title: 'กรุณาระบุเหตุผล', text: 'ต้องกรอกเหตุผลการยกเลิกก่อนยืนยัน', confirmButtonColor: '#ea580c' }).then(clearParam('error'));
+    } else if (params.get('error') === 'already_cancelled') {
+        Swal.fire({ icon: 'info', title: 'ยกเลิกแล้ว', text: 'เอกสารนี้ถูกยกเลิกไปแล้ว', confirmButtonColor: '#ea580c' }).then(clearParam('error'));
+    }
+    function clearParam(key) {
+        return function () {
+            const u = new URL(window.location.href);
+            u.searchParams.delete(key);
+            const q = u.searchParams.toString();
+            history.replaceState({}, '', u.pathname + (q ? '?' + q : '') + u.hash);
+        };
     }
 };
 </script>

@@ -6,6 +6,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/invoice_cancel_helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -22,6 +23,9 @@ $id = (int) ($_GET['id'] ?? 0);
 $invoice = Db::rowByIdField('invoices', $id);
 if (!$invoice) {
     die("<div class='container mt-5 alert alert-danger text-center'>ไม่พบข้อมูลใบแจ้งหนี้ในระบบ</div>");
+}
+if (tnc_invoice_is_cancelled($invoice)) {
+    die("<div class='container mt-5 alert alert-warning text-center'>ใบแจ้งหนี้นี้ถูกยกเลิกแล้ว — ไม่สามารถแก้ไขได้<br><a href=\"" . htmlspecialchars(app_path('pages/invoices/invoice-view.php') . '?id=' . $id, ENT_QUOTES, 'UTF-8') . "\" class=\"alert-link\">กลับไปดูเอกสาร</a></div>");
 }
 
 $creator = Db::rowByIdField('users', (int) ($invoice['created_by'] ?? 0), 'userid') ?? [];

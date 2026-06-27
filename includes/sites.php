@@ -8,6 +8,19 @@ declare(strict_types=1);
 
 use Theelincon\Rtdb\Db;
 
+if (!function_exists('tnc_site_purchase_requests_cached')) {
+    /** @return list<array<string,mixed>> */
+    function tnc_site_purchase_requests_cached(): array
+    {
+        static $rows = null;
+        if ($rows === null) {
+            $rows = Db::tableRows('purchase_requests');
+        }
+
+        return $rows;
+    }
+}
+
 if (!function_exists('tnc_site_purchase_counts')) {
     /**
      * @return array{pr: int, po: int}
@@ -19,7 +32,7 @@ if (!function_exists('tnc_site_purchase_counts')) {
             return $counts;
         }
 
-        foreach (Db::tableRows('purchase_requests') as $row) {
+        foreach (tnc_site_purchase_requests_cached() as $row) {
             if (!is_array($row)) {
                 continue;
             }
@@ -27,7 +40,10 @@ if (!function_exists('tnc_site_purchase_counts')) {
                 ++$counts['pr'];
             }
         }
-        foreach (Db::tableRows('purchase_orders') as $row) {
+        if (!function_exists('tnc_site_budget_purchase_orders_cached')) {
+            require_once __DIR__ . '/site_budget.php';
+        }
+        foreach (tnc_site_budget_purchase_orders_cached() as $row) {
             if (!is_array($row)) {
                 continue;
             }

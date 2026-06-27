@@ -37,6 +37,22 @@ if (!function_exists('tnc_ajax_flash_message')) {
         if (isset($q['error'])) {
             return tnc_ajax_error_message((string) $q['error']);
         }
+        if (isset($q['err'])) {
+            $map = [
+                'amount' => 'จำนวนเงินต้องมากกว่า 0',
+                'need_lines' => 'กรุณากรอกรายละเอียดและจำนวนเงิน',
+                'line_total' => 'จำนวนเงินรวมต้องมากกว่า 0',
+                'save_failed' => 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง',
+                'invalid_type' => 'ประเภทไม่ถูกต้อง',
+                'date' => 'วันที่ไม่ถูกต้อง',
+                'notfound' => 'ไม่พบรายการที่ต้องการ',
+                'forbidden' => 'คุณไม่มีสิทธิ์จัดการรายการนี้',
+                'csrf' => 'เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง',
+            ];
+            $code = (string) $q['err'];
+
+            return $map[$code] ?? ('ไม่สามารถดำเนินการได้ (' . $code . ')');
+        }
         if (isset($q['deleted'])) {
             return 'ลบเรียบร้อย';
         }
@@ -132,7 +148,7 @@ if (!function_exists('tnc_action_redirect')) {
         if (tnc_ajax_form_requested()) {
             $parts = parse_url($url);
             parse_str($parts['query'] ?? '', $q);
-            $ok = !isset($q['error']);
+            $ok = !isset($q['error']) && !isset($q['err']);
             $message = tnc_ajax_flash_message($q);
             header('Content-Type: application/json; charset=UTF-8');
             if (!$ok) {

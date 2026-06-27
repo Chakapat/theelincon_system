@@ -278,10 +278,10 @@ function tnc_purchase_po_print_prepare(int $id): ?array
             }
         }
     }
-    if (!function_exists('tnc_site_category_document_name')) {
+    if (!function_exists('tnc_site_category_document_parent_name')) {
         require_once dirname(__DIR__) . '/site_category_document_name.php';
     }
-    $poCostCategoryName = tnc_site_category_document_name($poCostCategoryId, $poCostCategoryName);
+    $poCostCategoryName = tnc_site_category_document_parent_name($poCostCategoryId, $poCostCategoryName);
 
     $poNumber = trim((string) ($po['po_number'] ?? ''));
     $items = tnc_purchase_po_load_items($id, $po, is_array($pr) ? $pr : null);

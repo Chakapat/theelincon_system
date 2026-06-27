@@ -133,6 +133,26 @@
     font-size: 1.1rem;
     opacity: 0.65;
     transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+.home-hub-sidebar-intro {
+    background: linear-gradient(180deg, #fff7ed 0%, #fff 100%);
+}
+.home-hub-sidebar-intro__title {
+    font-size: 0.95rem;
+    color: #0f172a;
+}
+.home-hub-sidebar-intro__hint {
+    line-height: 1.45;
+    margin-top: 0.15rem;
+}
+.home-menu-hub-single .home-hub-toggle__text {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.home-menu-hub-single .home-hub-toggle__hint {
+    line-height: 1.35;
+    margin-top: 0.1rem;
 }
 .home-menu-hub-single .home-hub-toggle:not(.collapsed) .home-hub-chevron {
     transform: rotate(180deg);
@@ -263,6 +283,33 @@
     border: 1px solid rgba(25, 135, 84, 0.4);
     font-weight: 600;
 }
+.inv-badge-cancelled {
+    background-color: rgba(220, 53, 69, 0.14);
+    color: #842029;
+    border: 1px solid rgba(220, 53, 69, 0.42);
+    font-weight: 600;
+}
+#invoice_table.table-invoice-index tbody tr:hover .inv-badge-cancelled {
+    background-color: rgba(220, 53, 69, 0.18);
+    color: #842029;
+    border-color: rgba(220, 53, 69, 0.5);
+}
+.inv-row-cancelled .fw-bold.text-dark {
+    color: var(--tnc-ink, #0f172a);
+}
+.btn-invoice-action-cancel {
+    color: #842029;
+    background: rgba(220, 53, 69, 0.08);
+    border: 1px solid rgba(220, 53, 69, 0.2);
+}
+.btn-invoice-action-cancel:hover {
+    background: rgba(220, 53, 69, 0.18);
+    color: #58151c;
+}
+.index-inv-legend__swatch--cancelled {
+    background-color: rgba(220, 53, 69, 0.45);
+    border: 1px solid rgba(220, 53, 69, 0.55);
+}
 .index-inv-legend {
     background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
 }
@@ -305,6 +352,9 @@
 .index-inv-no-copy:focus-visible {
     outline: 2px solid rgba(253, 126, 20, 0.65);
     outline-offset: 2px;
+}
+.index-inv-no-copy.inv-badge-cancelled:focus-visible {
+    outline-color: rgba(220, 53, 69, 0.55);
 }
 /* Invoice table — roomier rows, single search only (no DataTables filter UI) */
 #invoice_table.table-invoice-index thead,

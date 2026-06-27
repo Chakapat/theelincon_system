@@ -413,7 +413,9 @@ if (!is_int($tncDeleteJsVer) || $tncDeleteJsVer <= 0) {
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var alerts = Array.from(document.querySelectorAll('.alert.alert-success, .alert.alert-warning, .alert.alert-danger, .alert.alert-info'));
+    var alerts = Array.from(document.querySelectorAll(
+        '.alert[data-tnc-flash="1"], .alert[data-tnc-purchase-flash="1"]'
+    ));
     if (alerts.length === 0 || typeof Swal === 'undefined') {
         return;
     }
@@ -427,9 +429,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     alerts.forEach(function (el, idx) {
-        if (el.getAttribute('data-no-swal') === '1') {
-            return;
-        }
         var title = (el.textContent || '').trim();
         if (title === '') {
             return;
@@ -554,7 +553,14 @@ if (!is_int($tncPurchaseLoadingJsVer) || $tncPurchaseLoadingJsVer <= 0) {
 }
 ?>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-purchase-loading.js') . '?v=' . $tncPurchaseLoadingJsVer, ENT_QUOTES, 'UTF-8') ?>"></script>
-<script src="<?= htmlspecialchars(app_path('assets/js/tnc-ajax-form.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<?php
+$tncAjaxFormJsPath = dirname(__DIR__) . '/assets/js/tnc-ajax-form.js';
+$tncAjaxFormJsVer = @filemtime($tncAjaxFormJsPath);
+if (!is_int($tncAjaxFormJsVer) || $tncAjaxFormJsVer <= 0) {
+    $tncAjaxFormJsVer = time();
+}
+?>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-ajax-form.js') . '?v=' . $tncAjaxFormJsVer, ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php
 $tncPurchaseFlashJsPath = dirname(__DIR__) . '/assets/js/tnc-purchase-flash.js';
 $tncPurchaseFlashJsVer = @filemtime($tncPurchaseFlashJsPath);

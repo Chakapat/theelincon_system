@@ -233,7 +233,7 @@ if (!function_exists('tnc_site_budget_site_summary_light')) {
      */
     function tnc_site_budget_site_summary_light(int $siteId, array $siteRow, float $used): array
     {
-        $siteLimit = tnc_site_budget_site_limit($siteId);
+        $siteLimit = tnc_site_budget_site_limit_from_row($siteRow);
         $used = round(max(0.0, $used), 2);
         $remaining = $siteLimit !== null ? round($siteLimit - $used, 2) : null;
         $low = false;
@@ -386,13 +386,50 @@ if (!function_exists('tnc_site_budget_abort_if_invalid')) {
     }
 }
 
+if (!function_exists('tnc_site_budget_cat_usage_maps_for_site')) {
+    /**
+     * สแกน PO committed ครั้งเดียว — ยอดต่อหมวด (exact) และต่อหมวดงบ (parent roll-up)
+     *
+     * @return array{direct: array<int, float>, budget: array<int, float>}
+     */
+    function tnc_site_budget_cat_usage_maps_for_site(int $siteId): array
+    {
+        static $cached = [];
+        if (isset($cached[$siteId])) {
+            return $cached[$siteId];
+        }
+        if ($siteId <= 0) {
+            return ['direct' => [], 'budget' => []];
+        }
+        if (!function_exists('tnc_site_category_budget_id')) {
+            require_once __DIR__ . '/site_cost_categories.php';
+        }
+        $direct = [];
+        $budget = [];
+        foreach (tnc_site_budget_committed_pos($siteId) as $po) {
+            $cid = (int) ($po['cost_category_id'] ?? 0);
+            $amt = tnc_site_budget_po_amount($po);
+            if ($cid > 0) {
+                $direct[$cid] = round(($direct[$cid] ?? 0.0) + $amt, 2);
+            }
+            $budgetId = tnc_site_category_budget_id($cid);
+            if ($budgetId > 0) {
+                $budget[$budgetId] = round(($budget[$budgetId] ?? 0.0) + $amt, 2);
+            }
+        }
+        $cached[$siteId] = ['direct' => $direct, 'budget' => $budget];
+
+        return $cached[$siteId];
+    }
+}
+
 if (!function_exists('tnc_site_budget_category_rows_for_site')) {
     /**
      * สรุปงบตามหมวดของไซต์ (สำหรับ hub / admin)
      *
      * @return list<array<string,mixed>>
      */
-    function tnc_site_budget_category_rows_for_site(int $siteId): array
+    function tnc_site_budget_category_rows_for_site(int $siteId, ?array $siteRow = null): array
     {
         if ($siteId <= 0) {
             return [];
@@ -400,7 +437,20 @@ if (!function_exists('tnc_site_budget_category_rows_for_site')) {
         if (!function_exists('tnc_site_categories_for_site')) {
             require_once __DIR__ . '/site_cost_categories.php';
         }
-        $siteLimit = tnc_site_budget_site_limit($siteId);
+        if ($siteRow === null) {
+            $siteRow = Db::rowByIdField('sites', $siteId);
+        }
+        $siteLimit = is_array($siteRow) ? tnc_site_budget_site_limit_from_row($siteRow) : null;
+        $usageMaps = tnc_site_budget_cat_usage_maps_for_site($siteId);
+        $directUsed = $usageMaps['direct'];
+        $budgetUsed = $usageMaps['budget'];
+        $categoryById = [];
+        foreach (tnc_site_categories_all(true) as $catRow) {
+            $catRowId = (int) ($catRow['id'] ?? 0);
+            if ($catRowId > 0) {
+                $categoryById[$catRowId] = $catRow;
+            }
+        }
         $rows = [];
         foreach (tnc_site_categories_for_site($siteId) as $cat) {
             $cid = (int) ($cat['id'] ?? 0);
@@ -410,9 +460,12 @@ if (!function_exists('tnc_site_budget_category_rows_for_site')) {
             if ((int) ($cat['parent_id'] ?? 0) !== 0) {
                 continue;
             }
-            $pct = tnc_site_budget_category_percent($cid);
+            $pct = null;
+            if (array_key_exists('budget_percent', $cat) && $cat['budget_percent'] !== '' && $cat['budget_percent'] !== null) {
+                $pct = round((float) $cat['budget_percent'], 2);
+            }
             $limit = tnc_site_budget_cat_limit($siteId, $cid);
-            $used = tnc_site_budget_cat_used($siteId, $cid);
+            $used = round($budgetUsed[$cid] ?? 0.0, 2);
             $remaining = $limit !== null ? round($limit - $used, 2) : null;
             $overBudget = $limit !== null && $remaining !== null && $remaining < -0.0001;
             $low = false;
@@ -422,11 +475,11 @@ if (!function_exists('tnc_site_budget_category_rows_for_site')) {
             $catSiteId = (int) ($cat['site_id'] ?? 0);
             $children = [];
             foreach (tnc_site_category_child_ids($cid) as $childId) {
-                $childRow = Db::rowByIdField('site_cost_categories', $childId);
+                $childRow = $categoryById[$childId] ?? null;
                 if (!is_array($childRow)) {
                     continue;
                 }
-                $childUsed = tnc_site_budget_cat_used_direct($siteId, $childId);
+                $childUsed = round($directUsed[$childId] ?? 0.0, 2);
                 $children[] = [
                     'id' => $childId,
                     'name' => (string) ($childRow['name'] ?? ''),
@@ -460,13 +513,13 @@ if (!function_exists('tnc_site_budget_category_rows_for_site')) {
     }
 }
 
-if (!function_exists('tnc_site_budget_site_summary')) {
+if (!function_exists('tnc_site_budget_site_summary_for_site_row')) {
     /**
      * @return array<string,mixed>
      */
-    function tnc_site_budget_site_summary(int $siteId): array
+    function tnc_site_budget_site_summary_for_site_row(int $siteId, array $siteRow): array
     {
-        $siteLimit = tnc_site_budget_site_limit($siteId);
+        $siteLimit = tnc_site_budget_site_limit_from_row($siteRow);
         $used = tnc_site_budget_site_used($siteId);
         $remaining = $siteLimit !== null ? round($siteLimit - $used, 2) : null;
         $low = false;
@@ -488,8 +541,32 @@ if (!function_exists('tnc_site_budget_site_summary')) {
             'unlimited' => $siteLimit === null,
             'low' => $low,
             'exhausted' => $exhausted,
-            'categories' => tnc_site_budget_category_rows_for_site($siteId),
+            'categories' => tnc_site_budget_category_rows_for_site($siteId, $siteRow),
         ];
+    }
+}
+
+if (!function_exists('tnc_site_budget_site_summary')) {
+    /**
+     * @return array<string,mixed>
+     */
+    function tnc_site_budget_site_summary(int $siteId): array
+    {
+        $siteRow = Db::rowByIdField('sites', $siteId);
+        if (!is_array($siteRow)) {
+            return [
+                'site_id' => $siteId,
+                'limit' => null,
+                'used' => 0.0,
+                'remaining' => null,
+                'unlimited' => true,
+                'low' => false,
+                'exhausted' => false,
+                'categories' => [],
+            ];
+        }
+
+        return tnc_site_budget_site_summary_for_site_row($siteId, $siteRow);
     }
 }
 

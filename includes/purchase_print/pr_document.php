@@ -110,10 +110,10 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
     }
 
     $prCostCategoryId = (int) ($pr['cost_category_id'] ?? 0);
-    if (!function_exists('tnc_site_category_document_name')) {
+    if (!function_exists('tnc_site_category_document_parent_name')) {
         require_once dirname(__DIR__) . '/site_category_document_name.php';
     }
-    $prCostCategoryName = tnc_site_category_document_name(
+    $prCostCategoryName = tnc_site_category_document_parent_name(
         $prCostCategoryId,
         trim((string) ($pr['cost_category_name'] ?? ''))
     );

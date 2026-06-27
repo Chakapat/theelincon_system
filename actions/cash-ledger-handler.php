@@ -23,7 +23,19 @@ if (!$isAdmin) {
     exit;
 }
 $back = app_path('pages/cash-ledger/cash-ledger.php');
-$action = $_REQUEST['action'] ?? '';
+$dashboardBack = app_path('pages/cash-ledger/cash-ledger-dashboard.php');
+$redirectTo = (string) ($_REQUEST['redirect_to'] ?? ($_POST['redirect_to'] ?? ''));
+if ($redirectTo === 'dashboard') {
+    $back = $dashboardBack;
+}
+$action = trim((string) ($_REQUEST['action'] ?? ($_POST['action'] ?? '')));
+
+function cash_ledger_redirect(string $base, array $query): void
+{
+    $q = http_build_query($query);
+    $url = $base . ($q !== '' ? '?' . $q : '');
+    tnc_action_redirect($url);
+}
 
 cash_ledger_auto_archive_monthly_if_due();
 
@@ -45,14 +57,7 @@ if ($cash_mutates && !csrf_verify_request()) {
     if ($ed !== '') {
         $csrfQ['entry_date'] = $ed;
     }
-    tnc_action_redirect(app_path('pages/cash-ledger/cash-ledger-dashboard.php') . '?' . http_build_query($csrfQ));
-}
-
-function cash_ledger_redirect(string $base, array $query): void
-{
-    $q = http_build_query($query);
-    $url = $base . ($q !== '' ? '?' . $q : '');
-    tnc_action_redirect($url);
+    cash_ledger_redirect($back, $csrfQ);
 }
 
 /**
@@ -183,6 +188,7 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($entryDate === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $entryDate)) {
         cash_ledger_redirect($back, array_filter(['err' => 'date', 'month' => $retMonth]));
     }
+    $retMonth = substr($entryDate, 0, 7);
     $category = trim((string) ($_POST['category'] ?? ''));
     if (strlen($category) > 120) {
         $category = substr($category, 0, 120);

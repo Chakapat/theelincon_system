@@ -177,7 +177,17 @@
     }
 
     function renderFlyout(hub) {
-        flyoutHead.textContent = hub.short_label || hub.label;
+        flyoutHead.innerHTML = '';
+        var titleEl = document.createElement('div');
+        titleEl.className = 'tnc-hub-fab-flyout-head__title fw-bold';
+        titleEl.textContent = hub.short_label || hub.label;
+        flyoutHead.appendChild(titleEl);
+        if (hub.hint) {
+            var hintEl = document.createElement('div');
+            hintEl.className = 'tnc-hub-fab-flyout-head__hint small text-muted';
+            hintEl.textContent = hub.hint;
+            flyoutHead.appendChild(hintEl);
+        }
         flyoutLinks.innerHTML = '';
 
         hub.pages.forEach(function (page) {

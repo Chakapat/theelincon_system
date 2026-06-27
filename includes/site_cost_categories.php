@@ -162,7 +162,7 @@ if (!function_exists('tnc_site_category_display_name')) {
 }
 
 if (!function_exists('tnc_site_category_document_name')) {
-    /** ชื่อหมวดสำหรับพิมพ์ PR/PO — แสดงหมวดย่อย (leaf) จาก id เป็นหลัก */
+    /** ชื่อหมวดย่อย (leaf) — ใช้บนฟอร์ม/หน้าจอ */
     function tnc_site_category_document_name(int $id, string $storedName = ''): string
     {
         if ($id > 0) {
@@ -180,6 +180,34 @@ if (!function_exists('tnc_site_category_document_name')) {
             $parts = explode(' › ', $storedName);
 
             return trim((string) end($parts));
+        }
+
+        return $storedName;
+    }
+}
+
+if (!function_exists('tnc_site_category_document_parent_name')) {
+    /** ชื่อหมวดหลักสำหรับพิมพ์ PR/PO — ถ้าเลือกหมวดย่อย แสดงหมวดหลัก */
+    function tnc_site_category_document_parent_name(int $id, string $storedName = ''): string
+    {
+        if ($id > 0) {
+            $parentId = tnc_site_category_parent_id($id);
+            if ($parentId > 0) {
+                $parentName = tnc_site_category_name($parentId);
+                if ($parentName !== '') {
+                    return $parentName;
+                }
+            }
+
+            return tnc_site_category_document_name($id, $storedName);
+        }
+
+        $storedName = trim($storedName);
+        if ($storedName === '') {
+            return '';
+        }
+        if (str_contains($storedName, ' › ')) {
+            return trim((string) explode(' › ', $storedName)[0]);
         }
 
         return $storedName;
@@ -649,6 +677,132 @@ if (!function_exists('tnc_site_category_document_source')) {
     }
 }
 
+if (!function_exists('tnc_site_category_format_pr_reference')) {
+    /** @return array<string,mixed>|null */
+    function tnc_site_category_format_pr_reference(array $row): ?array
+    {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id <= 0) {
+            return null;
+        }
+        $number = trim((string) ($row['pr_number'] ?? ''));
+        if ($number === '') {
+            $number = 'PR-' . $id;
+        }
+        $netAmount = round((float) ($row['total_amount'] ?? 0), 2);
+        $source = tnc_site_category_document_source($row, 'pr');
+
+        return [
+            'id' => $id,
+            'number' => $number,
+            'status' => strtolower(trim((string) ($row['status'] ?? ''))),
+            'status_label' => tnc_site_category_pr_status_label($row),
+            'url' => app_path('pages/purchase/purchase-request-view.php') . '?id=' . $id,
+            'date' => tnc_site_category_format_doc_date($row),
+            'amount' => $netAmount,
+            'net_amount' => $netAmount,
+            'source' => $source,
+        ];
+    }
+}
+
+if (!function_exists('tnc_site_category_format_po_reference')) {
+    /** @return array<string,mixed>|null */
+    function tnc_site_category_format_po_reference(array $row): ?array
+    {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id <= 0) {
+            return null;
+        }
+        $number = trim((string) ($row['po_number'] ?? ''));
+        if ($number === '') {
+            $number = 'PO-' . $id;
+        }
+        $orderType = trim((string) ($row['order_type'] ?? 'purchase'));
+        if (!in_array($orderType, ['purchase', 'hire'], true)) {
+            $orderType = 'purchase';
+        }
+        $netAmount = round((float) ($row['total_amount'] ?? 0), 2);
+        if ($netAmount <= 0.0) {
+            $netAmount = round((float) ($row['payable_amount'] ?? ($row['gross_amount'] ?? 0)), 2);
+        }
+        $source = tnc_site_category_document_source($row, 'po');
+
+        return [
+            'id' => $id,
+            'number' => $number,
+            'status' => strtolower(trim((string) ($row['status'] ?? ''))),
+            'status_label' => tnc_site_category_po_status_label($row),
+            'url' => app_path('pages/purchase/purchase-order-view.php') . '?id=' . $id,
+            'date' => tnc_site_category_format_doc_date($row),
+            'amount' => $netAmount,
+            'net_amount' => $netAmount,
+            'source' => $source,
+            'order_type' => $orderType,
+        ];
+    }
+}
+
+if (!function_exists('tnc_site_category_references_site_index')) {
+    /**
+     * สแกน PR/PO ของไซต์ครั้งเดียว จัดกลุ่มตาม cost_category_id
+     *
+     * @return array{prs_by_cat: array<int, list<array<string,mixed>>>, pos_by_cat: array<int, list<array<string,mixed>>>}
+     */
+    function tnc_site_category_references_site_index(int $siteId): array
+    {
+        static $cache = [];
+        if (isset($cache[$siteId])) {
+            return $cache[$siteId];
+        }
+        if ($siteId <= 0) {
+            return ['prs_by_cat' => [], 'pos_by_cat' => []];
+        }
+
+        $prsByCat = [];
+        if (!function_exists('tnc_site_purchase_requests_cached')) {
+            require_once __DIR__ . '/sites.php';
+        }
+        foreach (tnc_site_purchase_requests_cached() as $row) {
+            if (!is_array($row) || (int) ($row['site_id'] ?? 0) !== $siteId) {
+                continue;
+            }
+            $catId = (int) ($row['cost_category_id'] ?? 0);
+            if ($catId <= 0) {
+                continue;
+            }
+            $formatted = tnc_site_category_format_pr_reference($row);
+            if ($formatted === null) {
+                continue;
+            }
+            $prsByCat[$catId][] = $formatted;
+        }
+
+        $posByCat = [];
+        if (!function_exists('tnc_site_budget_purchase_orders_cached')) {
+            require_once __DIR__ . '/site_budget.php';
+        }
+        foreach (tnc_site_budget_purchase_orders_cached() as $row) {
+            if (!is_array($row) || (int) ($row['site_id'] ?? 0) !== $siteId) {
+                continue;
+            }
+            $catId = (int) ($row['cost_category_id'] ?? 0);
+            if ($catId <= 0) {
+                continue;
+            }
+            $formatted = tnc_site_category_format_po_reference($row);
+            if ($formatted === null) {
+                continue;
+            }
+            $posByCat[$catId][] = $formatted;
+        }
+
+        $cache[$siteId] = ['prs_by_cat' => $prsByCat, 'pos_by_cat' => $posByCat];
+
+        return $cache[$siteId];
+    }
+}
+
 if (!function_exists('tnc_site_category_match_ids')) {
     /** id หมวดหลัก + หมวดย่อยทั้งหมด (ใช้กรอง PR/PO / งบ) */
     function tnc_site_category_match_ids(int $categoryId): array
@@ -689,75 +843,43 @@ if (!function_exists('tnc_site_category_list_references')) {
             ];
         }
 
-        $prs = [];
         $matchIds = tnc_site_category_match_ids($categoryId);
-        foreach (Db::tableRows('purchase_requests') as $row) {
-            if (!is_array($row) || !in_array((int) ($row['cost_category_id'] ?? 0), $matchIds, true)) {
-                continue;
-            }
-            if ($siteId !== null && $siteId > 0 && (int) ($row['site_id'] ?? 0) !== $siteId) {
-                continue;
-            }
-            $id = (int) ($row['id'] ?? 0);
-            if ($id <= 0) {
-                continue;
-            }
-            $number = trim((string) ($row['pr_number'] ?? ''));
-            if ($number === '') {
-                $number = 'PR-' . $id;
-            }
-            $netAmount = round((float) ($row['total_amount'] ?? 0), 2);
-            $source = tnc_site_category_document_source($row, 'pr');
-            $prs[] = [
-                'id' => $id,
-                'number' => $number,
-                'status' => strtolower(trim((string) ($row['status'] ?? ''))),
-                'status_label' => tnc_site_category_pr_status_label($row),
-                'url' => app_path('pages/purchase/purchase-request-view.php') . '?id=' . $id,
-                'date' => tnc_site_category_format_doc_date($row),
-                'amount' => $netAmount,
-                'net_amount' => $netAmount,
-                'source' => $source,
-            ];
-        }
-
+        $prs = [];
         $pos = [];
-        foreach (Db::tableRows('purchase_orders') as $row) {
-            if (!is_array($row) || !in_array((int) ($row['cost_category_id'] ?? 0), $matchIds, true)) {
-                continue;
+
+        if ($siteId !== null && $siteId > 0) {
+            $index = tnc_site_category_references_site_index($siteId);
+            foreach ($matchIds as $mid) {
+                foreach ($index['prs_by_cat'][$mid] ?? [] as $prRow) {
+                    $prs[] = $prRow;
+                }
+                foreach ($index['pos_by_cat'][$mid] ?? [] as $poRow) {
+                    $pos[] = $poRow;
+                }
             }
-            if ($siteId !== null && $siteId > 0 && (int) ($row['site_id'] ?? 0) !== $siteId) {
-                continue;
+        } else {
+            foreach (tnc_site_purchase_requests_cached() as $row) {
+                if (!is_array($row) || !in_array((int) ($row['cost_category_id'] ?? 0), $matchIds, true)) {
+                    continue;
+                }
+                $formatted = tnc_site_category_format_pr_reference($row);
+                if ($formatted !== null) {
+                    $prs[] = $formatted;
+                }
             }
-            $id = (int) ($row['id'] ?? 0);
-            if ($id <= 0) {
-                continue;
+
+            if (!function_exists('tnc_site_budget_purchase_orders_cached')) {
+                require_once __DIR__ . '/site_budget.php';
             }
-            $number = trim((string) ($row['po_number'] ?? ''));
-            if ($number === '') {
-                $number = 'PO-' . $id;
+            foreach (tnc_site_budget_purchase_orders_cached() as $row) {
+                if (!is_array($row) || !in_array((int) ($row['cost_category_id'] ?? 0), $matchIds, true)) {
+                    continue;
+                }
+                $formatted = tnc_site_category_format_po_reference($row);
+                if ($formatted !== null) {
+                    $pos[] = $formatted;
+                }
             }
-            $orderType = trim((string) ($row['order_type'] ?? 'purchase'));
-            if (!in_array($orderType, ['purchase', 'hire'], true)) {
-                $orderType = 'purchase';
-            }
-            $netAmount = round((float) ($row['total_amount'] ?? 0), 2);
-            if ($netAmount <= 0.0) {
-                $netAmount = round((float) ($row['payable_amount'] ?? ($row['gross_amount'] ?? 0)), 2);
-            }
-            $source = tnc_site_category_document_source($row, 'po');
-            $pos[] = [
-                'id' => $id,
-                'number' => $number,
-                'status' => strtolower(trim((string) ($row['status'] ?? ''))),
-                'status_label' => tnc_site_category_po_status_label($row),
-                'url' => app_path('pages/purchase/purchase-order-view.php') . '?id=' . $id,
-                'date' => tnc_site_category_format_doc_date($row),
-                'amount' => $netAmount,
-                'net_amount' => $netAmount,
-                'source' => $source,
-                'order_type' => $orderType,
-            ];
         }
 
         usort($prs, static fn (array $a, array $b): int => ($b['id'] <=> $a['id']));

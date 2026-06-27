@@ -11,6 +11,7 @@ require_once dirname(__DIR__, 2) . '/includes/banks.php';
 require_once dirname(__DIR__, 2) . '/includes/tax_invoice_ref_search_catalog.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
 require_once dirname(__DIR__, 2) . '/includes/document_color_css.php';
+require_once dirname(__DIR__, 2) . '/includes/invoice_cancel_helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -241,11 +242,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($isCreateSubmit || $isUpdateSubmit
     $targetInv = findInvoiceByReference($input_ref);
     if ($targetInv === null) {
         $error = 'ไม่พบเลข Invoice ที่อ้างอิง';
+    } elseif (tnc_invoice_is_cancelled($targetInv)) {
+        $error = 'ใบแจ้งหนี้นี้ถูกยกเลิกแล้ว — ไม่สามารถบันทึกใบกำกับภาษีได้';
     } else {
         $targetId = (int) ($targetInv['id'] ?? 0);
         $exists = findLatestTaxInvoiceByInvoiceId($targetId);
 
-        if ($exists !== null && !$isUpdateSubmit) {
+        if ($exists !== null && tnc_tax_invoice_is_cancelled($exists) && $isUpdateSubmit) {
+            $error = 'ใบกำกับภาษีนี้ถูกยกเลิกแล้ว — ไม่สามารถแก้ไขได้';
+        } elseif ($exists !== null && !$isUpdateSubmit) {
             $id = $targetId;
             $message = 'Invoice นี้มี Tax Invoice แล้ว';
         } else {
@@ -722,6 +727,18 @@ if (!$inv) {
 $creator = Db::rowByIdField('users', (int) ($inv['created_by'] ?? 0), 'userid') ?? [];
 $tax = findLatestTaxInvoiceByInvoiceId($id);
 
+$isInvCancelled = tnc_invoice_is_cancelled($inv);
+$isTaxCancelled = is_array($tax) && tnc_tax_invoice_is_cancelled($tax);
+$taxCancelReason = is_array($tax) ? tnc_doc_cancellation_reason($tax) : '';
+$invCancelReason = tnc_doc_cancellation_reason($inv);
+$canCancelTaxInvoice = user_can('invoice.tax_cancel') && is_array($tax) && !$isTaxCancelled && !$isInvCancelled;
+$canEditTaxInvoice = user_can('invoice.edit') && !$isInvCancelled && !$isTaxCancelled;
+
+if ($edit_mode && ($isInvCancelled || $isTaxCancelled)) {
+    header('Location: ' . app_path('pages/invoices/tax-invoice-receipt.php') . '?id=' . $id);
+    exit;
+}
+
 $invoice_number = (string) ($inv['invoice_number'] ?? '');
 $has_tax_invoice = $tax !== null && trim((string) ($tax['tax_invoice_number'] ?? '')) !== '';
 
@@ -744,7 +761,7 @@ if (!$has_tax_invoice && count($draftItems) === 0) {
     $draftItems[] = ['description' => '', 'quantity' => 1, 'unit' => '', 'unit_price' => 0, 'total' => 0];
 }
 
-if (!$has_tax_invoice || $edit_mode) {
+if ((!$has_tax_invoice || $edit_mode) && !$isInvCancelled && !$isTaxCancelled) {
     $companies = Db::tableRows('company');
     Db::sortRows($companies, 'id', false);
     $customers = Db::tableRows('customers');
@@ -1185,7 +1202,9 @@ if ($tirPrintDocTitle === '') {
     $tirPrintDocTitle = 'TAX-INV-' . (int) $id;
 }
 $taxDocDateSubtitle = formatDateThai($displayIssueDate) . ' · ' . ($tax_invoice_number !== '' ? $tax_invoice_number : $tirPrintDocTitle);
-$taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || isset($_GET['updated']));
+$taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || isset($_GET['updated']) || isset($_GET['cancelled']) || isset($_GET['error']));
+$docIsCancelled = $isTaxCancelled || $isInvCancelled;
+$docCancelReason = $isTaxCancelled && $taxCancelReason !== '' ? $taxCancelReason : ($isInvCancelled ? $invCancelReason : '');
 ?>
 
 <!DOCTYPE html>
@@ -1292,6 +1311,26 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
         .sig-space { height: 72px; }
         .sig-box { border-top: 1px solid #333; padding-top: 15px; font-size: 13px; font-weight: 600; }
 
+        .doc-cancelled-watermark {
+            position: absolute;
+            left: 50%;
+            top: 48%;
+            transform: translate(-50%, -50%) rotate(-32deg);
+            font-size: clamp(1.75rem, 6.5vw, 2.85rem);
+            font-weight: 800;
+            color: rgba(220, 38, 38, 0.42);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 50;
+            letter-spacing: 0.12em;
+            user-select: none;
+        }
+        .doc-cancel-reason-print {
+            font-size: 11px;
+            color: #991b1b;
+            margin-top: 0.35rem;
+        }
+
         .tax-id-keep { white-space: nowrap; }
         .tax-doc-meta-subtitle {
             color: #111 !important;
@@ -1366,6 +1405,10 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
         <div class="alert alert-success mb-0">สร้าง Tax Invoice สำเร็จแล้ว</div>
     <?php elseif (isset($_GET['updated']) && $_GET['updated'] === '1'): ?>
         <div class="alert alert-success mb-0">บันทึกการแก้ไข Tax Invoice สำเร็จแล้ว</div>
+    <?php elseif (isset($_GET['cancelled']) && (string) $_GET['cancelled'] === '1'): ?>
+        <div class="alert alert-success mb-0">ยกเลิกใบกำกับภาษีเรียบร้อยแล้ว</div>
+    <?php elseif (isset($_GET['error']) && (string) $_GET['error'] === 'need_cancel_reason'): ?>
+        <div class="alert alert-warning mb-0">กรุณาระบุเหตุผลการยกเลิก</div>
     <?php elseif ($message !== ''): ?>
         <div class="alert alert-warning mb-0"><?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?></div>
     <?php endif; ?>
@@ -1380,8 +1423,26 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
         <div class="doc-view-toolbar-row js-tnc-doc-toolbar">
             <div class="doc-view-toolbar-main">
                 <span class="doc-view-toolbar-id"><?= htmlspecialchars($tirPrintDocTitle, ENT_QUOTES, 'UTF-8') ?></span>
+                <?php if ($docIsCancelled): ?>
+                    <span class="doc-view-toolbar-sep" aria-hidden="true">—</span>
+                    <span class="badge rounded-pill px-3 py-2 text-bg-danger">ยกเลิกแล้ว</span>
+                    <?php if ($docCancelReason !== ''): ?>
+                        <span class="doc-view-toolbar-sep" aria-hidden="true">—</span>
+                        <span class="small text-danger">เหตุผล: <?= htmlspecialchars($docCancelReason, ENT_QUOTES, 'UTF-8') ?></span>
+                    <?php endif; ?>
+                <?php endif; ?>
             </div>
             <div class="doc-view-toolbar-actions">
+                <?php if ($canEditTaxInvoice && $has_tax_invoice): ?>
+                <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $id ?>&edit=1" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action">
+                    <i class="bi bi-pencil-square me-1"></i>แก้ไข
+                </a>
+                <?php endif; ?>
+                <?php if ($canCancelTaxInvoice && $taxId > 0): ?>
+                <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 js-tnc-doc-action" data-tnc-cancel-tax-invoice data-tax-id="<?= (int) $taxId ?>" data-invoice-id="<?= (int) $id ?>" data-return-to="view">
+                    <i class="bi bi-x-circle me-1"></i>ยกเลิก Tax INV
+                </button>
+                <?php endif; ?>
                 <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="print">
                     <i class="bi bi-printer me-1"></i>พิมพ์
                 </button>
@@ -1397,6 +1458,9 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
 <?php foreach ($print_modes as $pm): ?>
 <div class="invoice-sheet">
 <div class="invoice-box inv-sales-doc">
+    <?php if ($docIsCancelled): ?>
+    <div class="doc-cancelled-watermark" aria-hidden="true"><?= $isTaxCancelled ? 'ยกเลิกใบกำกับภาษี' : 'ยกเลิกใบแจ้งหนี้' ?></div>
+    <?php endif; ?>
     <div class="inv-doc-main">
     <div class="inv-doc-content">
     <div class="doc-type-badge">
@@ -1440,6 +1504,12 @@ $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || 
                     <?php if ($customer_address_one_line !== '' && $customer_tax_trim !== ''): ?> | <?php endif; ?>
                     <?php if ($customer_tax_trim !== ''): ?><span class="tax-id-keep"><?= htmlspecialchars($customer_tax_trim, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
                 </span>
+            </div>
+            <?php endif; ?>
+            <?php if ($docIsCancelled && $docCancelReason !== ''): ?>
+            <div class="doc-site-block mt-2 doc-cancel-reason-print">
+                <span class="doc-site-label">เหตุผลการยกเลิก:</span>
+                <span class="doc-site-value"><?= htmlspecialchars($docCancelReason, ENT_QUOTES, 'UTF-8') ?></span>
             </div>
             <?php endif; ?>
         </div>
@@ -1624,5 +1694,11 @@ tnc_doc_color_render_print_style_tag();
         color: inherit !important;
     }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+window.tncActionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+window.tncCsrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
+</script>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-invoice-cancel.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 </body>
 </html>
