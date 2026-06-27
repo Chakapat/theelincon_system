@@ -795,7 +795,7 @@ $hasAlerts = $poViewFlash !== null
                         <?php endforeach; ?>
                     <?php endif; ?>
                 <?php endif; ?>
-                <?php if (user_can('po.update') && !$isPoCancelled && !$poPaidLocksActions): ?>
+                <?php if (user_can('po.update') && !$poPaidLocksActions): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm js-tnc-doc-action" data-dock-primary="edit">
                         <i class="bi bi-pencil-square me-1"></i>แก้ไข
                     </a>

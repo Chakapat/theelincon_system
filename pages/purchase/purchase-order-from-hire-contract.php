@@ -43,10 +43,8 @@ if ($woSiteName === '' && $woSiteId > 0) {
         $woSiteName = trim((string) ($woSiteRow['name'] ?? ''));
     }
 }
-require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
-if ($woCostCategoryName === '' && $woCostCategoryId > 0) {
-    $woCostCategoryName = tnc_site_category_name($woCostCategoryId);
-}
+require_once dirname(__DIR__, 2) . '/includes/site_category_document_name.php';
+$woCostCategoryName = tnc_site_category_document_name($woCostCategoryId, $woCostCategoryName);
 $woSiteDisplay = $woSiteName !== '' ? $woSiteName : ($woSiteId > 0 ? 'ไซต์ #' . $woSiteId : '—');
 $siteCategoriesForWo = tnc_site_categories_for_site($woSiteId);
 $requireCostCategory = count($siteCategoriesForWo) > 0;
@@ -300,14 +298,10 @@ $issueDateDisplay = date('d/m/Y');
                 </div>
                 <?php if ($requireCostCategory): ?>
                 <div class="col-md-6">
-                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span></label>
+                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span> <span class="text-muted small fw-normal">(เลือกหมวดย่อย)</span></label>
                     <select name="cost_category_id" id="cost_category_id" class="form-select" required>
                         <option value="" disabled<?= $woCostCategoryId <= 0 ? ' selected' : '' ?>>— โปรดเลือกหมวด —</option>
-                        <?php foreach ($siteCategoriesForWo as $catRow): ?>
-                            <?php $catIdOpt = (int) ($catRow['id'] ?? 0); ?>
-                            <?php if ($catIdOpt <= 0) { continue; } ?>
-                            <option value="<?= $catIdOpt ?>"<?= $catIdOpt === $woCostCategoryId ? ' selected' : '' ?>><?= htmlspecialchars((string) ($catRow['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
-                        <?php endforeach; ?>
+                        <?php tnc_site_category_render_select_options(tnc_site_category_build_select_options($woSiteId), $woCostCategoryId); ?>
                     </select>
                 </div>
                 <?php endif; ?>

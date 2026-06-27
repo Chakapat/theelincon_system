@@ -32,10 +32,6 @@ if (!in_array($orderType, ['purchase', 'hire'], true)) {
     $orderType = 'purchase';
 }
 $isHirePo = ($orderType === 'hire');
-if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
-    header('Location: ' . app_path('pages/purchase/purchase-order-view.php') . '?id=' . $poId);
-    exit();
-}
 if (Purchase::poPaidLocksMutation($po)) {
     header('Location: ' . app_path('pages/purchase/purchase-order-list.php') . '?error=po_paid');
     exit();
@@ -153,7 +149,7 @@ if (!$isHirePo) {
         $poCostCategoryId = (int) ($linkedPr['cost_category_id'] ?? 0);
     }
     if ($poSiteId > 0) {
-        $siteCategoriesForPo = tnc_site_categories_for_site($poSiteId);
+        $siteCategoriesForPo = tnc_site_category_build_select_options($poSiteId);
     }
 }
 
@@ -388,17 +384,13 @@ if (!$isHirePo) {
                     </select>
                 </div>
                 <div class="col-md-6">
-                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span></label>
+                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span> <span class="text-muted small fw-normal">(เลือกหมวดย่อย)</span></label>
                     <select name="cost_category_id" id="cost_category_id" class="form-select" required<?= $poSiteId <= 0 ? ' disabled' : '' ?>>
                         <?php if ($poSiteId <= 0): ?>
                             <option value="" disabled selected>— เลือกไซต์ก่อน —</option>
                         <?php else: ?>
                             <option value="" disabled<?= $poCostCategoryId <= 0 ? ' selected' : '' ?>>— เลือกหมวด —</option>
-                            <?php foreach ($siteCategoriesForPo as $catRow): ?>
-                                <?php $catIdOpt = (int) ($catRow['id'] ?? 0); ?>
-                                <?php if ($catIdOpt <= 0) { continue; } ?>
-                                <option value="<?= $catIdOpt ?>"<?= $catIdOpt === $poCostCategoryId ? ' selected' : '' ?>><?= htmlspecialchars((string) ($catRow['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
-                            <?php endforeach; ?>
+                            <?php tnc_site_category_render_select_options($siteCategoriesForPo, $poCostCategoryId); ?>
                         <?php endif; ?>
                     </select>
                 </div>
@@ -631,6 +623,7 @@ if (!$isHirePo) {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/site-category-select.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function () {
@@ -681,32 +674,8 @@ if (!$isHirePo) {
         var siteId = siteEl ? parseInt(siteEl.value || '0', 10) || 0 : 0;
         var prev = parseInt(catEl.value || '0', 10) || initialCatId;
         initialCatId = 0;
-        catEl.innerHTML = '';
-        if (siteId <= 0) {
-            catEl.disabled = true;
-            catEl.innerHTML = '<option value="" disabled selected>— เลือกไซต์ก่อน —</option>';
-            return;
-        }
-        catEl.disabled = false;
-        var list = catMap[siteId] || catMap[0] || [];
-        var placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.disabled = true;
-        placeholder.textContent = '— เลือกหมวด —';
-        catEl.appendChild(placeholder);
-        var hasPrev = false;
-        list.forEach(function (c) {
-            var opt = document.createElement('option');
-            opt.value = c.id;
-            opt.textContent = c.name;
-            if (c.id === prev) {
-                opt.selected = true;
-                hasPrev = true;
-            }
-            catEl.appendChild(opt);
-        });
-        if (!hasPrev) {
-            placeholder.selected = true;
+        if (typeof window.tncPopulateSiteCategorySelect === 'function') {
+            window.tncPopulateSiteCategorySelect(catEl, catMap, siteId, prev);
         }
     }
 

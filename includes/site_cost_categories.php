@@ -6,7 +6,9 @@ declare(strict_types=1);
  * หมวดค่าใช้จ่ายตามไซต์ (Site Cost Categories) — แบบผสม
  *   - site_id = 0  : หมวดกลาง ใช้ได้ทุกไซต์
  *   - site_id > 0  : หมวดเฉพาะไซต์นั้น
- * ตาราง: site_cost_categories { id, site_id, name, sort_order, active, budget_percent? }
+ * ตาราง: site_cost_categories { id, site_id, name, sort_order, active, budget_percent?, parent_id? }
+ *   - parent_id = 0  : หมวดหลัก (กำหนด % งบได้)
+ *   - parent_id > 0  : หมวดย่อย (เลือกบน PR/PO — ใช้งบร่วมกับหมวดหลัก)
  */
 
 use Theelincon\Rtdb\Db;
@@ -38,6 +40,278 @@ if (!function_exists('tnc_site_categories_all')) {
     }
 }
 
+if (!function_exists('tnc_site_category_parent_id')) {
+    function tnc_site_category_parent_id(int $id): int
+    {
+        if ($id <= 0) {
+            return 0;
+        }
+        $row = Db::rowByIdField('site_cost_categories', $id);
+
+        return is_array($row) ? max(0, (int) ($row['parent_id'] ?? 0)) : 0;
+    }
+}
+
+if (!function_exists('tnc_site_category_has_children')) {
+    function tnc_site_category_has_children(int $id): bool
+    {
+        if ($id <= 0) {
+            return false;
+        }
+        foreach (tnc_site_categories_all(true) as $r) {
+            if ((int) ($r['parent_id'] ?? 0) === $id) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('tnc_site_category_child_ids')) {
+    /** @return list<int> */
+    function tnc_site_category_child_ids(int $parentId): array
+    {
+        if ($parentId <= 0) {
+            return [];
+        }
+        $out = [];
+        foreach (tnc_site_categories_all(true) as $r) {
+            if ((int) ($r['parent_id'] ?? 0) !== $parentId) {
+                continue;
+            }
+            $cid = (int) ($r['id'] ?? 0);
+            if ($cid > 0) {
+                $out[] = $cid;
+            }
+        }
+
+        return $out;
+    }
+}
+
+if (!function_exists('tnc_site_category_is_selectable')) {
+    /** เลือกบน PR/PO ได้เมื่อเป็นหมวดย่อย หรือหมวดหลักที่ยังไม่มีหมวดย่อย */
+    function tnc_site_category_is_selectable(int $id): bool
+    {
+        if ($id <= 0) {
+            return false;
+        }
+        $row = Db::rowByIdField('site_cost_categories', $id);
+        if (!is_array($row) || (int) ($row['active'] ?? 1) !== 1) {
+            return false;
+        }
+        $parentId = (int) ($row['parent_id'] ?? 0);
+        if ($parentId > 0) {
+            return true;
+        }
+
+        return !tnc_site_category_has_children($id);
+    }
+}
+
+if (!function_exists('tnc_site_category_budget_id')) {
+    /** หมวดที่ใช้คำนวณงบ — หมวดย่อยชี้ไปหมวดหลัก */
+    function tnc_site_category_budget_id(int $id): int
+    {
+        if ($id <= 0) {
+            return 0;
+        }
+        $parentId = tnc_site_category_parent_id($id);
+
+        return $parentId > 0 ? $parentId : $id;
+    }
+}
+
+if (!function_exists('tnc_site_category_matches_budget')) {
+    function tnc_site_category_matches_budget(int $docCategoryId, int $budgetCategoryId): bool
+    {
+        if ($docCategoryId <= 0 || $budgetCategoryId <= 0) {
+            return false;
+        }
+        if ($docCategoryId === $budgetCategoryId) {
+            return true;
+        }
+
+        return tnc_site_category_budget_id($docCategoryId) === $budgetCategoryId;
+    }
+}
+
+if (!function_exists('tnc_site_category_display_name')) {
+    function tnc_site_category_display_name(int $id): string
+    {
+        if ($id <= 0) {
+            return '';
+        }
+        $row = Db::rowByIdField('site_cost_categories', $id);
+        if (!is_array($row)) {
+            return '';
+        }
+        $name = trim((string) ($row['name'] ?? ''));
+        $parentId = (int) ($row['parent_id'] ?? 0);
+        if ($parentId <= 0) {
+            return $name;
+        }
+        $parentName = tnc_site_category_name($parentId);
+        if ($parentName === '') {
+            return $name;
+        }
+
+        return $parentName . ' › ' . $name;
+    }
+}
+
+if (!function_exists('tnc_site_category_document_name')) {
+    /** ชื่อหมวดสำหรับพิมพ์ PR/PO — แสดงหมวดย่อย (leaf) จาก id เป็นหลัก */
+    function tnc_site_category_document_name(int $id, string $storedName = ''): string
+    {
+        if ($id > 0) {
+            $resolved = tnc_site_category_name($id);
+            if ($resolved !== '') {
+                return $resolved;
+            }
+        }
+
+        $storedName = trim($storedName);
+        if ($storedName === '') {
+            return '';
+        }
+        if (str_contains($storedName, ' › ')) {
+            $parts = explode(' › ', $storedName);
+
+            return trim((string) end($parts));
+        }
+
+        return $storedName;
+    }
+}
+
+if (!function_exists('tnc_site_category_is_valid_selection_for_site')) {
+    function tnc_site_category_is_valid_selection_for_site(int $id, int $siteId): bool
+    {
+        if (!tnc_site_category_is_valid_for_site($id, $siteId)) {
+            return false;
+        }
+
+        return tnc_site_category_is_selectable($id);
+    }
+}
+
+if (!function_exists('tnc_site_category_build_select_options')) {
+    /**
+     * โครงสร้างสำหรับ <select> / JS
+     *
+     * @return list<array<string,mixed>>
+     */
+    function tnc_site_category_build_select_options(int $siteId): array
+    {
+        $rows = tnc_site_categories_for_site($siteId);
+        $parents = [];
+        $childrenByParent = [];
+        foreach ($rows as $r) {
+            $cid = (int) ($r['id'] ?? 0);
+            if ($cid <= 0) {
+                continue;
+            }
+            $parentId = (int) ($r['parent_id'] ?? 0);
+            if ($parentId > 0) {
+                $childrenByParent[$parentId][] = $r;
+                continue;
+            }
+            $parents[] = $r;
+        }
+
+        $options = [];
+        foreach ($parents as $parent) {
+            $pid = (int) ($parent['id'] ?? 0);
+            if ($pid <= 0) {
+                continue;
+            }
+            $children = $childrenByParent[$pid] ?? [];
+            if ($children === []) {
+                if (tnc_site_category_is_selectable($pid)) {
+                    $options[] = [
+                        'type' => 'option',
+                        'id' => $pid,
+                        'label' => (string) ($parent['name'] ?? ''),
+                    ];
+                }
+                continue;
+            }
+            $items = [];
+            foreach ($children as $child) {
+                $childId = (int) ($child['id'] ?? 0);
+                if ($childId <= 0 || !tnc_site_category_is_selectable($childId)) {
+                    continue;
+                }
+                $items[] = [
+                    'id' => $childId,
+                    'label' => (string) ($child['name'] ?? ''),
+                ];
+            }
+            if ($items !== []) {
+                $options[] = [
+                    'type' => 'group',
+                    'label' => (string) ($parent['name'] ?? ''),
+                    'items' => $items,
+                ];
+            }
+        }
+
+        return $options;
+    }
+}
+
+if (!function_exists('tnc_site_category_render_select_options')) {
+    function tnc_site_category_render_select_options(array $options, int $selectedId = 0): void
+    {
+        $hasSelected = false;
+        foreach ($options as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            if (($entry['type'] ?? '') === 'group' && is_array($entry['items'] ?? null)) {
+                $label = htmlspecialchars((string) ($entry['label'] ?? ''), ENT_QUOTES, 'UTF-8');
+                echo '<optgroup label="' . $label . '">';
+                foreach ($entry['items'] as $item) {
+                    if (!is_array($item)) {
+                        continue;
+                    }
+                    $id = (int) ($item['id'] ?? 0);
+                    if ($id <= 0) {
+                        continue;
+                    }
+                    $sel = $id === $selectedId;
+                    if ($sel) {
+                        $hasSelected = true;
+                    }
+                    echo '<option value="' . $id . '"' . ($sel ? ' selected' : '') . '>'
+                        . htmlspecialchars((string) ($item['label'] ?? ''), ENT_QUOTES, 'UTF-8')
+                        . '</option>';
+                }
+                echo '</optgroup>';
+                continue;
+            }
+            $id = (int) ($entry['id'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            $sel = $id === $selectedId;
+            if ($sel) {
+                $hasSelected = true;
+            }
+            echo '<option value="' . $id . '"' . ($sel ? ' selected' : '') . '>'
+                . htmlspecialchars((string) ($entry['label'] ?? $entry['name'] ?? ''), ENT_QUOTES, 'UTF-8')
+                . '</option>';
+        }
+        if (!$hasSelected && $selectedId > 0) {
+            echo '<option value="' . $selectedId . '" selected>'
+                . htmlspecialchars(tnc_site_category_display_name($selectedId), ENT_QUOTES, 'UTF-8')
+                . '</option>';
+        }
+    }
+}
+
 if (!function_exists('tnc_site_categories_for_site')) {
     /**
      * หมวดที่ใช้ได้กับไซต์หนึ่ง = หมวดกลาง (site_id=0) + หมวดเฉพาะไซต์นั้น
@@ -60,26 +334,24 @@ if (!function_exists('tnc_site_categories_for_site')) {
 
 if (!function_exists('tnc_site_categories_map_by_site')) {
     /**
-     * แผนที่สำหรับส่งให้ JS: [siteId => [ {id, name}, ... ]] โดยรวมหมวดกลางไว้ที่คีย์ 0
+     * แผนที่สำหรับส่งให้ JS: [siteId => select options จาก tnc_site_category_build_select_options]
+     * คีย์ 0 = หมวดกลางอย่างเดียว (ไม่มีหมวดเฉพาะไซต์)
      *
-     * @return array<int,array<int,array{id:int,name:string}>>
+     * @return array<int,list<array<string,mixed>>>
      */
     function tnc_site_categories_map_by_site(): array
     {
-        $global = [];
-        $bySite = [];
+        $global = tnc_site_category_build_select_options(0);
+        $siteIds = [];
         foreach (tnc_site_categories_all(true) as $r) {
-            $entry = ['id' => (int) $r['id'], 'name' => (string) ($r['name'] ?? '')];
             $sid = (int) ($r['site_id'] ?? 0);
-            if ($sid === 0) {
-                $global[] = $entry;
-            } else {
-                $bySite[$sid][] = $entry;
+            if ($sid > 0) {
+                $siteIds[$sid] = true;
             }
         }
         $map = [0 => $global];
-        foreach ($bySite as $sid => $list) {
-            $map[$sid] = array_merge($global, $list);
+        foreach (array_keys($siteIds) as $sid) {
+            $map[(int) $sid] = tnc_site_category_build_select_options((int) $sid);
         }
 
         return $map;
@@ -131,6 +403,9 @@ if (!function_exists('tnc_site_category_percent_sum')) {
             if ((int) ($r['site_id'] ?? 0) !== $siteId) {
                 continue;
             }
+            if ((int) ($r['parent_id'] ?? 0) !== 0) {
+                continue;
+            }
             if (!array_key_exists('budget_percent', $r) || $r['budget_percent'] === '' || $r['budget_percent'] === null) {
                 continue;
             }
@@ -162,18 +437,35 @@ if (!function_exists('tnc_site_category_save')) {
      *
      * @return int|array{id:int}|array{error:string} 0 = ชื่อว่าง, array error = รวม % เกิน 100
      */
-    function tnc_site_category_save(int $id, int $siteId, string $name, int $sortOrder = 0, ?float $budgetPercent = null)
+    function tnc_site_category_save(int $id, int $siteId, string $name, int $sortOrder = 0, ?float $budgetPercent = null, int $parentId = 0)
     {
         $name = trim($name);
         if ($name === '') {
             return 0;
         }
         $name = mb_substr($name, 0, 150);
+        $parentId = max(0, $parentId);
+        if ($parentId > 0) {
+            $budgetPercent = null;
+            $parentRow = Db::rowByIdField('site_cost_categories', $parentId);
+            if (!is_array($parentRow) || (int) ($parentRow['parent_id'] ?? 0) !== 0) {
+                return ['error' => 'invalid_parent'];
+            }
+            $parentSiteId = (int) ($parentRow['site_id'] ?? 0);
+            if ($parentSiteId !== 0 && $parentSiteId !== $siteId) {
+                return ['error' => 'invalid_parent'];
+            }
+            if ($siteId > 0 && $parentSiteId === 0) {
+                // หมวดย่อยใต้หมวดกลาง — ใช้ site_id ของไซต์ที่สร้าง
+            } elseif ($siteId <= 0) {
+                return ['error' => 'invalid_parent'];
+            }
+        }
         $pctStored = null;
-        if ($budgetPercent !== null) {
+        if ($parentId === 0 && $budgetPercent !== null) {
             $pctStored = round(max(0.0, min(100.0, $budgetPercent)), 2);
         }
-        if ($siteId > 0 && $pctStored !== null && $pctStored > 0.0 && tnc_site_category_percent_would_exceed($siteId, $pctStored, $id > 0 ? $id : null)) {
+        if ($siteId > 0 && $parentId === 0 && $pctStored !== null && $pctStored > 0.0 && tnc_site_category_percent_would_exceed($siteId, $pctStored, $id > 0 ? $id : null)) {
             return ['error' => 'percent_sum_exceeded'];
         }
         $pctField = $pctStored !== null ? $pctStored : '';
@@ -181,12 +473,19 @@ if (!function_exists('tnc_site_category_save')) {
             $pk = Db::pkForLogicalId('site_cost_categories', $id);
             $cur = $pk !== null ? Db::row('site_cost_categories', $pk) : null;
             if (is_array($cur)) {
-                Db::setRow('site_cost_categories', $pk, array_merge($cur, [
+                if ($parentId > 0 && tnc_site_category_has_children($id)) {
+                    return ['error' => 'has_children'];
+                }
+                $merge = [
                     'name' => $name,
                     'site_id' => $siteId,
                     'sort_order' => $sortOrder,
-                    'budget_percent' => $pctField,
-                ]));
+                    'parent_id' => $parentId,
+                ];
+                if ($parentId === 0) {
+                    $merge['budget_percent'] = $pctField;
+                }
+                Db::setRow('site_cost_categories', $pk, array_merge($cur, $merge));
 
                 return $id;
             }
@@ -195,10 +494,11 @@ if (!function_exists('tnc_site_category_save')) {
         Db::setRow('site_cost_categories', (string) $nid, [
             'id' => $nid,
             'site_id' => $siteId,
+            'parent_id' => $parentId,
             'name' => $name,
             'sort_order' => $sortOrder,
             'active' => 1,
-            'budget_percent' => $pctField,
+            'budget_percent' => $parentId === 0 ? $pctField : '',
         ]);
 
         return $nid;
@@ -283,6 +583,88 @@ if (!function_exists('tnc_site_category_format_doc_date')) {
     }
 }
 
+if (!function_exists('tnc_site_category_document_source')) {
+    /** ชื่อผู้ขาย / ผู้รับจ้าง / แหล่งซื้อ จาก PR หรือ PO */
+    function tnc_site_category_document_source(array $row, string $docType): string
+    {
+        $docType = strtolower(trim($docType));
+        if ($docType === 'po') {
+            if (!function_exists('tnc_purchase_report_supplier_name')) {
+                require_once __DIR__ . '/purchase_print/vat_print_summary.php';
+            }
+            if (function_exists('tnc_purchase_report_supplier_name')) {
+                $name = trim(tnc_purchase_report_supplier_name($row));
+                if ($name !== '') {
+                    return $name;
+                }
+            }
+
+            $orderType = trim((string) ($row['order_type'] ?? 'purchase'));
+            if ($orderType === 'hire') {
+                $name = trim((string) ($row['contractor_name'] ?? ''));
+            } else {
+                $name = trim((string) ($row['supplier_name'] ?? ''));
+            }
+
+            return $name !== '' ? $name : '—';
+        }
+
+        $requestType = trim((string) ($row['request_type'] ?? ($row['procurement_type'] ?? 'purchase')));
+        if (!in_array($requestType, ['purchase', 'hire'], true)) {
+            $requestType = 'purchase';
+        }
+        if ($requestType === 'hire') {
+            $name = trim((string) ($row['contractor_name'] ?? ($row['hire_contractor_name'] ?? '')));
+            if ($name !== '') {
+                return $name;
+            }
+            $contractorId = (int) ($row['contractor_id'] ?? 0);
+            if ($contractorId > 0) {
+                if (!function_exists('tnc_contractor_display_label')) {
+                    require_once __DIR__ . '/contractors.php';
+                }
+                $contractorRow = Db::rowByIdField('contractors', $contractorId);
+                if (is_array($contractorRow)) {
+                    $label = trim(tnc_contractor_display_label($contractorRow));
+                    if ($label !== '') {
+                        return $label;
+                    }
+                }
+            }
+
+            return '—';
+        }
+
+        $prId = (int) ($row['id'] ?? 0);
+        if ($prId > 0) {
+            $linkedPo = Db::findFirst('purchase_orders', static function (array $poRow) use ($prId): bool {
+                return (int) ($poRow['pr_id'] ?? 0) === $prId;
+            });
+            if (is_array($linkedPo)) {
+                return tnc_site_category_document_source($linkedPo, 'po');
+            }
+        }
+
+        return '—';
+    }
+}
+
+if (!function_exists('tnc_site_category_match_ids')) {
+    /** id หมวดหลัก + หมวดย่อยทั้งหมด (ใช้กรอง PR/PO / งบ) */
+    function tnc_site_category_match_ids(int $categoryId): array
+    {
+        if ($categoryId <= 0) {
+            return [];
+        }
+        $ids = [$categoryId];
+        foreach (tnc_site_category_child_ids($categoryId) as $childId) {
+            $ids[] = $childId;
+        }
+
+        return $ids;
+    }
+}
+
 if (!function_exists('tnc_site_category_list_references')) {
     /**
      * รายการ PR/PO ที่อ้างอิงหมวดค่าใช้จ่าย
@@ -290,12 +672,12 @@ if (!function_exists('tnc_site_category_list_references')) {
      * @return array{
      *   category_id:int,
      *   category_name:string,
-     *   prs:list<array{id:int,number:string,status:string,status_label:string,url:string,date:string,amount:float}>,
-     *   pos:list<array{id:int,number:string,status:string,status_label:string,url:string,date:string,amount:float,order_type:string}>,
+     *   prs:list<array{id:int,number:string,status:string,status_label:string,url:string,date:string,amount:float,net_amount:float,source:string}>,
+     *   pos:list<array{id:int,number:string,status:string,status_label:string,url:string,date:string,amount:float,net_amount:float,source:string,order_type:string}>,
      *   total:int
      * }
      */
-    function tnc_site_category_list_references(int $categoryId): array
+    function tnc_site_category_list_references(int $categoryId, ?int $siteId = null): array
     {
         if ($categoryId <= 0) {
             return [
@@ -308,8 +690,12 @@ if (!function_exists('tnc_site_category_list_references')) {
         }
 
         $prs = [];
+        $matchIds = tnc_site_category_match_ids($categoryId);
         foreach (Db::tableRows('purchase_requests') as $row) {
-            if (!is_array($row) || (int) ($row['cost_category_id'] ?? 0) !== $categoryId) {
+            if (!is_array($row) || !in_array((int) ($row['cost_category_id'] ?? 0), $matchIds, true)) {
+                continue;
+            }
+            if ($siteId !== null && $siteId > 0 && (int) ($row['site_id'] ?? 0) !== $siteId) {
                 continue;
             }
             $id = (int) ($row['id'] ?? 0);
@@ -320,6 +706,8 @@ if (!function_exists('tnc_site_category_list_references')) {
             if ($number === '') {
                 $number = 'PR-' . $id;
             }
+            $netAmount = round((float) ($row['total_amount'] ?? 0), 2);
+            $source = tnc_site_category_document_source($row, 'pr');
             $prs[] = [
                 'id' => $id,
                 'number' => $number,
@@ -327,13 +715,18 @@ if (!function_exists('tnc_site_category_list_references')) {
                 'status_label' => tnc_site_category_pr_status_label($row),
                 'url' => app_path('pages/purchase/purchase-request-view.php') . '?id=' . $id,
                 'date' => tnc_site_category_format_doc_date($row),
-                'amount' => round((float) ($row['total_amount'] ?? 0), 2),
+                'amount' => $netAmount,
+                'net_amount' => $netAmount,
+                'source' => $source,
             ];
         }
 
         $pos = [];
         foreach (Db::tableRows('purchase_orders') as $row) {
-            if (!is_array($row) || (int) ($row['cost_category_id'] ?? 0) !== $categoryId) {
+            if (!is_array($row) || !in_array((int) ($row['cost_category_id'] ?? 0), $matchIds, true)) {
+                continue;
+            }
+            if ($siteId !== null && $siteId > 0 && (int) ($row['site_id'] ?? 0) !== $siteId) {
                 continue;
             }
             $id = (int) ($row['id'] ?? 0);
@@ -348,10 +741,11 @@ if (!function_exists('tnc_site_category_list_references')) {
             if (!in_array($orderType, ['purchase', 'hire'], true)) {
                 $orderType = 'purchase';
             }
-            $amount = round((float) ($row['total_amount'] ?? 0), 2);
-            if ($amount <= 0.0) {
-                $amount = round((float) ($row['gross_amount'] ?? 0), 2);
+            $netAmount = round((float) ($row['total_amount'] ?? 0), 2);
+            if ($netAmount <= 0.0) {
+                $netAmount = round((float) ($row['payable_amount'] ?? ($row['gross_amount'] ?? 0)), 2);
             }
+            $source = tnc_site_category_document_source($row, 'po');
             $pos[] = [
                 'id' => $id,
                 'number' => $number,
@@ -359,7 +753,9 @@ if (!function_exists('tnc_site_category_list_references')) {
                 'status_label' => tnc_site_category_po_status_label($row),
                 'url' => app_path('pages/purchase/purchase-order-view.php') . '?id=' . $id,
                 'date' => tnc_site_category_format_doc_date($row),
-                'amount' => $amount,
+                'amount' => $netAmount,
+                'net_amount' => $netAmount,
+                'source' => $source,
                 'order_type' => $orderType,
             ];
         }
@@ -373,6 +769,24 @@ if (!function_exists('tnc_site_category_list_references')) {
             'prs' => $prs,
             'pos' => $pos,
             'total' => count($prs) + count($pos),
+        ];
+    }
+}
+
+if (!function_exists('tnc_site_category_resolve_selection')) {
+    /**
+     * @return array{ok:bool,id:int,name:string}
+     */
+    function tnc_site_category_resolve_selection(int $id, int $siteId): array
+    {
+        if ($id <= 0 || !tnc_site_category_is_valid_selection_for_site($id, $siteId)) {
+            return ['ok' => false, 'id' => 0, 'name' => ''];
+        }
+
+        return [
+            'ok' => true,
+            'id' => $id,
+            'name' => tnc_site_category_display_name($id),
         ];
     }
 }
@@ -410,6 +824,9 @@ if (!function_exists('tnc_site_category_delete_for_site')) {
         }
         if (tnc_site_category_reference_count($id) > 0) {
             return ['ok' => false, 'error_code' => 'in_use'];
+        }
+        if (tnc_site_category_has_children($id)) {
+            return ['ok' => false, 'error_code' => 'has_children'];
         }
         tnc_site_category_delete($id);
 

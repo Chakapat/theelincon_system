@@ -222,7 +222,7 @@ $items = [[
                     <?php endif; ?>
                 </div>
                 <div class="col-md-6">
-                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span></label>
+                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span> <span class="text-muted small fw-normal">(เลือกหมวดย่อยภายใต้หมวดหลัก)</span></label>
                     <select name="cost_category_id" id="cost_category_id" class="form-select" required disabled>
                         <option value="" disabled selected>— เลือกไซต์ก่อน —</option>
                     </select>
@@ -362,6 +362,7 @@ $items = [[
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/site-category-select.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function () {
@@ -474,32 +475,8 @@ $items = [[
     function populateCategories() {
         var siteId = resolveSiteId();
         var prev = parseInt(catEl.value || '0', 10) || 0;
-        catEl.innerHTML = '';
-        if (siteId <= 0) {
-            catEl.disabled = true;
-            catEl.innerHTML = '<option value="" disabled selected>— เลือกไซต์ก่อน —</option>';
-            return;
-        }
-        catEl.disabled = false;
-        var list = catMap[siteId] || catMap[0] || [];
-        var placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.disabled = true;
-        placeholder.textContent = '— เลือกหมวด —';
-        catEl.appendChild(placeholder);
-        var hasPrev = false;
-        list.forEach(function (c) {
-            var opt = document.createElement('option');
-            opt.value = c.id;
-            opt.textContent = c.name;
-            if (c.id === prev) {
-                opt.selected = true;
-                hasPrev = true;
-            }
-            catEl.appendChild(opt);
-        });
-        if (!hasPrev) {
-            placeholder.selected = true;
+        if (typeof window.tncPopulateSiteCategorySelect === 'function') {
+            window.tncPopulateSiteCategorySelect(catEl, catMap, siteId, prev);
         }
     }
 

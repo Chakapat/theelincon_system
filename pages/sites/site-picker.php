@@ -391,6 +391,40 @@ if (user_can('page.po')) {
             outline-offset: 2px;
         }
         .site-fav-btn[disabled] { opacity: 0.6; cursor: wait; }
+        .site-card__nav-busy {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 0.45rem;
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .site-card.is-navigating .site-card__nav-busy { display: flex; }
+        .site-card__nav-spinner {
+            width: 1.75rem;
+            height: 1.75rem;
+            border: 2px solid #e2e8f0;
+            border-top-color: var(--picker-copper);
+            border-radius: 50%;
+            animation: siteCardNavSpin 0.7s linear infinite;
+        }
+        .site-card__nav-label {
+            font-size: 0.8125rem;
+            font-weight: 700;
+            color: var(--picker-copper-dark);
+        }
+        @keyframes siteCardNavSpin { to { transform: rotate(360deg); } }
+        .site-picker-grid.is-site-navigating .site-picker-card:not(.is-active-nav) {
+            opacity: 0.55;
+            pointer-events: none;
+        }
+        .site-picker-grid.is-site-navigating .site-picker-add { opacity: 0.55; pointer-events: none; }
+        .site-picker-grid.is-site-navigating .site-fav-btn { pointer-events: none; opacity: 0.45; }
         .site-card--skeleton { pointer-events: none; }
         .site-card--skeleton:hover { transform: none; border-color: var(--picker-border); background: var(--picker-surface); }
         .site-skeleton-line,
@@ -788,6 +822,10 @@ if (user_can('page.po')) {
             .picker-action-tile:hover {
                 transform: none;
             }
+            .site-card__nav-spinner {
+                animation: none;
+                border-top-color: var(--picker-copper);
+            }
             .picker-action-tile:hover .picker-action-tile__chevron {
                 transform: none;
             }
@@ -954,6 +992,10 @@ if (user_can('page.po')) {
                                 </div>
                             </div>
                         </a>
+                        <div class="site-card__nav-busy" aria-hidden="true">
+                            <span class="site-card__nav-spinner"></span>
+                            <span class="site-card__nav-label">กำลังเปิด…</span>
+                        </div>
                     </div>
                 </div>
                 <?php ++$siteSortIndex; ?>
@@ -1104,6 +1146,49 @@ if (user_can('page.po')) {
             btn.setAttribute('aria-label', (isFavorite ? 'นำออกจากรายการโปรด' : 'เพิ่มในรายการโปรด') + ': ' + siteName.textContent.trim());
         }
     }
+
+    function beginSiteHubNavigation(link, event) {
+        if (event.defaultPrevented || event.button !== 0) {
+            return;
+        }
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            return;
+        }
+        var href = link.getAttribute('href') || '';
+        if (href === '' || href.charAt(0) === '#') {
+            return;
+        }
+        var card = link.closest('.site-card');
+        var pickerCard = link.closest('.site-picker-card');
+        var grid = document.getElementById('sitePickerGrid');
+        var siteNameEl = link.querySelector('.site-card__name');
+        var siteName = siteNameEl ? siteNameEl.textContent.trim() : 'ไซต์งาน';
+        if (card && !card.classList.contains('is-navigating')) {
+            card.classList.add('is-navigating');
+            link.setAttribute('aria-busy', 'true');
+        }
+        if (pickerCard) {
+            pickerCard.classList.add('is-active-nav');
+        }
+        if (grid) {
+            grid.classList.add('is-site-navigating');
+            grid.setAttribute('aria-busy', 'true');
+        }
+        if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.showWithMessage === 'function') {
+            window.TncLoadingOverlay.showWithMessage(
+                'กำลังเปิด ' + siteName + '…',
+                'กรุณารอสักครู่ ระบบกำลังโหลดข้อมูลไซต์'
+            );
+        } else if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.show === 'function') {
+            window.TncLoadingOverlay.show();
+        }
+    }
+
+    document.querySelectorAll('.site-card-link[href]').forEach(function (link) {
+        link.addEventListener('click', function (event) {
+            beginSiteHubNavigation(link, event);
+        });
+    });
 
     document.querySelectorAll('.site-fav-btn').forEach(function (btn) {
         btn.addEventListener('click', function (event) {

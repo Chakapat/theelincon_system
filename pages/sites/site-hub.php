@@ -143,10 +143,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_category'])
         header('Location: ' . $hubUrl . '&error=invalid_name' . $catOpen);
         exit;
     }
-    $savedId = tnc_site_category_save($catId, $siteId, $catName, 0, $catBudgetPercent);
+    $catParentId = (int) ($_POST['category_parent_id'] ?? 0);
+    if ($catId > 0 && $catParentId <= 0) {
+        $catParentId = tnc_site_category_parent_id($catId);
+    }
+    if ($catParentId > 0) {
+        $catBudgetPercent = null;
+    }
+    $savedId = tnc_site_category_save($catId, $siteId, $catName, 0, $catBudgetPercent, $catParentId);
     if (is_array($savedId) && isset($savedId['error']) && $savedId['error'] === 'percent_sum_exceeded') {
         $catOpen = $catId > 0 ? '&open_cat=1&edit_cat=' . $catId : '&open_cat=1';
         header('Location: ' . $hubUrl . '&error=percent_sum' . $catOpen);
+        exit;
+    }
+    if (is_array($savedId) && isset($savedId['error']) && in_array($savedId['error'], ['invalid_parent', 'has_children'], true)) {
+        $catOpen = $catId > 0 ? '&open_cat=1&edit_cat=' . $catId : '&open_cat=1';
+        header('Location: ' . $hubUrl . '&error=' . rawurlencode((string) $savedId['error']) . $catOpen);
         exit;
     }
     if (is_int($savedId) && $savedId > 0) {
@@ -158,6 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_category'])
                 'site_id' => $siteId,
                 'name' => $catName,
                 'budget_percent' => $catBudgetPercent,
+                'parent_id' => $catParentId,
             ],
         ]);
         header('Location: ' . $hubUrl . '&cat_saved=1');
@@ -263,6 +276,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site'])) {
 
 $siteBudgetRaw = round((float) ($site['site_budget'] ?? 0), 2);
 $summary = tnc_site_budget_site_summary($siteId);
+$hubCatDocsMap = [];
+foreach ($summary['categories'] ?? [] as $hubCatSummaryRow) {
+    $hubCatSummaryId = (int) ($hubCatSummaryRow['id'] ?? 0);
+    if ($hubCatSummaryId > 0) {
+        $hubCatDocsMap[$hubCatSummaryId] = tnc_site_category_list_references($hubCatSummaryId, $siteId);
+    }
+    foreach ($hubCatSummaryRow['children'] ?? [] as $hubCatChildRow) {
+        $hubCatChildId = (int) ($hubCatChildRow['id'] ?? 0);
+        if ($hubCatChildId > 0) {
+            $hubCatDocsMap[$hubCatChildId] = tnc_site_category_list_references($hubCatChildId, $siteId);
+        }
+    }
+}
+$hubCatTableRows = [];
+foreach ($summary['categories'] ?? [] as $hubParentCatRow) {
+    $hubParentChildCount = count($hubParentCatRow['children'] ?? []);
+    $hubCatTableRows[] = array_merge($hubParentCatRow, [
+        'row_kind' => 'parent',
+        'child_count' => $hubParentChildCount,
+    ]);
+    foreach ($hubParentCatRow['children'] ?? [] as $hubSubCatRow) {
+        $hubCatTableRows[] = array_merge($hubSubCatRow, [
+            'row_kind' => 'sub',
+            'parent_name' => (string) ($hubParentCatRow['name'] ?? ''),
+            'parent_id' => (int) ($hubParentCatRow['id'] ?? 0),
+        ]);
+    }
+}
+$hubParentCategoryOptions = [];
+foreach ($summary['categories'] ?? [] as $hubParentOptRow) {
+    $hubParentOptId = (int) ($hubParentOptRow['id'] ?? 0);
+    if ($hubParentOptId <= 0) {
+        continue;
+    }
+    $hubParentCategoryOptions[] = [
+        'id' => $hubParentOptId,
+        'name' => (string) ($hubParentOptRow['name'] ?? ''),
+        'is_global' => !empty($hubParentOptRow['is_global']),
+    ];
+}
 $catPercentUsed = tnc_site_category_percent_sum($siteId);
 $catPercentRoom = round(max(0.0, 100.0 - $catPercentUsed), 2);
 $openCatEditId = isset($_GET['edit_cat']) ? (int) $_GET['edit_cat'] : 0;
@@ -273,7 +326,7 @@ $catRefId = isset($_GET['cat_ref']) ? (int) $_GET['cat_ref'] : 0;
 $catRefBlock = null;
 $openCatRefModal = false;
 if ((string) ($_GET['error'] ?? '') === 'in_use' && $catRefId > 0) {
-    $catRefBlock = tnc_site_category_list_references($catRefId);
+    $catRefBlock = tnc_site_category_list_references($catRefId, $siteId);
     if ((int) ($catRefBlock['total'] ?? 0) > 0) {
         $openCatRefModal = true;
     }
@@ -555,8 +608,146 @@ $renderHubMenuItems = static function (array $items): void {
         .hub-cat-ref-modal__table th {
             font-size: 0.875rem;
         }
-        .hub-cat-name-cell { display: flex; align-items: center; gap: 0.35rem; min-width: 0; }
+        .hub-cat-name-cell { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
         .hub-cat-name-cell__text { min-width: 0; }
+        .hub-cat-name-cell__text--sub {
+            padding-left: 0.15rem;
+            font-size: 0.875rem;
+            color: #475569;
+        }
+        .hub-cat-expand-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            flex-shrink: 0;
+        }
+        .hub-cat-expand-btn {
+            width: 1.55rem;
+            height: 1.55rem;
+            padding: 0;
+            border: 1px solid var(--hub-border);
+            border-radius: 0.45rem;
+            background: #fff;
+            color: var(--hub-muted);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+        .hub-cat-expand-btn--spacer {
+            border-color: transparent;
+            background: transparent;
+            pointer-events: none;
+        }
+        .hub-cat-expand-btn--docs {
+            color: #0369a1;
+            border-color: #bae6fd;
+            background: #f0f9ff;
+        }
+        .hub-cat-expand-btn--docs:hover {
+            background: #e0f2fe;
+            border-color: #7dd3fc;
+            color: #0c4a6e;
+        }
+        .hub-cat-expand-btn--subs:hover {
+            background: #fff7ed;
+            border-color: #fdba74;
+            color: var(--hub-copper-dark);
+        }
+        .hub-cat-expand-btn:hover {
+            background: #fff7ed;
+            border-color: #fdba74;
+            color: var(--hub-copper-dark);
+        }
+        .hub-cat-expand-btn:focus-visible {
+            outline: 2px solid var(--hub-copper);
+            outline-offset: 2px;
+        }
+        .hub-cat-expand-btn[aria-expanded="true"] .hub-cat-expand-btn__icon {
+            transform: rotate(90deg);
+        }
+        .hub-cat-expand-btn__icon {
+            display: inline-block;
+            transition: transform 0.18s ease;
+            font-size: 0.85rem;
+            line-height: 1;
+        }
+        .hub-cat-meta {
+            font-size: 0.72rem;
+            color: var(--hub-muted);
+            white-space: nowrap;
+        }
+        .hub-cat-amount {
+            font-variant-numeric: tabular-nums;
+        }
+        .hub-cat-sub-row > td {
+            background: #f8fafc;
+            border-top: 1px solid #eef2f7;
+        }
+        .hub-cat-sub-row.hub-cat-sub-row--docs > td {
+            background: #f1f5f9;
+        }
+        .hub-cat-parent-row + .hub-cat-sub-row.collapsing,
+        .hub-cat-sub-row.show + .hub-cat-sub-row.collapsing {
+            border-top: none;
+        }
+        .hub-cat-docs-row > td {
+            padding: 0 !important;
+            border-top: none;
+            background: #f8fafc;
+        }
+        .hub-cat-docs-panel {
+            padding: 0.65rem 0.85rem 0.85rem 2.35rem;
+            border-top: 1px dashed #dbeafe;
+        }
+        .hub-cat-docs-table {
+            margin-bottom: 0;
+            font-size: 0.84rem;
+        }
+        .hub-cat-docs-table th {
+            font-size: 0.72rem;
+            text-transform: none;
+            letter-spacing: 0;
+            color: var(--hub-muted);
+            white-space: nowrap;
+        }
+        .hub-cat-docs-table td {
+            vertical-align: middle;
+        }
+        .hub-cat-doc-badge {
+            display: inline-block;
+            min-width: 2rem;
+            padding: 0.12rem 0.45rem;
+            border-radius: 999px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-align: center;
+        }
+        .hub-cat-doc-badge--pr {
+            background: #fff7ed;
+            color: #c2410c;
+            border: 1px solid #fed7aa;
+        }
+        .hub-cat-doc-badge--po {
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+        }
+        .hub-cat-doc-source {
+            max-width: 14rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .hub-cat-doc-cancelled {
+            opacity: 0.72;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .hub-cat-expand-btn__icon {
+                transition: none;
+            }
+        }
         .hub-danger-zone {
             border: 1px solid #fecaca;
             border-radius: 0.875rem;
@@ -706,6 +897,9 @@ $renderHubMenuItems = static function (array $items): void {
     } elseif ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'in_use') {
         $hubFlash['message'] = 'ลบหมวดไม่ได้ — มี PR/PO อ้างอิงหมวดนี้อยู่';
     }
+    if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'has_children') {
+        $hubFlash['message'] = 'ลบหมวดไม่ได้ — กรุณาลบหมวดย่อยภายใต้หมวดนี้ก่อน';
+    }
     if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'forbidden' && empty($_GET['open_delete'])) {
         $hubFlash['message'] = 'ไม่สามารถลบหมวดนี้ได้';
     }
@@ -768,14 +962,6 @@ $renderHubMenuItems = static function (array $items): void {
 
     <?php if (!empty($summary['categories']) || $canEditBudget): ?>
     <div class="hub-card p-4 mb-4">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-            <h2 class="hub-menu-section-title mb-0"><i class="bi bi-tags me-2 text-secondary"></i>หมวดค่าใช้จ่าย</h2>
-            <?php if ($canEditBudget): ?>
-                <button type="button" class="btn btn-sm btn-warning rounded-pill hub-cat-open-add" data-bs-toggle="modal" data-bs-target="#hubCategoryModal">
-                    <i class="bi bi-plus-lg me-1"></i>เพิ่มหมวด
-                </button>
-            <?php endif; ?>
-        </div>
         <?php if (empty($summary['categories'])): ?>
             <div class="text-center py-4 text-muted">
                 <i class="bi bi-tags fs-3 d-block mb-2 opacity-50"></i>
@@ -789,47 +975,107 @@ $renderHubMenuItems = static function (array $items): void {
                 <?php endif; ?>
             </div>
         <?php else: ?>
+        <?php $hubCatTableCols = $canEditBudget ? 5 : 4; ?>
         <div class="table-responsive">
             <table class="table table-sm align-middle mb-0">
                 <thead class="table-light">
                     <tr>
                         <th>หมวด</th>
-                        <th class="text-end">วงเงิน</th>
-                        <th class="text-end">ใช้ไป</th>
+                        <th class="text-end">งบประมาณหมวด</th>
+                        <th class="text-end">ยอดซื้อ</th>
                         <th class="text-end">คงเหลือ</th>
                         <?php if ($canEditBudget): ?><th class="text-end" style="width:4.5rem;"><span class="visually-hidden">จัดการ</span></th><?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($summary['categories'] as $cat): ?>
+                    <?php foreach ($hubCatTableRows as $cat): ?>
                         <?php
                         $catIdRow = (int) ($cat['id'] ?? 0);
+                        $catIsSub = (($cat['row_kind'] ?? '') === 'sub');
                         $catCanManage = !empty($cat['can_manage']);
                         $catIsGlobal = !empty($cat['is_global']);
-                        $catPctVal = $cat['budget_percent'] ?? null;
+                        $catPctVal = $catIsSub ? null : ($cat['budget_percent'] ?? null);
                         $catPctInput = ($catPctVal === null) ? '' : rtrim(rtrim(number_format((float) $catPctVal, 2, '.', ''), '0'), '.');
-                        $catEditPercentRoom = round(max(0.0, 100.0 - tnc_site_category_percent_sum($siteId, $catIdRow)), 2);
+                        $catEditPercentRoom = $catIsSub ? 0 : round(max(0.0, 100.0 - tnc_site_category_percent_sum($siteId, $catIdRow)), 2);
+                        $catDocs = $hubCatDocsMap[$catIdRow] ?? ['prs' => [], 'pos' => [], 'total' => 0];
+                        $catDocTotal = (int) ($catDocs['total'] ?? 0);
+                        $catDocsCollapseId = 'hubCatDocs' . $catIdRow;
+                        $catParentIdRow = $catIsSub ? (int) ($cat['parent_id'] ?? 0) : 0;
+                        $catHasChildren = !$catIsSub && (int) ($cat['child_count'] ?? 0) > 0;
+                        $catSubGroupClass = 'hub-cat-sub-of-' . $catIdRow;
+                        $catSubUsed = (float) ($cat['used'] ?? 0);
                         ?>
-                        <tr class="<?= !empty($cat['over_budget']) || !empty($cat['low']) || ($cat['remaining'] !== null && $cat['remaining'] <= 0.0001) ? 'cat-low' : '' ?>">
+                        <tr class="<?= $catIsSub ? 'hub-cat-sub-row collapse ' . ($catParentIdRow > 0 ? 'hub-cat-sub-of-' . $catParentIdRow : '') : 'hub-cat-parent-row' ?><?= !$catIsSub && (!empty($cat['over_budget']) || !empty($cat['low']) || ($cat['remaining'] !== null && $cat['remaining'] <= 0.0001)) ? ' cat-low' : '' ?>">
                             <td>
                                 <div class="hub-cat-name-cell">
-                                    <div class="hub-cat-name-cell__text">
+                                    <div class="hub-cat-expand-group" aria-hidden="false">
+                                        <?php if ($catIsSub): ?>
+                                        <span class="hub-cat-expand-btn hub-cat-expand-btn--spacer" aria-hidden="true"></span>
+                                        <?php if ($catDocTotal > 0): ?>
+                                        <button type="button"
+                                                class="hub-cat-expand-btn hub-cat-expand-btn--docs"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#<?= htmlspecialchars($catDocsCollapseId, ENT_QUOTES, 'UTF-8') ?>"
+                                                aria-expanded="false"
+                                                aria-controls="<?= htmlspecialchars($catDocsCollapseId, ENT_QUOTES, 'UTF-8') ?>"
+                                                title="ดู PR/PO (<?= $catDocTotal ?> รายการ)"
+                                                aria-label="ดู PR/PO ในหมวด <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                            <i class="bi bi-journal-text hub-cat-expand-btn__icon" aria-hidden="true"></i>
+                                        </button>
+                                        <?php endif; ?>
+                                        <?php elseif ($catHasChildren): ?>
+                                        <button type="button"
+                                                class="hub-cat-expand-btn hub-cat-expand-btn--subs"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target=".hub-cat-sub-of-<?= $catIdRow ?>"
+                                                aria-expanded="false"
+                                                title="แสดง/ซ่อนหมวดย่อย (<?= (int) ($cat['child_count'] ?? 0) ?> รายการ)"
+                                                aria-label="แสดงหมวดย่อยของ <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                            <i class="bi bi-chevron-right hub-cat-expand-btn__icon" aria-hidden="true"></i>
+                                        </button>
+                                        <?php else: ?>
+                                        <span class="hub-cat-expand-btn hub-cat-expand-btn--spacer" aria-hidden="true"></span>
+                                        <?php endif; ?>
+                                        <?php if (!$catIsSub && $catDocTotal > 0): ?>
+                                        <button type="button"
+                                                class="hub-cat-expand-btn hub-cat-expand-btn--docs"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#<?= htmlspecialchars($catDocsCollapseId, ENT_QUOTES, 'UTF-8') ?>"
+                                                aria-expanded="false"
+                                                aria-controls="<?= htmlspecialchars($catDocsCollapseId, ENT_QUOTES, 'UTF-8') ?>"
+                                                title="ดู PR/PO (<?= $catDocTotal ?> รายการ)"
+                                                aria-label="ดู PR/PO ในหมวด <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                            <i class="bi bi-journal-text hub-cat-expand-btn__icon" aria-hidden="true"></i>
+                                        </button>
+                                        <?php elseif (!$catIsSub): ?>
+                                        <span class="hub-cat-expand-btn hub-cat-expand-btn--spacer" aria-hidden="true"></span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="hub-cat-name-cell__text<?= $catIsSub ? ' hub-cat-name-cell__text--sub' : '' ?>">
                                         <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-                                        <?php if ($catIsGlobal): ?>
+                                        <?php if (!$catIsSub && $catIsGlobal): ?>
                                             <span class="badge bg-secondary-subtle text-secondary ms-1">หมวดกลาง</span>
                                         <?php endif; ?>
-                                        <?php if (!empty($cat['over_budget'])): ?>
+                                        <?php if ($catHasChildren): ?>
+                                            <span class="hub-cat-meta ms-1">· <?= number_format((int) ($cat['child_count'] ?? 0)) ?> หมวดย่อย</span>
+                                        <?php endif; ?>
+                                        <?php if ($catDocTotal > 0): ?>
+                                            <span class="hub-cat-meta ms-1">· <?= number_format($catDocTotal) ?> เอกสาร</span>
+                                        <?php endif; ?>
+                                        <?php if (!$catIsSub && !empty($cat['over_budget'])): ?>
                                             <span class="badge bg-danger ms-1">เกินงบ</span>
-                                        <?php elseif ($cat['remaining'] !== null && $cat['remaining'] <= 0.0001): ?>
+                                        <?php elseif (!$catIsSub && $cat['remaining'] !== null && $cat['remaining'] <= 0.0001): ?>
                                             <span class="badge bg-danger-subtle text-danger ms-1">หมดวงเงิน</span>
-                                        <?php elseif (!empty($cat['low'])): ?>
+                                        <?php elseif (!$catIsSub && !empty($cat['low'])): ?>
                                             <span class="badge bg-danger-subtle text-danger ms-1">เหลือน้อย</span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
                             </td>
                             <td class="text-end">
-                                <?php if (!empty($cat['unlimited'])): ?>
+                                <?php if ($catIsSub): ?>
+                                    <span class="text-muted small">—</span>
+                                <?php elseif (!empty($cat['unlimited'])): ?>
                                     <span class="text-muted">ไม่จำกัดหมวด</span>
                                 <?php elseif ($cat['budget_percent'] === 0.0 || $cat['budget_percent'] === 0): ?>
                                     <span class="text-danger fw-semibold">0% · งบหมด</span>
@@ -838,9 +1084,11 @@ $renderHubMenuItems = static function (array $items): void {
                                     <div class="small text-muted"><?= tnc_site_budget_format_money($cat['limit'] ?? null) ?></div>
                                 <?php endif; ?>
                             </td>
-                            <td class="text-end"><?= tnc_site_budget_format_money((float) ($cat['used'] ?? 0)) ?></td>
+                            <td class="text-end hub-cat-amount"><?= $catIsSub ? tnc_site_budget_format_money($catSubUsed) : tnc_site_budget_format_money((float) ($cat['used'] ?? 0)) ?></td>
                             <td class="text-end fw-semibold">
-                                <?php if ($cat['remaining'] !== null): ?>
+                                <?php if ($catIsSub): ?>
+                                    <span class="text-muted small">—</span>
+                                <?php elseif ($cat['remaining'] !== null): ?>
                                     <span class="<?= ($cat['remaining'] <= 0.0001) ? 'text-danger' : '' ?>">
                                         <?= tnc_site_budget_format_money($cat['remaining']) ?>
                                     </span>
@@ -852,6 +1100,18 @@ $renderHubMenuItems = static function (array $items): void {
                             <td class="text-end">
                                 <?php if ($catCanManage): ?>
                                 <div class="hub-cat-actions">
+                                    <?php if (!$catIsSub): ?>
+                                    <button type="button"
+                                            class="hub-cat-edit-btn hub-cat-open-add-sub"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#hubCategoryModal"
+                                            data-parent-id="<?= $catIdRow ?>"
+                                            data-parent-name="<?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            title="เพิ่มหมวดย่อย"
+                                            aria-label="เพิ่มหมวดย่อยใต้ <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                        <i class="bi bi-diagram-2"></i>
+                                    </button>
+                                    <?php endif; ?>
                                     <button type="button"
                                             class="hub-cat-edit-btn hub-cat-open-edit"
                                             data-bs-toggle="modal"
@@ -860,6 +1120,8 @@ $renderHubMenuItems = static function (array $items): void {
                                             data-cat-name="<?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                             data-cat-percent="<?= htmlspecialchars($catPctInput, ENT_QUOTES, 'UTF-8') ?>"
                                             data-cat-percent-room="<?= htmlspecialchars(number_format($catEditPercentRoom, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-cat-parent-id="<?= $catParentIdRow ?>"
+                                            data-cat-is-sub="<?= $catIsSub ? '1' : '0' ?>"
                                             title="แก้ไขหมวด"
                                             aria-label="แก้ไขหมวด <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                                         <i class="bi bi-pencil"></i>
@@ -886,6 +1148,62 @@ $renderHubMenuItems = static function (array $items): void {
                             </td>
                             <?php endif; ?>
                         </tr>
+                        <?php if ($catDocTotal > 0): ?>
+                        <tr class="hub-cat-docs-row collapse<?= $catIsSub && $catParentIdRow > 0 ? ' hub-cat-sub-of-' . $catParentIdRow : '' ?>" id="<?= htmlspecialchars($catDocsCollapseId, ENT_QUOTES, 'UTF-8') ?>">
+                            <td colspan="<?= $hubCatTableCols ?>">
+                                <div class="hub-cat-docs-panel">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm hub-cat-docs-table align-middle mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width:3.5rem;">ประเภท</th>
+                                                    <th>เลขที่</th>
+                                                    <th>แหล่งที่ซื้อ</th>
+                                                    <th class="text-end">ยอดสุทธิ</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($catDocs['prs'] ?? [] as $catDocPr): ?>
+                                                <?php
+                                                $catDocPrCancelled = in_array((string) ($catDocPr['status'] ?? ''), ['cancelled', 'canceled', 'rejected'], true);
+                                                ?>
+                                                <tr class="<?= $catDocPrCancelled ? 'hub-cat-doc-cancelled' : '' ?>">
+                                                    <td><span class="hub-cat-doc-badge hub-cat-doc-badge--pr">PR</span></td>
+                                                    <td>
+                                                        <a href="<?= htmlspecialchars((string) ($catDocPr['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="fw-semibold text-decoration-none">
+                                                            <?= htmlspecialchars((string) ($catDocPr['number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                                                        </a>
+                                                    </td>
+                                                    <td class="hub-cat-doc-source" title="<?= htmlspecialchars((string) ($catDocPr['source'] ?? '—'), ENT_QUOTES, 'UTF-8') ?>">
+                                                        <?= htmlspecialchars((string) ($catDocPr['source'] ?? '—'), ENT_QUOTES, 'UTF-8') ?>
+                                                    </td>
+                                                    <td class="text-end fw-semibold"><?= number_format((float) ($catDocPr['net_amount'] ?? 0), 2) ?></td>
+                                                </tr>
+                                                <?php endforeach; ?>
+                                                <?php foreach ($catDocs['pos'] ?? [] as $catDocPo): ?>
+                                                <?php
+                                                $catDocPoCancelled = in_array((string) ($catDocPo['status'] ?? ''), ['cancelled', 'canceled'], true);
+                                                ?>
+                                                <tr class="<?= $catDocPoCancelled ? 'hub-cat-doc-cancelled text-danger' : '' ?>">
+                                                    <td><span class="hub-cat-doc-badge hub-cat-doc-badge--po">PO</span></td>
+                                                    <td>
+                                                        <a href="<?= htmlspecialchars((string) ($catDocPo['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="fw-semibold text-decoration-none <?= $catDocPoCancelled ? 'text-danger' : '' ?>">
+                                                            <?= htmlspecialchars((string) ($catDocPo['number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                                                        </a>
+                                                    </td>
+                                                    <td class="hub-cat-doc-source" title="<?= htmlspecialchars((string) ($catDocPo['source'] ?? '—'), ENT_QUOTES, 'UTF-8') ?>">
+                                                        <?= htmlspecialchars((string) ($catDocPo['source'] ?? '—'), ENT_QUOTES, 'UTF-8') ?>
+                                                    </td>
+                                                    <td class="text-end fw-semibold"><?= number_format((float) ($catDocPo['net_amount'] ?? 0), 2) ?></td>
+                                                </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endif; ?>
                     <?php endforeach; ?>
                 </tbody>
             </table>
@@ -903,16 +1221,29 @@ $renderHubMenuItems = static function (array $items): void {
                     <input type="hidden" name="save_site_category" value="1">
                     <input type="hidden" name="category_site_id" value="<?= $siteId ?>">
                     <input type="hidden" name="category_id" id="hub_category_id" value="0">
+                    <input type="hidden" name="category_parent_id" id="hub_category_parent_id" value="0">
                     <div class="modal-header">
                         <h5 class="modal-title" id="hubCategoryModalLabel"><i class="bi bi-tag-fill me-2 text-warning"></i><span id="hubCategoryModalTitleText">เพิ่มหมวดค่าใช้จ่าย</span></h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
                     </div>
                     <div class="modal-body">
+                        <div class="mb-3 d-none" id="hub_category_parent_wrap">
+                            <label for="hub_category_parent_select" class="form-label">หมวดหลัก</label>
+                            <select class="form-select" id="hub_category_parent_select" disabled>
+                                <option value="">— เลือกหมวดหลัก —</option>
+                                <?php foreach ($hubParentCategoryOptions as $hubParentOpt): ?>
+                                    <option value="<?= (int) ($hubParentOpt['id'] ?? 0) ?>">
+                                        <?= htmlspecialchars((string) ($hubParentOpt['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?><?= !empty($hubParentOpt['is_global']) ? ' (หมวดกลาง)' : '' ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="form-text">หมวดย่อยใช้งบร่วมกับหมวดหลักที่เลือก</div>
+                        </div>
                         <div class="mb-3">
-                            <label for="hub_category_name" class="form-label">ชื่อหมวด <span class="text-danger">*</span></label>
+                            <label for="hub_category_name" class="form-label"><span id="hub_category_name_label">ชื่อหมวด</span> <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="hub_category_name" name="category_name" maxlength="150" required autocomplete="off">
                         </div>
-                        <div class="mb-2">
+                        <div class="mb-2 hub-cat-budget-wrap" id="hub_category_budget_wrap">
                             <label for="hub_category_budget_percent" class="form-label">% งบของไซต์</label>
                             <div class="input-group">
                                 <input type="text" class="form-control" id="hub_category_budget_percent" name="category_budget_percent" inputmode="decimal" maxlength="6" autocomplete="off">
@@ -955,9 +1286,8 @@ $renderHubMenuItems = static function (array $items): void {
                                 <thead class="table-light">
                                     <tr>
                                         <th>เลขที่</th>
-                                        <th>วันที่</th>
-                                        <th>สถานะ</th>
-                                        <th class="text-end">ยอดรวม</th>
+                                        <th>แหล่งที่ซื้อ</th>
+                                        <th class="text-end">ยอดสุทธิ</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -969,9 +1299,8 @@ $renderHubMenuItems = static function (array $items): void {
                                                 <i class="bi bi-box-arrow-up-right ms-1 small opacity-50"></i>
                                             </a>
                                         </td>
-                                        <td><?= htmlspecialchars((string) ($refPr['date'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars((string) ($refPr['status_label'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td class="text-end"><?= number_format((float) ($refPr['amount'] ?? 0), 2) ?></td>
+                                        <td><?= htmlspecialchars((string) ($refPr['source'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td class="text-end"><?= number_format((float) ($refPr['net_amount'] ?? $refPr['amount'] ?? 0), 2) ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -988,18 +1317,12 @@ $renderHubMenuItems = static function (array $items): void {
                                 <thead class="table-light">
                                     <tr>
                                         <th>เลขที่</th>
-                                        <th>ประเภท</th>
-                                        <th>วันที่</th>
-                                        <th>สถานะ</th>
-                                        <th class="text-end">ยอดรวม</th>
+                                        <th>แหล่งที่ซื้อ</th>
+                                        <th class="text-end">ยอดสุทธิ</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($catRefBlock['pos'] as $refPo): ?>
-                                    <?php
-                                    $refPoType = (string) ($refPo['order_type'] ?? 'purchase');
-                                    $refPoTypeLabel = $refPoType === 'hire' ? 'จัดจ้าง' : 'สั่งซื้อ';
-                                    ?>
                                     <tr>
                                         <td>
                                             <a href="<?= htmlspecialchars((string) ($refPo['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="fw-semibold text-decoration-none" target="_blank" rel="noopener">
@@ -1007,10 +1330,8 @@ $renderHubMenuItems = static function (array $items): void {
                                                 <i class="bi bi-box-arrow-up-right ms-1 small opacity-50"></i>
                                             </a>
                                         </td>
-                                        <td><?= htmlspecialchars($refPoTypeLabel, ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars((string) ($refPo['date'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars((string) ($refPo['status_label'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td class="text-end"><?= number_format((float) ($refPo['amount'] ?? 0), 2) ?></td>
+                                        <td><?= htmlspecialchars((string) ($refPo['source'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td class="text-end"><?= number_format((float) ($refPo['net_amount'] ?? $refPo['amount'] ?? 0), 2) ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -1205,6 +1526,11 @@ $renderHubMenuItems = static function (array $items): void {
 (function () {
     var modalEl = document.getElementById('hubCategoryModal');
     var catIdInput = document.getElementById('hub_category_id');
+    var catParentInput = document.getElementById('hub_category_parent_id');
+    var catParentWrap = document.getElementById('hub_category_parent_wrap');
+    var catParentSelect = document.getElementById('hub_category_parent_select');
+    var catBudgetWrap = document.getElementById('hub_category_budget_wrap');
+    var catNameLabel = document.getElementById('hub_category_name_label');
     var catNameInput = document.getElementById('hub_category_name');
     var catPctInput = document.getElementById('hub_category_budget_percent');
     var catPctHelp = document.getElementById('hub_category_percent_help');
@@ -1212,25 +1538,55 @@ $renderHubMenuItems = static function (array $items): void {
     var catSubmitText = document.getElementById('hubCategorySubmitText');
     var defaultPercentRoom = <?= json_encode(number_format($catPercentRoom, 2, '.', ''), JSON_UNESCAPED_UNICODE) ?>;
 
+    function syncParentSelect(parentId) {
+        if (!catParentSelect) {
+            return;
+        }
+        var pid = String(parentId || '0');
+        catParentSelect.value = pid > '0' ? pid : '';
+    }
+
     function setCategoryModalMode(mode, data) {
         data = data || {};
-        var isEdit = mode === 'edit';
+        var isEdit = mode === 'edit' || mode === 'edit-sub';
+        var isSub = mode === 'add-sub' || mode === 'edit-sub' || data.isSub === true || data.isSub === '1' || parseInt(String(data.parentId || '0'), 10) > 0;
         if (catIdInput) {
             catIdInput.value = isEdit ? String(data.id || '0') : '0';
+        }
+        if (catParentInput) {
+            catParentInput.value = isSub ? String(data.parentId || catParentInput.value || '0') : '0';
+        }
+        if (catParentWrap) {
+            catParentWrap.classList.toggle('d-none', !isSub);
+        }
+        if (isSub) {
+            syncParentSelect(data.parentId || catParentInput.value || '0');
+        }
+        if (catBudgetWrap) {
+            catBudgetWrap.classList.toggle('d-none', isSub);
         }
         if (catNameInput) {
             catNameInput.value = isEdit ? (data.name || '') : '';
         }
         if (catPctInput) {
-            catPctInput.value = isEdit ? (data.percent || '') : '';
+            catPctInput.value = isEdit && !isSub ? (data.percent || '') : '';
+        }
+        if (catNameLabel) {
+            catNameLabel.textContent = isSub ? 'ชื่อหมวดย่อย' : 'ชื่อหมวดหลัก';
         }
         if (catTitleText) {
-            catTitleText.textContent = isEdit ? 'แก้ไขหมวดค่าใช้จ่าย' : 'เพิ่มหมวดค่าใช้จ่าย';
+            if (isEdit) {
+                catTitleText.textContent = isSub ? 'แก้ไขหมวดย่อย' : 'แก้ไขหมวดค่าใช้จ่าย';
+            } else if (mode === 'add-sub') {
+                catTitleText.textContent = 'เพิ่มหมวดย่อย';
+            } else {
+                catTitleText.textContent = 'เพิ่มหมวดค่าใช้จ่าย';
+            }
         }
         if (catSubmitText) {
-            catSubmitText.textContent = isEdit ? 'บันทึกการแก้ไข' : 'บันทึกหมวด';
+            catSubmitText.textContent = isEdit ? 'บันทึกการแก้ไข' : (isSub ? 'บันทึกหมวดย่อย' : 'บันทึกหมวด');
         }
-        if (catPctHelp) {
+        if (catPctHelp && !isSub) {
             var room = isEdit ? (data.percentRoom || defaultPercentRoom) : defaultPercentRoom;
             catPctHelp.textContent = 'ว่าง = ไม่จำกัดหมวด · เหลือจัดสรรได้ ' + room + '%';
         }
@@ -1242,13 +1598,25 @@ $renderHubMenuItems = static function (array $items): void {
         });
     });
 
+    document.querySelectorAll('.hub-cat-open-add-sub').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            setCategoryModalMode('add-sub', {
+                parentId: btn.getAttribute('data-parent-id') || '0',
+                parentName: btn.getAttribute('data-parent-name') || ''
+            });
+        });
+    });
+
     document.querySelectorAll('.hub-cat-open-edit').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            setCategoryModalMode('edit', {
+            var isSub = btn.getAttribute('data-cat-is-sub') === '1';
+            setCategoryModalMode(isSub ? 'edit-sub' : 'edit', {
                 id: btn.getAttribute('data-cat-id') || '0',
                 name: btn.getAttribute('data-cat-name') || '',
                 percent: btn.getAttribute('data-cat-percent') || '',
-                percentRoom: btn.getAttribute('data-cat-percent-room') || defaultPercentRoom
+                percentRoom: btn.getAttribute('data-cat-percent-room') || defaultPercentRoom,
+                parentId: btn.getAttribute('data-cat-parent-id') || '0',
+                isSub: isSub ? '1' : '0'
             });
         });
     });
@@ -1267,22 +1635,26 @@ $renderHubMenuItems = static function (array $items): void {
         <?php if ($openCatEditId > 0): ?>
         <?php
         $openCatEditRow = null;
-        foreach ($summary['categories'] ?? [] as $catRow) {
+        foreach ($hubCatTableRows as $catRow) {
             if ((int) ($catRow['id'] ?? 0) === $openCatEditId && !empty($catRow['can_manage'])) {
                 $openCatEditRow = $catRow;
                 break;
             }
         }
         if ($openCatEditRow !== null):
-            $openCatPctVal = $openCatEditRow['budget_percent'] ?? null;
+            $openCatIsSub = (($openCatEditRow['row_kind'] ?? '') === 'sub');
+            $openCatPctVal = $openCatIsSub ? null : ($openCatEditRow['budget_percent'] ?? null);
             $openCatPctInput = ($openCatPctVal === null) ? '' : rtrim(rtrim(number_format((float) $openCatPctVal, 2, '.', ''), '0'), '.');
-            $openCatEditRoom = round(max(0.0, 100.0 - tnc_site_category_percent_sum($siteId, $openCatEditId)), 2);
+            $openCatEditRoom = $openCatIsSub ? 0 : round(max(0.0, 100.0 - tnc_site_category_percent_sum($siteId, $openCatEditId)), 2);
+            $openCatParentId = $openCatIsSub ? (int) ($openCatEditRow['parent_id'] ?? 0) : 0;
         ?>
-        setCategoryModalMode('edit', {
+        setCategoryModalMode(<?= $openCatIsSub ? "'edit-sub'" : "'edit'" ?>, {
             id: '<?= $openCatEditId ?>',
             name: <?= json_encode((string) ($openCatEditRow['name'] ?? ''), JSON_UNESCAPED_UNICODE) ?>,
             percent: <?= json_encode($openCatPctInput, JSON_UNESCAPED_UNICODE) ?>,
-            percentRoom: <?= json_encode(number_format($openCatEditRoom, 2, '.', ''), JSON_UNESCAPED_UNICODE) ?>
+            percentRoom: <?= json_encode(number_format($openCatEditRoom, 2, '.', ''), JSON_UNESCAPED_UNICODE) ?>,
+            parentId: '<?= $openCatParentId ?>',
+            isSub: <?= $openCatIsSub ? "'1'" : "'0'" ?>
         });
         <?php else: ?>
         setCategoryModalMode('add');

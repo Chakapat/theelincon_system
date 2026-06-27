@@ -187,10 +187,8 @@ if ($requestType === 'hire' && in_array($hirePoMode, ['payment', 'advance'], tru
     if ($hirePoCostCategoryName === '') {
         $hirePoCostCategoryName = trim((string) ($pr['cost_category_name'] ?? ''));
     }
-    if ($hirePoCostCategoryName === '' && $hirePoCostCategoryId > 0) {
-        require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
-        $hirePoCostCategoryName = tnc_site_category_name($hirePoCostCategoryId);
-    }
+    require_once dirname(__DIR__, 2) . '/includes/site_category_document_name.php';
+    $hirePoCostCategoryName = tnc_site_category_document_name($hirePoCostCategoryId, $hirePoCostCategoryName);
 }
 $remainingInstallments = $requestType === 'hire' ? max(0, $installmentTotal - count($issuedInstallments)) : 0;
 $poPaymentFlatItems = [[

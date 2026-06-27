@@ -204,11 +204,11 @@ if ($prSiteName === '' && $prSiteId > 0) {
     }
 }
 $prCostCategoryId = (int) ($pr['cost_category_id'] ?? 0);
-$prCostCategoryName = trim((string) ($pr['cost_category_name'] ?? ''));
-if ($prCostCategoryName === '' && $prCostCategoryId > 0) {
-    require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
-    $prCostCategoryName = tnc_site_category_name($prCostCategoryId);
-}
+require_once dirname(__DIR__, 2) . '/includes/site_category_document_name.php';
+$prCostCategoryName = tnc_site_category_document_name(
+    $prCostCategoryId,
+    trim((string) ($pr['cost_category_name'] ?? ''))
+);
 
 $po_submit_disabled = $pr_prefill_items_display === [];
 ?>

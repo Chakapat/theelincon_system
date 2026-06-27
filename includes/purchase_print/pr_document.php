@@ -110,13 +110,13 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
     }
 
     $prCostCategoryId = (int) ($pr['cost_category_id'] ?? 0);
-    $prCostCategoryName = trim((string) ($pr['cost_category_name'] ?? ''));
-    if ($prCostCategoryName === '' && $prCostCategoryId > 0) {
-        if (!function_exists('tnc_site_category_name')) {
-            require_once dirname(__DIR__) . '/site_cost_categories.php';
-        }
-        $prCostCategoryName = tnc_site_category_name($prCostCategoryId);
+    if (!function_exists('tnc_site_category_document_name')) {
+        require_once dirname(__DIR__) . '/site_category_document_name.php';
     }
+    $prCostCategoryName = tnc_site_category_document_name(
+        $prCostCategoryId,
+        trim((string) ($pr['cost_category_name'] ?? ''))
+    );
 
     $createdRaw = trim((string) ($pr['created_at'] ?? ''));
     $quotationAttach = trim((string) ($pr['quotation_attachment_path'] ?? ''));

@@ -488,16 +488,18 @@ $ignoredCountAll = count($ignoredPoList);
                             <?php
                             $rowPaid = (($row['payment_status'] ?? 'unpaid') === 'paid');
                             $poPaidLocked = $rowPaid && !Purchase::adminCanModifyPaidPo();
-                            $poCanEditCancel = ($row['status'] ?? '') !== 'cancelled' && !$poPaidLocked;
+                            $poCanEdit = !$poPaidLocked;
+                            $poCanCancelPo = !$poCancelled && $poCanEdit;
                             $poCanAdminDelete = $poCanDelete && !$poPaidLocked;
+                            $poShowActionMenu = !$poCancelled || $poCanEdit || $poCanAdminDelete;
                             ?>
-                            <?php if (($row['status'] ?? '') !== 'cancelled'): ?>
+                            <?php if ($poShowActionMenu): ?>
                             <div class="dropdown">
                                 <button class="btn btn-outline-secondary btn-sm dropdown-toggle po-actions-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="จัดการ PO <?= htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" title="จัดการ">
                                     <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                                    <?php if (($row['payment_status'] ?? 'unpaid') === 'paid'): ?>
+                                    <?php if (!$poCancelled && ($row['payment_status'] ?? 'unpaid') === 'paid'): ?>
                                         <li>
                                             <button
                                                 type="button"
@@ -515,7 +517,7 @@ $ignoredCountAll = count($ignoredPoList);
                                                 : 'ดูสลิปจ่ายเงิน';
                                             ?></button>
                                         </li>
-                                    <?php else: ?>
+                                    <?php elseif (!$poCancelled): ?>
                                         <li>
                                             <button
                                                 type="button"
@@ -526,7 +528,7 @@ $ignoredCountAll = count($ignoredPoList);
                                         </li>
                                     <?php endif; ?>
 
-                                    <?php if (($row['billing_status'] ?? 'pending') !== 'billed'): ?>
+                                    <?php if (!$poCancelled && ($row['billing_status'] ?? 'pending') !== 'billed'): ?>
                                         <li>
                                             <button
                                                 type="button"
@@ -540,9 +542,10 @@ $ignoredCountAll = count($ignoredPoList);
                                         </li>
                                     <?php endif; ?>
 
-                                    <?php if ($poCanEditCancel || $poCanAdminDelete): ?><li><hr class="dropdown-divider"></li><?php endif; ?>
-                                    <?php if ($poCanEditCancel): ?>
+                                    <?php if (!$poCancelled && ($poCanEdit || $poCanAdminDelete)): ?><li><hr class="dropdown-divider"></li><?php endif; ?>
+                                    <?php if ($poCanEdit): ?>
                                         <li><a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php')) ?>?id=<?= (int)$row['id'] ?>" class="dropdown-item"><i class="bi bi-pencil-square me-2"></i>แก้ไขใบสั่งซื้อ</a></li>
+                                        <?php if ($poCanCancelPo): ?>
                                         <li>
                                             <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=cancel_purchase_order" class="d-inline" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบสั่งซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และแสดงประทับบนใบพิมพ์');">
                                                 <?php csrf_field(); ?>
@@ -550,6 +553,7 @@ $ignoredCountAll = count($ignoredPoList);
                                                 <button type="submit" class="dropdown-item text-danger"><i class="bi bi-x-circle me-2"></i>ยกเลิกใบสั่งซื้อ</button>
                                             </form>
                                         </li>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                     <?php if ($poCanAdminDelete): ?>
                                         <li><a href="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=delete&type=purchase_order&id=<?= (int) $row['id'] ?><?= htmlspecialchars($csrfQ, ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item text-danger tnc-delete-post"><i class="bi bi-trash3-fill me-2"></i>ลบใบสั่งซื้อ</a></li>

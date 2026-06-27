@@ -617,12 +617,12 @@ if ($action === 'save_pr') {
     $cost_category_id = (int) ($_POST['cost_category_id'] ?? 0);
     $cost_category_name = '';
     if (count($sitesForPr) > 0) {
-        if ($cost_category_id <= 0 || !tnc_site_category_is_valid_for_site($cost_category_id, $site_id)) {
+        if ($cost_category_id <= 0 || !tnc_site_category_is_valid_selection_for_site($cost_category_id, $site_id)) {
             tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?error=need_cost_category');
         }
-        $cost_category_name = tnc_site_category_name($cost_category_id);
-    } elseif ($cost_category_id > 0 && tnc_site_category_is_valid_for_site($cost_category_id, $site_id)) {
-        $cost_category_name = tnc_site_category_name($cost_category_id);
+        $cost_category_name = tnc_site_category_display_name($cost_category_id);
+    } elseif ($cost_category_id > 0 && tnc_site_category_is_valid_selection_for_site($cost_category_id, $site_id)) {
+        $cost_category_name = tnc_site_category_display_name($cost_category_id);
     } else {
         $cost_category_id = 0;
     }
@@ -949,12 +949,12 @@ if ($action === 'update_pr') {
     $cost_category_id = (int) ($_POST['cost_category_id'] ?? 0);
     $cost_category_name = '';
     if (count($sitesForPr) > 0) {
-        if ($cost_category_id <= 0 || !tnc_site_category_is_valid_for_site($cost_category_id, $site_id)) {
+        if ($cost_category_id <= 0 || !tnc_site_category_is_valid_selection_for_site($cost_category_id, $site_id)) {
             tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=need_cost_category');
         }
-        $cost_category_name = tnc_site_category_name($cost_category_id);
-    } elseif ($cost_category_id > 0 && tnc_site_category_is_valid_for_site($cost_category_id, $site_id)) {
-        $cost_category_name = tnc_site_category_name($cost_category_id);
+        $cost_category_name = tnc_site_category_display_name($cost_category_id);
+    } elseif ($cost_category_id > 0 && tnc_site_category_is_valid_selection_for_site($cost_category_id, $site_id)) {
+        $cost_category_name = tnc_site_category_display_name($cost_category_id);
     } else {
         $cost_category_id = 0;
     }
@@ -1725,10 +1725,10 @@ if ($action === 'create_po_from_pr') {
         $prCostCategoryName = trim((string) ($pr_row['cost_category_name'] ?? ''));
     }
     if ($prCostCategoryName === '' && $prCostCategoryId > 0) {
-        if (!function_exists('tnc_site_category_name')) {
+        if (!function_exists('tnc_site_category_display_name')) {
             require_once dirname(__DIR__) . '/includes/site_cost_categories.php';
         }
-        $prCostCategoryName = tnc_site_category_name($prCostCategoryId);
+        $prCostCategoryName = tnc_site_category_display_name($prCostCategoryId);
     }
 
     require_once dirname(__DIR__) . '/includes/site_budget.php';
@@ -1987,12 +1987,12 @@ if ($action === 'create_po_direct') {
         }
         $poCostCategoryId = (int) ($_POST['cost_category_id'] ?? 0);
         if (count($sitesForPo) > 0) {
-            if ($poCostCategoryId <= 0 || !tnc_site_category_is_valid_for_site($poCostCategoryId, $poSiteId)) {
+            if ($poCostCategoryId <= 0 || !tnc_site_category_is_valid_selection_for_site($poCostCategoryId, $poSiteId)) {
                 tnc_action_redirect($poCreateDirectUrl . '?error=need_cost_category');
             }
-            $poCostCategoryName = tnc_site_category_name($poCostCategoryId);
-        } elseif ($poCostCategoryId > 0 && tnc_site_category_is_valid_for_site($poCostCategoryId, $poSiteId)) {
-            $poCostCategoryName = tnc_site_category_name($poCostCategoryId);
+            $poCostCategoryName = tnc_site_category_display_name($poCostCategoryId);
+        } elseif ($poCostCategoryId > 0 && tnc_site_category_is_valid_selection_for_site($poCostCategoryId, $poSiteId)) {
+            $poCostCategoryName = tnc_site_category_display_name($poCostCategoryId);
         } else {
             $poCostCategoryId = 0;
         }
@@ -2122,16 +2122,16 @@ if ($action === 'create_po_direct') {
         require_once ROOT_PATH . '/includes/site_cost_categories.php';
         $catsForSite = tnc_site_categories_for_site($siteIdForCat);
         if ($catsForSite !== []) {
-            if ($postedCatId <= 0 || !tnc_site_category_is_valid_for_site($postedCatId, $siteIdForCat)) {
+            if ($postedCatId <= 0 || !tnc_site_category_is_valid_selection_for_site($postedCatId, $siteIdForCat)) {
                 tnc_action_redirect($hireFallback . $hireFbSep . 'error=need_cost_category');
             }
-            $catNameHire = tnc_site_category_name($postedCatId);
+            $catNameHire = tnc_site_category_display_name($postedCatId);
             $hireExtra['cost_category_id'] = $postedCatId;
             if ($catNameHire !== '') {
                 $hireExtra['cost_category_name'] = $catNameHire;
             }
-        } elseif ($postedCatId > 0 && tnc_site_category_is_valid_for_site($postedCatId, $siteIdForCat)) {
-            $catNameHire = tnc_site_category_name($postedCatId);
+        } elseif ($postedCatId > 0 && tnc_site_category_is_valid_selection_for_site($postedCatId, $siteIdForCat)) {
+            $catNameHire = tnc_site_category_display_name($postedCatId);
             $hireExtra['cost_category_id'] = $postedCatId;
             if ($catNameHire !== '') {
                 $hireExtra['cost_category_name'] = $catNameHire;
@@ -2311,9 +2311,6 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
     if ($existing === null) {
         tnc_action_redirect($listUrl . '?error=not_found');
     }
-    if (strtolower(trim((string) ($existing['status'] ?? ''))) === 'cancelled') {
-        tnc_action_redirect($listUrl . '?error=po_cancelled');
-    }
     if (Purchase::poPaidLocksMutation($existing)) {
         tnc_action_redirect($listUrl . '?error=po_paid');
     }
@@ -2480,10 +2477,10 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         }
         $editSiteName = trim((string) ($siteRowEdit['name'] ?? ''));
         $editCostCategoryId = (int) ($_POST['cost_category_id'] ?? 0);
-        if ($editCostCategoryId <= 0 || !tnc_site_category_is_valid_for_site($editCostCategoryId, $editSiteId)) {
+        if ($editCostCategoryId <= 0 || !tnc_site_category_is_valid_selection_for_site($editCostCategoryId, $editSiteId)) {
             tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=need_cost_category');
         }
-        $editCostCategoryName = tnc_site_category_name($editCostCategoryId);
+        $editCostCategoryName = tnc_site_category_display_name($editCostCategoryId);
     } elseif ((int) ($_POST['site_id'] ?? 0) > 0) {
         $editSiteId = (int) $_POST['site_id'];
         $siteRowEdit = Db::row('sites', (string) $editSiteId);
@@ -2491,8 +2488,8 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
             $editSiteName = trim((string) ($siteRowEdit['name'] ?? ''));
         }
         $editCostCategoryId = (int) ($_POST['cost_category_id'] ?? 0);
-        if ($editCostCategoryId > 0 && tnc_site_category_is_valid_for_site($editCostCategoryId, $editSiteId)) {
-            $editCostCategoryName = tnc_site_category_name($editCostCategoryId);
+        if ($editCostCategoryId > 0 && tnc_site_category_is_valid_selection_for_site($editCostCategoryId, $editSiteId)) {
+            $editCostCategoryName = tnc_site_category_display_name($editCostCategoryId);
         } else {
             $editCostCategoryId = 0;
             $editCostCategoryName = '';

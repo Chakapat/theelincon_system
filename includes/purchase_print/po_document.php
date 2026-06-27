@@ -261,12 +261,6 @@ function tnc_purchase_po_print_prepare(int $id): ?array
             $poCostCategoryName = trim((string) ($pr['cost_category_name'] ?? ''));
         }
     }
-    if ($poCostCategoryName === '' && $poCostCategoryId > 0) {
-        if (!function_exists('tnc_site_category_name')) {
-            require_once dirname(__DIR__) . '/site_cost_categories.php';
-        }
-        $poCostCategoryName = tnc_site_category_name($poCostCategoryId);
-    }
     if ($poCostCategoryName === '' && $orderType === 'hire' && in_array($hirePoKind, ['payment', 'advance'], true)) {
         $refPoId = (int) ($data['reference_contract_po_id'] ?? 0);
         if ($refPoId > 0) {
@@ -283,13 +277,11 @@ function tnc_purchase_po_print_prepare(int $id): ?array
                 $poCostCategoryName = trim((string) ($contractPoRef['cost_category_name'] ?? ''));
             }
         }
-        if ($poCostCategoryName === '' && $poCostCategoryId > 0) {
-            if (!function_exists('tnc_site_category_name')) {
-                require_once dirname(__DIR__) . '/site_cost_categories.php';
-            }
-            $poCostCategoryName = tnc_site_category_name($poCostCategoryId);
-        }
     }
+    if (!function_exists('tnc_site_category_document_name')) {
+        require_once dirname(__DIR__) . '/site_category_document_name.php';
+    }
+    $poCostCategoryName = tnc_site_category_document_name($poCostCategoryId, $poCostCategoryName);
 
     $poNumber = trim((string) ($po['po_number'] ?? ''));
     $items = tnc_purchase_po_load_items($id, $po, is_array($pr) ? $pr : null);
