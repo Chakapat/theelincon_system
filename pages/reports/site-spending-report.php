@@ -399,12 +399,7 @@ foreach ($sites as $s) {
     $grandOutstanding += $s['outstanding'];
 }
 
-// ---------- ข้อมูลบริษัทสำหรับหัวกระดาษพิมพ์ ----------
-$companyRows = Db::tableRows('company');
-Db::sortRows($companyRows, 'id', false);
-$company = $companyRows[0] ?? [];
-$companyName = trim((string) ($company['name'] ?? '')) !== '' ? trim((string) $company['name']) : 'THEELIN CON';
-$printedAt = date('d/m/Y H:i');
+// ---------- พิมพ์อัตโนมัติ ----------
 $autoPrint = ($_GET['print'] ?? '') === '1';
 ?>
 <!doctype html>
@@ -421,6 +416,7 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
         :root {
             --site-a4-landscape-w: 297mm;
             --site-print-pad: 12mm;
+            --site-print-inset-x: 8mm;
         }
 
         .card-soft {
@@ -697,145 +693,134 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             display: none;
         }
         .site-print-header {
-            display: block;
-            text-align: center;
-            margin-bottom: 1.25rem;
-            padding-bottom: 0.85rem;
-            border-bottom: 2px solid #0f172a;
-        }
-        .site-print-company {
-            font-size: 0.82rem;
-            font-weight: 700;
-            color: #475569;
-            margin: 0 0 0.35rem;
-            letter-spacing: 0.02em;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #c2410c;
         }
         .site-print-title {
-            font-size: 1.15rem;
+            font-size: 1.2rem;
             font-weight: 800;
-            margin: 0 0 0.5rem;
+            margin: 0;
             line-height: 1.25;
             color: #0f172a;
         }
-        .site-print-meta {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
-            gap: 0.35rem 0.85rem;
-            font-size: 0.78rem;
-            color: #475569;
-            line-height: 1.5;
-            margin: 0;
-        }
-        .site-print-meta strong { color: #0f172a; }
-        .site-print-meta-dot { color: #94a3b8; user-select: none; }
-        .site-print-body {
+        .site-print-period {
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            align-items: flex-end;
+            gap: 0.15rem;
+            text-align: right;
         }
-        .site-print-block {
-            border: 1px solid #94a3b8;
-            border-radius: 0.35rem;
-            overflow: hidden;
-            background: #fff;
+        .site-print-period__label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
         }
-        .site-print-block-head {
-            display: grid;
-            grid-template-columns: auto 1fr auto;
-            align-items: center;
-            gap: 0.65rem;
-            padding: 0.55rem 1rem;
-            background: #fff7ed;
-            border-bottom: 1px solid #cbd5e1;
-        }
-        .site-print-block-num {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 1.75rem;
-            height: 1.75rem;
-            padding: 0 0.35rem;
-            font-size: 0.72rem;
+        .site-print-period__main {
+            font-size: 1.05rem;
             font-weight: 800;
-            color: #fff;
-            background: #c2410c;
-            border-radius: 0.25rem;
-            line-height: 1;
-        }
-        .site-print-block-title {
-            margin: 0;
-            font-size: 0.92rem;
-            font-weight: 800;
-            line-height: 1.3;
             color: #0f172a;
-        }
-        .site-print-block-total {
-            font-size: 0.92rem;
-            font-weight: 800;
-            font-variant-numeric: tabular-nums;
-            color: #9a3412;
             white-space: nowrap;
+            line-height: 1.3;
         }
-        .site-print-block-table {
+        .site-print-period__sub {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #475569;
+        }
+        .site-print-filter {
+            margin-top: 0.15rem;
+            font-size: 0.8125rem;
+            color: #475569;
+            line-height: 1.45;
+            text-align: right;
+        }
+        .site-print-filter strong { color: #0f172a; font-weight: 700; }
+        .site-print-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+        }
+        .site-print-table {
             width: 100%;
             border-collapse: collapse;
             table-layout: fixed;
             font-size: 0.8125rem;
         }
-        .site-print-block-table col.col-cat { width: 68%; }
-        .site-print-block-table col.col-amt { width: 32%; }
-        .site-print-block-table thead th {
-            padding: 0.4rem 1rem;
-            font-size: 0.72rem;
-            font-weight: 700;
-            color: #475569;
-            text-align: left;
-            background: #f8fafc;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .site-print-block-table thead th.col-amt { text-align: right; }
-        .site-print-block-table tbody td {
-            padding: 0.42rem 1rem;
+        .site-print-table col.col-label { width: 65%; }
+        .site-print-table col.col-amt { width: 35%; }
+        .site-print-table th,
+        .site-print-table td {
+            border: 1px solid #cbd5e1;
+            padding: 0.45rem 0.65rem;
             vertical-align: middle;
-            border-bottom: 1px dotted #e2e8f0;
         }
-        .site-print-block-table tbody tr:last-child td { border-bottom: 0; }
-        .site-print-block-table .col-amt { text-align: right; }
-        .site-print-block-table .num {
+        .site-print-table thead th {
+            background: #f1f5f9;
+            font-weight: 700;
+            font-size: 0.78rem;
+            color: #334155;
+            text-align: left;
+        }
+        .site-print-table thead th.col-amt { text-align: right; }
+        .site-print-table tbody.site-print-group tr.site-print-row td {
+            background: #fff7ed;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .site-print-table tbody.site-print-group tr.cat-print-row td {
+            font-size: 0.78rem;
+            color: #334155;
+            background: #fff;
+        }
+        .site-print-table tbody.site-print-group tr.cat-print-row td.col-label {
+            padding-left: 1.75rem;
+        }
+        .site-print-table tbody.site-print-group tr.cat-print-row td.col-label::before {
+            content: "– ";
+            color: #94a3b8;
+        }
+        .site-print-table .col-amt { text-align: right; }
+        .site-print-table .num {
             font-variant-numeric: tabular-nums;
             white-space: nowrap;
+            font-weight: 700;
+        }
+        .site-print-table tbody.site-print-group tr.cat-print-row .num {
+            font-weight: 600;
         }
         .site-print-grand {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            margin-top: 0.25rem;
-            padding: 0.65rem 0.85rem;
-            border: 2px solid #0f172a;
+            display: grid;
+            grid-template-columns: 65% 35%;
+            align-items: stretch;
+            margin-top: -1px;
             background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-top: 2px solid #334155;
             font-weight: 800;
-            font-size: 0.95rem;
+            font-size: 0.875rem;
+            color: #0f172a;
         }
-        .site-print-grand .num {
-            font-size: 1.05rem;
-            font-variant-numeric: tabular-nums;
+        .site-print-grand__label {
+            padding: 0.55rem 0.65rem;
+        }
+        .site-print-grand__num {
+            padding: 0.55rem 0.65rem;
+            text-align: right;
+            font-size: 0.95rem;
             color: #9a3412;
         }
-        .site-print-footnote {
-            margin-top: 0.85rem;
-            font-size: 0.72rem;
-            color: #64748b;
-            line-height: 1.45;
-            text-align: center;
+        .site-print-thead-gap {
+            display: none;
         }
         .site-print-empty {
-            padding: 1rem 0;
+            padding: 1.25rem 0;
             color: #64748b;
             font-size: 0.875rem;
             text-align: center;
+            border: 1px dashed #cbd5e1;
         }
 
         @media (max-width: 575.98px) {
@@ -852,10 +837,22 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             .btn-cat-toggle .bi-caret-right-fill { transition: none; }
         }
 
+        @media (min-width: 768px) {
+            .site-print-header {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: flex-start;
+            }
+            .site-print-period {
+                align-items: flex-end;
+            }
+        }
+
         @media print {
-            @page {
+            /* แยกจาก tnc-app.css ที่ตั้ง @page { margin: 0 } ทั่วระบบ */
+            @page site-spending-report {
                 size: A4 landscape;
-                margin: 14mm 18mm;
+                margin: 14mm 22mm 16mm 22mm;
             }
             html, body {
                 width: 100%;
@@ -863,13 +860,17 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
                 background: #fff !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                font-family: 'Sarabun', 'Leelawadee UI', sans-serif !important;
+                font-family: 'Sarabun', 'Leelawadee UI', 'Tahoma', sans-serif !important;
                 font-size: 10pt;
-                color: #000 !important;
+                color: #0f172a !important;
+            }
+            body.site-spending-print-page {
+                page: site-spending-report;
             }
             .no-print,
             nav,
-            .navbar { display: none !important; }
+            .navbar,
+            .card-soft { display: none !important; }
             .container {
                 max-width: 100% !important;
                 width: 100% !important;
@@ -878,95 +879,130 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             }
             .site-print-sheet {
                 display: block !important;
+                page: site-spending-report;
                 box-sizing: border-box;
-                padding: 0 5mm;
+                width: 100%;
+                max-width: 100%;
+                padding: 4mm var(--site-print-inset-x) 0 !important;
             }
             .site-print-header {
-                display: block !important;
-                text-align: center !important;
-                margin-bottom: 7mm;
-                padding-bottom: 4mm;
-                border-bottom: 1pt solid #333;
-            }
-            .site-print-company {
-                font-size: 9pt;
-                color: #333 !important;
-                margin-bottom: 1.5mm;
+                flex-direction: row !important;
+                justify-content: space-between !important;
+                align-items: flex-end !important;
+                margin-bottom: 5mm;
+                padding-bottom: 3mm;
+                border-bottom: 1.5pt solid #c2410c !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
             .site-print-title {
                 font-size: 14pt;
-                margin-bottom: 3mm;
+                color: #0f172a !important;
             }
-            .site-print-meta {
-                display: flex !important;
-                flex-wrap: wrap;
-                justify-content: center !important;
-                gap: 1mm 4mm;
-                font-size: 8.5pt;
-                color: #000 !important;
-                text-align: center !important;
-                max-width: none !important;
-            }
-            .site-print-body {
-                gap: 5mm;
-            }
-            .site-print-block {
-                border: 0.75pt solid #555;
-                border-radius: 0;
-                break-inside: avoid-page;
-                page-break-inside: avoid;
-            }
-            .site-print-block-head {
-                padding: 2.5mm 5mm;
-                background: #eee !important;
-                border-bottom: 0.75pt solid #555;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .site-print-block-num {
-                background: #333 !important;
-                color: #fff !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .site-print-block-title { font-size: 10pt; }
-            .site-print-block-total { font-size: 10pt; color: #000 !important; }
-            .site-print-block-table { font-size: 9pt; }
-            .site-print-block-table thead th {
-                padding: 2mm 5mm;
-                background: #f5f5f5 !important;
-                border-bottom: 0.75pt solid #555;
+            .site-print-period__label {
                 font-size: 8pt;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
+                color: #64748b !important;
             }
-            .site-print-block-table tbody td {
-                padding: 1.8mm 5mm;
-                border-bottom: 0.5pt dotted #888;
+            .site-print-period__main {
+                font-size: 12pt;
+                color: #0f172a !important;
             }
-            .site-print-grand {
-                margin-top: 3mm;
-                padding: 3mm 5mm;
-                border: 1pt solid #333;
-                background: #e8e8e8 !important;
-                font-size: 10pt;
+            .site-print-period__sub {
+                font-size: 9pt;
+                color: #475569 !important;
+            }
+            .site-print-filter {
+                font-size: 8.5pt;
+                color: #475569 !important;
+            }
+            .site-print-table-wrap { overflow: visible !important; }
+            .site-print-table {
+                font-size: 9pt;
+                page-break-inside: auto;
+            }
+            /* หัวตารางซ้ำทุกหน้า — แถว spacer เว้นขอบบนหน้าถัดไป */
+            .site-print-table thead {
+                display: table-header-group;
+            }
+            .site-print-thead-gap {
+                display: table-row !important;
+            }
+            .site-print-thead-gap td {
+                height: 10mm;
+                padding: 0 !important;
+                border: none !important;
+                background: #fff !important;
+                line-height: 0;
+                font-size: 0;
+            }
+            .site-print-table tr.site-print-row,
+            .site-print-table tr.cat-print-row {
                 break-inside: avoid;
                 page-break-inside: avoid;
+            }
+            .site-print-table tr.site-print-row {
+                break-after: avoid;
+                page-break-after: avoid;
+            }
+            .site-print-table tbody.site-print-group + tbody.site-print-group tr.site-print-row td {
+                border-top-width: 1.5pt;
+                border-top-color: #94a3b8 !important;
+            }
+            .site-print-grand {
+                break-inside: avoid;
+                page-break-inside: avoid;
+                break-before: avoid;
+                page-break-before: avoid;
+                margin-top: -0.75pt;
+                border-color: #94a3b8 !important;
+                border-top: 1.5pt solid #334155 !important;
+                font-size: 9.5pt;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-            .site-print-grand .num { font-size: 11pt; color: #000 !important; }
-            .site-print-footnote {
-                margin-top: 5mm;
-                padding: 0 5mm;
-                font-size: 7.5pt;
-                color: #333 !important;
-                text-align: center;
+            .site-print-grand__label {
+                padding: 2.2mm 2.5mm;
+                background: #f1f5f9 !important;
+            }
+            .site-print-grand__num {
+                padding: 2.2mm 2.5mm;
+                background: #f1f5f9 !important;
+                font-size: 10.5pt;
+                color: #9a3412 !important;
+            }
+            .site-print-table th,
+            .site-print-table td {
+                padding: 1.8mm 2.5mm;
+                border-color: #94a3b8 !important;
+            }
+            .site-print-table thead th {
+                background: #f1f5f9 !important;
+                font-size: 8.5pt;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .site-print-table tbody.site-print-group tr.site-print-row td {
+                background: #fff7ed !important;
+                font-size: 9pt;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .site-print-table tbody.site-print-group tr.cat-print-row td {
+                font-size: 8.5pt;
+                padding-top: 1.2mm;
+                padding-bottom: 1.2mm;
+            }
+            .site-print-table tbody.site-print-group tr.cat-print-row td.col-label {
+                padding-left: 5mm;
+            }
+            .site-print-empty {
+                border-color: #94a3b8 !important;
+                font-size: 9pt;
             }
         }
     </style>
 </head>
-<body class="tnc-app-body tnc-layout-list">
+<body class="tnc-app-body tnc-layout-list site-spending-print-page">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container pb-5 pt-4">
     <div class="tnc-page-head mb-3 no-print">
@@ -978,75 +1014,70 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
 
     <div class="site-print-sheet" id="sitePrintSheet" aria-hidden="true">
         <header class="site-print-header">
-            <p class="site-print-company"><?= h($companyName) ?></p>
-            <h1 class="site-print-title">รายงานการใช้จ่ายแยกตามไซต์</h1>
-            <p class="site-print-meta">
-                <span>ช่วงข้อมูล: <strong><?= h($periodLabelLong) ?></strong> (<?= h($periodText) ?>)</span>
-                <span class="site-print-meta-dot" aria-hidden="true">·</span>
-                <span><?= count($sites) ?> ไซต์</span>
+            <div class="site-print-header__main">
+                <h1 class="site-print-title">รายงานการใช้จ่ายแยกตามไซต์</h1>
+            </div>
+            <div class="site-print-period">
+                <span class="site-print-period__label">ช่วงข้อมูล</span>
+                <span class="site-print-period__main"><?= h($periodLabelLong) ?></span>
+                <span class="site-print-period__sub"><?= h($periodText) ?></span>
                 <?php if ($hasCatFilter): ?>
-                    <span class="site-print-meta-dot" aria-hidden="true">·</span>
-                    <span>หมวด: <strong><?= h(implode(', ', $filterCatLabels)) ?></strong></span>
+                    <span class="site-print-filter">หมวด: <strong><?= h(implode(', ', $filterCatLabels)) ?></strong></span>
                 <?php endif; ?>
-                <span class="site-print-meta-dot" aria-hidden="true">·</span>
-                <span>พิมพ์ <?= h($printedAt) ?></span>
-            </p>
+            </div>
         </header>
 
         <?php if ($sites === []): ?>
             <p class="site-print-empty">ไม่พบข้อมูล PO ที่ชำระครบและมีใบกำกับ ตามเงื่อนไขที่เลือก</p>
         <?php else: ?>
-            <div class="site-print-body">
-                <?php $printSiteIdx = 0; ?>
-                <?php foreach ($sites as $s): ?>
-                    <?php
-                    $printCats = [];
-                    foreach ($s['categories'] as $cv) {
-                        if (round((float) ($cv['paid_total'] ?? 0), 2) > 0.0) {
-                            $printCats[] = $cv;
+            <div class="site-print-table-wrap">
+                <table class="site-print-table">
+                    <colgroup>
+                        <col class="col-label">
+                        <col class="col-amt">
+                    </colgroup>
+                    <thead>
+                    <tr class="site-print-thead-gap" aria-hidden="true">
+                        <td colspan="2"></td>
+                    </tr>
+                    <tr>
+                        <th scope="col" class="col-label">ไซต์ / หมวดค่าใช้จ่าย</th>
+                        <th scope="col" class="col-amt">ยอดจ่ายแล้ว (บาท)</th>
+                    </tr>
+                    </thead>
+                    <?php $printSiteIdx = 0; ?>
+                    <?php foreach ($sites as $s): ?>
+                        <?php
+                        $printCats = [];
+                        foreach ($s['categories'] as $cv) {
+                            if (round((float) ($cv['paid_total'] ?? 0), 2) > 0.0) {
+                                $printCats[] = $cv;
+                            }
                         }
-                    }
-                    if ($printCats === []) {
-                        continue;
-                    }
-                    $printSiteIdx++;
-                    ?>
-                    <section class="site-print-block">
-                        <div class="site-print-block-head">
-                            <span class="site-print-block-num"><?= sprintf('%02d', $printSiteIdx) ?></span>
-                            <h2 class="site-print-block-title"><?= h($s['label']) ?></h2>
-                            <span class="site-print-block-total num"><?= number_format((float) ($s['paid_total'] ?? 0), 2) ?></span>
-                        </div>
-                        <table class="site-print-block-table">
-                            <colgroup>
-                                <col class="col-cat">
-                                <col class="col-amt">
-                            </colgroup>
-                            <thead>
-                            <tr>
-                                <th scope="col">หมวดค่าใช้จ่าย</th>
-                                <th scope="col" class="col-amt">ยอดรายการ (บาท)</th>
+                        if ($printCats === []) {
+                            continue;
+                        }
+                        $printSiteIdx++;
+                        ?>
+                        <tbody class="site-print-group">
+                        <tr class="site-print-row">
+                            <td class="col-label"><?= h($s['label']) ?></td>
+                            <td class="col-amt num"><?= number_format((float) ($s['paid_total'] ?? 0), 2) ?></td>
+                        </tr>
+                        <?php foreach ($printCats as $c): ?>
+                            <tr class="cat-print-row">
+                                <td class="col-label"><?= h($c['label']) ?></td>
+                                <td class="col-amt num"><?= number_format((float) ($c['paid_total'] ?? 0), 2) ?></td>
                             </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach ($printCats as $c): ?>
-                                <tr>
-                                    <td><?= h($c['label']) ?></td>
-                                    <td class="col-amt num"><?= number_format((float) ($c['paid_total'] ?? 0), 2) ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </section>
-                <?php endforeach; ?>
+                        <?php endforeach; ?>
+                        </tbody>
+                    <?php endforeach; ?>
+                </table>
                 <div class="site-print-grand">
-                    <span>รวมทั้งหมด (<?= $printSiteIdx ?> ไซต์)</span>
-                    <span class="num"><?= number_format($grandPaid, 2) ?> บาท</span>
+                    <span class="site-print-grand__label">รวมทั้งหมด (<?= $printSiteIdx ?> ไซต์)</span>
+                    <span class="site-print-grand__num num"><?= number_format($grandPaid, 2) ?></span>
                 </div>
             </div>
-            <p class="site-print-footnote">
-                หมายเหตุ: รวมเฉพาะ PO ที่ชำระแล้ว มีเลขที่ใบกำกับ และวันที่ออก PO อยู่ในช่วงที่เลือก
-            </p>
         <?php endif; ?>
     </div>
 

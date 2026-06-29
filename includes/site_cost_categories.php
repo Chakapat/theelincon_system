@@ -627,40 +627,9 @@ if (!function_exists('tnc_site_category_document_source')) {
                 }
             }
 
-            $orderType = trim((string) ($row['order_type'] ?? 'purchase'));
-            if ($orderType === 'hire') {
-                $name = trim((string) ($row['contractor_name'] ?? ''));
-            } else {
-                $name = trim((string) ($row['supplier_name'] ?? ''));
-            }
+            $name = trim((string) ($row['supplier_name'] ?? ''));
 
             return $name !== '' ? $name : '—';
-        }
-
-        $requestType = trim((string) ($row['request_type'] ?? ($row['procurement_type'] ?? 'purchase')));
-        if (!in_array($requestType, ['purchase', 'hire'], true)) {
-            $requestType = 'purchase';
-        }
-        if ($requestType === 'hire') {
-            $name = trim((string) ($row['contractor_name'] ?? ($row['hire_contractor_name'] ?? '')));
-            if ($name !== '') {
-                return $name;
-            }
-            $contractorId = (int) ($row['contractor_id'] ?? 0);
-            if ($contractorId > 0) {
-                if (!function_exists('tnc_contractor_display_label')) {
-                    require_once __DIR__ . '/contractors.php';
-                }
-                $contractorRow = Db::rowByIdField('contractors', $contractorId);
-                if (is_array($contractorRow)) {
-                    $label = trim(tnc_contractor_display_label($contractorRow));
-                    if ($label !== '') {
-                        return $label;
-                    }
-                }
-            }
-
-            return '—';
         }
 
         $prId = (int) ($row['id'] ?? 0);
@@ -719,7 +688,7 @@ if (!function_exists('tnc_site_category_format_po_reference')) {
             $number = 'PO-' . $id;
         }
         $orderType = trim((string) ($row['order_type'] ?? 'purchase'));
-        if (!in_array($orderType, ['purchase', 'hire'], true)) {
+        if ($orderType !== 'purchase') {
             $orderType = 'purchase';
         }
         $netAmount = round((float) ($row['total_amount'] ?? 0), 2);

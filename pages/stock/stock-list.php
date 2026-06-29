@@ -252,6 +252,9 @@ usort($balanceRows, static fn (array $a, array $b): int => strcmp($a['code'], $b
                 <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
             </button>
             <?php if ($canManage): ?>
+                <a href="<?= htmlspecialchars(app_path('pages/stock/stock-product-form.php')) ?>?site_id=<?= $siteId ?>" class="btn btn-outline-orange rounded-pill">
+                    <i class="bi bi-box me-1"></i>เพิ่มอุปกรณ์
+                </a>
                 <a href="<?= htmlspecialchars(app_path('pages/stock/stock-adjust.php')) ?>?site_id=<?= $siteId ?>" class="btn btn-warning text-white fw-bold rounded-pill">
                     <i class="bi bi-plus-lg me-1"></i>บันทึกรายการ / โอนไซต์
                 </a>

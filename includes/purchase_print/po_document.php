@@ -5,8 +5,6 @@ declare(strict_types=1);
 use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\Purchase;
 
-require_once __DIR__ . '/../hire_line_items.php';
-require_once __DIR__ . '/../contractors.php';
 require_once __DIR__ . '/../purchase_po_payment_slips.php';
 require_once __DIR__ . '/vat_print_summary.php';
 
@@ -170,45 +168,16 @@ function tnc_purchase_po_print_prepare(int $id): ?array
     $data['contact_person'] = $sup['contact_person'] ?? '';
     $data['pr_number'] = is_array($pr) ? (string) ($pr['pr_number'] ?? '') : '';
     $orderType = trim((string) ($data['order_type'] ?? 'purchase'));
-    if (!in_array($orderType, ['purchase', 'hire'], true)) {
+    if ($orderType !== 'purchase') {
         $orderType = 'purchase';
-    }
-    $contractorName = trim((string) ($data['contractor_name'] ?? ''));
-    $contractorId = (int) ($data['contractor_id'] ?? 0);
-    if ($contractorId <= 0 && is_array($pr)) {
-        $contractorId = (int) ($pr['contractor_id'] ?? 0);
-    }
-    $contractorPrint = tnc_contractor_print_profile($contractorId, $contractorName);
-    if ($contractorPrint['name_th'] !== '') {
-        $contractorName = $contractorPrint['name_th'];
     }
     $installmentNo = (int) ($data['installment_no'] ?? 0);
     $installmentTotal = (int) ($data['installment_total'] ?? 0);
     if ($installmentTotal < 0) {
         $installmentTotal = 0;
     }
-    $hirePoKind = $orderType === 'hire' ? Purchase::hirePoKind($po) : '';
     $referencePrNumber = trim((string) ($data['reference_pr_number'] ?? ($data['pr_number'] ?? '')));
-    $referenceContractPoNumber = trim((string) ($data['reference_contract_po_number'] ?? ''));
-    if ($orderType === 'hire') {
-        if ($hirePoKind === 'contract') {
-            $referencePrNumber = '';
-        } elseif (preg_match('/^HC-TNC-/i', $referencePrNumber)) {
-            $referencePrNumber = '';
-        }
-        if ($referenceContractPoNumber === '' && in_array($hirePoKind, ['payment', 'advance'], true)) {
-            $hcIdPrint = (int) ($data['hire_contract_id'] ?? 0);
-            if ($hcIdPrint > 0) {
-                $hcPrint = Db::row('hire_contracts', (string) $hcIdPrint);
-                if (is_array($hcPrint)) {
-                    $woDoc = Purchase::hireContractDocumentNumber($hcPrint);
-                    if ($woDoc !== '' && !preg_match('/^HC-TNC-/i', $woDoc)) {
-                        $referenceContractPoNumber = $woDoc;
-                    }
-                }
-            }
-        }
-    }
+    $referenceContractPoNumber = '';
     $withholdingType = trim((string) ($data['withholding_type'] ?? 'none'));
     if ($withholdingType === 'wht5') {
         $withholdingType = 'wht3';
@@ -224,32 +193,6 @@ function tnc_purchase_po_print_prepare(int $id): ?array
     $retentionAmount = (float) ($data['retention_amount'] ?? 0);
     $poNotePo = trim((string) ($data['po_note'] ?? ''));
     $poNoteQt = trim((string) ($data['quotation_note'] ?? ''));
-    $hireWorkConditions = '';
-    if ($orderType === 'hire' && $hirePoKind === 'contract') {
-        $hireWorkConditions = Purchase::hireWorkConditionsText($po);
-        if ($hireWorkConditions !== '') {
-            $poNotePo = $hireWorkConditions;
-        }
-    }
-    if ($orderType === 'hire' && $hirePoKind === 'contract' && $contractorId > 0) {
-        $paymentNote = trim(tnc_contractor_payment_note_text($contractorId));
-        if ($paymentNote !== '') {
-            $paymentLines = array_filter(array_map(
-                static fn (string $line): string => trim($line),
-                explode("\n", str_replace("\r", '', $paymentNote))
-            ));
-            $missingPaymentLine = false;
-            foreach ($paymentLines as $line) {
-                if ($line !== '' && !str_contains($poNotePo, $line)) {
-                    $missingPaymentLine = true;
-                    break;
-                }
-            }
-            if ($missingPaymentLine) {
-                $poNotePo = $poNotePo !== '' ? ($poNotePo . "\n\n" . $paymentNote) : $paymentNote;
-            }
-        }
-    }
 
     $poSiteDisplay = tnc_purchase_po_resolve_site_name($data, is_array($pr) ? $pr : null);
 
@@ -259,23 +202,6 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         $poCostCategoryId = (int) ($pr['cost_category_id'] ?? 0);
         if ($poCostCategoryName === '') {
             $poCostCategoryName = trim((string) ($pr['cost_category_name'] ?? ''));
-        }
-    }
-    if ($poCostCategoryName === '' && $orderType === 'hire' && in_array($hirePoKind, ['payment', 'advance'], true)) {
-        $refPoId = (int) ($data['reference_contract_po_id'] ?? 0);
-        if ($refPoId > 0) {
-            $refPo = Db::rowByIdField('purchase_orders', $refPoId);
-            if (is_array($refPo)) {
-                $poCostCategoryId = (int) ($refPo['cost_category_id'] ?? 0);
-                $poCostCategoryName = trim((string) ($refPo['cost_category_name'] ?? ''));
-            }
-        }
-        if ($poCostCategoryName === '' && $poCostCategoryId <= 0) {
-            $contractPoRef = Purchase::hireContractPoFor($prId, (int) ($data['hire_contract_id'] ?? 0));
-            if (is_array($contractPoRef)) {
-                $poCostCategoryId = (int) ($contractPoRef['cost_category_id'] ?? 0);
-                $poCostCategoryName = trim((string) ($contractPoRef['cost_category_name'] ?? ''));
-            }
         }
     }
     if (!function_exists('tnc_site_category_document_parent_name')) {
@@ -356,19 +282,11 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         $poDocTitle = 'PO-' . (int) ($po['id'] ?? $id);
     }
 
-    $hirePaymentSequenceLabel = '';
-    if ($orderType === 'hire' && $hirePoKind !== 'contract') {
-        $hirePaymentSequenceLabel = Purchase::hirePayablePoSequenceLabel($po, $installmentTotal);
-    }
-
     return [
         'po' => $po,
         'data' => $data,
         'items' => $items,
         'orderType' => $orderType,
-        'hirePoKind' => $hirePoKind,
-        'contractorName' => $contractorName,
-        'contractorPrint' => $contractorPrint,
         'installmentNo' => $installmentNo,
         'installmentTotal' => $installmentTotal,
         'referencePrNumber' => $referencePrNumber,
@@ -379,8 +297,6 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         'retentionAmount' => $retentionAmount,
         'poNotePo' => $poNotePo,
         'poNoteQt' => $poNoteQt,
-        'hireWorkConditions' => $hireWorkConditions,
-        'hirePaymentSequenceLabel' => $hirePaymentSequenceLabel,
         'poSiteDisplay' => $poSiteDisplay,
         'poCostCategoryName' => $poCostCategoryName,
         'po_vat_enabled' => $po_vat_enabled,

@@ -8,11 +8,9 @@ require_once __DIR__ . '/../includes/tnc_action_response.php';
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
 require_once __DIR__ . '/../includes/purchase_po_payment_slips.php';
 require_once __DIR__ . '/../includes/line_pr_approval.php';
-require_once __DIR__ . '/../includes/hire_line_items.php';
 require_once __DIR__ . '/../includes/purchase_print/vat_print_summary.php';
 require_once __DIR__ . '/../includes/site_cost_categories.php';
 require_once __DIR__ . '/../includes/site_budget.php';
-require_once __DIR__ . '/../includes/contractors.php';
 require_once __DIR__ . '/../includes/suppliers.php';
 
 use Theelincon\Rtdb\Db;
@@ -58,12 +56,12 @@ $type = (string) ($_POST['type'] ?? $_GET['type'] ?? '');
 $id = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
 
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
-$tncDeletePwdActions = ['delete', 'delete_supplier', 'delete_contractor', 'delete_pr'];
+$tncDeletePwdActions = ['delete', 'delete_supplier', 'delete_pr'];
 if (in_array($action, $tncDeletePwdActions, true)) {
     tnc_require_post_confirm_password();
 }
 
-$admin_only_actions = ['add_member', 'edit_member', 'delete_supplier', 'delete_contractor', 'add_company', 'edit_company', 'add_customer', 'edit_customer'];
+$admin_only_actions = ['add_member', 'edit_member', 'delete_supplier', 'add_company', 'edit_company', 'add_customer', 'edit_customer'];
 if (in_array($action, $admin_only_actions, true) && !user_is_admin_role()) {
     if (tnc_ajax_form_requested()) {
         header('Content-Type: application/json; charset=UTF-8');
@@ -314,19 +312,12 @@ require_once __DIR__ . '/../includes/purchase_cascade_delete.php';
 
 function renderPoCreatedPopupAndRedirect(string $poNumber, ?string $redirectBase = null, bool $paymentExtrasSaved = false)
 {
-    if ($redirectBase === 'wo') {
-        $listUrl = app_path('pages/purchase/work-order-list.php')
-            . '?success=1&wo_number=' . rawurlencode($poNumber);
-        $message = 'สร้าง WO สำเร็จ หมายเลข ' . $poNumber;
-        $actionKey = 'wo_created';
-    } else {
-        $listUrl = app_path('pages/purchase/purchase-order-list.php')
-            . '?success=1&po_number=' . rawurlencode($poNumber)
-            . ($paymentExtrasSaved ? '&payment_saved=1' : '');
-        $message = 'สร้าง PO สำเร็จ หมายเลข ' . $poNumber
-            . ($paymentExtrasSaved ? ' (บันทึกบิลและ/หรือสลิปแล้ว)' : '');
-        $actionKey = 'po_created';
-    }
+    $listUrl = app_path('pages/purchase/purchase-order-list.php')
+        . '?success=1&po_number=' . rawurlencode($poNumber)
+        . ($paymentExtrasSaved ? '&payment_saved=1' : '');
+    $message = 'สร้าง PO สำเร็จ หมายเลข ' . $poNumber
+        . ($paymentExtrasSaved ? ' (บันทึกบิลและ/หรือสลิปแล้ว)' : '');
+    $actionKey = 'po_created';
     if (tnc_ajax_form_requested()) {
         header('Content-Type: application/json; charset=UTF-8');
         echo json_encode([
@@ -359,8 +350,6 @@ if ($action === 'get_data') {
     } elseif ($type === 'supplier') {
         tnc_require_finance_role();
         $row = Db::rowByIdField('suppliers', $id);
-    } elseif ($type === 'contractor') {
-        $row = Db::rowByIdField('contractors', $id);
     } elseif ($type === 'company') {
         if (!user_can('page.org.company')) {
             http_response_code(403);
@@ -441,143 +430,6 @@ if ($action === 'save_supplier') {
     tnc_action_redirect( app_path('pages/suppliers/supplier-list.php') . '?success=1');
 }
 
-if ($action === 'save_contractor') {
-    $c_id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
-    $formUrl = app_path('pages/contractors/contractor-form.php');
-    $listUrl = app_path('pages/contractors/contractor-list.php');
-    $redirectErr = static function (string $code) use ($formUrl, $c_id): void {
-        $q = $c_id > 0 ? ('?id=' . $c_id . '&error=' . $code) : ('?error=' . $code);
-        tnc_action_redirect($formUrl . $q);
-    };
-
-    $existing = $c_id > 0 ? Db::rowByIdField('contractors', $c_id) : null;
-    if ($c_id > 0 && $existing === null) {
-        tnc_action_redirect($listUrl . '?error=not_found');
-    }
-
-    $titlePrefixTh = tnc_contractor_normalize_title_prefix_th((string) ($_POST['title_prefix_th'] ?? ''));
-    $titlePrefixEn = tnc_contractor_normalize_title_prefix_en((string) ($_POST['title_prefix_en'] ?? ''));
-    $nationalId = tnc_contractor_normalize_national_id((string) ($_POST['national_id'] ?? ''));
-    $birthDate = trim((string) ($_POST['birth_date'] ?? ''));
-    $paymentMethod = trim((string) ($_POST['payment_method'] ?? 'bank_transfer'));
-    if (!array_key_exists($paymentMethod, tnc_contractor_payment_methods())) {
-        $paymentMethod = 'bank_transfer';
-    }
-
-    $photoPath = $existing !== null ? trim((string) ($existing['id_card_photo_path'] ?? '')) : '';
-    $photoName = $existing !== null ? trim((string) ($existing['id_card_photo_name'] ?? '')) : '';
-    $photoMime = $existing !== null ? trim((string) ($existing['id_card_photo_mime'] ?? '')) : '';
-    $photoSize = $existing !== null ? (int) ($existing['id_card_photo_size'] ?? 0) : 0;
-
-    $fields = [
-        'title_prefix_th' => $titlePrefixTh,
-        'first_name_th' => mb_substr(trim((string) ($_POST['first_name_th'] ?? '')), 0, 120),
-        'last_name_th' => mb_substr(trim((string) ($_POST['last_name_th'] ?? '')), 0, 120),
-        'title_prefix_en' => $titlePrefixEn,
-        'first_name_en' => mb_substr(trim((string) ($_POST['first_name_en'] ?? '')), 0, 120),
-        'last_name_en' => mb_substr(trim((string) ($_POST['last_name_en'] ?? '')), 0, 120),
-        'national_id' => $nationalId,
-        'birth_date' => $birthDate,
-        'address' => mb_substr(trim((string) ($_POST['address'] ?? '')), 0, 1000),
-        'payment_method' => $paymentMethod,
-        'bank_account_no' => mb_substr(trim((string) ($_POST['bank_account_no'] ?? '')), 0, 30),
-        'bank_name' => mb_substr(trim((string) ($_POST['bank_name'] ?? '')), 0, 120),
-        'bank_account_name' => mb_substr(trim((string) ($_POST['bank_account_name'] ?? '')), 0, 200),
-        'id_card_photo_path' => $photoPath,
-    ];
-
-    $hasNewPhoto = !empty($_FILES['id_card_photo']) && (int) ($_FILES['id_card_photo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
-    $requirePhoto = ($photoPath === '' && !$hasNewPhoto);
-    $validationErrors = tnc_contractor_validate_fields($fields, $requirePhoto);
-    if ($validationErrors !== []) {
-        $redirectErr('required');
-    }
-    if ($nationalId !== '' && !tnc_contractor_is_valid_national_id($nationalId)) {
-        $redirectErr('invalid_national_id');
-    }
-
-    $duplicateConflict = tnc_contractor_find_duplicate_conflict($fields, $c_id);
-    if ($duplicateConflict !== null) {
-        $redirectErr($duplicateConflict);
-    }
-
-    if ($c_id <= 0) {
-        $c_id = Db::nextNumericId('contractors', 'id');
-    }
-
-    if ($hasNewPhoto) {
-        $upload = tnc_contractor_save_id_photo($c_id, $_FILES['id_card_photo']);
-        if (!$upload['ok']) {
-            $redirectErr($upload['error'] === 'upload_type' ? 'upload_type' : 'upload_failed');
-        }
-        $photoPath = $upload['path'];
-        $photoName = $upload['name'];
-        $photoMime = $upload['mime'];
-        $photoSize = $upload['size'];
-    } elseif ($photoPath === '') {
-        $redirectErr('photo_required');
-    }
-
-    $now = date('Y-m-d H:i:s');
-    $data = [
-        'id' => $c_id,
-        'title_prefix_th' => $fields['title_prefix_th'],
-        'first_name_th' => $fields['first_name_th'],
-        'last_name_th' => $fields['last_name_th'],
-        'title_prefix_en' => $fields['title_prefix_en'],
-        'first_name_en' => $fields['first_name_en'],
-        'last_name_en' => $fields['last_name_en'],
-        'national_id' => $nationalId,
-        'birth_date' => $birthDate,
-        'address' => $fields['address'],
-        'payment_method' => $paymentMethod,
-        'bank_account_no' => $fields['bank_account_no'],
-        'bank_name' => $fields['bank_name'],
-        'bank_account_name' => $fields['bank_account_name'],
-        'id_card_photo_path' => $photoPath,
-        'id_card_photo_name' => $photoName,
-        'id_card_photo_mime' => $photoMime,
-        'id_card_photo_size' => $photoSize,
-        'updated_at' => $now,
-    ];
-    if ($existing === null) {
-        $data['created_at'] = $now;
-    }
-
-    $beforeSnap = $existing;
-    Db::setRow('contractors', (string) $c_id, $existing !== null ? array_merge($existing, $data) : $data);
-    $afterSnap = Db::row('contractors', (string) $c_id) ?? [];
-    $docLabel = tnc_contractor_display_label($afterSnap);
-    tnc_audit_log($existing !== null ? 'update' : 'create', 'contractor', (string) $c_id, $docLabel, [
-        'source' => 'action-handler',
-        'action' => 'save_contractor',
-        'before' => $beforeSnap,
-        'after' => $afterSnap,
-    ]);
-    tnc_action_redirect($listUrl . '?success=1');
-}
-
-if ($action === 'delete_contractor') {
-    $listUrl = app_path('pages/contractors/contractor-list.php');
-    $inUse = static function (string $table) use ($id): bool {
-        return Db::findFirst($table, static function (array $r) use ($id): bool {
-            return isset($r['contractor_id']) && (int) $r['contractor_id'] === $id;
-        }) !== null;
-    };
-    if ($inUse('purchase_requests') || $inUse('purchase_orders') || $inUse('hire_contracts')) {
-        tnc_action_redirect($listUrl . '?error=in_use');
-    }
-    $cDel = Db::rowByIdField('contractors', $id);
-    $cDelLabel = $cDel !== null ? tnc_contractor_display_label($cDel) : ('#' . $id);
-    Db::deleteRow('contractors', (string) $id);
-    tnc_audit_log('delete', 'contractor', (string) $id, $cDelLabel, [
-        'source' => 'action-handler',
-        'action' => 'delete_contractor',
-        'before' => $cDel,
-    ]);
-    tnc_action_redirect($listUrl . '?success=1');
-}
-
 if ($action === 'delete_supplier') {
     $po = Db::findFirst('purchase_orders', static function (array $r) use ($id): bool {
         return isset($r['supplier_id']) && (int) $r['supplier_id'] === $id;
@@ -632,79 +484,37 @@ if ($action === 'save_pr') {
     $requested_by = (int) ($_POST['requested_by'] ?? 0);
     $created_by = (int) $_SESSION['user_id'];
     $details = trim((string) ($_POST['details'] ?? ''));
-    $procurement_type = trim((string) ($_POST['request_type'] ?? ($_POST['procurement_type'] ?? 'purchase')));
-    if ($procurement_type !== 'hire') {
-        $procurement_type = 'purchase';
+    $procurement_type = 'purchase';
+
+    $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
+    $subtotal = 0.0;
+    $purchaseLineCount = 0;
+    foreach ($_POST['item_description'] ?? [] as $key => $desc) {
+        if (!isset($_POST['item_qty'][$key])) {
+            continue;
+        }
+        if (trim((string) $desc) === '') {
+            continue;
+        }
+        $qty = (float) $_POST['item_qty'][$key];
+        if ($qty <= 0) {
+            continue;
+        }
+        $purchaseLineCount++;
+        $price = (float) ($_POST['item_price'][$key] ?? 0);
+        $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $subtotal += $parts['line_total'];
     }
-
-    $hire_contractor_name = '';
-    $hire_contractor_id = 0;
-    $hire_employer_company_id = 0;
-    $hire_scope_details = '';
-    $hire_total_value = 0.0;
-    $hire_installment_count = 1;
-
-    $hireTotals = null;
-
-    if ($procurement_type === 'hire') {
-        $resolvedContractor = tnc_contractor_resolve_from_post($_POST);
-        if ($resolvedContractor['row'] === null) {
-            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . ($pr_id > 0 ? ('?id=' . $pr_id . '&error=hire_contractor_required') : '?type=hire&error=hire_contractor_required'));
-        }
-        $hire_contractor_id = $resolvedContractor['id'];
-        $hire_contractor_name = $resolvedContractor['name'];
-        $hire_employer_company_id = (int) ($_POST['hire_employer_company_id'] ?? 0);
-        if ($hire_employer_company_id <= 0) {
-            $companies = Db::tableRows('company');
-            Db::sortRows($companies, 'id', false);
-            $hire_employer_company_id = (int) (($companies[0] ?? [])['id'] ?? 0);
-        }
-        $hire_scope_details = trim((string) ($_POST['hire_scope_details'] ?? ($_POST['details'] ?? '')));
-        $hireLines = tnc_hire_lines_from_post($_POST);
-        $directSubtotal = tnc_hire_subtotal_from_lines($hireLines);
-        $overheadPct = (float) ($_POST['overhead_percent'] ?? 0);
-        $preliminaryPct = (float) ($_POST['preliminary_percent'] ?? 0);
-        $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
-        $hireTotals = tnc_hire_pr_compute_totals($directSubtotal, $overheadPct, $preliminaryPct, $vat_enabled === 1);
-        $hire_total_value = $hireTotals['excluded_vat'];
-        $hire_installment_count = max(1, min(120, (int) ($_POST['hire_installment_count'] ?? ($_POST['installment_total'] ?? 1))));
-        if ($hire_contractor_name === '' || $hire_employer_company_id <= 0 || $hire_scope_details === '' || $hire_total_value <= 0 || tnc_hire_count_billable_lines($hireLines) === 0) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-request-create.php') . '?error=hire_invalid');
-        }
-        $subtotal = $hireTotals['excluded_vat'];
-        $vat_amount = $hireTotals['vat'];
-        $total_amount = $hireTotals['grand_total'];
-    } else {
-        $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
-        $subtotal = 0.0;
-        $purchaseLineCount = 0;
-        foreach ($_POST['item_description'] ?? [] as $key => $desc) {
-            if (!isset($_POST['item_qty'][$key])) {
-                continue;
-            }
-            if (trim((string) $desc) === '') {
-                continue;
-            }
-            $qty = (float) $_POST['item_qty'][$key];
-            if ($qty <= 0) {
-                continue;
-            }
-            $purchaseLineCount++;
-            $price = (float) ($_POST['item_price'][$key] ?? 0);
-            $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
-            $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
-            $subtotal += $parts['line_total'];
-        }
-        $subtotal = round($subtotal, 2);
-        if ($purchaseLineCount <= 0) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-request-create.php') . '?error=no_items');
-        }
-        $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
-        $totalsPr = tnc_po_compute_totals($subtotal, $vat_enabled, $vat_mode_post, 'none');
-        $subtotal = $totalsPr['subtotal'];
-        $vat_amount = $totalsPr['vat'];
-        $total_amount = $totalsPr['gross'];
+    $subtotal = round($subtotal, 2);
+    if ($purchaseLineCount <= 0) {
+        tnc_action_redirect( app_path('pages/purchase/purchase-request-create.php') . '?error=no_items');
     }
+    $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
+    $totalsPr = tnc_po_compute_totals($subtotal, $vat_enabled, $vat_mode_post, 'none');
+    $subtotal = $totalsPr['subtotal'];
+    $vat_amount = $totalsPr['vat'];
+    $total_amount = $totalsPr['gross'];
 
     $pr_id = Db::nextNumericId('purchase_requests', 'id');
     $quoteAttachmentPath = '';
@@ -757,12 +567,10 @@ if ($action === 'save_pr') {
     }
 
     $vat_mode_stored = 'exclusive';
-    if ($procurement_type !== 'hire') {
-        $vm = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
-        $vat_mode_stored = $vat_enabled && in_array($vm, ['exclusive', 'inclusive'], true) ? $vm : 'exclusive';
-        if (!$vat_enabled) {
-            $vat_mode_stored = 'exclusive';
-        }
+    $vm = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
+    $vat_mode_stored = $vat_enabled && in_array($vm, ['exclusive', 'inclusive'], true) ? $vm : 'exclusive';
+    if (!$vat_enabled) {
+        $vat_mode_stored = 'exclusive';
     }
 
     $pr_row = [
@@ -790,20 +598,6 @@ if ($action === 'save_pr') {
         'vat_amount' => $vat_amount,
         'procurement_type' => $procurement_type,
         'request_type' => $procurement_type,
-        'contractor_name' => $procurement_type === 'hire' ? $hire_contractor_name : '',
-        'contractor_id' => $procurement_type === 'hire' ? $hire_contractor_id : 0,
-        'contract_value' => $procurement_type === 'hire' ? $hire_total_value : 0.0,
-        'installment_total' => $procurement_type === 'hire' ? $hire_installment_count : 1,
-        'hire_contractor_name' => $hire_contractor_name,
-        'hire_employer_company_id' => $hire_employer_company_id,
-        'hire_scope_details' => $hire_scope_details,
-        'hire_total_value' => $hire_total_value,
-        'hire_installment_count' => $hire_installment_count,
-        'hire_direct_subtotal' => $hireTotals !== null ? $hireTotals['direct_subtotal'] : 0.0,
-        'overhead_percent' => $hireTotals !== null ? $hireTotals['overhead_percent'] : 0.0,
-        'preliminary_percent' => $hireTotals !== null ? $hireTotals['preliminary_percent'] : 0.0,
-        'overhead_amount' => $hireTotals !== null ? $hireTotals['overhead_amount'] : 0.0,
-        'preliminary_amount' => $hireTotals !== null ? $hireTotals['preliminary_amount'] : 0.0,
         'quotation_attachment_path' => $quoteAttachmentPath,
         'quotation_attachment_url' => $quoteAttachmentUrl,
         'quotation_attachment_name' => $quoteAttachmentName,
@@ -812,9 +606,6 @@ if ($action === 'save_pr') {
     ];
     Db::setRow('purchase_requests', (string) $pr_id, $pr_row);
 
-    if ($procurement_type === 'hire') {
-        tnc_hire_save_pr_items($pr_id, $hireLines);
-    } else {
     foreach ($_POST['item_description'] ?? [] as $key => $desc) {
         if (!isset($_POST['item_qty'][$key])) {
             continue;
@@ -846,7 +637,6 @@ if ($action === 'save_pr') {
             'discount_value' => $parts['discount_value'],
             'discount_amount' => $parts['discount_amount'],
         ]);
-    }
     }
 
     $prAfterSave = Db::row('purchase_requests', (string) $pr_id);
@@ -970,84 +760,37 @@ if ($action === 'update_pr') {
     }
     $created_by = (int) ($existing['created_by'] ?? 0);
     $details = trim((string) ($_POST['details'] ?? ''));
-    $postRequestType = trim((string) ($_POST['request_type'] ?? ''));
-    if (in_array($postRequestType, ['purchase', 'hire'], true)) {
-        $procurement_type = $postRequestType;
-    } else {
-        $procurement_type = trim((string) ($existing['request_type'] ?? ($existing['procurement_type'] ?? 'purchase')));
-        if ($procurement_type !== 'hire') {
-            $procurement_type = 'purchase';
+    $procurement_type = 'purchase';
+
+    $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
+    $subtotal = 0.0;
+    $purchaseLineCount = 0;
+    foreach ($_POST['item_description'] ?? [] as $key => $desc) {
+        if (!isset($_POST['item_qty'][$key])) {
+            continue;
         }
+        if (trim((string) $desc) === '') {
+            continue;
+        }
+        $qty = (float) $_POST['item_qty'][$key];
+        if ($qty <= 0) {
+            continue;
+        }
+        $purchaseLineCount++;
+        $price = (float) ($_POST['item_price'][$key] ?? 0);
+        $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $subtotal += $parts['line_total'];
     }
-
-    $hire_contractor_name = '';
-    $hire_contractor_id = 0;
-    $hire_employer_company_id = (int) ($existing['hire_employer_company_id'] ?? 0);
-    $hire_scope_details = '';
-    $hire_total_value = 0.0;
-    $hire_installment_count = 1;
-
-    $hireTotals = null;
-
-    if ($procurement_type === 'hire') {
-        $resolvedContractor = tnc_contractor_resolve_from_post($_POST);
-        if ($resolvedContractor['row'] === null) {
-            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=hire_contractor_required');
-        }
-        $hire_contractor_id = $resolvedContractor['id'];
-        $hire_contractor_name = $resolvedContractor['name'];
-        $hire_employer_company_id = (int) ($_POST['hire_employer_company_id'] ?? $hire_employer_company_id);
-        if ($hire_employer_company_id <= 0) {
-            $companies = Db::tableRows('company');
-            Db::sortRows($companies, 'id', false);
-            $hire_employer_company_id = (int) (($companies[0] ?? [])['id'] ?? 0);
-        }
-        $hire_scope_details = trim((string) ($_POST['hire_scope_details'] ?? ($_POST['details'] ?? '')));
-        $hireLines = tnc_hire_lines_from_post($_POST);
-        $directSubtotal = tnc_hire_subtotal_from_lines($hireLines);
-        $overheadPct = (float) ($_POST['overhead_percent'] ?? 0);
-        $preliminaryPct = (float) ($_POST['preliminary_percent'] ?? 0);
-        $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
-        $hireTotals = tnc_hire_pr_compute_totals($directSubtotal, $overheadPct, $preliminaryPct, $vat_enabled === 1);
-        $hire_total_value = $hireTotals['excluded_vat'];
-        $hire_installment_count = max(1, min(120, (int) ($_POST['hire_installment_count'] ?? ($_POST['installment_total'] ?? 1))));
-        if ($hire_contractor_name === '' || $hire_employer_company_id <= 0 || $hire_scope_details === '' || $hire_total_value <= 0 || tnc_hire_count_billable_lines($hireLines) === 0) {
-            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=hire_invalid');
-        }
-        $subtotal = $hireTotals['excluded_vat'];
-        $vat_amount = $hireTotals['vat'];
-        $total_amount = $hireTotals['grand_total'];
-    } else {
-        $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
-        $subtotal = 0.0;
-        $purchaseLineCount = 0;
-        foreach ($_POST['item_description'] ?? [] as $key => $desc) {
-            if (!isset($_POST['item_qty'][$key])) {
-                continue;
-            }
-            if (trim((string) $desc) === '') {
-                continue;
-            }
-            $qty = (float) $_POST['item_qty'][$key];
-            if ($qty <= 0) {
-                continue;
-            }
-            $purchaseLineCount++;
-            $price = (float) ($_POST['item_price'][$key] ?? 0);
-            $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
-            $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
-            $subtotal += $parts['line_total'];
-        }
-        $subtotal = round($subtotal, 2);
-        if ($purchaseLineCount <= 0) {
-            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=no_items');
-        }
-        $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
-        $totalsPr = tnc_po_compute_totals($subtotal, $vat_enabled, $vat_mode_post, 'none');
-        $subtotal = $totalsPr['subtotal'];
-        $vat_amount = $totalsPr['vat'];
-        $total_amount = $totalsPr['gross'];
+    $subtotal = round($subtotal, 2);
+    if ($purchaseLineCount <= 0) {
+        tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=no_items');
     }
+    $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
+    $totalsPr = tnc_po_compute_totals($subtotal, $vat_enabled, $vat_mode_post, 'none');
+    $subtotal = $totalsPr['subtotal'];
+    $vat_amount = $totalsPr['vat'];
+    $total_amount = $totalsPr['gross'];
 
     $quoteAttachmentPath = trim((string) ($existing['quotation_attachment_path'] ?? ''));
     $quoteAttachmentUrl = trim((string) ($existing['quotation_attachment_url'] ?? ''));
@@ -1099,12 +842,10 @@ if ($action === 'update_pr') {
     }
 
     $vat_mode_stored = 'exclusive';
-    if ($procurement_type !== 'hire') {
-        $vm = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
-        $vat_mode_stored = $vat_enabled && in_array($vm, ['exclusive', 'inclusive'], true) ? $vm : 'exclusive';
-        if (!$vat_enabled) {
-            $vat_mode_stored = 'exclusive';
-        }
+    $vm = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
+    $vat_mode_stored = $vat_enabled && in_array($vm, ['exclusive', 'inclusive'], true) ? $vm : 'exclusive';
+    if (!$vat_enabled) {
+        $vat_mode_stored = 'exclusive';
     }
 
     $beforeSnap = $existing;
@@ -1126,20 +867,6 @@ if ($action === 'update_pr') {
         'vat_amount' => $vat_amount,
         'procurement_type' => $procurement_type,
         'request_type' => $procurement_type,
-        'contractor_name' => $procurement_type === 'hire' ? $hire_contractor_name : '',
-        'contractor_id' => $procurement_type === 'hire' ? $hire_contractor_id : 0,
-        'contract_value' => $procurement_type === 'hire' ? $hire_total_value : 0.0,
-        'installment_total' => $procurement_type === 'hire' ? $hire_installment_count : 1,
-        'hire_contractor_name' => $hire_contractor_name,
-        'hire_employer_company_id' => $hire_employer_company_id,
-        'hire_scope_details' => $hire_scope_details,
-        'hire_total_value' => $hire_total_value,
-        'hire_installment_count' => $hire_installment_count,
-        'hire_direct_subtotal' => $hireTotals !== null ? $hireTotals['direct_subtotal'] : 0.0,
-        'overhead_percent' => $hireTotals !== null ? $hireTotals['overhead_percent'] : 0.0,
-        'preliminary_percent' => $hireTotals !== null ? $hireTotals['preliminary_percent'] : 0.0,
-        'overhead_amount' => $hireTotals !== null ? $hireTotals['overhead_amount'] : 0.0,
-        'preliminary_amount' => $hireTotals !== null ? $hireTotals['preliminary_amount'] : 0.0,
         'quotation_attachment_path' => $quoteAttachmentPath,
         'quotation_attachment_url' => $quoteAttachmentUrl,
         'quotation_attachment_name' => $quoteAttachmentName,
@@ -1149,9 +876,6 @@ if ($action === 'update_pr') {
     Db::setRow('purchase_requests', (string) $pr_id, $pr_row);
 
     Db::deleteWhereEquals('purchase_request_items', 'pr_id', (string) $pr_id);
-    if ($procurement_type === 'hire') {
-        tnc_hire_save_pr_items($pr_id, $hireLines);
-    } else {
     foreach ($_POST['item_description'] ?? [] as $key => $desc) {
         if (!isset($_POST['item_qty'][$key])) {
             continue;
@@ -1183,7 +907,6 @@ if ($action === 'update_pr') {
             'discount_value' => $parts['discount_value'],
             'discount_amount' => $parts['discount_amount'],
         ]);
-    }
     }
 
     $prAfterSave = Db::row('purchase_requests', (string) $pr_id);
@@ -1248,137 +971,11 @@ if ($action === 'delete_pr') {
     tnc_action_redirect( app_path('pages/purchase/purchase-request-list.php') . '?deleted=1');
 }
 
-if ($action === 'save_standalone_hire_contract' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    tnc_action_redirect(app_path('pages/purchase/purchase-order-hire-contract-create.php') . '?error=use_work_order');
-}
-
-/** ออก PO สัญญาจ้างโดยตรง (ไม่ผ่าน PR) — สร้าง HC + PO สัญญา */
-if ($action === 'create_hire_contract_po' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    tnc_require_can('po.create', 'ไม่มีสิทธิ์สร้าง PO');
-    require_once dirname(__DIR__) . '/includes/hire_form_rows.php';
-    require_once dirname(__DIR__) . '/includes/contractors.php';
-
-    $formUrl = app_path('pages/purchase/purchase-order-hire-contract-create.php');
-    $created_by = (int) ($_SESSION['user_id'] ?? 0);
-    $po_number = Purchase::generateWorkOrderNumber();
-
-    $resolvedContractor = tnc_contractor_resolve_from_post($_POST);
-    if ($resolvedContractor['row'] === null) {
-        tnc_action_redirect($formUrl . '?error=contractor_required');
-    }
-    $contractorName = $resolvedContractor['name'];
-    $contractorId = $resolvedContractor['id'];
-
-    $siteId = (int) ($_POST['site_id'] ?? 0);
-    $siteName = '';
-    if ($siteId > 0) {
-        $siteRow = Db::row('sites', (string) $siteId);
-        if (is_array($siteRow)) {
-            $siteName = trim((string) ($siteRow['name'] ?? ''));
-        }
-    }
-    if ($siteId <= 0 || $siteName === '') {
-        tnc_action_redirect($formUrl . '?error=site_required');
-    }
-
-    $workConditions = mb_substr(trim((string) ($_POST['work_conditions'] ?? ($_POST['details'] ?? ($_POST['title'] ?? '')))), 0, 2000);
-    $installmentTotal = Purchase::parseHireInstallmentTotalPost($_POST['installment_total'] ?? 1);
-    if ($workConditions === '') {
-        tnc_action_redirect($formUrl . '?error=scope_required');
-    }
-
-    $hireLines = tnc_hire_lines_from_post($_POST);
-    $hireSubtotal = tnc_hire_subtotal_from_lines($hireLines);
-    if ($hireSubtotal <= 0 || count($hireLines) === 0) {
-        tnc_action_redirect($formUrl . '?error=invalid_hire_rows');
-    }
-
-    $vat_en = !empty($_POST['vat_enabled']) ? 1 : 0;
-    $vat_amt = $vat_en ? round($hireSubtotal * 0.07, 2) : 0.0;
-    $gross = round($hireSubtotal + $vat_amt, 2);
-    $payable = $gross;
-    $costCategoryId = (int) ($_POST['cost_category_id'] ?? 0);
-    $costCategoryName = trim((string) ($_POST['cost_category_name'] ?? ''));
-
-    $contractId = Db::nextNumericId('hire_contracts', 'id');
-    $now = date('Y-m-d H:i:s');
-    Db::setRow('hire_contracts', (string) $contractId, [
-        'id' => $contractId,
-        'pr_id' => 0,
-        'pr_number' => $po_number,
-        'contractor_name' => $contractorName,
-        'contractor_id' => $contractorId,
-        'title' => $workConditions,
-        'contract_amount' => round($payable, 2),
-        'installment_total' => $installmentTotal,
-        'paid_installments' => 0,
-        'paid_amount' => 0,
-        'remaining_amount' => round($payable, 2),
-        'created_at' => $now,
-        'updated_at' => $now,
-    ]);
-
-    $po_id = Db::nextNumericId('purchase_orders', 'id');
-    Db::setRow('purchase_orders', (string) $po_id, [
-        'id' => $po_id,
-        'po_number' => $po_number,
-        'pr_id' => 0,
-        'hire_contract_id' => $contractId,
-        'supplier_id' => 0,
-        'created_at' => date('Y-m-d'),
-        'issue_date' => date('Y-m-d'),
-        'total_amount' => $gross,
-        'status' => 'ordered',
-        'payment_status' => 'unpaid',
-        'billing_status' => 'pending',
-        'created_by' => $created_by,
-        'vat_enabled' => $vat_en,
-        'subtotal_amount' => $hireSubtotal,
-        'vat_amount' => $vat_amt,
-        'order_type' => 'hire',
-        'hire_po_kind' => 'contract',
-        'installment_no' => 0,
-        'installment_total' => $installmentTotal,
-        'contractor_name' => $contractorName,
-        'contractor_id' => $contractorId,
-        'reference_pr_number' => '',
-        'gross_amount' => $gross,
-        'payable_amount' => $payable,
-        'retention_type' => 'none',
-        'retention_amount' => 0,
-        'withholding_type' => 'none',
-        'withholding_amount' => 0,
-        'site_id' => $siteId,
-        'site_name' => $siteName,
-        'cost_category_id' => $costCategoryId,
-        'cost_category_name' => $costCategoryName,
-        'po_note' => $workConditions,
-    ]);
-
-    tnc_hire_save_po_items($po_id, $hireLines);
-    if (method_exists(Purchase::class, 'seedPoPayments')) {
-        Purchase::seedPoPayments($po_id, $payable, null);
-    }
-    Db::mergeRow('hire_contracts', (string) $contractId, [
-        'contract_po_id' => $po_id,
-        'updated_at' => date('Y-m-d H:i:s'),
-    ]);
-
-    tnc_audit_log('create', 'hire_contract', (string) $contractId, $po_number . ' — ' . $contractorName, [
-        'source' => 'action-handler',
-        'action' => 'create_hire_contract_po',
-        'meta' => ['contract_po_id' => $po_id],
-    ]);
-    tnc_audit_purchase_order_created($po_id, 'create_hire_contract_po');
-    renderPoCreatedPopupAndRedirect((string) $po_number, 'wo');
-}
-
 // --- PO from PR ---
 if ($action === 'create_po_from_pr') {
     tnc_require_can('po.create', 'ไม่มีสิทธิ์สร้าง PO');
     $pr_id = (int) ($_POST['pr_id'] ?? 0);
     $supplier_id = (int) ($_POST['supplier_id'] ?? 0);
-    $hire_contract_id = (int) ($_POST['hire_contract_id'] ?? 0);
     $po_number = Purchase::generatePONumber();
     $created_by = (int) $_SESSION['user_id'];
 
@@ -1392,223 +989,15 @@ if ($action === 'create_po_from_pr') {
         tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=' . $err);
     }
 
-    $reqType = trim((string) ($pr_row['request_type'] ?? 'purchase'));
-    $isHirePr = ($reqType === 'hire');
-
-    if (!$isHirePr) {
-        $dup = Db::findFirst('purchase_orders', static function (array $r) use ($pr_id): bool {
-            if ($pr_id <= 0 || !isset($r['pr_id']) || (int) $r['pr_id'] !== $pr_id) {
-                return false;
-            }
-            // ข้าม PO ที่ถูกยกเลิกแล้ว เพื่อให้ออก PO ใหม่จาก PR เดิมได้
-            return strtolower(trim((string) ($r['status'] ?? ''))) !== 'cancelled';
-        });
-        if ($dup !== null) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) ($dup['id'] ?? 0));
+    $dup = Db::findFirst('purchase_orders', static function (array $r) use ($pr_id): bool {
+        if ($pr_id <= 0 || !isset($r['pr_id']) || (int) $r['pr_id'] !== $pr_id) {
+            return false;
         }
-    }
-
-    if ($isHirePr) {
-        // กันพลาด: สร้างสัญญาจ้างอัตโนมัติถ้ายังไม่มี (เผื่อ PR อนุมัติก่อนมีระบบ auto-create)
-        if (method_exists(Purchase::class, 'createHireContractIfNeededForPr')) {
-            Purchase::createHireContractIfNeededForPr($pr_id);
-        }
-        $hcId = $hire_contract_id;
-        if ($hcId <= 0) {
-            $foundHc = Db::findFirst('hire_contracts', static function (array $r) use ($pr_id): bool {
-                return isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
-            });
-            $hcId = $foundHc !== null ? (int) ($foundHc['id'] ?? 0) : 0;
-        }
-        if ($hcId <= 0) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&error=contract');
-        }
-        $hc = Db::row('hire_contracts', (string) $hcId);
-        if ($hc === null || (int) ($hc['pr_id'] ?? 0) !== $pr_id) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&error=contract');
-        }
-
-        $hirePoKind = strtolower(trim((string) ($_POST['hire_po_kind'] ?? 'payment')));
-        if (!in_array($hirePoKind, ['contract', 'payment', 'advance'], true)) {
-            $hirePoKind = 'payment';
-        }
-        if ($hirePoKind === 'contract') {
-            $po_number = Purchase::generateWorkOrderNumber();
-        }
-        $poFromPrUrl = app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id;
-
-        if ($hirePoKind === 'contract') {
-            if (Purchase::hasHireContractPo($pr_id, $hcId)) {
-                tnc_action_redirect($poFromPrUrl . '&mode=payment&error=contract_po_exists');
-            }
-        } else {
-            if (!Purchase::hasHireContractPo($pr_id, $hcId)) {
-                tnc_action_redirect($poFromPrUrl . '&mode=contract&error=contract_po_required');
-            }
-        }
-
-        $installmentNo = (int) ($_POST['installment_no'] ?? 0);
-        if ($hirePoKind === 'contract') {
-            $installmentNo = 0;
-        } elseif ($hirePoKind === 'advance') {
-            $installmentNo = 0;
-        } else {
-            $hcInstallmentTotal = (int) ($hc['installment_total'] ?? 1);
-            if (Purchase::hireInstallmentsUnspecified($hcInstallmentTotal)) {
-                if ($installmentNo < 1) {
-                    $installmentNo = Purchase::hireNextPaymentNo($hcId, $pr_id);
-                }
-            } elseif ($installmentNo < 1) {
-                tnc_action_redirect($poFromPrUrl . '&mode=payment&error=invalid_installment');
-            }
-        }
-        if ($hirePoKind === 'payment') {
-            foreach (Db::tableRows('purchase_orders') as $poEx) {
-                if ((int) ($poEx['pr_id'] ?? 0) !== $pr_id) {
-                    continue;
-                }
-                if (trim((string) ($poEx['order_type'] ?? 'purchase')) !== 'hire') {
-                    continue;
-                }
-                if (Purchase::isHireContractPo($poEx)) {
-                    continue;
-                }
-                if (Purchase::isHireAdvancePo($poEx)) {
-                    continue;
-                }
-                // ข้าม PO ที่ถูกยกเลิก เพื่อให้ออกงวดเดิมซ้ำได้
-                if (strtolower(trim((string) ($poEx['status'] ?? ''))) === 'cancelled') {
-                    continue;
-                }
-                if ((int) ($poEx['installment_no'] ?? 0) === $installmentNo) {
-                    tnc_action_redirect($poFromPrUrl . '&mode=payment&error=duplicate_installment');
-                }
-            }
-        }
-
-        $hireLines = $hirePoKind === 'contract'
-            ? tnc_hire_lines_from_post($_POST)
-            : tnc_hire_lines_from_item_post($_POST);
-        if (count($hireLines) === 0 && in_array($hirePoKind, ['payment', 'advance'], true)) {
-            tnc_action_redirect($poFromPrUrl . '&mode=' . $hirePoKind . '&error=invalid_hire_rows');
-        }
-        if (count($hireLines) === 0) {
-            $hireLines = tnc_hire_lines_from_post($_POST);
-        }
-        $hireSubtotal = tnc_hire_subtotal_from_lines($hireLines);
-        if ($hireSubtotal <= 0 || count($hireLines) === 0) {
-            tnc_action_redirect($poFromPrUrl . '&mode=' . $hirePoKind . '&error=invalid_hire_rows');
-        }
-
-        $vat_en = !empty($_POST['vat_enabled']) ? 1 : 0;
-        $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
-        if (!in_array($vat_mode_post, ['exclusive', 'inclusive'], true)) {
-            $vat_mode_post = 'exclusive';
-        }
-        $hireTotals = tnc_po_compute_totals($hireSubtotal, $vat_en, $vat_mode_post, 'none');
-        $vat_amt = $hireTotals['vat'];
-        $gross = $hireTotals['gross'];
-        $hireSubtotal = $hireTotals['subtotal'];
-        $retRaw = trim((string) ($_POST['retention_value'] ?? '0'));
-        $retRaw = str_replace('%', '', $retRaw);
-        $retention = max(0.0, round((float) $retRaw, 2));
-        $payable = max(0.0, round($gross - $retention, 2));
-        if ($payable <= 0) {
-            tnc_action_redirect($poFromPrUrl . '&mode=' . $hirePoKind . '&error=invalid_installment_amount');
-        }
-
-        $po_note = mb_substr(trim((string) ($_POST['po_note'] ?? '')), 0, 500);
-        if ($po_note === '' && ($hirePoKind === 'payment' || $hirePoKind === 'advance')) {
-            $contractorIdNote = (int) ($hc['contractor_id'] ?? 0);
-            if ($contractorIdNote <= 0) {
-                $contractorIdNote = (int) ($pr_row['contractor_id'] ?? 0);
-            }
-            if ($contractorIdNote > 0) {
-                $po_note = mb_substr(tnc_contractor_payment_note_text($contractorIdNote), 0, 500);
-            }
-        }
-
-        if ($hirePoKind === 'payment') {
-            $hcCheck = Purchase::hireContractCanIssuePo($hcId, $payable, !empty($_POST['confirm_over_contract']));
-            if (!$hcCheck['ok']) {
-                tnc_action_redirect($poFromPrUrl . '&mode=payment&error=' . $hcCheck['message']);
-            }
-        }
-
-        $installmentTotal = (int) ($hc['installment_total'] ?? 1);
-        if ($installmentTotal < 0) {
-            $installmentTotal = 0;
-        }
-        $contractorName = trim((string) ($hc['contractor_name'] ?? ($pr_row['contractor_name'] ?? '')));
-        $contractorId = (int) ($pr_row['contractor_id'] ?? ($hc['contractor_id'] ?? 0));
-        $hirePrSiteId = (int) ($pr_row['site_id'] ?? 0);
-        $hirePrSiteName = trim((string) ($pr_row['site_name'] ?? ''));
-        if ($hirePrSiteName === '' && $hirePrSiteId > 0) {
-            $hsr = Db::row('sites', (string) $hirePrSiteId);
-            if (is_array($hsr)) {
-                $hirePrSiteName = trim((string) ($hsr['name'] ?? ''));
-            }
-        }
-
-        $po_id = Db::nextNumericId('purchase_orders', 'id');
-        $hirePoRow = array_merge([
-            'id' => $po_id,
-            'po_number' => $po_number,
-            'pr_id' => $pr_id,
-            'hire_contract_id' => $hcId,
-            'supplier_id' => $supplier_id,
-            'created_at' => date('Y-m-d'),
-            'issue_date' => date('Y-m-d'),
-            'total_amount' => $gross,
-            'status' => 'ordered',
-            'payment_status' => 'unpaid',
-            'billing_status' => 'pending',
-            'created_by' => $created_by,
-            'vat_enabled' => $vat_en,
-            'vat_mode' => $hireTotals['vat_mode'],
-            'subtotal_amount' => $hireSubtotal,
-            'vat_amount' => $vat_amt,
-            'order_type' => 'hire',
-            'hire_po_kind' => $hirePoKind,
-            'installment_no' => $installmentNo,
-            'installment_total' => $installmentTotal,
-            'contractor_name' => $contractorName,
-            'contractor_id' => $contractorId,
-            'reference_pr_number' => '',
-            'gross_amount' => $gross,
-            'payable_amount' => $payable,
-            'retention_type' => $retention > 0 ? 'fixed' : 'none',
-            'retention_amount' => $retention,
-            'withholding_type' => 'none',
-            'withholding_amount' => 0,
-            'site_id' => $hirePrSiteId,
-            'site_name' => $hirePrSiteName,
-            'cost_category_id' => (int) ($pr_row['cost_category_id'] ?? 0),
-            'cost_category_name' => trim((string) ($pr_row['cost_category_name'] ?? '')),
-            'po_note' => $po_note,
-        ], $hirePoKind === 'payment' || $hirePoKind === 'advance' ? Purchase::referenceContractPoPayload($hcId, $pr_id) : []);
-        Db::setRow('purchase_orders', (string) $po_id, $hirePoRow);
-
-        tnc_hire_save_po_items($po_id, $hireLines);
-        if (method_exists(Purchase::class, 'seedPoPayments')) {
-            Purchase::seedPoPayments($po_id, $payable, $hirePoKind === 'payment' || $hirePoKind === 'advance' ? $hcId : null);
-        }
-        if ($hirePoKind === 'contract') {
-            Db::mergeRow('hire_contracts', (string) $hcId, [
-                'contract_po_id' => $po_id,
-                'pr_number' => $po_number,
-                'updated_at' => date('Y-m-d H:i:s'),
-            ]);
-        }
-        tnc_audit_purchase_order_created($po_id, 'create_po_from_pr_hire_' . $hirePoKind);
-        renderPoCreatedPopupAndRedirect((string) $po_number, $hirePoKind === 'contract' ? 'wo' : null);
-    }
-
-    if ($hire_contract_id > 0) {
-        $hc = Db::row('hire_contracts', (string) $hire_contract_id);
-        if ($hc === null || (int) ($hc['pr_id'] ?? 0) !== $pr_id) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&error=contract');
-        }
+        // ข้าม PO ที่ถูกยกเลิกแล้ว เพื่อให้ออก PO ใหม่จาก PR เดิมได้
+        return strtolower(trim((string) ($r['status'] ?? ''))) !== 'cancelled';
+    });
+    if ($dup !== null) {
+        tnc_action_redirect( app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) ($dup['id'] ?? 0));
     }
 
     $poCreateFromPrUrl = app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id;
@@ -1754,7 +1143,6 @@ if ($action === 'create_po_from_pr') {
         'id' => $po_id,
         'po_number' => $po_number,
         'pr_id' => $pr_id,
-        'hire_contract_id' => $hire_contract_id,
         'supplier_id' => $supplier_id,
         'created_at' => date('Y-m-d'),
         'issue_date' => $issue_date,
@@ -1797,7 +1185,7 @@ if ($action === 'create_po_from_pr') {
         ]);
     }
     if (method_exists(Purchase::class, 'seedPoPayments')) {
-        Purchase::seedPoPayments($po_id, $total_amount, $hire_contract_id > 0 ? $hire_contract_id : null);
+        Purchase::seedPoPayments($po_id, $total_amount, null);
     }
 
     tnc_audit_purchase_order_created($po_id, 'create_po_from_pr_purchase');
@@ -1808,117 +1196,41 @@ if ($action === 'create_po_from_pr') {
 if ($action === 'create_po_direct') {
     tnc_require_can('po.create', 'ไม่มีสิทธิ์สร้าง PO');
     $supplier_id = (int) ($_POST['supplier_id'] ?? 0);
-    $hire_contract_id = (int) ($_POST['hire_contract_id'] ?? 0);
     $pr_id_link = (int) ($_POST['pr_id'] ?? 0);
     $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
     $created_by = (int) $_SESSION['user_id'];
     $po_number = Purchase::generatePONumber();
     $poCreateDirectUrl = app_path('pages/purchase/purchase-order-create-direct.php');
-    $hireFallback = $hire_contract_id > 0
-        ? app_path('pages/purchase/purchase-order-from-hire-contract.php') . '?hire_contract_id=' . $hire_contract_id
-        : ($pr_id_link > 0
-            ? app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id_link
-            : $poCreateDirectUrl);
-    $hireFbSep = str_contains($hireFallback, '?') ? '&' : '?';
-    $hirePoKindFb = strtolower(trim((string) ($_POST['hire_po_kind'] ?? 'payment')));
-    if ($hire_contract_id > 0 && $hirePoKindFb === 'advance') {
-        $hireFallback .= $hireFbSep . 'mode=advance';
-        $hireFbSep = '&';
-    }
+    $formFallbackUrl = $pr_id_link > 0
+        ? app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id_link
+        : $poCreateDirectUrl;
+    $formFbSep = str_contains($formFallbackUrl, '?') ? '&' : '?';
 
-    if ($hire_contract_id <= 0 && $supplier_id <= 0) {
+    if ($supplier_id <= 0) {
         $supErrUrl = $pr_id_link > 0
             ? app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id_link . '&error=supplier'
             : $poCreateDirectUrl . '?error=supplier';
         tnc_action_redirect($supErrUrl);
     }
 
-    $hc = null;
-    if ($hire_contract_id > 0) {
-        $hc = Db::row('hire_contracts', (string) $hire_contract_id);
-        if ($hc === null) {
-            tnc_action_redirect($hireFallback . $hireFbSep . 'error=contract');
-        }
-        if (!Purchase::hasHireContractPo(0, $hire_contract_id)) {
-            tnc_action_redirect($hireFallback . $hireFbSep . 'error=contract_po_required');
-        }
-        if (trim((string) ($hc['contractor_name'] ?? '')) === '' && (int) ($hc['contractor_id'] ?? 0) <= 0) {
-            tnc_action_redirect($hireFallback . $hireFbSep . 'error=po_supplier');
-        }
-        $hirePoKindDirect = strtolower(trim((string) ($_POST['hire_po_kind'] ?? 'payment')));
-        if (!in_array($hirePoKindDirect, ['payment', 'advance'], true)) {
-            $hirePoKindDirect = 'payment';
-        }
-        $isHireAdvanceDirect = $hirePoKindDirect === 'advance';
-        $installmentNo = (int) ($_POST['installment_no'] ?? 0);
-        $hcInstallmentTotal = (int) ($hc['installment_total'] ?? 1);
-        if ($isHireAdvanceDirect) {
-            $installmentNo = 0;
-        } elseif (Purchase::hireInstallmentsUnspecified($hcInstallmentTotal)) {
-            if ($installmentNo < 1) {
-                $installmentNo = Purchase::hireNextPaymentNo($hire_contract_id);
-            }
-        } elseif ($installmentNo < 1) {
-            tnc_action_redirect($hireFallback . $hireFbSep . 'error=invalid_installment');
-        }
-        if (!$isHireAdvanceDirect) {
-            foreach (Db::tableRows('purchase_orders') as $poEx) {
-                if ((int) ($poEx['hire_contract_id'] ?? 0) !== $hire_contract_id) {
-                    continue;
-                }
-                if (trim((string) ($poEx['order_type'] ?? 'purchase')) !== 'hire') {
-                    continue;
-                }
-                if (Purchase::isHireContractPo($poEx)) {
-                    continue;
-                }
-                if (Purchase::isHireAdvancePo($poEx)) {
-                    continue;
-                }
-                if (strtolower(trim((string) ($poEx['status'] ?? ''))) === 'cancelled') {
-                    continue;
-                }
-                if ((int) ($poEx['installment_no'] ?? 0) === $installmentNo) {
-                    tnc_action_redirect($hireFallback . $hireFbSep . 'error=duplicate_installment');
-                }
-            }
-        }
-    }
 
-    $hirePoKindForLines = strtolower(trim((string) ($_POST['hire_po_kind'] ?? '')));
-    $preferPoFlatLines = in_array($hirePoKindForLines, ['payment', 'advance'], true);
-
-    $hireLinesDirect = [];
-    if (!$preferPoFlatLines) {
-        $hireLinesDirect = tnc_hire_lines_from_item_post($_POST);
-    }
-    if (count($hireLinesDirect) > 0) {
-        $subtotal = tnc_hire_subtotal_from_lines($hireLinesDirect);
-    } else {
-        $subtotal = 0.0;
-        foreach ($_POST['item_description'] ?? [] as $key => $desc) {
-            if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
-                continue;
-            }
-            if (trim((string) $desc) === '') {
-                continue;
-            }
-            $qty = (float) $_POST['item_qty'][$key];
-            $price = (float) $_POST['item_price'][$key];
-            $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
-            $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
-            $subtotal += $parts['line_total'];
+    $subtotal = 0.0;
+    foreach ($_POST['item_description'] ?? [] as $key => $desc) {
+        if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
+            continue;
         }
-        if ($subtotal <= 0 && $hire_contract_id > 0 && !$preferPoFlatLines) {
-            $hireLinesDirect = tnc_hire_lines_from_post($_POST);
-            if (count($hireLinesDirect) > 0) {
-                $subtotal = tnc_hire_subtotal_from_lines($hireLinesDirect);
-            }
+        if (trim((string) $desc) === '') {
+            continue;
         }
+        $qty = (float) $_POST['item_qty'][$key];
+        $price = (float) $_POST['item_price'][$key];
+        $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $subtotal += $parts['line_total'];
     }
     $lineSum = round($subtotal, 2);
     if ($lineSum <= 0) {
-        tnc_action_redirect($hireFallback . $hireFbSep . 'error=no_items');
+        tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=no_items');
     }
 
     $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
@@ -1944,8 +1256,7 @@ if ($action === 'create_po_direct') {
         $wht_post = 'none';
     }
 
-    $isHireFlow = $hire_contract_id > 0 && $hc !== null;
-    $totals = tnc_po_compute_totals($lineSum, $vat_enabled, $vat_mode_post, $isHireFlow ? 'none' : $wht_post);
+    $totals = tnc_po_compute_totals($lineSum, $vat_enabled, $vat_mode_post, $wht_post);
     $vat_amt = $totals['vat'];
     $gross = $totals['gross'];
     $subtotal_db = $totals['subtotal'];
@@ -1958,7 +1269,7 @@ if ($action === 'create_po_direct') {
         $issue_date = date('Y-m-d');
     }
 
-    $isStandalonePurchasePo = !$isHireFlow && $pr_id_link <= 0 && $hire_contract_id <= 0;
+    $isStandalonePurchasePo = $pr_id_link <= 0;
     if ($isStandalonePurchasePo) {
         $paymentMethodPre = strtolower(trim((string) ($_POST['payment_method'] ?? 'transfer')));
         if (!in_array($paymentMethodPre, ['cash', 'transfer'], true)) {
@@ -2035,109 +1346,16 @@ if ($action === 'create_po_direct') {
     if ($hasQuotation) {
         $quotation_number = mb_substr(trim((string) ($_POST['quotation_number'] ?? '')), 0, 120);
         if ($quotation_number === '' && !$quotFilePending) {
-            tnc_action_redirect($hireFallback . $hireFbSep . 'error=quotation_required');
+            tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=quotation_required');
         }
         if ($quotFilePending && (int) ($_FILES['quotation_file']['error'] ?? 0) !== UPLOAD_ERR_OK) {
-            tnc_action_redirect($hireFallback . $hireFbSep . 'error=quotation_upload_failed');
+            tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=quotation_upload_failed');
         }
     }
     $quotation_note = mb_substr(trim((string) ($_POST['quotation_note'] ?? '')), 0, 500);
     $po_note_direct = mb_substr(trim((string) ($_POST['po_note'] ?? '')), 0, 500);
-    if ($po_note_direct === '' && $hire_contract_id > 0 && is_array($hc)) {
-        $hirePoKindNote = strtolower(trim((string) ($_POST['hire_po_kind'] ?? 'payment')));
-        if (in_array($hirePoKindNote, ['payment', 'advance'], true)) {
-            $contractorIdNote = (int) ($hc['contractor_id'] ?? 0);
-            if ($contractorIdNote > 0) {
-                $po_note_direct = mb_substr(tnc_contractor_payment_note_text($contractorIdNote), 0, 500);
-            }
-        }
-    }
-
-    $retention = 0.0;
-    $payable = $gross;
     $seedAmount = $totals['net'];
-    $hireExtra = [];
 
-    if ($isHireFlow) {
-        $retRaw = trim((string) ($_POST['retention_value'] ?? '0'));
-        $retRaw = str_replace('%', '', $retRaw);
-        $retention = max(0.0, round((float) $retRaw, 2));
-        $payable = max(0.0, round($gross - $retention, 2));
-        if ($payable <= 0) {
-            tnc_action_redirect($hireFallback . $hireFbSep . 'error=invalid_installment_amount');
-        }
-        $hirePoKindDirect = strtolower(trim((string) ($_POST['hire_po_kind'] ?? 'payment')));
-        if (!in_array($hirePoKindDirect, ['payment', 'advance'], true)) {
-            $hirePoKindDirect = 'payment';
-        }
-        if ($hirePoKindDirect !== 'advance') {
-            $hcCheck = Purchase::hireContractCanIssuePo($hire_contract_id, $payable, !empty($_POST['confirm_over_contract']));
-            if (!$hcCheck['ok']) {
-                tnc_action_redirect($hireFallback . $hireFbSep . 'error=' . $hcCheck['message']);
-            }
-        }
-        $seedAmount = $payable;
-        if (!isset($installmentNo)) {
-            $installmentNo = (int) ($_POST['installment_no'] ?? 0);
-        }
-        $installmentTotal = (int) ($hc['installment_total'] ?? 1);
-        if ($installmentTotal < 0) {
-            $installmentTotal = 0;
-        }
-        if ($hirePoKindDirect === 'advance') {
-            $installmentNo = 0;
-        }
-        $contractorName = trim((string) ($hc['contractor_name'] ?? ''));
-        $contractorId = (int) ($hc['contractor_id'] ?? 0);
-        $hcPrId = (int) ($hc['pr_id'] ?? 0);
-        $hireExtra = array_merge([
-            'order_type' => 'hire',
-            'hire_po_kind' => $hirePoKindDirect,
-            'installment_no' => $installmentNo,
-            'installment_total' => $installmentTotal,
-            'contractor_name' => $contractorName,
-            'contractor_id' => $contractorId,
-            'reference_pr_number' => '',
-            'gross_amount' => $gross,
-            'payable_amount' => $payable,
-            'retention_type' => $retention > 0 ? 'fixed' : 'none',
-            'retention_amount' => $retention,
-            'withholding_type' => 'none',
-            'withholding_amount' => 0,
-        ], Purchase::referenceContractPoPayload($hire_contract_id, $hcPrId));
-
-        $postedSiteId = (int) ($_POST['site_id'] ?? 0);
-        if ($postedSiteId > 0) {
-            $siteRowHire = Db::row('sites', (string) $postedSiteId);
-            if (is_array($siteRowHire)) {
-                $hireExtra['site_id'] = $postedSiteId;
-                $siteNameHire = trim((string) ($siteRowHire['name'] ?? ''));
-                if ($siteNameHire !== '') {
-                    $hireExtra['site_name'] = $siteNameHire;
-                }
-            }
-        }
-        $postedCatId = (int) ($_POST['cost_category_id'] ?? 0);
-        $siteIdForCat = (int) ($hireExtra['site_id'] ?? $postedSiteId ?? 0);
-        require_once ROOT_PATH . '/includes/site_cost_categories.php';
-        $catsForSite = tnc_site_categories_for_site($siteIdForCat);
-        if ($catsForSite !== []) {
-            if ($postedCatId <= 0 || !tnc_site_category_is_valid_selection_for_site($postedCatId, $siteIdForCat)) {
-                tnc_action_redirect($hireFallback . $hireFbSep . 'error=need_cost_category');
-            }
-            $catNameHire = tnc_site_category_display_name($postedCatId);
-            $hireExtra['cost_category_id'] = $postedCatId;
-            if ($catNameHire !== '') {
-                $hireExtra['cost_category_name'] = $catNameHire;
-            }
-        } elseif ($postedCatId > 0 && tnc_site_category_is_valid_selection_for_site($postedCatId, $siteIdForCat)) {
-            $catNameHire = tnc_site_category_display_name($postedCatId);
-            $hireExtra['cost_category_id'] = $postedCatId;
-            if ($catNameHire !== '') {
-                $hireExtra['cost_category_name'] = $catNameHire;
-            }
-        }
-    }
 
     $po_id = Db::nextNumericId('purchase_orders', 'id');
 
@@ -2149,17 +1367,17 @@ if ($action === 'create_po_direct') {
         $f = $_FILES['quotation_file'];
         $tmp = (string) ($f['tmp_name'] ?? '');
         if ($tmp === '' || !is_uploaded_file($tmp)) {
-            tnc_action_redirect($hireFallback . $hireFbSep . 'error=quotation_upload_failed');
+            tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=quotation_upload_failed');
         }
         $originalName = trim((string) ($f['name'] ?? 'quotation'));
         $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
         $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
         if (!in_array($ext, $allowedExt, true)) {
-            tnc_action_redirect($hireFallback . $hireFbSep . 'error=quotation_upload_type');
+            tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=quotation_upload_type');
         }
         $dirAbs = ROOT_PATH . '/uploads/po-quotations/' . $po_id;
         if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
-            tnc_action_redirect($hireFallback . $hireFbSep . 'error=quotation_upload_failed');
+            tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=quotation_upload_failed');
         }
         $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
         $safeBase = trim((string) $safeBase, '._-');
@@ -2169,7 +1387,7 @@ if ($action === 'create_po_direct') {
         $storedName = $safeBase . '_' . date('Ymd_His') . '.' . $ext;
         $destAbs = $dirAbs . '/' . $storedName;
         if (!@move_uploaded_file($tmp, $destAbs)) {
-            tnc_action_redirect($hireFallback . $hireFbSep . 'error=quotation_upload_failed');
+            tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=quotation_upload_failed');
         }
         $quoteAttachmentPath = 'uploads/po-quotations/' . $po_id . '/' . $storedName;
         $quoteAttachmentName = $originalName;
@@ -2191,9 +1409,8 @@ if ($action === 'create_po_direct') {
         'id' => $po_id,
         'po_number' => $po_number,
         'pr_id' => $pr_id_link > 0 ? $pr_id_link : 0,
-        'hire_contract_id' => $hire_contract_id,
-        'supplier_id' => $isHireFlow ? 0 : $supplier_id,
-        'order_type' => $isHireFlow ? 'hire' : 'purchase',
+        'supplier_id' => $supplier_id,
+        'order_type' => 'purchase',
         'created_at' => date('Y-m-d'),
         'issue_date' => $issue_date,
         'quotation_number' => $quotation_number,
@@ -2203,7 +1420,7 @@ if ($action === 'create_po_direct') {
         'quotation_attachment_name' => $quoteAttachmentName,
         'quotation_attachment_mime' => $quoteAttachmentMime,
         'quotation_attachment_size' => $quoteAttachmentSize,
-        'total_amount' => $isHireFlow ? $gross : $totals['net'],
+        'total_amount' => $totals['net'],
         'status' => 'ordered',
         'payment_status' => 'unpaid',
         'billing_status' => 'pending',
@@ -2213,20 +1430,16 @@ if ($action === 'create_po_direct') {
         'subtotal_amount' => $subtotal_db,
         'vat_amount' => $vat_amt,
         'gross_amount' => $gross,
-        'withholding_type' => $isHireFlow ? 'none' : $totals['withholding_type'],
-        'withholding_amount' => $isHireFlow ? 0.0 : $totals['wht'],
-    ], $hireExtra, $isStandalonePurchasePo ? [
+        'withholding_type' => $totals['withholding_type'],
+        'withholding_amount' => $totals['wht'],
+    ], $isStandalonePurchasePo ? [
         'site_id' => $poSiteId,
         'site_name' => $poSiteName,
         'cost_category_id' => $poCostCategoryId,
         'cost_category_name' => $poCostCategoryName,
     ] : []));
 
-    $useHireLines = $hire_contract_id > 0 && count($hireLinesDirect) > 0 && !$preferPoFlatLines;
-    if ($useHireLines) {
-        tnc_hire_save_po_items($po_id, $hireLinesDirect);
-    } else {
-        foreach ($_POST['item_description'] ?? [] as $key => $desc) {
+    foreach ($_POST['item_description'] ?? [] as $key => $desc) {
             if (!isset($_POST['item_qty'][$key], $_POST['item_price'][$key])) {
                 continue;
             }
@@ -2255,9 +1468,8 @@ if ($action === 'create_po_direct') {
                 'discount_amount' => $parts['discount_amount'],
             ]);
         }
-    }
     if (method_exists(Purchase::class, 'seedPoPayments')) {
-        Purchase::seedPoPayments($po_id, $seedAmount, $hire_contract_id > 0 ? $hire_contract_id : null);
+        Purchase::seedPoPayments($po_id, $seedAmount, null);
     }
     $standalonePoExtrasSaved = false;
     if ($isStandalonePurchasePo) {
@@ -2313,111 +1525,6 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
     }
     if (Purchase::poPaidLocksMutation($existing)) {
         tnc_action_redirect($listUrl . '?error=po_paid');
-    }
-    $isHirePo = trim((string) ($existing['order_type'] ?? 'purchase')) === 'hire';
-    if ($isHirePo) {
-        $hireLines = tnc_hire_lines_from_post($_POST);
-        $hireSubtotal = tnc_hire_subtotal_from_lines($hireLines);
-        if ($hireSubtotal <= 0 || count($hireLines) === 0) {
-            tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=invalid_hire_rows');
-        }
-
-        $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
-        $vat_amt = $vat_enabled ? round($hireSubtotal * 0.07, 2) : 0.0;
-        $gross = round($hireSubtotal + $vat_amt, 2);
-        $retRaw = trim((string) ($_POST['retention_value'] ?? '0'));
-        $retRaw = str_replace('%', '', $retRaw);
-        $retention = max(0.0, round((float) $retRaw, 2));
-        $payable = max(0.0, round($gross - $retention, 2));
-        if ($payable <= 0) {
-            tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=invalid_installment_amount');
-        }
-
-        $hcId = (int) ($existing['hire_contract_id'] ?? 0);
-        $isContractWo = Purchase::isHireContractPo($existing);
-        if ($isContractWo && $hcId > 0) {
-            $committed = Purchase::hireContractCommittedPayable($hcId);
-            if ($payable + 0.0005 < $committed) {
-                tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=contract_below_paid');
-            }
-        } elseif ($hcId > 0 && !Purchase::isHireAdvancePo($existing)) {
-            $hcCheck = Purchase::hireContractCanUpdatePoPayable($hcId, $po_id, $payable, !empty($_POST['confirm_over_contract']));
-            if (!$hcCheck['ok']) {
-                tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=' . $hcCheck['message']);
-            }
-        }
-
-        $issue_date = trim((string) ($_POST['issue_date'] ?? ''));
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $issue_date)) {
-            $issue_date = (string) ($existing['issue_date'] ?? date('Y-m-d'));
-        }
-        $supplier_id = (int) ($_POST['supplier_id'] ?? 0);
-        $po_note = mb_substr(trim((string) ($_POST['po_note'] ?? ($existing['po_note'] ?? ''))), 0, 500);
-
-        $beforeSnap = $existing;
-        Db::setRow('purchase_orders', $pk, array_merge($existing, [
-            'issue_date' => $issue_date,
-            'supplier_id' => $supplier_id,
-            'po_note' => $po_note,
-            'total_amount' => $gross,
-            'gross_amount' => $gross,
-            'subtotal_amount' => $hireSubtotal,
-            'vat_amount' => $vat_amt,
-            'vat_enabled' => $vat_enabled,
-            'vat_mode' => 'exclusive',
-            'payable_amount' => $payable,
-            'retention_type' => $retention > 0 ? 'fixed' : 'none',
-            'retention_amount' => $retention,
-            'withholding_type' => 'none',
-            'withholding_amount' => 0,
-        ]));
-
-        tnc_po_delete_line_items($po_id);
-        tnc_hire_save_po_items($po_id, $hireLines);
-
-        foreach (Db::filter('po_payments', static fn (array $r): bool => (int) ($r['po_id'] ?? 0) === $po_id) as $payRow) {
-            $payId = (int) ($payRow['id'] ?? 0);
-            if ($payId <= 0) {
-                continue;
-            }
-            $st = strtolower(trim((string) ($payRow['status'] ?? 'unpaid')));
-            if ($st !== 'paid') {
-                $payPk = Db::pkForLogicalId('po_payments', $payId);
-                Db::mergeRow('po_payments', $payPk, ['amount' => $payable]);
-            }
-        }
-
-        foreach (Db::filter('hire_contract_payments', static fn (array $r): bool => (int) ($r['po_id'] ?? 0) === $po_id) as $hcpRow) {
-            $hcpId = (int) ($hcpRow['id'] ?? 0);
-            if ($hcpId <= 0) {
-                continue;
-            }
-            Db::mergeRow('hire_contract_payments', (string) $hcpId, ['amount' => $payable]);
-        }
-
-        if ($hcId > 0) {
-            if ($isContractWo) {
-                Purchase::syncHireContractFromContractPo($po_id);
-            } else {
-                Purchase::syncHireContractTotals($hcId);
-            }
-        }
-
-        $afterSnap = Db::row('purchase_orders', $pk);
-        $poNo = $afterSnap !== null ? trim((string) ($afterSnap['po_number'] ?? '')) : '';
-        tnc_audit_log('update', 'purchase_order', (string) $po_id, $poNo !== '' ? $poNo : ('#' . $po_id), [
-            'source' => 'action-handler',
-            'action' => 'update_po_direct_hire',
-            'before' => $beforeSnap,
-            'after' => $afterSnap,
-        ]);
-
-        $viewUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id;
-        $woListUrl = app_path('pages/purchase/work-order-list.php');
-        if ($afterSnap !== null && Purchase::isWorkOrder($afterSnap)) {
-            tnc_action_redirect($viewUrl . '&updated=1');
-        }
-        tnc_action_redirect($listUrl . '?updated=1');
     }
 
     $lineSum = 0.0;
@@ -2636,21 +1743,9 @@ if ($action === 'cancel_purchase_order' && ($_SERVER['REQUEST_METHOD'] ?? '') ==
         'before' => $beforeSnap,
         'after' => $afterSnap,
     ]);
-    if (trim((string) ($existing['order_type'] ?? 'purchase')) === 'hire') {
-        Purchase::purgeHireContractPaymentsForPo($po_id);
-        $hcIdCancel = (int) ($existing['hire_contract_id'] ?? 0);
-        if ($hcIdCancel > 0 && class_exists(Purchase::class)) {
-            Purchase::purgeStaleHireContractPayments($hcIdCancel);
-            Purchase::syncHireContractTotals($hcIdCancel);
-        }
-    }
     $returnTo = trim((string) ($_POST['return_to'] ?? ''));
     if ($returnTo === 'view') {
         tnc_action_redirect($viewUrl . '?id=' . $po_id . '&cancelled=1');
-    }
-    $woListUrl = app_path('pages/purchase/work-order-list.php');
-    if ($returnTo === 'wo_list' || Purchase::isWorkOrder($existing)) {
-        tnc_action_redirect($woListUrl . '?cancelled=1');
     }
     tnc_action_redirect($listUrl . '?cancelled=1');
 }
@@ -2795,9 +1890,6 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
     $po = Db::row('purchase_orders', (string) $po_id);
     if ($po === null) {
         tnc_action_redirect( $listUrl . '?error=invalid');
-    }
-    if (Purchase::isHireContractPo($po)) {
-        tnc_action_redirect($listUrl . '?error=contract_po_not_payable');
     }
     if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
         tnc_action_redirect($listUrl . '?error=po_cancelled');
@@ -2949,7 +2041,7 @@ if ($action === 'receive_po_bill' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POS
         }
     }
     if ($supplierName === '') {
-        $supplierName = trim((string) ($po['supplier_name'] ?? $po['contractor_name'] ?? ''));
+        $supplierName = trim((string) ($po['supplier_name'] ?? ''));
     }
 
     $poBefore = $po;

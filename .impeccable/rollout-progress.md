@@ -24,7 +24,6 @@ Updated: 2026-06-01 — phase 2 deep polish
 - `stock-adjust.php`, `stock-product-form.php` — small h5 headers (global CSS covers icon color)
 - `tools/cement-volume-calculator.php` — page head
 - `internal/audit-log.php` — list page header
-- `contractors/`, `hire-contracts/` — headers if not yet tnc-page-head
 - SweetAlert `confirmButtonColor` — batch script optional pass
 - Per-page `btn-outline-primary` on tables (leave list view btn, payslip links) — low priority
 
@@ -38,6 +37,5 @@ php scripts/tnc-polish-pages.php --dry-run
 ## Per-page deep polish (Impeccable)
 
 ```
-/impeccable polish pages/contractors/
 /impeccable polish pages/internal/audit-log.php
 ```

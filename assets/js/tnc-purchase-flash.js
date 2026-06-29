@@ -10,7 +10,7 @@
 
     var FLASH_KEYS = [
         'success', 'updated', 'deleted', 'cancelled', 'error', 'payment_saved', 'billing_saved',
-        'created', 'web_approved', 'web_rejected', 'line_notify', 'po_number', 'wo_number',
+        'created', 'web_approved', 'web_rejected', 'line_notify', 'po_number',
         'print_po_id', 'payment_slips_updated', 'payment_reverted', 'po_ignored', 'po_unignored',
         'pr_updated', 'message', 'auto_bill', 'bill_month', 'bill_id'
     ];

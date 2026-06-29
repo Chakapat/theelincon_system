@@ -6,7 +6,6 @@ use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\Purchase;
 
 require_once dirname(__DIR__) . '/purchase_print/vat_print_summary.php';
-require_once dirname(__DIR__) . '/hire_line_items.php';
 
 if (!function_exists('tnc_po_item_search_tokens')) {
     /**
@@ -75,16 +74,6 @@ if (!function_exists('tnc_po_item_search_row_unit_price')) {
      */
     function tnc_po_item_search_row_unit_price(array $item, string $orderType): float
     {
-        if ($orderType === 'hire') {
-            $parts = tnc_hire_item_material_labor($item);
-            $unitPrice = round($parts['material'] + $parts['labor'], 2);
-            if ($unitPrice <= 0) {
-                $unitPrice = (float) ($item['unit_price'] ?? 0);
-            }
-
-            return $unitPrice;
-        }
-
         return (float) ($item['unit_price'] ?? 0);
     }
 }
@@ -168,7 +157,7 @@ if (!function_exists('tnc_po_item_search')) {
             if (!is_array($po)) {
                 continue;
             }
-            if (Purchase::isWorkOrder($po)) {
+            if (trim((string) ($po['order_type'] ?? 'purchase')) !== 'purchase') {
                 continue;
             }
             $status = strtolower(trim((string) ($po['status'] ?? 'ordered')));
@@ -181,11 +170,6 @@ if (!function_exists('tnc_po_item_search')) {
                 continue;
             }
 
-            $orderType = trim((string) ($po['order_type'] ?? 'purchase'));
-            if (!in_array($orderType, ['purchase', 'hire'], true)) {
-                $orderType = 'purchase';
-            }
-
             $prIdForItems = (int) ($po['pr_id'] ?? 0);
             $prForItems = ($prIdForItems > 0 && isset($prById[$prIdForItems])) ? $prById[$prIdForItems] : null;
             $poItems = $poItemsByPoId[$poId] ?? [];
@@ -195,16 +179,11 @@ if (!function_exists('tnc_po_item_search')) {
 
             $issueYmd = tnc_po_item_search_issue_ymd($po);
             $siteDisplay = tnc_purchase_po_resolve_site_name($po, is_array($prForItems) ? $prForItems : null, $siteNameById);
-            $supplierDisplay = $orderType === 'hire'
-                ? trim((string) ($po['contractor_name'] ?? ''))
-                : trim((string) (($suppliers[(string) ($po['supplier_id'] ?? '')]['name'] ?? '')));
+            $supplierDisplay = trim((string) (($suppliers[(string) ($po['supplier_id'] ?? '')]['name'] ?? '')));
             $poNumber = trim((string) ($po['po_number'] ?? ''));
 
             foreach ($poItems as $item) {
                 if (!is_array($item)) {
-                    continue;
-                }
-                if ($orderType === 'hire' && tnc_hire_line_is_group($item)) {
                     continue;
                 }
 
@@ -216,8 +195,8 @@ if (!function_exists('tnc_po_item_search')) {
                 $itemId = (int) ($item['id'] ?? 0);
                 $qty = (float) ($item['quantity'] ?? 0);
                 $unit = trim((string) ($item['unit'] ?? ''));
-                $unitPrice = tnc_po_item_search_row_unit_price($item, $orderType);
-                $discountLabel = $orderType === 'hire' ? '' : tnc_po_item_discount_label($item);
+                $unitPrice = tnc_po_item_search_row_unit_price($item, 'purchase');
+                $discountLabel = tnc_po_item_discount_label($item);
                 $lineTotal = (float) ($item['total'] ?? 0);
 
                 $rows[] = [
@@ -227,7 +206,7 @@ if (!function_exists('tnc_po_item_search')) {
                     'issue_date_display' => $issueYmd !== '' ? date('d/m/Y', strtotime($issueYmd)) : '',
                     'site_display' => $siteDisplay,
                     'supplier_display' => $supplierDisplay,
-                    'order_type' => $orderType,
+                    'order_type' => 'purchase',
                     'item_id' => $itemId,
                     'description' => $description,
                     'quantity' => $qty,

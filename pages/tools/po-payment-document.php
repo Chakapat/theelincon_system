@@ -26,9 +26,7 @@ $companies = Db::tableRows('company');
 Db::sortRows($companies, 'id', false);
 $com = array_values($companies)[0] ?? [];
 
-$orderType = trim((string) ($po['order_type'] ?? 'purchase'));
-$contractorName = trim((string) ($po['contractor_name'] ?? ''));
-$partyName = $orderType === 'hire' && $contractorName !== '' ? $contractorName : (string) ($sup['name'] ?? '-');
+$partyName = (string) ($sup['name'] ?? '-');
 
 $items = Db::filter('purchase_order_items', static function (array $r) use ($id): bool {
     return (int) ($r['po_id'] ?? 0) === $id || (int) ($r['purchase_order_id'] ?? 0) === $id;
@@ -113,7 +111,7 @@ if (!in_array($paymentMethod, ['cash', 'transfer', 'cheque'], true)) {
     </div>
 
     <hr>
-    <div class="mb-2"><strong><?= $orderType === 'hire' ? 'ผู้รับจ้าง' : 'ผู้ขาย' ?>:</strong> <?= htmlspecialchars($partyName, ENT_QUOTES, 'UTF-8') ?></div>
+    <div class="mb-2"><strong>ผู้ขาย:</strong> <?= htmlspecialchars($partyName, ENT_QUOTES, 'UTF-8') ?></div>
     <div class="mb-3">
         <strong>Payment method</strong>
         <div class="mt-1">

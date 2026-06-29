@@ -637,10 +637,6 @@
     margin-left: auto;
 }
 
-.po-purchase-order-doc.po-hire-contract-doc .po-footer-row:has(.po-notes-panel) {
-    row-gap: 1.5rem;
-}
-
 .pr-purchase-requisition-doc .pr-footer-notes-col .pr-notes-wrap:empty,
 .po-purchase-order-doc .po-footer-notes-col .po-notes-wrap:empty {
     display: none;
@@ -704,8 +700,7 @@
     background: #f6fdf8;
 }
 
-.pr-purchase-requisition-doc .contractor-print-detail > div {
-    line-height: 1.45;
+.pr-purchase-requisition-doc     line-height: 1.45;
 }
 
 /* Invoice / Tax INV — flex column + sticky footer ด้านล่าง A4 */
@@ -840,50 +835,6 @@
     margin-right: 0;
 }
 
-/* กล่องข้อมูลใบขอจ้าง — 3 กล่องแยก: สถานที่ / ผู้รับจ้าง / ช่องทางชำระ */
-.pr-purchase-requisition-doc .pr-hire-info-row-wrap {
-    margin-top: 0.15rem;
-}
-
-.pr-purchase-requisition-doc .pr-hire-info-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    width: 100%;
-}
-
-.pr-purchase-requisition-doc .pr-hire-info-box {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    width: 100%;
-    box-sizing: border-box;
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.4rem;
-    padding: 0.65rem 0.9rem;
-    line-height: 1.5;
-}
-
-.pr-purchase-requisition-doc .pr-hire-info-label {
-    flex: 0 0 auto;
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: #374151;
-    letter-spacing: 0.01em;
-    white-space: nowrap;
-}
-
-.pr-purchase-requisition-doc .pr-hire-info-value {
-    flex: 1 1 auto;
-    min-width: 0;
-    font-size: 0.72rem;
-    font-weight: 500;
-    color: #334155;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-}
-
 .pr-purchase-requisition-doc .pr-cancelled-watermark {
     position: absolute;
     left: 50%;
@@ -935,18 +886,12 @@
     hyphens: auto;
 }
 
-.contractor-print-panel .contractor-print-row + .contractor-print-row,
-.contractor-print-detail > div + div,
-.contractor-print-payment > div {
     margin-top: 0.2rem;
 }
 
-.contractor-print-panel .contractor-print-row,
-.contractor-print-detail > div {
     line-height: 1.45;
 }
 
-.contractor-print-meta {
     font-size: 11px;
 }
 
@@ -1184,10 +1129,6 @@
         row-gap: 1.15rem !important;
     }
 
-    .po-purchase-order-doc.po-hire-contract-doc .po-footer-row:has(.po-notes-panel) {
-        row-gap: 1.5rem !important;
-    }
-
     .pr-purchase-requisition-doc .pr-footer-notes-col,
     .po-purchase-order-doc .po-footer-notes-col {
         flex: 0 0 auto !important;
@@ -1334,12 +1275,6 @@
 
     .po-purchase-order-doc .grand-total-row span {
         color: #fff !important;
-    }
-
-    /* Payment / Advance PO — ซ่อนค่าวัสดุ·ค่าแรง ตอนพิมพ์ เหลือราคา/หน่วย */
-    .po-purchase-order-doc.po-hire-pay-advance-doc .po-items-table .po-col-material,
-    .po-purchase-order-doc.po-hire-pay-advance-doc .po-items-table .po-col-labor {
-        display: none !important;
     }
 
     .po-purchase-order-doc .badge {
@@ -1882,310 +1817,3 @@
         print-color-adjust: exact !important;
     }
 
-    .pr-purchase-requisition-doc .pr-hire-info-box {
-        background: #f8fafc !important;
-        border-color: #e5e7eb !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-
-    .pr-purchase-requisition-doc .pr-hire-info-label {
-        color: #374151 !important;
-    }
-
-    .pr-purchase-requisition-doc .grand-total-row {
-        background: var(--doc-pr-primary, #28a745) !important;
-        color: #fff !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-
-    .pr-purchase-requisition-doc .grand-total-row span {
-        color: #fff !important;
-    }
-
-    .pr-purchase-requisition-doc .pr-cancelled-watermark,
-    .pr-cancelled-watermark {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        color: rgba(185, 28, 28, 0.48) !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-
-    .po-print-bundle-pr {
-        page-break-after: always;
-        break-after: page;
-    }
-
-    /* Invoice / Tax INV — พิมพ์เฉพาะแผ่นเอกสาร */
-    body.invoice-print-page,
-    body.invoice-embed,
-    body.tax-print-page {
-        background: #fff !important;
-        background-image: none !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    body.invoice-print-page > *:not(.invoice-sheet):not(.doc-view-canvas),
-    body.invoice-embed > *:not(.invoice-sheet):not(.doc-view-canvas),
-    body.tax-print-page > *:not(.invoice-sheet):not(.doc-view-canvas) {
-        display: none !important;
-        visibility: hidden !important;
-        height: 0 !important;
-        overflow: hidden !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    body.invoice-print-page > .doc-view-canvas,
-    body.invoice-embed > .doc-view-canvas,
-    body.tax-print-page > .doc-view-canvas {
-        display: block !important;
-        visibility: visible !important;
-        position: static !important;
-        width: 100% !important;
-        height: auto !important;
-        overflow: visible !important;
-    }
-
-    body.invoice-print-page .invoice-sheet,
-    body.invoice-embed .invoice-sheet,
-    body.tax-print-page .invoice-sheet {
-        display: block !important;
-        visibility: visible !important;
-    }
-
-    .controls-wrapper,
-    .controls-wrapper.no-print {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    .invoice-box.inv-sales-doc {
-        width: 100% !important;
-        max-width: 100% !important;
-        min-height: 297mm !important;
-        height: auto !important;
-        max-height: none !important;
-        margin: 0 !important;
-        padding: 10mm 15mm !important;
-        overflow: visible !important;
-        box-shadow: none !important;
-        box-sizing: border-box !important;
-        display: flex !important;
-        flex-direction: column !important;
-        border: none !important;
-        border-top: none !important;
-        border-top-width: 0 !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-
-    .inv-sales-doc.invoice-box > .inv-doc-main {
-        flex: 1 1 auto !important;
-    }
-
-    .inv-sales-doc .inv-doc-main {
-        display: flex !important;
-        flex-direction: column !important;
-        flex: 1 1 auto !important;
-        min-height: calc(297mm - 20mm) !important;
-        width: 100% !important;
-        padding-bottom: 0 !important;
-    }
-
-    .inv-sales-doc .inv-doc-content {
-        display: block !important;
-        flex: 1 1 auto !important;
-        min-height: 0 !important;
-        overflow: visible !important;
-    }
-
-    .inv-sales-doc .footer-sticky {
-        display: flex !important;
-        flex-direction: column !important;
-        flex: 0 0 auto !important;
-        margin-top: auto !important;
-        padding-top: 8mm !important;
-        position: relative !important;
-        bottom: auto !important;
-        left: auto !important;
-        right: auto !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        page-break-inside: avoid;
-        break-inside: avoid;
-    }
-
-    .inv-sales-doc .inv-doc-sign-block {
-        flex: 0 0 auto !important;
-        margin-top: 22mm !important;
-        page-break-inside: avoid;
-        break-inside: avoid;
-    }
-
-    .inv-sales-doc .inv-company-name {
-        font-size: 15px !important;
-        font-weight: 700 !important;
-        color: #0f172a !important;
-    }
-
-    .inv-sales-doc .inv-company-col:not(:has(.company-logo)) .inv-company-name {
-        font-size: 1.25rem !important;
-        font-weight: 800 !important;
-    }
-
-    .inv-sales-doc .inv-company-detail {
-        font-size: 11px !important;
-        line-height: 1.35 !important;
-        color: #475569 !important;
-    }
-
-    .inv-sales-doc .inv-company-col:not(:has(.company-logo)) .inv-company-detail {
-        font-size: 0.92rem !important;
-        line-height: 1.5 !important;
-    }
-
-    .inv-sales-doc .table-custom {
-        display: table !important;
-        width: 100% !important;
-    }
-
-    .inv-sales-doc .table-custom thead {
-        display: table-header-group !important;
-    }
-
-    .inv-sales-doc .row {
-        display: flex !important;
-        flex-wrap: wrap !important;
-    }
-
-    .inv-sales-doc .summary-box,
-    .inv-sales-doc .grand-total-row,
-    .inv-sales-doc .signature-grid {
-        page-break-inside: avoid;
-        break-inside: avoid;
-    }
-
-    .invoice-box:not(.po-purchase-order-doc):not(.pr-purchase-requisition-doc):not(.inv-sales-doc) {
-        width: 100% !important;
-        max-width: 100% !important;
-        height: auto !important;
-        min-height: 0 !important;
-        max-height: none !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: visible !important;
-        box-shadow: none !important;
-        box-sizing: border-box !important;
-    }
-
-    .invoice-box:not(.po-purchase-order-doc):not(.pr-purchase-requisition-doc):not(.inv-sales-doc) .footer-sticky {
-        position: static !important;
-        bottom: auto !important;
-        left: auto !important;
-        right: auto !important;
-        margin-top: 6mm;
-        page-break-inside: avoid;
-        break-inside: avoid;
-    }
-
-    .invoice-box:not(.po-purchase-order-doc):not(.pr-purchase-requisition-doc):not(.inv-sales-doc) .summary-box,
-    .invoice-box:not(.po-purchase-order-doc):not(.pr-purchase-requisition-doc):not(.inv-sales-doc) .grand-total-row,
-    .invoice-box:not(.po-purchase-order-doc):not(.pr-purchase-requisition-doc):not(.inv-sales-doc) .signature-grid {
-        page-break-inside: avoid;
-        break-inside: avoid;
-    }
-
-    .invoice-sheet {
-        margin: 0 !important;
-        page-break-after: always;
-        break-after: page;
-    }
-
-    .invoice-sheet:last-child {
-        page-break-after: auto;
-        break-after: auto;
-    }
-
-    /* PR — โทนสีจาก config (print) */
-    .pr-purchase-requisition-doc .pr-section-kicker {
-        color: var(--doc-pr-primary, #28a745) !important;
-    }
-
-    .pr-purchase-requisition-doc .pr-note-heading {
-        color: var(--doc-pr-deep, #166534) !important;
-    }
-
-    .pr-purchase-requisition-doc .pr-notes-panel {
-        border-left-color: var(--doc-pr-primary, #28a745) !important;
-    }
-
-    .pr-purchase-requisition-doc .pr-vat-line {
-        color: var(--doc-pr-deep, #166534) !important;
-    }
-
-    /* Invoice — โทนสีจาก config (print) */
-    body.tnc-doc-inv .inv-sales-doc .invoice-title,
-    .inv-sales-doc .invoice-title {
-        color: var(--doc-inv-primary, #ff6600) !important;
-    }
-
-    body.tnc-doc-inv .inv-sales-doc .doc-type-text {
-        color: var(--doc-inv-primary, #ff6600) !important;
-        border-color: var(--doc-inv-primary, #ff6600) !important;
-        background-color: var(--doc-inv-soft, #fff9f5) !important;
-    }
-
-    body.tnc-doc-inv .inv-sales-doc .table-custom thead th {
-        border-bottom: 2px solid var(--doc-inv-primary, #ff6600) !important;
-    }
-
-    body.tnc-doc-inv .inv-sales-doc .doc-site-block {
-        border-left-color: var(--doc-inv-primary, #ff6600) !important;
-        background: var(--doc-inv-soft, #fff9f5) !important;
-    }
-
-    body.tnc-doc-inv .inv-sales-doc .grand-total-row {
-        background: var(--doc-inv-primary, #ff6600) !important;
-        color: #fff !important;
-    }
-
-    body.tnc-doc-inv .inv-sales-doc .grand-total-row span,
-    body.tnc-doc-inv .inv-sales-doc .grand-total-row .fw-bold {
-        color: #fff !important;
-    }
-
-    /* Tax Invoice — โทนสีจาก config (print) */
-    body.tnc-doc-tax .inv-sales-doc .invoice-title {
-        color: var(--doc-tax-primary, #ff6600) !important;
-    }
-
-    body.tnc-doc-tax .inv-sales-doc .doc-type-text {
-        color: var(--doc-tax-primary, #ff6600) !important;
-        border-color: var(--doc-tax-primary, #ff6600) !important;
-        background-color: var(--doc-tax-soft, #fff9f5) !important;
-    }
-
-    body.tnc-doc-tax .inv-sales-doc .table-custom thead th {
-        border-bottom: 2px solid var(--doc-tax-primary, #ff6600) !important;
-    }
-
-    body.tnc-doc-tax .inv-sales-doc .doc-site-block {
-        border-left-color: var(--doc-tax-primary, #ff6600) !important;
-        background: var(--doc-tax-soft, #fff9f5) !important;
-    }
-
-    body.tnc-doc-tax .inv-sales-doc .grand-total-row {
-        background: var(--doc-tax-primary, #ff6600) !important;
-        color: #fff !important;
-    }
-
-    body.tnc-doc-tax .inv-sales-doc .grand-total-row span,
-    body.tnc-doc-tax .inv-sales-doc .grand-total-row .fw-bold {
-        color: #fff !important;
-    }
-}

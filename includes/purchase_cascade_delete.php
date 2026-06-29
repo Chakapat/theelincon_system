@@ -88,9 +88,6 @@ if (!function_exists('tnc_delete_purchase_order_cascade')) {
         foreach ($linkedBillDeleted['bills'] as $bDel) {
             $nested[] = ['verb' => 'delete', 'entity_type' => 'bill', 'entity_id' => (string) ((int) ($bDel['id'] ?? 0)), 'snapshot' => $bDel];
         }
-        foreach (Purchase::purgeHireContractPaymentsForPo($poId) as $hcpDel) {
-            $nested[] = ['verb' => 'delete', 'entity_type' => 'hire_contract_payment', 'entity_id' => (string) ((int) ($hcpDel['id'] ?? 0)), 'snapshot' => $hcpDel];
-        }
         Db::deleteWhereEquals('po_payments', 'po_id', (string) $poId);
         tnc_po_delete_line_items($poId);
         Db::deleteRow('purchase_orders', (string) $poId);
@@ -111,28 +108,10 @@ if (!function_exists('tnc_delete_pr_cascade')) {
             return $nested;
         }
 
-        foreach (Purchase::purgeHireContractPaymentsForPr($prId) as $hcpDel) {
-            $hcpId = (int) ($hcpDel['id'] ?? 0);
-            $nested[] = [
-                'verb' => 'delete',
-                'entity_type' => 'hire_contract_payment',
-                'entity_id' => (string) ($hcpId > 0 ? $hcpId : 0),
-                'snapshot' => $hcpDel,
-            ];
-        }
-
         foreach (Purchase::collectPurchaseOrdersForPr($prId) as $poDel) {
             $poId = (int) ($poDel['id'] ?? 0);
             if ($poId > 0) {
                 $nested = array_merge($nested, tnc_delete_purchase_order_cascade($poId));
-            }
-        }
-
-        foreach (Db::filter('hire_contracts', static fn (array $r): bool => isset($r['pr_id']) && (int) $r['pr_id'] === $prId) as $hc) {
-            $hcId = (int) ($hc['id'] ?? 0);
-            if ($hcId > 0) {
-                $nested[] = ['verb' => 'delete', 'entity_type' => 'hire_contract', 'entity_id' => (string) $hcId, 'snapshot' => $hc];
-                Db::deleteRow('hire_contracts', (string) $hcId);
             }
         }
 

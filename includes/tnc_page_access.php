@@ -84,19 +84,10 @@ function tnc_role_permission_menu_tree(): array
                     ],
                     'actions' => [],
                 ],
-                'page.org.contractors' => [
-                    'label' => 'ผู้รับจ้าง (Contractors)',
-                    'path' => 'pages/contractors/contractor-list.php',
-                    'paths' => [
-                        'pages/contractors/contractor-list.php',
-                        'pages/contractors/contractor-form.php',
-                    ],
-                    'actions' => [],
-                ],
             ],
         ],
         'hub_purchase' => [
-            'label' => 'จัดซื้อ / จัดจ้าง (Purchase / Hire)',
+            'label' => 'จัดซื้อ (Purchase)',
             'pages' => [
                 'page.site.picker' => [
                     'label' => 'เข้าไซต์งาน (Site Hub)',
@@ -136,31 +127,6 @@ function tnc_role_permission_menu_tree(): array
                     ],
                     'actions' => ['po.create', 'po.update', 'po.cancel', 'po.delete'],
                 ],
-                'page.wo' => [
-                    'label' => 'Work Order (WO) / ใบสั่งจ้าง',
-                    'path' => 'pages/purchase/work-order-list.php',
-                    'paths' => [
-                        'pages/purchase/work-order-list.php',
-                        'pages/purchase/purchase-order-hire-contract-create.php',
-                        'pages/purchase/purchase-order-from-hire-contract.php',
-                    ],
-                    'actions' => ['po.create', 'po.update', 'po.cancel'],
-                ],
-                'page.hire' => [
-                    'label' => 'สัญญาจ้าง (Hire Contract)',
-                    'path' => 'pages/purchase/work-order-list.php',
-                    'paths' => [
-                        'pages/purchase/work-order-list.php',
-                        'pages/purchase/purchase-order-hire-contract-create.php',
-                        'pages/purchase/purchase-order-from-hire-contract.php',
-                    ],
-                    'actions' => ['po.create'],
-                ],
-            ],
-        ],
-        'hub_docs' => [
-            'label' => 'ระบบเอกสาร (Documents)',
-            'pages' => [
                 'page.stock' => [
                     'label' => 'คลังสินค้า (Stock)',
                     'path' => 'pages/stock/stock-list.php',

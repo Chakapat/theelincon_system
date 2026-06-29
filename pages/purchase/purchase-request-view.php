@@ -458,48 +458,22 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                         </button>
                     <?php endif; ?>
                 <?php endif; ?>
-                <?php if ($requestType !== 'hire' && $existing_po): ?>
+                <?php if ($existing_po): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $existing_po['id'] ?>" class="btn js-tnc-doc-action btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-eye me-1"></i>ดูใบสั่งซื้อ
                     </a>
-                <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo) && user_can('po.create')): ?>
+                <?php elseif (!empty($prIsApprovedForPo) && user_can('po.create')): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn js-tnc-doc-action btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-file-earmark-plus me-1"></i>สร้างใบสั่งซื้อ
                     </a>
-                <?php elseif ($requestType !== 'hire' && !empty($prIsApprovedForPo)): ?>
+                <?php elseif (!empty($prIsApprovedForPo)): ?>
                     <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="ไม่มีสิทธิ์สร้าง PO">
                         <i class="bi bi-lock me-1"></i>ไม่มีสิทธิ์สร้าง PO
                     </span>
-                <?php elseif ($requestType !== 'hire'): ?>
+                <?php else: ?>
                     <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="รออนุมัติก่อนออก PO">
                         <i class="bi bi-lock me-1"></i>รออนุมัติ
                     </span>
-                <?php elseif ($requestType === 'hire' && user_can('po.create')): ?>
-                    <?php
-                    $woViewPrUrl = Purchase::workOrderViewUrl(0, (int) $pr['id']);
-                    $woFromPrUrl = app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . (int) $pr['id'] . '&mode=contract';
-                    ?>
-                    <?php if ($woViewPrUrl !== null): ?>
-                    <a href="<?= htmlspecialchars($woViewPrUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn js-tnc-doc-action btn-orange btn-sm rounded-pill px-3">
-                        <i class="bi bi-file-earmark-ruled me-1"></i>ดู Work Order
-                    </a>
-                    <?php else: ?>
-                    <a href="<?= htmlspecialchars($woFromPrUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn js-tnc-doc-action btn-orange btn-sm rounded-pill px-3" title="ออก WO จาก PR เก่า">
-                        <i class="bi bi-file-earmark-ruled me-1"></i>ออก Work Order
-                    </a>
-                    <?php endif; ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-hire-contract-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn js-tnc-doc-action btn-outline-secondary btn-sm rounded-pill px-3" title="สัญญาจ้างใหม่ — ไม่ผ่าน PR">
-                        <i class="bi bi-plus-lg me-1"></i>WO ใหม่
-                    </a>
-                <?php elseif ($requestType === 'hire'): ?>
-                    <?php
-                    $woViewPrUrl = Purchase::workOrderViewUrl(0, (int) $pr['id']);
-                    ?>
-                    <?php if ($woViewPrUrl !== null): ?>
-                    <a href="<?= htmlspecialchars($woViewPrUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn js-tnc-doc-action btn-outline-secondary btn-sm rounded-pill px-3">
-                        <i class="bi bi-file-earmark-ruled me-1"></i>ดู Work Order
-                    </a>
-                    <?php endif; ?>
                 <?php endif; ?>
                 <?php if ($prCanEdit): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $pr['id'] ?>" class="btn js-tnc-doc-action btn-outline-warning btn-sm rounded-pill px-3" data-dock-primary="edit" title="แก้ไขใบขอซื้อ">

@@ -212,6 +212,33 @@
         overflow: hidden;
     }
 
+    .tnc-mobile-menu-hub__direct {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-height: var(--tnc-mobile-tap-min, 44px);
+        padding: 0.75rem 0.85rem;
+        margin-bottom: 0.55rem;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 0.75rem;
+        background: #fff;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #334155;
+    }
+
+    .tnc-mobile-menu-hub__direct i {
+        color: var(--tnc-orange, #ea580c);
+        font-size: 1.05rem;
+    }
+
+    .tnc-mobile-menu-hub__direct.is-active,
+    .tnc-mobile-menu-hub__direct:active {
+        background: var(--tnc-orange-soft, #ffedd5);
+        color: var(--tnc-orange-dark, #c2410c);
+    }
+
     .tnc-mobile-menu-hub__summary {
         display: flex;
         align-items: center;

@@ -196,7 +196,6 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                         </th>
                         <th>เลขที่ PR</th>
                         <th>ไซต์งาน</th>
-                        <th class="text-center">ประเภท</th>
                         <th class="text-center">อนุมัติ</th>
                         <th class="text-end">ยอดรวมสุทธิ</th>
                         <th class="text-center no-print">การจัดการ</th>
@@ -204,7 +203,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                 </thead>
                 <tbody id="prTableBody"<?= count($pr_rows) > 0 ? ' class="tnc-table-is-loading"' : '' ?>>
                     <?php if (count($pr_rows) > 0): ?>
-                        <?= tnc_purchase_table_skeleton_tr(7, 'pr') ?>
+                        <?= tnc_purchase_table_skeleton_tr(6, 'pr') ?>
                         <?php foreach ($pr_rows as $row): ?>
                         <?php
                             $rowPrId = (int) ($row['id'] ?? 0);
@@ -243,14 +242,6 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                                 $sn = trim((string) ($row['site_name'] ?? ''));
                                 echo $sn !== '' ? htmlspecialchars($sn, ENT_QUOTES, 'UTF-8') : '—';
                             ?></td>
-                            <td class="text-center" data-label="ประเภท">
-                                <?php $reqType = (string) ($row['request_type'] ?? 'purchase'); ?>
-                                <?php if ($reqType === 'hire'): ?>
-                                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill" style="font-size:0.75rem;">จัดจ้าง</span>
-                                <?php else: ?>
-                                    <span class="badge bg-light text-secondary border rounded-pill" style="font-size:0.75rem;">จัดซื้อ</span>
-                                <?php endif; ?>
-                            </td>
                             <td class="text-center" data-label="อนุมัติ">
                                 <?php
                                 $apSt = line_pr_normalize_status($row);
@@ -302,7 +293,7 @@ foreach (Db::tableRows('purchase_request_items') as $pri) {
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted"><?= $filterSiteId > 0 ? 'ไม่พบ PR ของไซต์นี้' : 'ไม่พบข้อมูลใบขอซื้อ' ?></td>
+                            <td colspan="6" class="text-center py-4 text-muted"><?= $filterSiteId > 0 ? 'ไม่พบ PR ของไซต์นี้' : 'ไม่พบข้อมูลใบขอซื้อ' ?></td>
                         </tr>
                     <?php endif; ?>
                 </tbody>

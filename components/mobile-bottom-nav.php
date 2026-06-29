@@ -60,6 +60,16 @@ $mobileMenuSections = tnc_hub_nav_mobile_menu_sections();
         </div>
         <div class="tnc-mobile-menu-sheet__body">
             <?php foreach ($mobileMenuSections as $section): ?>
+                <?php if (!empty($section['direct_url'])): ?>
+                    <a
+                        href="<?= htmlspecialchars((string) $section['direct_url'], ENT_QUOTES, 'UTF-8') ?>"
+                        class="tnc-mobile-menu-hub__direct<?= !empty($section['active']) ? ' is-active' : '' ?>"
+                        <?= !empty($section['active']) ? 'aria-current="page"' : '' ?>
+                    >
+                        <i class="bi <?= htmlspecialchars((string) $section['icon'], ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"></i>
+                        <span><?= htmlspecialchars((string) $section['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                    </a>
+                <?php else: ?>
                 <details class="tnc-mobile-menu-hub"<?= count($section['pages']) === 1 ? ' open' : '' ?>>
                     <summary class="tnc-mobile-menu-hub__summary">
                         <i class="bi <?= htmlspecialchars((string) $section['icon'], ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"></i>
@@ -78,6 +88,7 @@ $mobileMenuSections = tnc_hub_nav_mobile_menu_sections();
                         <?php endforeach; ?>
                     </nav>
                 </details>
+                <?php endif; ?>
             <?php endforeach; ?>
         </div>
     </div>

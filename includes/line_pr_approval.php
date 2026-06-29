@@ -5,7 +5,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/line_notify_runtime.php';
 require_once __DIR__ . '/line_messaging.php';
 require_once __DIR__ . '/web_notifications.php';
-require_once __DIR__ . '/hire_line_items.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -251,17 +250,8 @@ function line_pr_flex_load_item_rows(int $prId, string $requestType): array
  *
  * @return list<array<string, mixed>>
  */
-function line_pr_flex_item_block(int $lineNo, array $item, bool $isHire = false): array
+function line_pr_flex_item_block(int $lineNo, array $item): array
 {
-    if ($isHire && function_exists('tnc_hire_line_is_group') && tnc_hire_line_is_group($item)) {
-        $no = (string) ($item['display_no'] ?? $lineNo);
-        $desc = line_pr_flex_trunc((string) ($item['description'] ?? ''), 80);
-
-        return [
-            line_pr_flex_text($no . '  ' . $desc, ['weight' => 'bold', 'size' => 'sm', 'color' => '#111827', 'margin' => 'md']),
-        ];
-    }
-
     $desc = line_pr_flex_trunc((string) ($item['description'] ?? ''), 80);
     $noLabel = (string) ($item['display_no'] ?? $lineNo);
     $qty = (float) ($item['quantity'] ?? 0);
@@ -272,49 +262,16 @@ function line_pr_flex_item_block(int $lineNo, array $item, bool $isHire = false)
     $discAmt = (float) ($item['discount_amount'] ?? 0);
     $discShow = $discIn !== '' ? $discIn : ($discAmt > 0 ? line_pr_flex_money($discAmt) : '—');
 
-    $priceRows = [];
-    if ($isHire) {
-        if (!function_exists('tnc_hire_item_material_labor')) {
-            require_once dirname(__DIR__) . '/hire_line_items.php';
-        }
-        $parts = tnc_hire_item_material_labor($item);
-        $matPrice = $parts['material'];
-        $laborPrice = $parts['labor'];
-        $unitSum = round($matPrice + $laborPrice, 2);
-        if ($unitSum <= 0) {
-            $unitSum = $unitPrice;
-        }
-        $priceRows = [
-            line_pr_flex_kv('ราคา/หน่วย · ค่าวัสดุ', line_pr_flex_money($matPrice)),
-            line_pr_flex_kv('ราคา/หน่วย · ค่าแรง', line_pr_flex_money($laborPrice)),
-            line_pr_flex_kv('ราคา/หน่วย', line_pr_flex_money($unitSum), true),
-        ];
-    } else {
-        $priceRows = [
-            line_pr_flex_kv('ราคา/หน่วย', line_pr_flex_money($unitPrice)),
-            line_pr_flex_kv('ส่วนลด', $discShow),
-        ];
-    }
-
     $boxContents = [
         line_pr_flex_kv('จำนวน', line_pr_flex_money($qty)),
         line_pr_flex_kv('หน่วย', $unit !== '' ? $unit : '—'),
+        line_pr_flex_kv('ราคา/หน่วย', line_pr_flex_money($unitPrice)),
+        line_pr_flex_kv('ส่วนลด', $discShow),
+        line_pr_flex_kv('ยอดรวม', line_pr_flex_money($lineTotal), true),
     ];
-    foreach ($priceRows as $row) {
-        $boxContents[] = $row;
-    }
-    if ($isHire) {
-        $boxContents[] = line_pr_flex_kv('ราคารวม', line_pr_flex_money($lineTotal), true);
-    } else {
-        $boxContents[] = line_pr_flex_kv('ยอดรวม', line_pr_flex_money($lineTotal), true);
-    }
-
-    $titlePrefix = ($isHire && isset($item['display_no']))
-        ? ($noLabel . '  ' . $desc)
-        : ($noLabel . '. ' . $desc);
 
     return [
-        line_pr_flex_text($titlePrefix, ['weight' => 'bold', 'size' => 'sm', 'color' => '#111827']),
+        line_pr_flex_text($noLabel . '. ' . $desc, ['weight' => 'bold', 'size' => 'sm', 'color' => '#111827']),
         [
             'type' => 'box',
             'layout' => 'vertical',
@@ -348,7 +305,7 @@ function line_pr_flex_meta_body_rows(array $ctx): array
     if ((string) $ctx['quotation_name'] !== '') {
         $rows[] = line_pr_flex_kv('แนบใบเสนอราคา', (string) $ctx['quotation_name']);
     }
-    if ((string) $ctx['details'] !== '' && (string) ($ctx['type_label'] ?? '') !== 'จัดจ้าง') {
+    if ((string) $ctx['details'] !== '') {
         $rows[] = line_pr_flex_separator();
         $rows[] = line_pr_flex_text('รายละเอียด / วัตถุประสงค์', ['size' => 'xs', 'color' => '#9a3412', 'weight' => 'bold']);
         $rows[] = line_pr_flex_text((string) $ctx['details'], ['size' => 'xs', 'color' => '#4b5563']);
@@ -362,19 +319,6 @@ function line_pr_flex_meta_body_rows(array $ctx): array
  *
  * @return list<array<string, mixed>>
  */
-function line_pr_flex_hire_body_rows(array $ctx): array
-{
-    return [
-        line_pr_flex_separator(),
-        line_pr_flex_text('รายละเอียดจัดจ้าง', ['weight' => 'bold', 'size' => 'sm', 'color' => '#9a3412']),
-        line_pr_flex_kv('ผู้รับจ้าง', (string) $ctx['contractor']),
-        line_pr_flex_kv('มูลค่าสัญญา', line_pr_flex_money((float) $ctx['contract_value']) . ' บาท', true),
-        line_pr_flex_kv('จำนวนงวด', (string) $ctx['installment_total'] . ' งวด'),
-        line_pr_flex_text('เงื่อนไขการชำระเงิน / ขอบเขตการทำงาน', ['size' => 'xs', 'color' => '#6b7280', 'margin' => 'md']),
-        line_pr_flex_text(line_pr_flex_trunc((string) $ctx['hire_scope'], 500), ['size' => 'xs', 'color' => '#374151']),
-    ];
-}
-
 /**
  * @param array<string, mixed> $ctx
  *
@@ -454,10 +398,8 @@ function line_pr_build_flex_messages(array $pr): array
     $prId = (int) ($pr['id'] ?? 0);
     $prNo = trim((string) ($pr['pr_number'] ?? ('PR-' . $prId)));
     $reqType = trim((string) ($pr['request_type'] ?? ($pr['procurement_type'] ?? 'purchase')));
-    if ($reqType !== 'hire') {
-        $reqType = 'purchase';
-    }
-    $typeLabel = $reqType === 'hire' ? 'จัดจ้าง' : 'จัดซื้อ';
+    $reqType = 'purchase';
+    $typeLabel = 'จัดซื้อ';
     $approvalToken = trim((string) ($pr['line_approval_token'] ?? ''));
     $postbackBase = 'action=line_pr_decision&id=' . $prId . '&token=' . rawurlencode($approvalToken);
 
@@ -486,10 +428,6 @@ function line_pr_build_flex_messages(array $pr): array
     }
 
     $details = trim((string) ($pr['details'] ?? ''));
-    if ($details === '' && $reqType === 'hire') {
-        $details = trim((string) ($pr['hire_scope_details'] ?? ''));
-    }
-
     $pv = (float) ($pr['vat_amount'] ?? 0);
     $pg = (float) ($pr['total_amount'] ?? 0);
     $ps = isset($pr['subtotal_amount']) && $pr['subtotal_amount'] !== null && $pr['subtotal_amount'] !== ''
@@ -506,13 +444,6 @@ function line_pr_build_flex_messages(array $pr): array
     $vatPrint = tnc_purchase_vat_print_summary($vatOn, $vatMode, $ps, $pv, $pg);
 
     $itemRows = line_pr_flex_load_item_rows($prId, $reqType);
-    $contractor = trim((string) ($pr['contractor_name'] ?? ($pr['hire_contractor_name'] ?? '')));
-    $contractValue = (float) ($pr['contract_value'] ?? ($pr['hire_total_value'] ?? 0));
-    $installmentTotal = (int) ($pr['installment_total'] ?? ($pr['hire_installment_count'] ?? 1));
-    if ($installmentTotal < 1) {
-        $installmentTotal = 1;
-    }
-    $hireScope = trim((string) ($pr['hire_scope_details'] ?? ''));
 
     $ctx = [
         'pr_no' => $prNo,
@@ -523,10 +454,6 @@ function line_pr_build_flex_messages(array $pr): array
         'creator' => $creator,
         'quotation_name' => trim((string) ($pr['quotation_attachment_name'] ?? '')),
         'details' => $details,
-        'contractor' => $contractor,
-        'contract_value' => $contractValue,
-        'installment_total' => $installmentTotal,
-        'hire_scope' => $hireScope,
         'subtotal' => $ps,
         'grand_total' => $pg,
         'vat_on' => $vatOn,
@@ -534,29 +461,17 @@ function line_pr_build_flex_messages(array $pr): array
     ];
 
     $itemBlocks = [];
-    if ($reqType === 'hire' && $itemRows === [] && $hireScope !== '') {
-        $itemBlocks = line_pr_flex_item_block(1, [
-            'description' => line_pr_flex_trunc($hireScope, 80),
-            'quantity' => 1,
-            'unit' => 'งาน',
-            'unit_price' => $contractValue,
-            'total' => $contractValue,
-            'discount_input' => '',
-            'discount_amount' => 0,
-        ], true);
-    } elseif ($itemRows === []) {
+    if ($itemRows === []) {
         $itemBlocks[] = line_pr_flex_text('ไม่มีรายการบรรทัด', ['size' => 'sm', 'color' => '#6b7280']);
     } else {
         $lineNo = 1;
         $maxLines = 25;
-        $displayItems = $reqType === 'hire'
-            ? tnc_hire_lines_apply_display_numbers($itemRows)
-            : $itemRows;
+        $displayItems = $itemRows;
         foreach ($displayItems as $item) {
             if ($lineNo > $maxLines) {
                 break;
             }
-            foreach (line_pr_flex_item_block($lineNo, $item, $reqType === 'hire') as $block) {
+            foreach (line_pr_flex_item_block($lineNo, $item) as $block) {
                 $itemBlocks[] = $block;
             }
             $lineNo++;
@@ -572,15 +487,12 @@ function line_pr_build_flex_messages(array $pr): array
     $bodyMeta = line_pr_flex_meta_body_rows($ctx);
     $bodyItemsHeader = [
         line_pr_flex_separator(),
-        line_pr_flex_text($reqType === 'hire' ? 'รายการงานจัดจ้าง' : 'รายการสินค้า / บริการ', ['weight' => 'bold', 'size' => 'sm', 'color' => '#9a3412']),
+        line_pr_flex_text('รายการสินค้า / บริการ', ['weight' => 'bold', 'size' => 'sm', 'color' => '#9a3412']),
         line_pr_flex_text(
-            $reqType === 'hire'
-                ? 'รายการ · จำนวน · หน่วย · ค่าวัสดุ · ค่าแรง · ราคา/หน่วย · ราคารวม'
-                : 'รายการ · จำนวน · หน่วย · ราคา/หน่วย · ส่วนลด · ยอดรวม',
+            'รายการสินค้า / บริการ (สูงสุด 25 รายการ)',
             ['size' => 'xxs', 'color' => '#9ca3af']
         ),
     ];
-    $bodyHire = $reqType === 'hire' ? line_pr_flex_hire_body_rows($ctx) : [];
     $bodySummary = line_pr_flex_summary_rows($ctx);
 
     $perBubbleMax = 4;
@@ -596,7 +508,7 @@ function line_pr_build_flex_messages(array $pr): array
         $isLast = ($idx === $chunkCount - 1);
         $bodyContents = [];
         if ($isFirst) {
-            $bodyContents = array_merge($bodyMeta, $bodyHire, $bodyItemsHeader);
+            $bodyContents = array_merge($bodyMeta, $bodyItemsHeader);
         } else {
             $bodyContents[] = line_pr_flex_text(
                 'รายการ (ต่อ) — ' . $prNo,
@@ -706,17 +618,6 @@ function line_pr_persist_decision(int $prId, string $decision, array $meta): arr
         ]);
     }
 
-    // PR จัดจ้างที่ "อนุมัติ" → สร้างสัญญาจ้าง (hire_contracts) อัตโนมัติ เพื่อให้ออก PO ตามงวดได้
-    if ($decision === 'approve' && is_array($after) && line_pr_is_approved_for_po($after)) {
-        $afterType = trim((string) ($after['request_type'] ?? ($after['procurement_type'] ?? 'purchase')));
-        if (in_array($afterType, ['hire', 'จัดจ้าง'], true) && class_exists(\Theelincon\Rtdb\Purchase::class)) {
-            try {
-                \Theelincon\Rtdb\Purchase::createHireContractIfNeededForPr($prId);
-            } catch (\Throwable $e) {
-                // ไม่ให้การสร้างสัญญาล้มเหลวกระทบผลการอนุมัติ
-            }
-        }
-    }
 
     // แจ้งเตือนกลับมายังเว็บ (ผู้บันทึก/ผู้ขอ) ว่า PR ถูกอนุมัติ/ไม่อนุมัติ
     if (function_exists('tnc_pr_decision_notify')) {

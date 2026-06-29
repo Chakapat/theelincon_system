@@ -99,6 +99,21 @@ if ($action === 'save_product' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
     if (!$canManage) {
         stock_redirect('pages/stock/stock-list.php?error=forbidden');
     }
+    $returnSiteId = (int) ($_POST['site_id'] ?? 0);
+    $returnList = static function (array $params = []) use ($returnSiteId): string {
+        if ($returnSiteId > 0) {
+            $params['site_id'] = (string) $returnSiteId;
+        }
+
+        return 'pages/stock/stock-list.php' . ($params !== [] ? '?' . http_build_query($params) : '');
+    };
+    $returnForm = static function (array $params = []) use ($returnSiteId): string {
+        if ($returnSiteId > 0) {
+            $params['site_id'] = (string) $returnSiteId;
+        }
+
+        return 'pages/stock/stock-product-form.php' . ($params !== [] ? '?' . http_build_query($params) : '');
+    };
     $id = (int) ($_POST['id'] ?? 0);
     $code = trim((string) ($_POST['code'] ?? ''));
     $name = trim((string) ($_POST['name'] ?? ''));
@@ -109,16 +124,20 @@ if ($action === 'save_product' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
     $openingVal = ($opening !== '' && is_numeric($opening)) ? (float) $opening : null;
 
     if ($code === '' || $name === '') {
-        stock_redirect('pages/stock/stock-product-form.php' . ($id ? '?id=' . $id : '') . '&error=required');
+        $formParams = ['error' => 'required'];
+        if ($id > 0) {
+            $formParams['id'] = (string) $id;
+        }
+        stock_redirect($returnForm($formParams));
     }
 
     if ($id > 0) {
         $cur = Db::row('stock_products', (string) $id);
         if ($cur === null || empty($cur['is_active'])) {
-            stock_redirect('pages/stock/stock-list.php?error=notfound');
+            stock_redirect($returnList(['error' => 'notfound']));
         }
         if (stock_code_exists($code, $id)) {
-            stock_redirect('pages/stock/stock-product-form.php?id=' . $id . '&error=duplicate');
+            stock_redirect($returnForm(['id' => (string) $id, 'error' => 'duplicate']));
         }
         $rv = (float) $reorderVal;
         Db::mergeRow('stock_products', (string) $id, [
@@ -134,11 +153,11 @@ if ($action === 'save_product' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
             'before' => $cur,
             'after' => $afterP,
         ]);
-        stock_redirect('pages/stock/stock-list.php?success=updated');
+        stock_redirect($returnList(['updated' => '1']));
     }
 
     if (stock_code_exists($code, null)) {
-        stock_redirect('pages/stock/stock-product-form.php?error=duplicate');
+        stock_redirect($returnForm(['error' => 'duplicate']));
     }
 
     $rv = (float) $reorderVal;
@@ -180,7 +199,7 @@ if ($action === 'save_product' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
     }
     tnc_audit_log('create', 'stock_product', (string) $newId, trim($code . ' ' . $name), $detailNewProd);
 
-    stock_redirect('pages/stock/stock-list.php?success=1');
+    stock_redirect($returnList(['product_added' => '1']));
 }
 
 if ($action === 'add_movement' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {

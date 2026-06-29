@@ -25,17 +25,8 @@ function tnc_hub_nav_bottom_tab_items(): array
         return app_path((string) $flat[$pageKey]['path']);
     };
 
-    $hubActive = static function (string $hubKey) use ($sections, $currentKey): bool {
-        if ($currentKey === null || $currentKey === '') {
-            return false;
-        }
-        foreach ($sections[$hubKey] ?? [] as $pageKey) {
-            if ($pageKey === $currentKey) {
-                return true;
-            }
-        }
-
-        return false;
+    $hubActive = static function (string $hubKey) use ($currentKey): bool {
+        return tnc_hub_nav_hub_is_active($hubKey, $currentKey);
     };
 
     $firstHubUrl = static function (string $hubKey) use ($sections, $resolveUrl): string {
@@ -54,14 +45,9 @@ function tnc_hub_nav_bottom_tab_items(): array
         $homeUrl = app_path('index.php');
     }
 
-    $purchaseUrl = $resolveUrl('page.po');
+    $purchaseUrl = $resolveUrl('page.site.picker');
     if ($purchaseUrl === '') {
         $purchaseUrl = $firstHubUrl('hub_purchase');
-    }
-
-    $docsUrl = $resolveUrl('page.wo');
-    if ($docsUrl === '') {
-        $docsUrl = $firstHubUrl('hub_docs');
     }
 
     $cashUrl = $resolveUrl('page.cash');
@@ -93,17 +79,6 @@ function tnc_hub_nav_bottom_tab_items(): array
         ];
     }
 
-    if ($docsUrl !== '') {
-        $tabs[] = [
-            'key' => 'docs',
-            'label' => 'เอกสาร',
-            'icon' => 'bi-file-earmark-text',
-            'url' => $docsUrl,
-            'active' => $hubActive('hub_docs'),
-            'is_button' => false,
-        ];
-    }
-
     if ($cashUrl !== '') {
         $tabs[] = [
             'key' => 'cash',
@@ -128,7 +103,7 @@ function tnc_hub_nav_bottom_tab_items(): array
 }
 
 /**
- * Purchase module horizontal sub-nav (PR / PO / WO).
+ * Purchase module horizontal sub-nav (PR / PO).
  *
  * @return list<array{key: string, label: string, icon: string, url: string, active: bool}>
  */
@@ -145,7 +120,6 @@ function tnc_hub_nav_purchase_subnav_items(): array
     $defs = [
         ['key' => 'page.pr', 'label' => 'PR'],
         ['key' => 'page.po', 'label' => 'PO'],
-        ['key' => 'page.wo', 'label' => 'WO'],
     ];
 
     $items = [];
@@ -216,7 +190,6 @@ function tnc_hub_nav_mobile_menu_sections(): array
         'hub_master',
         'hub_home',
         'hub_purchase',
-        'hub_docs',
         'hub_cash',
         'hub_hr',
         'hub_internal',
@@ -251,11 +224,17 @@ function tnc_hub_nav_mobile_menu_sections(): array
 
         $meta = $hubMeta[$hubKey] ?? ['icon' => 'bi-grid'];
         $hubLabel = (string) ($meta['short_label'] ?? $tree[$hubKey]['label']);
+        $directUrl = '';
+        if (tnc_hub_nav_hub_is_direct_link($hubKey) && $pages !== []) {
+            $directUrl = (string) $pages[0]['url'];
+        }
         $out[] = [
             'key' => $hubKey,
             'label' => $hubLabel,
             'icon' => (string) ($meta['icon'] ?? 'bi-grid'),
             'pages' => $pages,
+            'direct_url' => $directUrl,
+            'active' => tnc_hub_nav_hub_is_active($hubKey, $currentKey),
         ];
     }
 

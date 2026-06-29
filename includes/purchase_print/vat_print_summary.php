@@ -13,11 +13,6 @@ if (!function_exists('tnc_purchase_po_items_line_sum')) {
             if (!is_array($item)) {
                 continue;
             }
-            if ($orderType === 'hire') {
-                if (function_exists('tnc_hire_line_is_group') && tnc_hire_line_is_group($item)) {
-                    continue;
-                }
-            }
             $sum += (float) ($item['total'] ?? 0);
         }
 
@@ -397,6 +392,6 @@ if (!function_exists('tnc_purchase_report_supplier_name')) {
             return $name;
         }
 
-        return trim((string) ($po['contractor_name'] ?? ''));
+        return trim((string) ($po['supplier_name'] ?? ''));
     }
 }

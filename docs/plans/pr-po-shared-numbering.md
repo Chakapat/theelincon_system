@@ -25,8 +25,6 @@ PR-TNC-2506-011  ──แปลง──►  PO-TNC-2506-011
 | สร้าง PR | `Purchase::nextPRNumber()` | `purchase_requests` |
 | PO จาก PR | `Purchase::generatePONumber()` | `purchase_orders` (prefix `PO-TNC-{ym}-`) |
 | PO โดยตรง | `Purchase::generatePONumber()` | `purchase_orders` |
-| PO จ้าง (สั่งจ่าย/เบิกล่วงหน้า) | `Purchase::generatePONumber()` | `purchase_orders` |
-| WO / สัญญาจ้าง | `Purchase::generateWorkOrderNumber()` | `purchase_orders` (prefix `WO-TNC-`) |
 
 **ไฟล์หลัก:** `includes/Rtdb/Purchase.php`, `actions/action-handler.php`
 
@@ -152,8 +150,6 @@ PR นับเลขตามเดิม — ตอนแปลง PO copy tai
 | PR/PO ซื้อ (`purchase`) | ✅ | core |
 | PO จาก PR | ✅ tail จาก PR | |
 | PO โดยตรง | ⚠️ | B2: prefix แยก |
-| PR/PO จ้าง (`hire`) | ❌ | WO = `WO-TNC` คนละสาย |
-| PO สั่งจ่าย/เบิกล่วงหน้า | ❌ | หลาย PO ต่อ 1 WO |
 
 **Prefix รายเดือน:** ปัจจุบันใช้ `{ym}` ในเลข — slot reset ทุกเดือน (ยืนยันกับธุรกิจ)
 
@@ -230,7 +226,6 @@ $po_number = tnc_po_number_from_pr($pr_row);
 - [ ] **PO โดยตรง** — ยังใช้ไหม? B1 (pool ร่วม) หรือ B2 (prefix แยก)?
 - [ ] **เลขท้าย vs ลำดับที่สร้าง** — ยอมให้ PR ใบที่ N ได้เลขไม่เท่า N ไหม? (กรณี B1)
 - [ ] **เอกสารยกเลิก** — reuse เลขไหม?
-- [ ] **Hire / WO / PO สั่งจ่าย** — อยู่นอก scope lock ใช่ไหม?
 - [ ] **ข้อมูลเก่า** — lock เฉพาะใหม่ หรือ migrate ย้อนหลัง?
 - [ ] **Reset รายเดือน** — ยืนยัน `{ym}` ใน prefix ตามเดิม?
 
@@ -243,9 +238,8 @@ $po_number = tnc_po_number_from_pr($pr_row);
 1. สร้าง PR → จอง tail → `PR-TNC-{ym}-{tail}`
 2. แปลง PO → `PO-TNC-{ym}-{tail เดียวกัน}`
 3. PO โดยตรต → `PO-D-TNC-{ym}-{seq}` ไม่กินช่อง PR
-4. Hire/WO → คง `WO-TNC-` แยก
-5. ไม่ reuse เลขที่ยกเลิก
-6. Cutover — เอกสารเก่าไม่บังคับแก้
+4. ไม่ reuse เลขที่ยกเลิก
+5. Cutover — เอกสารเก่าไม่บังคับแก้
 
 ---
 
@@ -255,7 +249,6 @@ $po_number = tnc_po_number_from_pr($pr_row);
 // includes/Rtdb/Purchase.php
 Purchase::nextPRNumber();      // PR-TNC-{ym}-{seq}
 Purchase::generatePONumber();  // PO-TNC-{ym}-{seq}
-Purchase::generateWorkOrderNumber(); // WO-TNC-{seq}
 
 // actions/action-handler.php
 // create_po_from_pr → generatePONumber() + reference_pr_number

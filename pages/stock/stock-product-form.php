@@ -63,7 +63,7 @@ $handler = app_path('actions/stock-handler.php');
         </div>
         <div class="d-flex gap-2">
             <button type="submit" class="btn btn-warning text-white fw-bold rounded-pill px-4">บันทึกประเภทอุปกรณ์</button>
-            <a href="<?= htmlspecialchars($siteId > 0 ? (app_path('pages/stock/stock-adjust.php') . '?site_id=' . $siteId) : app_path('pages/stock/stock-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill">กลับ</a>
+            <a href="<?= htmlspecialchars($siteId > 0 ? (app_path('pages/stock/stock-list.php') . '?site_id=' . $siteId) : app_path('pages/stock/stock-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill">กลับ</a>
         </div>
     </form>
 </div>

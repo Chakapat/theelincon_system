@@ -270,6 +270,10 @@
                 '<span class="tnc-hub-fab-hub-label">' + escapeHtml(hub.short_label || hub.label) + '</span>' +
                 '<span class="tnc-hub-fab-hub-btn"><i class="bi ' + escapeHtml(hub.icon) + '" aria-hidden="true"></i></span>';
             el.addEventListener('click', function () {
+                if (hub.direct_url) {
+                    window.location.href = hub.direct_url;
+                    return;
+                }
                 toggleHub(hub);
             });
             hubsWrap.appendChild(el);

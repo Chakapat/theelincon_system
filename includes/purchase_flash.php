@@ -17,7 +17,6 @@ if (!function_exists('tnc_purchase_po_list_error_message')) {
             'po_cancelled' => 'ใบสั่งซื้อนี้ถูกยกเลิกแล้ว ไม่สามารถดำเนินการนี้ได้',
             'already_cancelled' => 'ใบสั่งซื้อนี้ยกเลิกไปแล้ว',
             'po_paid' => 'ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถแก้ไข ยกเลิก หรือลบได้',
-            'contract_po_not_payable' => 'WO สัญญาจ้างไม่ใช่ใบสั่งจ่าย — ใช้ «ออก PO สั่งจ่าย» สำหรับงวด/ครั้งที่ต้องโอนเงิน',
             'billing_required' => 'กรุณากรอกเลขที่บิลซื้อและวันที่บนบิลให้ครบถ้วน',
             'billing_amount_invalid' => 'ยอดเงินรวมและยอด VAT ต้องไม่เป็นค่าว่างหรือติดลบ',
             default => 'เกิดข้อผิดพลาดในการจัดการใบสั่งซื้อ กรุณาลองใหม่',
@@ -309,7 +308,7 @@ if (!function_exists('tnc_purchase_po_view_flash')) {
         }
 
         if (!empty($get['created'])) {
-            return ['type' => 'success', 'message' => 'บันทึก Work Order เรียบร้อยแล้ว', 'audio' => 'create'];
+            return ['type' => 'success', 'message' => 'บันทึกใบสั่งซื้อเรียบร้อยแล้ว', 'audio' => 'create'];
         }
 
         if (!empty($get['billing_saved'])) {
@@ -335,10 +334,6 @@ if (!function_exists('tnc_purchase_po_view_flash')) {
             ];
         }
 
-        if (!empty($get['error']) && (string) $get['error'] === 'no_contract_po') {
-            return ['type' => 'warning', 'message' => 'ยังไม่มี Work Order (WO) — ต้องออก WO ก่อนจึงจะสั่งจ่าย PO ได้'];
-        }
-
         if (!empty($get['error']) && (string) $get['error'] === 'po_paid') {
             return ['type' => 'warning', 'message' => 'ใบสั่งซื้อนี้สถานะการจ่ายเป็น «จ่ายแล้ว» ไม่สามารถยกเลิกได้'];
         }
@@ -349,39 +344,6 @@ if (!function_exists('tnc_purchase_po_view_flash')) {
 
         if (!empty($get['error']) && (string) $get['error'] === 'billing_amount_invalid') {
             return ['type' => 'warning', 'message' => 'ยอดเงินรวมและยอด VAT ต้องไม่เป็นค่าว่างหรือติดลบ'];
-        }
-
-        return null;
-    }
-}
-
-if (!function_exists('tnc_purchase_wo_list_flash')) {
-    /**
-     * @param array<string, mixed> $get
-     * @return array{type: string, message: string, audio?: string}|null
-     */
-    function tnc_purchase_wo_list_flash(array $get): ?array
-    {
-        if (!empty($get['success'])) {
-            $createdWoNo = trim((string) ($get['wo_number'] ?? ($get['po_number'] ?? '')));
-            $message = 'สร้าง Work Order (WO) สำเร็จแล้ว';
-            if ($createdWoNo !== '') {
-                $message .= ' — เลขที่ ' . $createdWoNo;
-            }
-
-            return ['type' => 'success', 'message' => $message, 'audio' => 'create'];
-        }
-
-        if (!empty($get['cancelled'])) {
-            return ['type' => 'success', 'message' => 'ยกเลิก Work Order เรียบร้อยแล้ว', 'audio' => 'delete'];
-        }
-
-        if (!empty($get['error']) && (string) $get['error'] === 'not_found') {
-            return ['type' => 'warning', 'message' => 'ไม่พบ Work Order ที่ต้องการ'];
-        }
-
-        if (!empty($get['error']) && (string) $get['error'] === 'no_wo') {
-            return ['type' => 'warning', 'message' => 'ยังไม่มี Work Order (WO)'];
         }
 
         return null;

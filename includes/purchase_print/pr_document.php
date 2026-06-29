@@ -5,8 +5,6 @@ declare(strict_types=1);
 use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\Purchase;
 
-require_once __DIR__ . '/../hire_line_items.php';
-require_once __DIR__ . '/../contractors.php';
 
 if (!function_exists('tnc_pr_format_date_thai')) {
     function tnc_pr_format_date_thai(mixed $date): string
@@ -54,27 +52,7 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         return isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
     });
     $requestType = trim((string) ($pr['request_type'] ?? ($pr['procurement_type'] ?? 'purchase')));
-    if (!in_array($requestType, ['purchase', 'hire'], true)) {
-        $requestType = 'purchase';
-    }
-    $contractorName = trim((string) ($pr['contractor_name'] ?? ($pr['hire_contractor_name'] ?? '')));
-    $contractorPrint = tnc_contractor_print_profile((int) ($pr['contractor_id'] ?? 0), $contractorName);
-    if ($contractorPrint['name_th'] !== '') {
-        $contractorName = $contractorPrint['name_th'];
-    }
-    $contractValue = (float) ($pr['contract_value'] ?? ($pr['hire_total_value'] ?? 0));
-    $installmentTotal = (int) ($pr['installment_total'] ?? ($pr['hire_installment_count'] ?? 1));
-    if ($installmentTotal < 1) {
-        $installmentTotal = 1;
-    }
-    $hireScope = trim((string) ($pr['hire_scope_details'] ?? ''));
-
-    $hireContractPo = null;
-    $hasHireContractPo = false;
-    if ($requestType === 'hire') {
-        $hireContractPo = Purchase::hireContractPoFor($pr_id);
-        $hasHireContractPo = $hireContractPo !== null;
-    }
+    $requestType = 'purchase';
 
     $companies = Db::tableRows('company');
     Db::sortRows($companies, 'id', false);
@@ -122,8 +100,6 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
     $quotationAttach = trim((string) ($pr['quotation_attachment_path'] ?? ''));
     $quotationName = trim((string) ($pr['quotation_attachment_name'] ?? ''));
     $detailsText = trim((string) ($pr['details'] ?? ''));
-    $hireTableNote = $requestType === 'hire' && count($item_rows) === 0 && $hireScope !== '';
-
     if (!function_exists('line_pr_normalize_status')) {
         require_once dirname(__DIR__) . '/line_pr_approval.php';
     }
@@ -136,9 +112,7 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
     if (is_array($existing_po) && (int) ($existing_po['id'] ?? 0) > 0) {
         $poShortcutUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $existing_po['id'];
     } elseif ($prIsApprovedForPo) {
-        $poShortcutUrl = $requestType === 'hire'
-            ? app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . (int) $pr['id'] . ($hasHireContractPo ? '&mode=payment' : '&mode=contract')
-            : app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . (int) $pr['id'];
+        $poShortcutUrl = app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . (int) $pr['id'];
     }
 
     $prDocTitle = trim((string) ($pr['pr_number'] ?? ''));
@@ -161,11 +135,6 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         'com' => $com,
         'item_rows' => $item_rows,
         'requestType' => $requestType,
-        'contractorName' => $contractorName,
-        'contractorPrint' => $contractorPrint,
-        'contractValue' => $contractValue,
-        'installmentTotal' => $installmentTotal,
-        'hireScope' => $hireScope,
         'requesterDisplay' => $requesterDisplay,
         'creatorDisplay' => $creatorDisplay,
         'pv' => $pv,
@@ -180,10 +149,7 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         'quotationAttach' => $quotationAttach,
         'quotationName' => $quotationName,
         'detailsText' => $detailsText,
-        'hireTableNote' => $hireTableNote,
         'existing_po' => $existing_po,
-        'hireContractPo' => $hireContractPo,
-        'hasHireContractPo' => $hasHireContractPo,
         'poStatus' => $poStatus,
         'isPoCancelled' => $isPoCancelled,
         'poShortcutUrl' => $poShortcutUrl,

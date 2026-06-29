@@ -6,7 +6,6 @@ session_start();
 header('Content-Type: application/json; charset=UTF-8');
 
 require_once dirname(__DIR__) . '/config/connect_database.php';
-require_once dirname(__DIR__) . '/includes/datasets.php';
 require_once dirname(__DIR__) . '/includes/purchase_po_payment_slips.php';
 require_once dirname(__DIR__) . '/includes/purchase/po_item_search.php';
 
@@ -19,14 +18,6 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $dataset = trim((string) ($_GET['dataset'] ?? ''));
-
-if ($dataset === 'hire_contracts') {
-    tnc_require_finance_role();
-    $rows = tnc_dataset_hire_contract_rows();
-    $checksum = hash('sha256', json_encode($rows, JSON_UNESCAPED_UNICODE));
-    echo json_encode(['ok' => true, 'checksum' => $checksum, 'rows' => $rows], JSON_UNESCAPED_UNICODE);
-    exit;
-}
 
 if ($dataset === 'stock_movements_site') {
     $siteId = (int) ($_GET['site_id'] ?? 0);
@@ -64,7 +55,6 @@ $allowedMirror = [
     'purchase_requests',
     'purchase_orders',
     'suppliers',
-    'contractors',
     'invoices',
     'tax_invoices',
 ];

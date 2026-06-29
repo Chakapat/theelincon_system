@@ -154,14 +154,6 @@
     color: var(--tnc-fab-orange-dark);
 }
 
-/* เอกสาร = ส้มเสมอ */
-.tnc-hub-fab-hub[data-hub-key="hub_docs"] .tnc-hub-fab-hub-btn {
-    background: linear-gradient(145deg, var(--tnc-fab-orange), #f97316);
-    border-color: transparent;
-    color: #fff;
-    box-shadow: var(--tnc-fab-shadow-orange);
-}
-
 /* จัดซื้อ = ขาวปกติ, เขียวเมื่ออยู่หน้านั้น */
 .tnc-hub-fab-hub[data-hub-key="hub_purchase"] .tnc-hub-fab-hub-btn {
     background: #fff;
@@ -173,11 +165,6 @@
 .tnc-hub-fab-hub:focus-visible .tnc-hub-fab-hub-btn {
     transform: scale(1.07);
     box-shadow: var(--tnc-fab-shadow-lift);
-}
-
-.tnc-hub-fab-hub[data-hub-key="hub_docs"]:hover .tnc-hub-fab-hub-btn,
-.tnc-hub-fab-hub[data-hub-key="hub_docs"]:focus-visible .tnc-hub-fab-hub-btn {
-    box-shadow: var(--tnc-fab-shadow-orange);
 }
 
 .tnc-hub-fab-hub.is-current:not(.is-expanded)[data-hub-key="hub_purchase"] .tnc-hub-fab-hub-btn {

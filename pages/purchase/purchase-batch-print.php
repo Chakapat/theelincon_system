@@ -30,12 +30,7 @@ $ids = array_slice($ids, 0, 25);
 
 $backPr = app_path('pages/purchase/purchase-request-list.php');
 $backPo = app_path('pages/purchase/purchase-order-list.php');
-$backWo = app_path('pages/purchase/work-order-list.php');
-$backKind = strtolower(trim((string) ($_GET['back'] ?? '')));
-$backUrl = match ($backKind) {
-    'wo' => $backWo,
-    default => $kind === 'po' ? $backPo : $backPr,
-};
+$backUrl = $kind === 'po' ? $backPo : $backPr;
 
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/pr_document.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/po_document.php';

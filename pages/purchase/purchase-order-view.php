@@ -15,7 +15,6 @@ $id = (int) ($_GET['id'] ?? 0);
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/po_document.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_po_payment_slips.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/pr_document.php';
-require_once dirname(__DIR__, 2) . '/includes/purchase_print/wo_history_print.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_flash.php';
 use Theelincon\Rtdb\Purchase;
 $poCtx = tnc_purchase_po_print_prepare($id);
@@ -23,16 +22,6 @@ if ($poCtx === null) {
     die('ไม่พบข้อมูลใบสั่งซื้อ');
 }
 extract($poCtx, EXTR_OVERWRITE);
-$isHireContractPoDoc = Purchase::isHireContractPo($po);
-$isHireAdvancePoDoc = Purchase::isHireAdvancePo($po);
-$hireContractIdForPo = (int) ($po['hire_contract_id'] ?? 0);
-$poPaymentFromHcUrl = $hireContractIdForPo > 0
-    ? app_path('pages/purchase/purchase-order-from-hire-contract.php') . '?hire_contract_id=' . $hireContractIdForPo
-    : '';
-$poAdvanceFromHcUrl = $hireContractIdForPo > 0
-    ? app_path('pages/purchase/purchase-order-from-hire-contract.php') . '?hire_contract_id=' . $hireContractIdForPo . '&mode=advance'
-    : '';
-$woSummaryIncluded = false;
 $paymentStatusPo = strtolower(trim((string) ($po['payment_status'] ?? 'unpaid')));
 $isPoPaid = ($paymentStatusPo === 'paid');
 $poPaidLocksActions = Purchase::poPaidLocksMutation($po);
@@ -63,30 +52,12 @@ $printIncludePo = in_array($poPrintMode, ['po', 'both', 'all'], true);
 $printIncludeSlip = in_array($poPrintMode, ['slip', 'both', 'all'], true) && $hasPaymentSlipPrint;
 $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true) && $hasQuotationAttachPrint;
 
-$woHistoryPrintMode = ($isHireContractPoDoc && $hireContractIdForPo > 0)
-    ? tnc_wo_history_resolve_print_mode()
-    : null;
-$woHistoryCtx = null;
-if ($woHistoryPrintMode !== null) {
-    $woHistoryCtx = tnc_wo_contract_summary_context($hireContractIdForPo);
-    if ($woHistoryCtx === null) {
-        $woHistoryPrintMode = null;
-    } else {
-        $printIncludePr = false;
-        $printIncludePo = false;
-        $printIncludeSlip = false;
-        $printIncludeQuotation = false;
-        $hasPrintChoiceModal = false;
-    }
-}
-
 $poEmbed = isset($_GET['embed']) && (string) $_GET['embed'] === '1';
 $poAutoprint = isset($_GET['autoprint']) && (string) $_GET['autoprint'] === '1';
 if ($poEmbed || $poAutoprint) {
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     header('Pragma: no-cache');
 }
-$woDocInModal = $isHireContractPoDoc && !$poEmbed && !$poAutoprint && $woHistoryPrintMode === null;
 if ($poEmbed) {
     $printIncludePr = false;
     $printIncludePo = true;
@@ -105,7 +76,7 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php
-        if ($woHistoryPrintMode !== null) {
+        if (false) {
             echo htmlspecialchars('รายงานประวัติการจ่าย · ' . $poDocTitle, ENT_QUOTES, 'UTF-8');
         } else {
             echo htmlspecialchars($poDocTitle, ENT_QUOTES, 'UTF-8');
@@ -120,14 +91,7 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
     <?php require_once dirname(__DIR__, 2) . '/includes/document_color_css.php'; tnc_doc_color_render_head_assets(); ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <?php if ($woHistoryPrintMode !== null): ?>
-    <?php
-    $woHistPrintCss = dirname(__DIR__, 2) . '/assets/css/wo-history-print.css';
-    $woHistPrintVer = is_file($woHistPrintCss) ? (string) filemtime($woHistPrintCss) : (string) time();
-    ?>
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/wo-history-print.css') . '?v=' . rawurlencode($woHistPrintVer), ENT_QUOTES, 'UTF-8') ?>">
-    <?php endif; ?>
-    
+        
     <style>
         :root {
             --dark: #333;
@@ -650,94 +614,12 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
         }
         <?php endif; ?>
 
-        <?php if ($woDocInModal): ?>
-        .tnc-wo-doc-popover-backdrop {
-            position: fixed;
-            inset: 0;
-            z-index: 1040;
-            background: rgba(15, 23, 42, 0.28);
-            backdrop-filter: blur(2px);
-            -webkit-backdrop-filter: blur(2px);
-            opacity: 0;
-            transition: opacity 0.2s ease;
-            pointer-events: none;
-        }
-        .tnc-wo-doc-popover-backdrop.show {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        #tncWoDocPopover.tnc-wo-doc-popover {
-            position: fixed;
-            z-index: 1050;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -48%) scale(0.97);
-            width: min(calc(210mm + 2.5rem), calc(100vw - 1rem));
-            max-width: min(calc(210mm + 2.5rem), calc(100vw - 1rem));
-            margin: 0;
-            border: 1px solid rgba(15, 23, 42, 0.1);
-            border-radius: 0.75rem;
-            box-shadow: 0 1rem 2.5rem rgba(15, 23, 42, 0.18);
-            opacity: 0;
-            transition: opacity 0.22s ease, transform 0.22s ease;
-            pointer-events: none;
-            background: #fff;
-        }
-        #tncWoDocPopover.tnc-wo-doc-popover.show {
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-            pointer-events: auto;
-        }
-        #tncWoDocPopover .popover-header {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            background: #fff;
-            border-bottom: 1px solid var(--tnc-border, #e2e8f0);
-            padding: 0.6rem 0.85rem;
-            font-size: 0.92rem;
-            font-weight: 800;
-            color: #0f172a;
-            border-radius: 0.75rem 0.75rem 0 0;
-        }
-        #tncWoDocPopover .popover-body {
-            padding: 0;
-            height: min(calc(297mm + 1rem), calc(100vh - 5rem));
-            max-height: calc(100vh - 5rem);
-            overflow: auto;
-            background: var(--tnc-surface, #f6f7f9);
-            border-radius: 0 0 0.75rem 0.75rem;
-            scrollbar-gutter: stable;
-        }
-        #tncWoDocPopover #tncWoDocPopoverFrame {
-            width: 100%;
-            height: 100%;
-            min-height: 240px;
-            display: block;
-            border: 0;
-        }
-        body.tnc-wo-doc-popover-open { overflow: hidden; }
-        <?php endif; ?>
-
-        <?php if ($woHistoryPrintMode !== null): ?>
-        body.po-doc-embed.po-wo-history-print {
-            background: #e9ecef;
-        }
-        body.po-doc-embed.po-wo-history-print .po-view-canvas {
-            max-width: none;
-            padding: 0;
-            background: transparent;
-        }
-        body.po-doc-embed.po-doc-autoprint {
-            background: #fff;
-        }
-        <?php endif; ?>
-    </style>
+        
+            </style>
 </head>
-<body class="purchase-module tnc-doc-po-view<?= ($poEmbed || $poAutoprint || $woHistoryPrintMode !== null) ? ' po-doc-embed' . ($poAutoprint ? ' po-doc-autoprint' : '') . ($woHistoryPrintMode !== null ? ' po-wo-history-print' : '') : ' tnc-app-body tnc-po-boot-lock' ?>"<?= ($poEmbed || $poAutoprint || $woHistoryPrintMode !== null) ? '' : ' data-tnc-boot-title="กำลังโหลดใบสั่งซื้อ…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้บันทึกเลขบิลและดำเนินการต่อเมื่อโหลดเสร็จ"' ?>>
+<body class="purchase-module tnc-doc-po-view<?= ($poEmbed || $poAutoprint) ? ' po-doc-embed' . ($poAutoprint ? ' po-doc-autoprint' : '') : ' tnc-app-body tnc-po-boot-lock' ?>"<?= ($poEmbed || $poAutoprint) ? '' : ' data-tnc-boot-title="กำลังโหลดใบสั่งซื้อ…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้บันทึกเลขบิลและดำเนินการต่อเมื่อโหลดเสร็จ"' ?>>
 
-<?php if (!$poEmbed && !$poAutoprint && $woHistoryPrintMode === null): ?>
+<?php if (!$poEmbed && !$poAutoprint): ?>
 <div class="no-print tnc-app-chrome">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container-fluid px-3 d-lg-none no-print">
@@ -751,13 +633,7 @@ $pmToolbar = strtolower(trim((string) ($po['payment_method'] ?? 'transfer'))) ==
 $cashByToolbar = trim((string) ($po['payment_cash_paid_by'] ?? ''));
 $slipItemsToolbar = $isPoPaid ? tnc_po_payment_slip_items($po) : [];
 $slipRelToolbar = $slipItemsToolbar !== [] ? (string) ($slipItemsToolbar[0]['path'] ?? '') : '';
-$poListHref = htmlspecialchars(
-    $isHireContractPoDoc
-        ? app_path('pages/purchase/work-order-list.php')
-        : app_path('pages/purchase/purchase-order-list.php'),
-    ENT_QUOTES,
-    'UTF-8'
-);
+$poListHref = htmlspecialchars(app_path('pages/purchase/purchase-order-list.php'), ENT_QUOTES, 'UTF-8');
 $poViewFullHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8');
 $poViewFlash = tnc_purchase_po_view_flash($_GET);
 $hasAlerts = $poViewFlash !== null
@@ -765,18 +641,13 @@ $hasAlerts = $poViewFlash !== null
     || ($poPrintMode === 'slip')
     || ($poPrintMode === 'all');
 ?>
-<?php if (!$poEmbed && !$poAutoprint && $woHistoryPrintMode === null): ?>
+<?php if (!$poEmbed && !$poAutoprint): ?>
 <header class="po-view-shell no-print">
     <div class="po-view-shell-inner">
         <div class="po-view-toolbar-row js-tnc-doc-toolbar mb-2">
             <div class="po-view-toolbar-main">
                 <span class="po-view-toolbar-id"><?= htmlspecialchars($poDocTitle, ENT_QUOTES, 'UTF-8') ?></span>
-                <?php if ($isHireContractPoDoc): ?>
-                    <span class="badge rounded-pill px-3 py-2 text-bg-primary ms-2">WORK ORDER (WO)</span>
-                <?php elseif ($isHireAdvancePoDoc): ?>
-                    <span class="badge rounded-pill px-3 py-2 text-bg-warning ms-2">PO เบิกล่วงหน้า</span>
-                <?php endif; ?>
-                <span class="po-view-toolbar-sep" aria-hidden="true">—</span>
+                                <span class="po-view-toolbar-sep" aria-hidden="true">—</span>
                 <?php if ($isPoCancelled): ?>
                     <span class="badge rounded-pill px-3 py-2 text-bg-danger">ยกเลิกแล้ว</span>
                 <?php elseif ($isPoPaid): ?>
@@ -808,12 +679,12 @@ $hasAlerts = $poViewFlash !== null
                         <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3"><i class="bi bi-x-circle me-1"></i>ยกเลิก PO</button>
                     </form>
                 <?php endif; ?>
-                <?php if (user_can('po.update') && !$isPoCancelled && $billingStatusPo === 'pending' && !$isHireContractPoDoc): ?>
+                <?php if (user_can('po.update') && !$isPoCancelled && $billingStatusPo === 'pending' && !false): ?>
                     <button type="button" class="btn btn-outline-orange btn-sm rounded-pill px-3 js-tnc-doc-action" id="btnOpenReceiveBill">
                         <i class="bi bi-receipt me-1"></i>บันทึกเลขที่บิลซื้อ
                     </button>
                 <?php endif; ?>
-                <?php if ($isPoPaid && user_can('po.update') && !$poPaidLocksActions && !$isHireContractPoDoc): ?>
+                <?php if ($isPoPaid && user_can('po.update') && !$poPaidLocksActions && !false): ?>
                     <button
                         type="button"
                         class="btn btn-outline-orange btn-sm rounded-pill px-3 js-manage-slips js-tnc-doc-action"
@@ -826,28 +697,15 @@ $hasAlerts = $poViewFlash !== null
             </div>
             <span class="po-view-toolbar-sep po-view-toolbar-sep--actions" aria-hidden="true">|</span>
             <div class="po-view-toolbar-actions">
-                <?php if ($isHireContractPoDoc && !$isPoCancelled && user_can('po.create') && $poPaymentFromHcUrl !== ''): ?>
-                    <a href="<?= htmlspecialchars($poPaymentFromHcUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3 js-tnc-doc-action">
-                        <i class="bi bi-cash-coin me-1"></i>ออก PO สั่งจ่าย
-                    </a>
-                    <a href="<?= htmlspecialchars($poAdvanceFromHcUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-warning btn-sm rounded-pill px-3 js-tnc-doc-action">
-                        <i class="bi bi-wallet2 me-1"></i>เบิกล่วงหน้า
-                    </a>
-                <?php endif; ?>
-                <a href="<?= $poListHref ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="back">
-                    <i class="bi bi-arrow-left me-1"></i><?= $isHireContractPoDoc ? 'รายการ WO' : 'รายการ PO' ?>
+                                <a href="<?= $poListHref ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="back">
+                    <i class="bi bi-arrow-left me-1"></i>รายการ PO
                 </a>
-                <?php if ($woDocInModal): ?>
-                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 js-tnc-doc-action" id="btnShowWoDoc">
-                        <i class="bi bi-file-earmark-text me-1"></i>แสดงเอกสารใบสั่งจ้าง
-                    </button>
-                <?php endif; ?>
-                <?php if ($hasPrintChoiceModal): ?>
+                                <?php if ($hasPrintChoiceModal): ?>
                     <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="print" data-bs-toggle="modal" data-bs-target="#poPrintChoiceModal">
                         <i class="bi bi-printer me-1"></i>พิมพ์
                     </button>
                 <?php else: ?>
-                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="print"<?= $woDocInModal ? ' id="btnWoDocPrintDirect"' : ' onclick="tncPrintPoWhenReady()"' ?>>
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="print" onclick="tncPrintPoWhenReady()">
                         <i class="bi bi-printer me-1"></i>พิมพ์
                     </button>
                 <?php endif; ?>
@@ -882,7 +740,7 @@ $hasAlerts = $poViewFlash !== null
 </header>
 <?php endif; ?>
 
-<?php if (!$poEmbed && !$poAutoprint && $woHistoryPrintMode === null): ?>
+<?php if (!$poEmbed && !$poAutoprint): ?>
 <div class="modal fade no-print" id="receiveBillModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-fullscreen-md-down">
         <div class="modal-content">
@@ -938,8 +796,8 @@ $hasAlerts = $poViewFlash !== null
                     <div class="col-12 col-md-6 col-xl-3">
                         <button type="button" class="btn btn-outline-secondary w-100 h-100 py-3 text-start js-po-print-choice border-2 rounded-3" data-print-mode="po">
                             <i class="bi bi-file-earmark-text d-block mb-2 fs-4 text-secondary"></i>
-                            <span class="fw-bold d-block"><?= $isHireContractPoDoc ? '1. เฉพาะใบสั่งจ้าง (WO)' : '1. เฉพาะใบสั่งซื้อ' ?></span>
-                            <span class="small text-muted"><?= $isHireContractPoDoc ? 'เอกสาร WORK ORDER / ใบสั่งจ้าง' : 'ไม่รวมสลิปและแนบ QT' ?></span>
+                            <span class="fw-bold d-block">1. เฉพาะใบสั่งซื้อ</span>
+                            <span class="small text-muted">ไม่รวมสลิปและแนบ QT</span>
                         </button>
                     </div>
                     <div class="col-12 col-md-6 col-xl-3">
@@ -971,31 +829,9 @@ $hasAlerts = $poViewFlash !== null
 <?php endif; ?>
 <?php endif; ?>
 
-<?php if ($isHireContractPoDoc && $hireContractIdForPo > 0 && !$poEmbed && !$poAutoprint && $woHistoryPrintMode === null): ?>
-<?php include dirname(__DIR__, 2) . '/includes/purchase/wo_contract_summary.php'; ?>
-<?php endif; ?>
 
-<?php if ($woDocInModal): ?>
-<div id="tncWoDocPopoverBackdrop" class="tnc-wo-doc-popover-backdrop d-none no-print" aria-hidden="true"></div>
-<div id="tncWoDocPopover" class="popover tnc-wo-doc-popover fade d-none no-print" role="dialog" aria-labelledby="tncWoDocPopoverTitle" aria-modal="true">
-    <div class="popover-header">
-        <span class="me-auto" id="tncWoDocPopoverTitle">ใบสั่งจ้าง (WORK ORDER)</span>
-        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-semibold text-nowrap" id="tncWoDocPopoverPrint" title="พิมพ์ใบสั่งจ้าง">
-            <i class="bi bi-printer me-1"></i>พิมพ์
-        </button>
-        <button type="button" class="btn-close ms-1" id="tncWoDocPopoverClose" aria-label="ปิด"></button>
-    </div>
-    <div class="popover-body p-0">
-        <iframe id="tncWoDocPopoverFrame" title="Work Order"></iframe>
-    </div>
-</div>
-<?php endif; ?>
 
-<?php if (!$woDocInModal): ?>
 <div class="po-view-canvas">
-<?php if ($woHistoryPrintMode !== null && is_array($woHistoryCtx)): ?>
-<?php tnc_wo_history_print_render($woHistoryCtx); ?>
-<?php else: ?>
 <?php if ($printIncludePr && $prCtxForPo !== null): ?>
 <div class="tnc-po-print-page tnc-po-print-page--pr">
 <div class="pr-bundle-inline po-print-bundle-pr">
@@ -1023,14 +859,12 @@ $hasAlerts = $poViewFlash !== null
     <div class="alert alert-warning border-0 shadow-sm mb-0 rounded-3">ไม่มีไฟล์หลักฐานการจ่ายเงิน (สลิป) สำหรับใบสั่งซื้อนี้</div>
 </div>
 <?php endif; ?>
-<?php endif; ?>
 </div>
-<?php endif; ?>
 
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-po-print.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
-<?php if (!$poEmbed && !$poAutoprint && $woHistoryPrintMode === null): ?>
+<?php if (!$poEmbed && !$poAutoprint): ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<?php if ($isPoPaid && user_can('po.update') && !$poPaidLocksActions && !$isHireContractPoDoc): ?>
+<?php if ($isPoPaid && user_can('po.update') && !$poPaidLocksActions && !false): ?>
 <script>
 window.tncPoLiveDatasetsUrl = <?= json_encode(app_path('actions/live-datasets.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 window.tncPoFetchActionRow = function (poId) {
@@ -1052,90 +886,6 @@ include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
 ?>
 <?php endif; ?>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<?php endif; ?>
-<?php if (!empty($woSummaryIncluded)): ?>
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script>
-(function () {
-    if (typeof jQuery === 'undefined' || !jQuery.fn.DataTable) {
-        return;
-    }
-    var poViewBase = window.__woSummaryPoViewBase || '';
-    function fmt(n) {
-        var x = Number(n) || 0;
-        return x.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    function escHtml(s) {
-        return String(s || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-    function poNumberCol() {
-        return {
-            data: 'po_number',
-            render: function (num, type, row) {
-                var label = num && String(num).trim() !== '' ? String(num) : '-';
-                var id = row && row.po_id;
-                if (id && label !== '-' && poViewBase) {
-                    return '<a href="' + poViewBase + '?id=' + encodeURIComponent(id) + '" class="fw-semibold link-primary text-decoration-none">' + escHtml(label) + '</a>';
-                }
-                return escHtml(label);
-            }
-        };
-    }
-    function poLinkCol() {
-        return {
-            data: 'po_id',
-            className: 'text-center',
-            orderable: false,
-            searchable: false,
-            render: function (id) {
-                if (!id) return '<span class="text-muted">—</span>';
-                return '<a href="' + poViewBase + '?id=' + id + '" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-up-right"></i></a>';
-            }
-        };
-    }
-    if (window.__woSummaryHistoryRows && jQuery('#woHistoryDT').length) {
-        jQuery('#woHistoryDT').DataTable({
-            data: window.__woSummaryHistoryRows,
-            order: [[1, 'desc']],
-            pageLength: 10,
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
-            columns: [
-                poNumberCol(),
-                { data: 'created_at', className: 'text-center text-nowrap' },
-                { data: 'row_type_label', className: 'text-center text-nowrap' },
-                { data: 'cost_category', className: 'small text-secondary' },
-                { data: 'installment', className: 'text-center' },
-                { data: 'sub', className: 'text-end', render: fmt },
-                { data: 'vat', className: 'text-end', render: fmt },
-                { data: 'wht', className: 'text-end', render: fmt },
-                { data: 'retention', className: 'text-end text-danger', render: fmt },
-                { data: 'net', className: 'text-end fw-bold', render: fmt },
-                poLinkCol()
-            ]
-        });
-    }
-
-    document.querySelectorAll('.js-wo-history-print').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var mode = btn.getAttribute('data-print-mode') || 'wo_history';
-            var poId = window.__woSummaryViewPoId || 0;
-            var base = window.__woSummaryPoViewBase || '';
-            if (!poId || !base) {
-                return;
-            }
-            window.location.href = base + '?id=' + encodeURIComponent(String(poId))
-                + '&print_mode=' + encodeURIComponent(mode) + '&autoprint=1';
-        });
-    });
-})();
-</script>
 <?php endif; ?>
 <?php if ($hasPrintChoiceModal && !$poEmbed && !$poAutoprint): ?>
 <script>
@@ -1165,111 +915,7 @@ include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
 })();
 </script>
 <?php endif; ?>
-<?php if ($woDocInModal): ?>
-<script>
-(function () {
-    var poViewBase = <?= json_encode(app_path('pages/purchase/purchase-order-view.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
-    var poId = <?= (int) $id ?>;
-
-    function tncCloseWoDocPopover() {
-        var pop = document.getElementById('tncWoDocPopover');
-        var backdrop = document.getElementById('tncWoDocPopoverBackdrop');
-        var frame = document.getElementById('tncWoDocPopoverFrame');
-        if (pop) {
-            pop.classList.remove('show');
-            window.setTimeout(function () {
-                if (!pop.classList.contains('show')) {
-                    pop.classList.add('d-none');
-                }
-            }, 200);
-        }
-        if (backdrop) {
-            backdrop.classList.remove('show');
-            window.setTimeout(function () {
-                if (!backdrop.classList.contains('show')) {
-                    backdrop.classList.add('d-none');
-                }
-            }, 200);
-        }
-        document.body.classList.remove('tnc-wo-doc-popover-open');
-        if (frame) {
-            frame.src = 'about:blank';
-        }
-    }
-
-    function tncOpenWoDocPopover() {
-        var frame = document.getElementById('tncWoDocPopoverFrame');
-        var titleEl = document.getElementById('tncWoDocPopoverTitle');
-        var pop = document.getElementById('tncWoDocPopover');
-        var backdrop = document.getElementById('tncWoDocPopoverBackdrop');
-        if (!frame || !pop || !backdrop) {
-            return;
-        }
-        var u = poViewBase + '?id=' + encodeURIComponent(String(poId)) + '&embed=1&_=' + Date.now();
-        frame.src = u;
-        if (titleEl) {
-            titleEl.textContent = <?= json_encode('ใบสั่งจ้าง · ' . ($po['po_number'] ?? ''), JSON_UNESCAPED_UNICODE) ?>;
-        }
-        backdrop.classList.remove('d-none');
-        pop.classList.remove('d-none');
-        window.requestAnimationFrame(function () {
-            backdrop.classList.add('show');
-            pop.classList.add('show');
-        });
-        document.body.classList.add('tnc-wo-doc-popover-open');
-    }
-
-    function tncPrintWoDocFromPopover() {
-        var frame = document.getElementById('tncWoDocPopoverFrame');
-        if (!frame || !frame.contentWindow) {
-            return;
-        }
-        try {
-            var src = frame.src || '';
-            if (!src || src === 'about:blank') {
-                return;
-            }
-            frame.contentWindow.focus();
-            frame.contentWindow.print();
-        } catch (e) {}
-    }
-
-    function tncWoDocPrintDirect() {
-        var u = poViewBase + '?id=' + encodeURIComponent(String(poId)) + '&print_mode=po&autoprint=1';
-        window.open(u, '_blank', 'noopener');
-    }
-
-    window.tncOpenWoDocPopover = tncOpenWoDocPopover;
-    window.tncWoDocPrintDirect = tncWoDocPrintDirect;
-
-    document.getElementById('btnShowWoDoc')?.addEventListener('click', tncOpenWoDocPopover);
-    document.getElementById('tncWoDocPopoverClose')?.addEventListener('click', tncCloseWoDocPopover);
-    document.getElementById('tncWoDocPopoverBackdrop')?.addEventListener('click', tncCloseWoDocPopover);
-    document.getElementById('tncWoDocPopoverPrint')?.addEventListener('click', tncPrintWoDocFromPopover);
-    document.getElementById('btnWoDocPrintDirect')?.addEventListener('click', tncWoDocPrintDirect);
-
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') {
-            var pop = document.getElementById('tncWoDocPopover');
-            if (pop && pop.classList.contains('show')) {
-                tncCloseWoDocPopover();
-            }
-            return;
-        }
-        if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'p') {
-            return;
-        }
-        var pop = document.getElementById('tncWoDocPopover');
-        if (!pop || !pop.classList.contains('show')) {
-            return;
-        }
-        e.preventDefault();
-        tncPrintWoDocFromPopover();
-    });
-})();
-</script>
-<?php endif; ?>
-<?php if (!$poEmbed && !$poAutoprint && $woHistoryPrintMode === null): ?>
+<?php if (!$poEmbed && !$poAutoprint): ?>
 <script>
 window.__tncPoBoot = window.__tncPoBoot || { table: true, sync: false };
 window.tncPoLiveDatasetsUrl = <?= json_encode(app_path('actions/live-datasets.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
@@ -1423,34 +1069,8 @@ tnc_doc_color_render_print_style_tag();
 <style media="print">
     @page {
         size: A4 portrait;
-        margin: <?= $woHistoryPrintMode !== null ? '12mm 10mm 14mm 10mm !important' : '0' ?>;
+        margin: 0;
     }
-    <?php if ($woHistoryPrintMode !== null): ?>
-    body.po-wo-history-print .po-view-canvas {
-        display: block !important;
-        text-align: center !important;
-        padding: 0 !important;
-        background: #fff !important;
-    }
-    body.po-wo-history-print .wo-hist-print-sheet {
-        display: inline-block !important;
-        width: 100% !important;
-        max-width: 210mm !important;
-        margin: 0 auto !important;
-        padding: 12mm 10mm !important;
-        text-align: left !important;
-        box-sizing: border-box !important;
-    }
-    body.po-wo-history-print .wo-hist-print-header,
-    body.po-wo-history-print .wo-hist-print-table-wrap,
-    body.po-wo-history-print .wo-hist-print-table {
-        max-width: 190mm !important;
-        width: 100% !important;
-    }
-    body.po-wo-history-print .wo-hist-print-table {
-        table-layout: fixed !important;
-    }
-    <?php endif; ?>
-</style>
+    </style>
 </body>
 </html>

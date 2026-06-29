@@ -9,7 +9,7 @@ declare(strict_types=1);
  * @var array $data
  * @var array<int, array<string, mixed>> $items
  * @var string $orderType
- * @var string $contractorName
+ * @var string $supplierName
  * @var int $installmentNo
  * @var int $installmentTotal
  * @var string $referencePrNumber
@@ -41,14 +41,12 @@ if ($poNumberDisplay === '') {
     $poNumberDisplay = 'PO-' . (int) ($po['id'] ?? 0);
 }
 $poDocDateSubtitle = $poNumberDisplay . ' · ' . tnc_po_format_date_thai($issueDate);
-$poHirePayAdvanceDoc = $orderType === 'hire' && in_array(($hirePoKind ?? ''), ['payment', 'advance'], true);
-$poHireContractDoc = $orderType === 'hire' && ($hirePoKind ?? '') === 'contract';
-$poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 6;
+$poTableColCount = 6;
 
 ?>
-<div class="invoice-box po-purchase-order-doc<?= $poHirePayAdvanceDoc ? ' po-hire-pay-advance-doc' : '' ?><?= $poHireContractDoc ? ' po-hire-contract-doc' : '' ?>">
+<div class="invoice-box po-purchase-order-doc">
     <?php if ($isPoCancelled): ?>
-    <div class="po-cancelled-watermark" aria-hidden="true"><?= ($orderType === 'hire' && ($hirePoKind ?? '') === 'contract') ? 'ยกเลิกใบสั่งจ้าง' : 'ยกเบิกใบสั่งซื้อ' ?></div>
+    <div class="po-cancelled-watermark" aria-hidden="true">ยกเบิกใบสั่งซื้อ</div>
     <?php endif; ?>
     <div class="po-doc-main">
     <div class="po-doc-content">
@@ -65,24 +63,7 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
             </div>
         </div>
         <div class="col-6 text-end">
-            <div class="invoice-title"><?php
-                if ($orderType === 'hire') {
-                    if (($hirePoKind ?? '') === 'contract') {
-                        echo 'WORK ORDER';
-                    } else {
-                        echo 'PAYMENT ORDER';
-                    }
-                } else {
-                    echo 'PURCHASE ORDER';
-                }
-            ?></div>
-            <?php if ($orderType === 'hire' && ($hirePoKind ?? '') === 'contract'): ?>
-                <div class="small text-muted fw-semibold">ใบสั่งจ้าง</div>
-            <?php elseif ($orderType === 'hire' && ($hirePoKind ?? '') === 'payment'): ?>
-                <div class="small text-muted fw-semibold">ใบสั่งจ่าย (Payment PO)</div>
-            <?php elseif ($orderType === 'hire' && ($hirePoKind ?? '') === 'advance'): ?>
-                <div class="small text-muted fw-semibold">ใบเบิกล่วงหน้า (Advance PO)</div>
-            <?php endif; ?>
+            <div class="invoice-title">PURCHASE ORDER</div>
             <div class="fw-bold text-muted small"><?= htmlspecialchars($poDocDateSubtitle, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php $quotationNo = trim((string) ($data['quotation_number'] ?? '')); ?>
             <?php $quotationAttach = trim((string) ($data['quotation_attachment_path'] ?? '')); ?>
@@ -101,14 +82,8 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
                     <span class="d-none d-print-inline"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></span>
                 </div>
             <?php endif; ?>
-            <?php if (($referenceContractPoNumber ?? '') !== '' && in_array(($hirePoKind ?? ''), ['payment', 'advance'], true)): ?>
-                <div class="small text-muted">เลขที่สัญญาจ้าง (WO) : <?= htmlspecialchars($referenceContractPoNumber, ENT_QUOTES, 'UTF-8'); ?></div>
-            <?php endif; ?>
-            <?php if ($referencePrNumber !== '' && $orderType !== 'hire'): ?>
+            <?php if ($referencePrNumber !== ''): ?>
                 <div class="small text-muted">อ้างถึงใบขอซื้อ : <?= htmlspecialchars($referencePrNumber, ENT_QUOTES, 'UTF-8'); ?></div>
-            <?php endif; ?>
-            <?php if (($hirePaymentSequenceLabel ?? '') !== ''): ?>
-                <div class="small text-muted"><?= htmlspecialchars($hirePaymentSequenceLabel, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php endif; ?>
         </div>
     </div>
@@ -119,7 +94,7 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
             <div class="doc-site-block doc-site-block--po-split">
                 <?php if ($poSiteDisplay !== ''): ?>
                 <span class="doc-site-main">
-                    <span class="doc-site-label"><?= $orderType === 'hire' ? 'ชื่อโครงการ:' : 'สถานที่:' ?></span>
+                    <span class="doc-site-label">สถานที่:</span>
                     <span class="doc-site-value"><?= htmlspecialchars($poSiteDisplay, ENT_QUOTES, 'UTF-8'); ?></span>
                 </span>
                 <?php endif; ?>
@@ -136,21 +111,7 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
 
     <div class="row mb-2 doc-site-row">
         <div class="col-12">
-            <?php if ($orderType === 'hire' && (trim((string) ($contractorPrint['name_th'] ?? '')) !== '' || trim((string) ($contractorName ?? '')) !== '')): ?>
-                <?php
-                if (trim((string) ($contractorPrint['name_th'] ?? '')) === '' && trim((string) ($contractorName ?? '')) !== '') {
-                    $contractorPrint['name_th'] = trim((string) $contractorName);
-                }
-                $contractorPrintLayout = 'detail';
-                include __DIR__ . '/contractor_print_block.php';
-                ?>
-            <?php elseif ($orderType === 'hire'): ?>
-                <div class="doc-site-block">
-                    <span class="doc-site-label">ผู้รับจ้าง:</span>
-                    <span class="doc-site-value">-</span>
-                </div>
-            <?php else: ?>
-                <div class="doc-site-block">
+                            <div class="doc-site-block">
                     <span class="doc-site-label">ผู้ขาย:</span>
                     <span class="doc-site-value"><?= htmlspecialchars((string) ($data['s_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
@@ -168,26 +129,11 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
                     </span>
                 </div>
                 <?php endif; ?>
-            <?php endif; ?>
         </div>
     </div>
 
     <table class="table table-custom po-items-table mt-2">
         <thead>
-            <?php if ($orderType === 'hire'): ?>
-            <tr class="text-center">
-                <th style="width:5%;" class="text-center po-th-num">#</th>
-                <th style="width:20%;" class="text-start po-th-desc">รายการ</th>
-                <th style="width:8%;" class="text-center po-th-num">จำนวน</th>
-                <th style="width:7%;" class="text-center po-th-num">หน่วย</th>
-                <?php if (!$poHirePayAdvanceDoc): ?>
-                <th style="width:10%;" class="text-end po-th-num po-col-material">ค่าวัสดุ</th>
-                <th style="width:10%;" class="text-end po-th-num po-col-labor">ค่าแรง</th>
-                <?php endif; ?>
-                <th style="width:10%;" class="text-end po-th-num po-th-price">ราคา/หน่วย</th>
-                <th style="width:11%;" class="text-end po-th-num">ราคารวม</th>
-            </tr>
-            <?php else: ?>
             <tr class="text-center">
                 <th style="width:38%;" class="text-start po-th-desc">รายละเอียดสินค้า / บริการ</th>
                 <th style="width:10%;" class="text-center po-th-num">จำนวน</th>
@@ -196,56 +142,17 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
                 <th style="width:11%;" class="text-end po-th-num">ส่วนลด</th>
                 <th style="width:13%;" class="text-end po-th-num">ยอดรวม</th>
             </tr>
-            <?php endif; ?>
         </thead>
         <tbody>
             <?php if (count($items) === 0): ?>
             <tr>
-                <td colspan="<?= $poHireTableColCount ?>" class="text-center text-muted py-4">ไม่พบรายการสินค้าในใบสั่งซื้อนี้</td>
+                <td colspan="<?= $poTableColCount ?>" class="text-center text-muted py-4">ไม่พบรายการสินค้าในใบสั่งซื้อนี้</td>
             </tr>
             <?php else: ?>
-                <?php
-                $poDisplayItems = $orderType === 'hire'
-                    ? tnc_hire_lines_apply_display_numbers($items)
-                    : $items;
-                foreach ($poDisplayItems as $item):
-                $isGroup = $orderType === 'hire' && tnc_hire_line_is_group($item);
-                $displayNo = (string) ($item['display_no'] ?? '');
+                <?php foreach ($items as $item):
                 $unitCell = trim((string) ($item['unit'] ?? ''));
-                if ($orderType === 'hire' && !$isGroup) {
-                    $parts = tnc_hire_item_material_labor($item);
-                    $matPrice = $parts['material'];
-                    $laborPrice = $parts['labor'];
-                    $unitPrice = round($matPrice + $laborPrice, 2);
-                    if ($unitPrice <= 0) {
-                        $unitPrice = (float) ($item['unit_price'] ?? 0);
-                    }
-                }
                 ?>
-                <tr<?= $isGroup ? ' class="hire-print-group"' : '' ?>>
-                    <?php if ($orderType === 'hire'): ?>
-                    <td class="text-center po-td-num <?= $isGroup ? 'fw-bold' : 'text-muted' ?>"><?= htmlspecialchars($displayNo, ENT_QUOTES, 'UTF-8'); ?></td>
-                    <td class="<?= $isGroup ? 'fw-bold' : 'fw-bold text-dark' ?> text-start po-td-desc"><?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
-                    <?php if ($isGroup): ?>
-                    <td class="text-center po-td-num text-muted">—</td>
-                    <td class="text-center po-td-num text-muted">—</td>
-                    <?php if (!$poHirePayAdvanceDoc): ?>
-                    <td class="text-end po-td-num text-muted po-col-material">—</td>
-                    <td class="text-end po-td-num text-muted po-col-labor">—</td>
-                    <?php endif; ?>
-                    <td class="text-end po-td-num text-muted">—</td>
-                    <td class="text-end po-td-num text-muted">—</td>
-                    <?php else: ?>
-                    <td class="text-center po-td-num"><?= number_format((float) ($item['quantity'] ?? 0), 2); ?></td>
-                    <td class="text-center po-td-num text-muted"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—'; ?></td>
-                    <?php if (!$poHirePayAdvanceDoc): ?>
-                    <td class="text-end po-td-num po-col-material"><?= number_format($matPrice, 2); ?></td>
-                    <td class="text-end po-td-num po-col-labor"><?= number_format($laborPrice, 2); ?></td>
-                    <?php endif; ?>
-                    <td class="text-end po-td-num"><?= number_format($unitPrice, 2); ?></td>
-                    <td class="text-end fw-bold po-td-num"><?= number_format((float) ($item['total'] ?? 0), 2); ?></td>
-                    <?php endif; ?>
-                    <?php else: ?>
+                <tr>
                     <td class="fw-bold text-dark text-start"><?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
                     <td class="text-center po-td-num"><?= number_format((float) ($item['quantity'] ?? 0), 2); ?></td>
                     <td class="text-center po-td-num text-muted"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—'; ?></td>
@@ -264,7 +171,6 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
                         ?>
                     </td>
                     <td class="text-end fw-bold po-td-num"><?= number_format((float) ($item['total'] ?? 0), 2); ?></td>
-                    <?php endif; ?>
                 </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -278,7 +184,7 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
                 <div class="po-notes-wrap">
                     <?php if ($poNotePo !== ''): ?>
                         <?php
-                        $poNoteHeading = $orderType === 'hire' ? 'หมายเหตุ' : 'หมายเหตุ PO';
+                        $poNoteHeading = 'หมายเหตุ PO';
                         tnc_po_render_note_panel($poNoteHeading, $poNotePo, $poNoteQt !== '');
                         ?>
                     <?php endif; ?>
@@ -291,30 +197,26 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
             <div class="col-5 po-footer-totals-col">
                 <div class="summary-box po-total-sheet">
                     <div class="summary-item">
-                        <span><?= $orderType === 'hire' ? 'ยอดรวม' : 'ยอดรายการ' ?></span>
+                        <span>ยอดรายการ</span>
                         <span><?= number_format((float) ($poVatPrint['line_amount'] ?? $po_subtotal), 2); ?></span>
                     </div>
-                    <?php if ($orderType === 'hire' || ($po_vat_enabled && (float) ($poVatPrint['vat_amount'] ?? 0) > 0)): ?>
+                    <?php if ($po_vat_enabled && (float) ($poVatPrint['vat_amount'] ?? 0) > 0): ?>
                     <?php
-                    if ($orderType === 'hire') {
-                        $poVatDisplayLabel = 'ภาษีมูลค่าเพิ่ม';
-                    } else {
-                        $poVatModePrint = (string) ($poVatPrint['vat_mode'] ?? '');
-                        $poVatDisplayLabel = match ($poVatModePrint) {
-                            'inclusive' => 'รวม VAT',
-                            'exclusive' => 'แยก VAT',
-                            default => (string) ($poVatPrint['vat_label'] ?? 'แยก VAT'),
-                        };
-                    }
+                    $poVatModePrint = (string) ($poVatPrint['vat_mode'] ?? '');
+                    $poVatDisplayLabel = match ($poVatModePrint) {
+                        'inclusive' => 'รวม VAT',
+                        'exclusive' => 'แยก VAT',
+                        default => (string) ($poVatPrint['vat_label'] ?? 'แยก VAT'),
+                    };
                     ?>
-                    <div class="summary-item po-vat-line vat-print-line<?= $orderType === 'hire' ? ' text-primary' : '' ?>">
+                    <div class="summary-item po-vat-line vat-print-line">
                         <span><?= htmlspecialchars($poVatDisplayLabel, ENT_QUOTES, 'UTF-8'); ?></span>
                         <span><?= number_format((float) ($poVatPrint['vat_amount'] ?? 0), 2); ?></span>
                     </div>
                     <?php endif; ?>
                     <?php if ($hasDeductionsPrint): ?>
-                    <div class="summary-item<?= $orderType === 'hire' ? ' border-bottom pb-2 mb-1' : '' ?>">
-                        <span><?= $orderType === 'hire' ? 'ยอดรวม VAT' : 'ยอดก่อนหัก' ?></span>
+                    <div class="summary-item">
+                        <span>ยอดก่อนหัก</span>
                         <span><?= number_format($po_gross_amount, 2); ?></span>
                     </div>
                     <?php endif; ?>
@@ -341,11 +243,11 @@ $poHireTableColCount = $orderType === 'hire' ? ($poHirePayAdvanceDoc ? 6 : 8) : 
         <div class="signature-grid">
             <div>
                 <div class="sig-space"></div>
-                <div class="sig-box"><?= ($orderType === 'hire' && ($hirePoKind ?? '') === 'contract') ? 'ผู้สั่งจ้าง' : 'ผู้สั่งซื้อ / สั่งจ้าง' ?><br><small>(Authorized Signature)</small></div>
+                <div class="sig-box">ผู้สั่งซื้อ / สั่งจ้าง<br><small>(Authorized Signature)</small></div>
             </div>
             <div>
                 <div class="sig-space"></div>
-                <div class="sig-box"><?= ($orderType === 'hire' && ($hirePoKind ?? '') === 'contract') ? 'ผู้รับจ้าง' : 'ผู้อนุมัติสั่งซื้อ / สั่งจ่าย' ?><br><small>(Approver Signature)</small></div>
+                <div class="sig-box">ผู้อนุมัติสั่งซื้อ / สั่งจ่าย<br><small>(Approver Signature)</small></div>
             </div>
         </div>
     </div>

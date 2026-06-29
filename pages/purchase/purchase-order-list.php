@@ -76,13 +76,11 @@ $poListSortYmd = static function (array $row): string {
     return '';
 };
 
-$woListUrl = app_path('pages/purchase/work-order-list.php');
-
 $poItemsByPoId = tnc_purchase_po_items_group_by_po_id();
 
 $po_rows = [];
 foreach (tnc_site_budget_purchase_orders_cached() as $po) {
-    if (Purchase::isWorkOrder($po)) {
+    if (trim((string) ($po['order_type'] ?? 'purchase')) !== 'purchase') {
         continue;
     }
     $poId = (int) ($po['id'] ?? 0);
@@ -194,7 +192,7 @@ foreach ($po_rows as $r) {
         'issue_date_ymd' => (string) ($r['_list_sort_ymd'] ?? ''),
         'total_amount' => (float) ($r['total_amount'] ?? 0),
         'vat_amount' => (float) ($r['vat_amount'] ?? 0),
-        'supplier' => trim((string) (($r['order_type'] ?? '') === 'hire' ? ($r['contractor_name'] ?? '') : ($r['supplier_name'] ?? ''))),
+        'supplier' => trim((string) ($r['supplier_name'] ?? '')),
         'reasons' => $reasons,
         'need_payment' => in_array('ขาดการชำระ', $reasons, true),
         'need_invoice' => in_array('ขาดเลขที่ใบกำกับ', $reasons, true),
@@ -428,7 +426,7 @@ $ignoredCountAll = count($ignoredPoList);
                         </th>
                         <th>เลขที่ PO</th>
                         <th>ไซต์งาน</th>
-                        <th>ผู้ขาย / ผู้รับจ้าง</th>
+                        <th>ผู้ขาย</th>
                         <th class="text-end">ยอดเงินรวม</th>
                         <th class="text-center po-actions-col"><span class="visually-hidden">จัดการ</span></th>
                     </tr>
@@ -438,7 +436,7 @@ $ignoredCountAll = count($ignoredPoList);
                         <tr><td colspan="6" class="po-empty-state text-center text-muted">
                             <i class="bi bi-inbox d-block mb-2" aria-hidden="true"></i>
                             <div class="fw-semibold text-dark"><?= $filterSiteId > 0 ? 'ยังไม่มี PO ของไซต์นี้' : 'ยังไม่มีใบสั่งซื้อ' ?></div>
-                            <div class="small mt-1"><?php if (user_can('po.create')): ?><a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php') . ($filterSiteId > 0 ? ('?site_id=' . $filterSiteId) : ''), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ออก PO โดยตรง</a> · <?php endif; ?>จาก<a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php') . $siteFilterQuery, ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ใบขอซื้อ (PR)</a> · สัญญาจ้าง: <a href="<?= htmlspecialchars($woListUrl, ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">Work Order (WO)</a></div>
+                            <div class="small mt-1"><?php if (user_can('po.create')): ?><a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php') . ($filterSiteId > 0 ? ('?site_id=' . $filterSiteId) : ''), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ออก PO โดยตรง</a> · <?php endif; ?>จาก<a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php') . $siteFilterQuery, ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ใบขอซื้อ (PR)</a></div>
                         </td></tr>
                     <?php else: ?>
                         <?= tnc_purchase_table_skeleton_tr(6, 'po') ?>
@@ -475,12 +473,9 @@ $ignoredCountAll = count($ignoredPoList);
                                 <span class="text-muted">—</span>
                             <?php endif; ?>
                         </td>
-                        <td data-label="ผู้ขาย / ผู้รับจ้าง">
+                        <td data-label="ผู้ขาย">
                             <?php
-                            $orderTypeCell = in_array((string) ($row['order_type'] ?? ''), ['purchase', 'hire'], true) ? (string) $row['order_type'] : 'purchase';
-                            $supplierDisplay = $orderTypeCell === 'hire'
-                                ? trim((string) ($row['contractor_name'] ?? ''))
-                                : trim((string) ($row['supplier_name'] ?? ''));
+                            $supplierDisplay = trim((string) ($row['supplier_name'] ?? ''));
                             echo htmlspecialchars($supplierDisplay !== '' ? $supplierDisplay : '-', ENT_QUOTES, 'UTF-8');
                             ?>
                         </td>
