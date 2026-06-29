@@ -88,7 +88,12 @@ if ($dataset === 'po_action_row') {
 if ($dataset === 'po_item_search') {
     $q = trim((string) ($_GET['q'] ?? ''));
     $limit = (int) ($_GET['limit'] ?? 200);
-    $result = tnc_po_item_search($q, ['limit' => $limit]);
+    $siteId = (int) ($_GET['site_id'] ?? 0);
+    $searchOptions = ['limit' => $limit];
+    if ($siteId > 0) {
+        $searchOptions['site_id'] = $siteId;
+    }
+    $result = tnc_po_item_search($q, $searchOptions);
     echo json_encode([
         'ok' => true,
         'q' => $result['q'],

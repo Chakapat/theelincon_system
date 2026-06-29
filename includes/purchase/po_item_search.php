@@ -121,6 +121,7 @@ if (!function_exists('tnc_po_item_search')) {
         if ($limit > 500) {
             $limit = 500;
         }
+        $filterSiteId = (int) ($options['site_id'] ?? 0);
 
         if ($tokens === []) {
             return [
@@ -172,6 +173,12 @@ if (!function_exists('tnc_po_item_search')) {
 
             $prIdForItems = (int) ($po['pr_id'] ?? 0);
             $prForItems = ($prIdForItems > 0 && isset($prById[$prIdForItems])) ? $prById[$prIdForItems] : null;
+            if ($filterSiteId > 0) {
+                $poSiteIdResolved = tnc_purchase_po_resolve_site_id($po, is_array($prForItems) ? $prForItems : null);
+                if ($poSiteIdResolved !== $filterSiteId) {
+                    continue;
+                }
+            }
             $poItems = $poItemsByPoId[$poId] ?? [];
             if ($poItems === []) {
                 $poItems = tnc_purchase_po_load_items($poId, $po, is_array($prForItems) ? $prForItems : null);

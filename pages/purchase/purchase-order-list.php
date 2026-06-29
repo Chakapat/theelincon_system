@@ -928,6 +928,7 @@ include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
     var searchSeq = 0;
     var itemSearchTable = null;
     var minQueryLen = 2;
+    var filterSiteId = <?= (int) $filterSiteId ?>;
 
     function escapeHtml(text) {
         return String(text)
@@ -1052,6 +1053,9 @@ include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
 
         var seq = ++searchSeq;
         var url = window.tncPoLiveDatasetsUrl + '?dataset=po_item_search&q=' + encodeURIComponent(q) + '&limit=200';
+        if (filterSiteId > 0) {
+            url += '&site_id=' + encodeURIComponent(String(filterSiteId));
+        }
 
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) {

@@ -1,7 +1,7 @@
 (function (window) {
     'use strict';
 
-    var PR_GRID = '2rem 1.2fr 1fr 0.7fr 0.8fr 0.9fr 5rem';
+    var PR_GRID = '2rem 1.2fr 1fr 0.7fr 0.8fr 5rem';
     var PO_GRID = '2rem 1.2fr 1fr 1.2fr 0.9fr 5rem';
 
     function skeletonCells(variant) {
@@ -20,7 +20,6 @@
         return '<span class="tnc-table-skeleton-line sm"></span>'
             + '<span class="tnc-table-skeleton-line md"></span>'
             + '<span class="tnc-table-skeleton-line lg"></span>'
-            + '<span class="tnc-table-skeleton-line sm"></span>'
             + '<span class="tnc-table-skeleton-line sm"></span>'
             + '<span class="tnc-table-skeleton-line md"></span>'
             + '<span class="tnc-table-skeleton-actions">'
