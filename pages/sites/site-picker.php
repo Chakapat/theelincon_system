@@ -567,6 +567,150 @@ if (user_can('page.po')) {
         .picker-action-tile--primary:hover { border-color: #fdba74; background: #fffaf5; }
         .picker-action-tile--success .picker-action-tile__icon { background: #dcfce7; color: #15803d; }
         .picker-action-tile--success:hover { border-color: #86efac; background: #fafff9; }
+        .site-picker-search {
+            border: 1px solid var(--picker-border);
+            border-radius: 0.875rem;
+            background: linear-gradient(180deg, #fffaf5 0%, var(--picker-surface) 100%);
+            padding: 0.95rem 1.1rem;
+            transition: border-color 0.18s ease-out, background 0.18s ease-out;
+        }
+        .site-picker-search.is-active {
+            border-color: #fdba74;
+            background: linear-gradient(180deg, #fff7ed 0%, #fff 100%);
+        }
+        .site-picker-search.is-empty {
+            border-color: #fecaca;
+            background: linear-gradient(180deg, #fff5f5 0%, #fff 100%);
+        }
+        .site-picker-search__toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.85rem 1rem;
+        }
+        .site-picker-search__intro {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex: 0 0 auto;
+            min-width: 0;
+        }
+        .site-picker-search__mark {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.625rem;
+            background: #ffedd5;
+            color: var(--picker-copper-dark);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+            flex-shrink: 0;
+        }
+        .site-picker-search.is-active .site-picker-search__mark {
+            background: #fed7aa;
+            color: #9a3412;
+        }
+        .site-picker-search__copy { min-width: 0; }
+        .site-picker-search__title {
+            margin: 0;
+            font-size: 0.9375rem;
+            font-weight: 800;
+            line-height: 1.3;
+            color: var(--picker-ink);
+        }
+        .site-picker-search__hint {
+            margin: 0.12rem 0 0;
+            font-size: 0.8125rem;
+            line-height: 1.4;
+            color: var(--picker-muted);
+            text-wrap: pretty;
+        }
+        .site-picker-search__field {
+            position: relative;
+            flex: 1 1 16rem;
+            min-width: min(100%, 16rem);
+        }
+        .site-picker-search__input {
+            width: 100%;
+            min-height: 2.75rem;
+            border: 1px solid var(--picker-border);
+            border-radius: 0.625rem;
+            background: var(--picker-surface);
+            color: var(--picker-ink);
+            font-size: 1rem;
+            line-height: 1.4;
+            padding: 0.55rem 2.65rem 0.55rem 0.85rem;
+            transition: border-color 0.18s ease-out, box-shadow 0.18s ease-out;
+        }
+        .site-picker-search__input::placeholder {
+            color: #475569;
+            opacity: 1;
+        }
+        .site-picker-search__input:hover {
+            border-color: #cbd5e1;
+        }
+        .site-picker-search__input:focus {
+            border-color: #fdba74;
+            box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.14);
+            outline: 0;
+        }
+        .site-picker-search__clear {
+            position: absolute;
+            right: 0.35rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 2.15rem;
+            height: 2.15rem;
+            padding: 0;
+            border: 1px solid transparent;
+            border-radius: 0.5rem;
+            background: transparent;
+            color: var(--picker-muted);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
+        }
+        .site-picker-search__clear:hover {
+            color: var(--picker-copper-dark);
+            background: #fff7ed;
+            border-color: #fed7aa;
+        }
+        .site-picker-search__clear:focus-visible {
+            outline: 2px solid rgba(234, 88, 12, 0.45);
+            outline-offset: 1px;
+        }
+        .site-picker-search__status {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            min-height: 1.35rem;
+            margin-top: 0.65rem;
+            font-size: 0.8125rem;
+            line-height: 1.45;
+            color: var(--picker-muted);
+        }
+        .site-picker-search__status i {
+            flex-shrink: 0;
+            font-size: 0.95rem;
+        }
+        .site-picker-search__status.is-found {
+            color: #9a3412;
+        }
+        .site-picker-search__status.is-empty {
+            color: #b91c1c;
+        }
+        .site-picker-search-mark {
+            background: rgba(234, 88, 12, 0.18);
+            color: inherit;
+            padding: 0 0.1em;
+            border-radius: 0.15rem;
+        }
+        .site-picker-card.is-search-match-first .site-card {
+            border-color: #fb923c;
+            background: linear-gradient(180deg, #fff7ed 0%, #fff 52%);
+        }
         .picker-create-modal .modal-content {
             border: 1px solid var(--picker-border);
             border-radius: 0.875rem;
@@ -813,7 +957,10 @@ if (user_can('page.po')) {
             .site-skeleton-line,
             .site-skeleton-box,
             .site-skeleton-panel,
-            .site-skeleton-icon {
+            .site-skeleton-icon,
+            .site-picker-search,
+            .site-picker-search__input,
+            .site-picker-search__clear {
                 transition: none;
                 animation: none;
             }
@@ -871,14 +1018,40 @@ if (user_can('page.po')) {
     </section>
     <?php endif; ?>
 
-    <?php
-    $visibleSiteCount = 0;
-    foreach ($sites as $siteRowCount) {
-        if ((int) ($siteRowCount['id'] ?? 0) > 0) {
-            ++$visibleSiteCount;
-        }
-    }
-    ?>
+    <?php if ($hasSites): ?>
+    <section class="site-picker-search mb-4" id="sitePickerSearchBar" aria-label="ค้นหาไซต์งาน">
+        <div class="site-picker-search__toolbar">
+            <div class="site-picker-search__intro">
+                <span class="site-picker-search__mark" aria-hidden="true"><i class="bi bi-search"></i></span>
+                <div class="site-picker-search__copy">
+                    <h2 class="site-picker-search__title">ค้นหาไซต์</h2>
+                    <p class="site-picker-search__hint">พิมพ์ชื่อไซต์ ผลที่ตรงที่สุดจะขึ้นตำแหน่งแรก</p>
+                </div>
+            </div>
+            <div class="site-picker-search__field">
+                <label class="visually-hidden" for="sitePickerSearch">ค้นหาไซต์งาน</label>
+                <input type="search"
+                       class="site-picker-search__input"
+                       id="sitePickerSearch"
+                       placeholder="เช่น Gardens, Office, ถนน…"
+                       autocomplete="off"
+                       enterkeyhint="search"
+                       spellcheck="false">
+                <button type="button"
+                        class="site-picker-search__clear d-none"
+                        id="sitePickerSearchClear"
+                        aria-label="ล้างคำค้นหา"
+                        title="ล้างคำค้นหา">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+        <div id="sitePickerSearchMeta" class="site-picker-search__status" aria-live="polite">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+            <span class="site-picker-search__status-text">แสดงทุกไซต์ — เริ่มพิมพ์เพื่อกรองรายการ</span>
+        </div>
+    </section>
+    <?php endif; ?>
 
     <div class="row site-picker-grid<?= $hasSites ? ' site-picker-is-loading' : '' ?>" id="sitePickerGrid"<?= $hasSites ? ' aria-busy="true"' : '' ?>>
         <?php if ($hasSites): ?>
@@ -938,6 +1111,7 @@ if (user_can('page.po')) {
                 ?>
                 <div class="col-12 col-md-6 col-lg-4 site-picker-card"
                      data-site-id="<?= $sid ?>"
+                     data-site-name="<?= htmlspecialchars((string) ($site['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                      data-favorite="<?= $isFavorite ? '1' : '0' ?>"
                      data-sort-index="<?= (int) $siteSortIndex ?>">
                     <div class="site-card h-100<?= $isFavorite ? ' site-card--favorite' : '' ?>">
@@ -1103,6 +1277,97 @@ if (user_can('page.po')) {
     var pickerUrl = <?= json_encode($pickerUrl, JSON_UNESCAPED_SLASHES) ?>;
     var csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
 
+    var searchInput = document.getElementById('sitePickerSearch');
+    var searchClearBtn = document.getElementById('sitePickerSearchClear');
+    var searchMeta = document.getElementById('sitePickerSearchMeta');
+    var searchBar = document.getElementById('sitePickerSearchBar');
+    var searchTimer = null;
+    var searchDefaultStatusHtml = searchMeta ? searchMeta.innerHTML : '';
+
+    function escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function setSearchStatus(kind, message) {
+        if (!searchMeta) {
+            return;
+        }
+        searchMeta.classList.remove('is-found', 'is-empty');
+        if (kind === 'default') {
+            searchMeta.innerHTML = searchDefaultStatusHtml;
+            return;
+        }
+        var iconClass = kind === 'empty' ? 'bi-exclamation-circle' : 'bi-check2-circle';
+        if (kind === 'found') {
+            searchMeta.classList.add('is-found');
+        } else if (kind === 'empty') {
+            searchMeta.classList.add('is-empty');
+        }
+        searchMeta.innerHTML = '<i class="bi ' + iconClass + '" aria-hidden="true"></i>'
+            + '<span class="site-picker-search__status-text">' + escapeHtml(message) + '</span>';
+    }
+
+    function findCaseInsensitiveIndex(haystack, needle) {
+        return normalizeSiteSearchText(haystack).indexOf(normalizeSiteSearchText(needle));
+    }
+
+    function renderSiteNameHighlight(card, query) {
+        var nameEl = card ? card.querySelector('.site-card__name') : null;
+        if (!nameEl) {
+            return;
+        }
+        var name = getSiteCardName(card);
+        if (!query) {
+            nameEl.textContent = name;
+            return;
+        }
+        var matchIndex = findCaseInsensitiveIndex(name, query);
+        if (matchIndex < 0) {
+            nameEl.textContent = name;
+            return;
+        }
+        var matchLength = query.length;
+        var before = name.slice(0, matchIndex);
+        var matchText = name.slice(matchIndex, matchIndex + matchLength);
+        var after = name.slice(matchIndex + matchLength);
+        nameEl.innerHTML = escapeHtml(before)
+            + '<mark class="site-picker-search-mark">' + escapeHtml(matchText) + '</mark>'
+            + escapeHtml(after);
+    }
+
+    function normalizeSiteSearchText(value) {
+        return String(value || '').trim().toLowerCase();
+    }
+
+    function siteSearchScore(name, query) {
+        var normalizedName = normalizeSiteSearchText(name);
+        var normalizedQuery = normalizeSiteSearchText(query);
+        if (normalizedQuery === '') {
+            return -1;
+        }
+        if (normalizedName === normalizedQuery) {
+            return 0;
+        }
+        if (normalizedName.indexOf(normalizedQuery) === 0) {
+            return 1;
+        }
+        if (normalizedName.indexOf(normalizedQuery) !== -1) {
+            return 2;
+        }
+        return -1;
+    }
+
+    function getSiteCardName(card) {
+        if (!card) {
+            return '';
+        }
+        return String(card.getAttribute('data-site-name') || card.querySelector('.site-card__name')?.textContent || '').trim();
+    }
+
     function reorderSiteCards() {
         var grid = document.getElementById('sitePickerGrid');
         if (!grid) {
@@ -1126,6 +1391,85 @@ if (user_can('page.po')) {
                 grid.appendChild(card);
             }
         });
+    }
+
+    function applySiteSearch(rawQuery) {
+        var grid = document.getElementById('sitePickerGrid');
+        if (!grid) {
+            return;
+        }
+        var query = String(rawQuery || '').trim();
+        var addCard = grid.querySelector('.site-picker-add');
+        var cards = Array.prototype.slice.call(grid.querySelectorAll('.site-picker-card:not(.site-picker-add)'));
+        var matches = [];
+
+        if (searchClearBtn) {
+            searchClearBtn.classList.toggle('d-none', query === '');
+        }
+        if (searchBar) {
+            searchBar.classList.toggle('is-active', query !== '');
+            searchBar.classList.remove('is-empty');
+        }
+
+        cards.forEach(function (card) {
+            card.classList.remove('is-search-match-first');
+            var score = siteSearchScore(getSiteCardName(card), query);
+            var isMatch = score >= 0;
+            card.classList.toggle('d-none', query !== '' && !isMatch);
+            if (query === '' || !isMatch) {
+                renderSiteNameHighlight(card, '');
+            }
+            if (isMatch) {
+                matches.push({
+                    card: card,
+                    score: score,
+                    sortIndex: parseInt(card.getAttribute('data-sort-index') || '0', 10) || 0
+                });
+            }
+        });
+
+        if (query === '') {
+            reorderSiteCards();
+            setSearchStatus('default');
+            return;
+        }
+
+        matches.sort(function (a, b) {
+            if (a.score !== b.score) {
+                return a.score - b.score;
+            }
+            return a.sortIndex - b.sortIndex;
+        });
+
+        matches.forEach(function (match) {
+            if (addCard) {
+                grid.insertBefore(match.card, addCard);
+            } else {
+                grid.appendChild(match.card);
+            }
+        });
+
+        if (matches.length > 0) {
+            matches[0].card.classList.add('is-search-match-first');
+            matches.forEach(function (match) {
+                renderSiteNameHighlight(match.card, query);
+            });
+        }
+
+        if (matches.length === 0) {
+            if (searchBar) {
+                searchBar.classList.add('is-empty');
+            }
+            setSearchStatus('empty', 'ไม่พบไซต์ที่ตรงกับ «' + query + '»');
+            return;
+        }
+
+        if (matches.length === 1) {
+            setSearchStatus('found', 'พบ 1 ไซต์ — แสดงไว้ตำแหน่งแรก');
+            return;
+        }
+
+        setSearchStatus('found', 'พบ ' + matches.length.toLocaleString('th-TH') + ' ไซต์ — เรียงจากตรงที่สุดไปน้อยที่สุด');
     }
 
     function setFavoriteUi(card, btn, isFavorite) {
@@ -1164,8 +1508,6 @@ if (user_can('page.po')) {
         var card = link.closest('.site-card');
         var pickerCard = link.closest('.site-picker-card');
         var grid = document.getElementById('sitePickerGrid');
-        var siteNameEl = link.querySelector('.site-card__name');
-        var siteName = siteNameEl ? siteNameEl.textContent.trim() : 'ไซต์งาน';
         if (card && !card.classList.contains('is-navigating')) {
             card.classList.add('is-navigating');
             link.setAttribute('aria-busy', 'true');
@@ -1176,14 +1518,6 @@ if (user_can('page.po')) {
         if (grid) {
             grid.classList.add('is-site-navigating');
             grid.setAttribute('aria-busy', 'true');
-        }
-        if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.showWithMessage === 'function') {
-            window.TncLoadingOverlay.showWithMessage(
-                'กำลังเปิด ' + siteName + '…',
-                'กรุณารอสักครู่ ระบบกำลังโหลดข้อมูลไซต์'
-            );
-        } else if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.show === 'function') {
-            window.TncLoadingOverlay.show();
         }
     }
 
@@ -1230,7 +1564,11 @@ if (user_can('page.po')) {
                 .then(function (data) {
                     var card = btn.closest('.site-picker-card');
                     setFavoriteUi(card, btn, !!data.favorite);
-                    reorderSiteCards();
+                    if (searchInput && normalizeSiteSearchText(searchInput.value) !== '') {
+                        applySiteSearch(searchInput.value);
+                    } else {
+                        reorderSiteCards();
+                    }
                 })
                 .catch(function () {})
                 .finally(function () {
@@ -1250,6 +1588,30 @@ if (user_can('page.po')) {
         grid.classList.remove('site-picker-is-loading');
         grid.setAttribute('aria-busy', 'false');
     }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(function () {
+                applySiteSearch(searchInput.value);
+            }, 180);
+        });
+        searchInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                searchInput.value = '';
+                applySiteSearch('');
+                searchInput.blur();
+            }
+        });
+    }
+
+    searchClearBtn?.addEventListener('click', function () {
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+        }
+        applySiteSearch('');
+    });
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
