@@ -58,7 +58,7 @@
 }
 
 .po-purchase-order-doc .po-company-name {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 800;
     color: #0f172a;
     line-height: 1.25;
@@ -69,6 +69,16 @@
     line-height: 1.5;
     color: #475569 !important;
     margin-top: 0.35rem;
+    text-wrap: pretty;
+}
+
+.doc-company-meta {
+    min-width: 0;
+    text-wrap: pretty;
+}
+
+.doc-company-tax-id {
+    white-space: nowrap;
 }
 
 .po-purchase-order-doc .po-note-heading {
@@ -404,7 +414,7 @@
 }
 
 .pr-purchase-requisition-doc .pr-company-name {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 800;
     color: #0f172a;
     line-height: 1.25;
@@ -415,17 +425,7 @@
     line-height: 1.5;
     color: #475569 !important;
     margin-top: 0.35rem;
-}
-
-.pr-purchase-requisition-doc .pr-company-phone,
-.pr-purchase-requisition-doc .pr-company-tax {
-    display: inline-block;
-    line-height: 1.5;
-}
-
-.pr-purchase-requisition-doc .pr-company-tax {
-    white-space: nowrap;
-    max-width: 100%;
+    text-wrap: pretty;
 }
 
 .pr-purchase-requisition-doc .pr-note-heading {
@@ -1064,7 +1064,7 @@
     }
 
     .po-purchase-order-doc .po-company-name {
-        font-size: 1.25rem !important;
+        font-size: 1.125rem !important;
         font-weight: 800 !important;
         color: #0f172a !important;
     }
@@ -1073,6 +1073,10 @@
         font-size: 0.92rem !important;
         line-height: 1.5 !important;
         color: #475569 !important;
+    }
+
+    .doc-company-tax-id {
+        white-space: nowrap !important;
     }
 
     .po-purchase-order-doc .po-note-heading {

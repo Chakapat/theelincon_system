@@ -193,26 +193,59 @@
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
-                if (d && d.ok) {
-                    markBootReady('sync');
-                } else {
-                    markBootReady('sync');
+                if (d && d.ok && d.checksum) {
+                    window.__tncMirrorChecksum = d.checksum;
                 }
+                markBootReady('sync');
             })
             .catch(function () {
                 markBootReady('sync');
             });
     }
 
-    function init() {
-        patchNativeSubmit();
+    function initNavLoading() {
+        if (!isPurchasePage()) {
+            return;
+        }
+        document.addEventListener('click', function (ev) {
+            var link = ev.target.closest('a[data-tnc-nav-loading]');
+            if (!link || ev.defaultPrevented) {
+                return;
+            }
+            if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) {
+                return;
+            }
+            if (link.getAttribute('target') === '_blank') {
+                return;
+            }
+            var title = link.getAttribute('data-tnc-nav-loading-title') || 'กำลังเปิดหน้า…';
+            var sub = link.getAttribute('data-tnc-nav-loading-sub') || DEFAULT_SUB;
+            showOverlay(title, sub);
+        }, false);
+    }
+
+    function initBootSync() {
         if (!document.body || !document.body.classList.contains('tnc-purchase-boot-lock')) {
+            return;
+        }
+        var embedded = document.body.getAttribute('data-tnc-boot-checksum');
+        if (embedded) {
+            window.__tncMirrorChecksum = embedded;
+            markBootReady('sync');
             return;
         }
         var autoSync = document.body.getAttribute('data-tnc-boot-sync-url');
         if (autoSync) {
             initListBootSync(autoSync);
+            return;
         }
+        markBootReady('sync');
+    }
+
+    function init() {
+        patchNativeSubmit();
+        initNavLoading();
+        initBootSync();
     }
 
     window.TncPurchaseLoading = {

@@ -29,6 +29,7 @@ $companies = Db::tableRows('company');
 Db::sortRows($companies, 'id', false);
 $companyName = trim((string) ((array_values($companies)[0]['name'] ?? '')));
 $pr_rows = Db::tableRows('purchase_requests');
+$prMirrorChecksum = hash('sha256', json_encode($pr_rows, JSON_UNESCAPED_UNICODE));
 foreach ($pr_rows as &$row) {
     $cb = $users[(string) ($row['created_by'] ?? '')] ?? null;
     $row['creator_fname'] = $cb['fname'] ?? '';
@@ -123,7 +124,7 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
         }
     </style>
 </head>
-<body class="purchase-module tnc-app-body tnc-layout-list tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ PR…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้จัดการใบขอซื้อเมื่อโหลดเสร็จ" data-tnc-boot-sync-url="<?= htmlspecialchars(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_requests'), ENT_QUOTES, 'UTF-8') ?>">
+<body class="purchase-module tnc-app-body tnc-layout-list tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ PR…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้จัดการใบขอซื้อเมื่อโหลดเสร็จ" data-tnc-boot-checksum="<?= htmlspecialchars($prMirrorChecksum, ENT_QUOTES, 'UTF-8') ?>">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -151,7 +152,11 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
             <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm d-none" id="prBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก" aria-hidden="true">
                 <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
             </button>
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php') . ($filterSiteId > 0 ? ('?site_id=' . $filterSiteId) : ''), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4 shadow-sm">
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php') . ($filterSiteId > 0 ? ('?site_id=' . $filterSiteId) : ''), ENT_QUOTES, 'UTF-8') ?>"
+               class="btn btn-orange rounded-pill px-4 shadow-sm"
+               data-tnc-nav-loading
+               data-tnc-nav-loading-title="กำลังเปิดฟอร์มสร้าง PR…"
+               data-tnc-nav-loading-sub="กรุณารอสักครู่ ระบบกำลังเตรียมฟอร์มใบขอซื้อ">
                 <i class="bi bi-plus-lg"></i> สร้างใบขอซื้อใหม่
             </a>
             <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php') . $siteFilterQuery, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-orange rounded-pill px-3 shadow-sm">
@@ -345,15 +350,8 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
                 pageLength: 10,
                 info: false,
                 language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
-                columnDefs: [{ targets: [0, 5], orderable: false, searchable: false }],
-                initComplete: function () {
-                    if (window.TncPurchaseLoading) {
-                        window.TncPurchaseLoading.markBootTableReady();
-                    }
-                }
+                columnDefs: [{ targets: [0, 5], orderable: false, searchable: false }]
             });
-        } else if (window.TncPurchaseLoading) {
-            window.TncPurchaseLoading.markBootTableReady();
         }
     }
 
@@ -361,19 +359,26 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
         window.TncTableSkeleton.bootListPage({
             bodyId: 'prTableBody',
             tableId: 'prTable',
-            onReady: initPrDataTable
+            onReady: function () {
+                if (window.TncPurchaseLoading) {
+                    window.TncPurchaseLoading.markBootTableReady();
+                }
+                initPrDataTable();
+            }
         });
     } else {
+        if (window.TncPurchaseLoading) {
+            window.TncPurchaseLoading.markBootTableReady();
+        }
         initPrDataTable();
     }
 
-    var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_table&table=purchase_requests'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
-    var c = '';
+    var u = <?= json_encode(app_path('actions/live-datasets.php?dataset=mirror_checksum&table=purchase_requests'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var c = <?= json_encode($prMirrorChecksum, JSON_UNESCAPED_UNICODE) ?>;
     setInterval(function () {
         if (document.hidden) return;
         fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
-            if (!d || !d.ok) return;
-            if (c === '') { c = d.checksum; return; }
+            if (!d || !d.ok || !d.checksum) return;
             if (d.checksum !== c) {
                 if (typeof window.tncPurchaseReloadWithWait === 'function') {
                     window.tncPurchaseReloadWithWait('กำลังอัปเดตรายการ PR…', 'พบข้อมูลเปลี่ยนแปลง กำลังโหลดหน้าใหม่…');

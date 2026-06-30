@@ -64,20 +64,18 @@ Db::sortRows($suppliers, 'name', false);
                     <tr>
                         <th>ชื่อบริษัท/ร้านค้า</th>
                         <th>ผู้ติดต่อ</th>
-                        <th>เบอร์โทรศัพท์</th>
                         <th>บัญชีรับโอน</th>
                         <th class="text-center">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (count($suppliers) === 0): ?>
-                        <tr><td colspan="5" class="text-center py-4 text-muted">ยังไม่มีข้อมูลผู้ขายในระบบ</td></tr>
+                        <tr><td colspan="4" class="text-center py-4 text-muted">ยังไม่มีข้อมูลผู้ขายในระบบ</td></tr>
                     <?php else: ?>
                     <?php foreach ($suppliers as $row): ?>
                     <tr>
                         <td class="fw-bold tnc-mobile-primary" data-label="ชื่อบริษัท/ร้านค้า"><?= htmlspecialchars($row['name']) ?></td>
                         <td data-label="ผู้ติดต่อ"><?= htmlspecialchars($row['contact_person']) ?: '-' ?></td>
-                        <td data-label="เบอร์โทรศัพท์"><?= $row['phone'] ?></td>
                         <td class="small" data-label="บัญชีรับโอน">
                             <?php
                             $rowBank = trim((string) ($row['bank_name'] ?? ''));

@@ -321,7 +321,7 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
         .po-purchase-order-doc .invoice-title { font-size: 28px; font-weight: 800; color: var(--doc-po-primary, var(--brand-color, #ea580c)); line-height: 1.1; }
         .table-custom { margin-top: 12px; margin-bottom: 0; }
         .po-purchase-order-doc .po-company-name {
-            font-size: 1.25rem;
+            font-size: 1.125rem;
             font-weight: 800;
             color: #0f172a;
             line-height: 1.25;

@@ -56,10 +56,12 @@ $poTableColCount = 6;
             <?php if ($tncCompanyLogoUrl !== ''): ?>
                 <img src="<?= htmlspecialchars($tncCompanyLogoUrl, ENT_QUOTES, 'UTF-8') ?>" class="company-logo" alt="Logo">
             <?php endif; ?>
-            <div class="fw-bold mt-2 po-company-name"><?= $data['name']; ?></div>
-            <div class="small text-muted po-company-detail">
-                <?= $data['address']; ?><br>
-                โทร: <?= $data['phone']; ?> | เลขผู้เสียภาษี: <?= $data['tax_id']; ?>
+            <div class="fw-bold mt-2 po-company-name"><?= htmlspecialchars((string) ($data['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+            <div class="small text-muted po-company-detail doc-company-meta">
+                <?php
+                require_once __DIR__ . '/company_detail.php';
+                echo tnc_doc_company_detail_html($data, 'เลขผู้เสียภาษี');
+                ?>
             </div>
         </div>
         <div class="col-6 text-end">
@@ -115,16 +117,13 @@ $poTableColCount = 6;
                     <span class="doc-site-label">ผู้ขาย:</span>
                     <span class="doc-site-value"><?= htmlspecialchars((string) ($data['s_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
-                <?php if (trim((string) ($data['s_address'] ?? '')) !== '' || trim((string) ($data['s_tax'] ?? '')) !== '' || trim((string) ($data['s_phone'] ?? '')) !== ''): ?>
+                <?php if (trim((string) ($data['s_address'] ?? '')) !== '' || trim((string) ($data['s_tax'] ?? '')) !== ''): ?>
                 <div class="doc-site-block mt-2">
                     <span class="doc-site-label">ที่อยู่ / ติดต่อ:</span>
                     <span class="doc-site-value">
                         <?= htmlspecialchars((string) ($data['s_address'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
                         <?php if (trim((string) ($data['s_tax'] ?? '')) !== ''): ?>
                         | เลขผู้เสียภาษี: <?= htmlspecialchars((string) ($data['s_tax'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-                        <?php endif; ?>
-                        <?php if (trim((string) ($data['s_phone'] ?? '')) !== ''): ?>
-                        | โทร: <?= htmlspecialchars((string) ($data['s_phone'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
                         <?php endif; ?>
                     </span>
                 </div>

@@ -387,16 +387,12 @@ if ($action === 'save_supplier') {
     $name = trim((string) ($_POST['name'] ?? ''));
     $tax = trim((string) ($_POST['tax_id'] ?? ''));
     $contact = trim((string) ($_POST['contact_person'] ?? ''));
-    $phone = trim((string) ($_POST['phone'] ?? ''));
-    $email = trim((string) ($_POST['email'] ?? ''));
     $addr = trim((string) ($_POST['address'] ?? ''));
 
     $data = array_merge([
         'name' => $name,
         'tax_id' => $tax,
         'contact_person' => $contact,
-        'phone' => $phone,
-        'email' => $email,
         'address' => $addr,
     ], tnc_supplier_bank_fields_from_post($_POST));
 
@@ -407,7 +403,9 @@ if ($action === 'save_supplier') {
         }
         $pk = Db::pkForLogicalId('suppliers', $s_id);
         $data['id'] = $s_id;
-        Db::setRow('suppliers', $pk, array_merge($existing, $data));
+        $merged = array_merge($existing, $data);
+        unset($merged['phone'], $merged['email']);
+        Db::setRow('suppliers', $pk, $merged);
         $after = Db::row('suppliers', $pk) ?? [];
         tnc_audit_log('update', 'supplier', (string) $s_id, $name !== '' ? $name : ('#' . $s_id), [
             'source' => 'action-handler',
@@ -2481,9 +2479,11 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
             'name' => $name,
             'tax_id' => $tax,
             'address' => $addr,
-            'phone' => $phone,
-            'email' => $email,
         ];
+        if ($table === 'customers') {
+            $row['phone'] = $phone;
+            $row['email'] = $email;
+        }
 
         if ($table === 'company') {
             require_once dirname(__DIR__) . '/includes/banks.php';
@@ -2542,7 +2542,11 @@ if (in_array($action, ['add_company', 'edit_company', 'add_customer', 'edit_cust
             } else {
                 $row['logo'] = (string) ($cur['logo'] ?? '');
             }
-            Db::setRow($table, $pk, array_merge($cur, $row));
+            $merged = array_merge($cur, $row);
+            if ($table === 'company') {
+                unset($merged['phone'], $merged['email']);
+            }
+            Db::setRow($table, $pk, $merged);
             $entityLabel = $table === 'company' ? 'company' : 'customer';
             $orgAfterEd = Db::row($table, $pk);
             tnc_audit_log('update', $entityLabel, (string) $edit_id, $name !== '' ? $name : ('#' . $edit_id), [

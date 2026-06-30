@@ -59,7 +59,7 @@ $allowedMirror = [
     'tax_invoices',
 ];
 
-if ($dataset === 'mirror_table') {
+if ($dataset === 'mirror_table' || $dataset === 'mirror_checksum') {
     tnc_require_finance_role();
     $table = trim((string) ($_GET['table'] ?? ''));
     if (!in_array($table, $allowedMirror, true)) {
@@ -69,6 +69,10 @@ if ($dataset === 'mirror_table') {
     }
     $rows = Db::tableRows($table);
     $checksum = hash('sha256', json_encode($rows, JSON_UNESCAPED_UNICODE));
+    if ($dataset === 'mirror_checksum') {
+        echo json_encode(['ok' => true, 'checksum' => $checksum], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     echo json_encode(['ok' => true, 'checksum' => $checksum, 'rows' => $rows], JSON_UNESCAPED_UNICODE);
     exit;
 }

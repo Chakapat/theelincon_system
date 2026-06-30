@@ -102,16 +102,6 @@ function company_type_label_th(string $type): string
                             <label class="form-label small fw-bold text-muted js-company-label-address" data-form-scope="add">ที่อยู่</label>
                             <textarea name="address" class="form-control border-0 bg-light rounded-3 js-company-input-address" data-form-scope="add" rows="3" placeholder="ที่อยู่จดทะเบียน" required></textarea>
                         </div>
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <label class="form-label small fw-bold text-muted">เบอร์โทรศัพท์</label>
-                                <input type="text" name="phone" class="form-control border-0 bg-light py-2 rounded-3">
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small fw-bold text-muted">อีเมล</label>
-                                <input type="email" name="email" class="form-control border-0 bg-light py-2 rounded-3">
-                            </div>
-                        </div>
                         <div class="border-top pt-3 mb-4">
                             <div class="small fw-bold text-muted mb-2"><i class="bi bi-bank2 me-1"></i>บัญชีรับชำระ (PAYMENT INFO)</div>
                             <div class="mb-3">
@@ -148,7 +138,7 @@ function company_type_label_th(string $type): string
                             <tr>
                                 <th class="ps-4 border-0">ชื่อ / ประเภท</th>
                                 <th class="border-0">เลขผู้เสียภาษี</th>
-                                <th class="border-0">ติดต่อ</th>
+                                <th class="border-0">บัญชีรับชำระ</th>
                                 <?php if($is_admin): ?>
                                 <th class="border-0 pe-4 text-end">จัดการ</th>
                                 <?php endif; ?>
@@ -175,19 +165,19 @@ function company_type_label_th(string $type): string
                                     </div>
                                 </td>
                                 <td data-label="เลขผู้เสียภาษี"><span class="badge bg-warning-subtle text-warning border px-3 py-2 rounded-pill"><?= htmlspecialchars($row['tax_id']) ?></span></td>
-                                <td class="small" data-label="ติดต่อ">
-                                    <div><i class="bi bi-telephone text-warning me-1"></i><?= htmlspecialchars((string) ($row['phone'] ?? '')) ?></div>
-                                    <div class="text-muted"><i class="bi bi-envelope text-warning me-1"></i><?= htmlspecialchars((string) ($row['email'] ?? '')) ?></div>
+                                <td class="small" data-label="บัญชีรับชำระ">
                                     <?php
                                     $rowBank = trim((string) ($row['bank_name'] ?? ''));
                                     $rowAccNo = trim((string) ($row['bank_account_number'] ?? ''));
                                     if ($rowBank !== '' || $rowAccNo !== ''):
                                         $rowBankLogo = $rowBank !== '' ? tnc_bank_logo_url($rowBank) : '';
                                     ?>
-                                    <div class="text-muted mt-1 d-flex align-items-center gap-1">
+                                    <div class="text-muted d-flex align-items-center gap-1">
                                         <?php if ($rowBankLogo !== ''): ?><img src="<?= htmlspecialchars($rowBankLogo, ENT_QUOTES, 'UTF-8') ?>" alt="" class="bank-logo-chip"><?php endif; ?>
                                         <span><?= htmlspecialchars($rowBank !== '' ? $rowBank : '—') ?><?= $rowAccNo !== '' ? ' · ' . htmlspecialchars($rowAccNo) : '' ?></span>
                                     </div>
+                                    <?php else: ?>
+                                    <span class="text-muted">—</span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-end pe-4 tnc-mobile-actions" data-label="จัดการ">
@@ -241,10 +231,6 @@ function company_type_label_th(string $type): string
                     <div class="mb-3"><label class="small fw-bold js-company-label-name" data-form-scope="edit">ชื่อนิติบุคคล / บริษัท</label><input type="text" name="name" id="edit_name" class="form-control bg-light border-0 py-2 rounded-3 js-company-input-name" data-form-scope="edit" required></div>
                     <div class="mb-3"><label class="small fw-bold js-company-label-tax" data-form-scope="edit">เลขประจำตัวผู้เสียภาษี</label><input type="text" name="tax_id" id="edit_tax_id" class="form-control bg-light border-0 py-2 rounded-3 js-company-input-tax" data-form-scope="edit" required></div>
                     <div class="mb-3"><label class="small fw-bold js-company-label-address" data-form-scope="edit">ที่อยู่</label><textarea name="address" id="edit_address" class="form-control bg-light border-0 rounded-3 js-company-input-address" data-form-scope="edit" rows="2" required></textarea></div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6"><label class="small fw-bold">โทรศัพท์</label><input type="text" name="phone" id="edit_phone" class="form-control bg-light border-0 py-2 rounded-3"></div>
-                        <div class="col-6"><label class="small fw-bold">อีเมล</label><input type="email" name="email" id="edit_email" class="form-control bg-light border-0 py-2 rounded-3"></div>
-                    </div>
                     <div class="border-top pt-3">
                         <div class="small fw-bold text-muted mb-2"><i class="bi bi-bank2 me-1"></i>บัญชีรับชำระ (PAYMENT INFO)</div>
                         <div class="mb-3">
@@ -424,7 +410,7 @@ function editCompany(id) {
             Swal.fire({ icon: 'error', title: 'โหลดข้อมูลไม่สำเร็จ', confirmButtonColor: '#ea580c' });
             return;
         }
-        ['id','name','tax_id','address','phone','email','bank_account_name','bank_account_number'].forEach(function (k) {
+        ['id','name','tax_id','address','bank_account_name','bank_account_number'].forEach(function (k) {
             const el = document.getElementById('edit_' + k);
             if (el) el.value = data[k] || '';
         });

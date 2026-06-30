@@ -52,7 +52,7 @@ $data['customer_address'] = $cust['address'] ?? '';
 $data['customer_tax'] = $cust['tax_id'] ?? '';
 $data['customer_phone'] = $cust['phone'] ?? '';
 $data['tax_invoice_number'] = $tax['tax_invoice_number'] ?? '';
-foreach (['name', 'logo', 'address', 'phone', 'tax_id', 'bank_name', 'bank_account_name', 'bank_account_number'] as $ck) {
+foreach (['name', 'logo', 'address', 'tax_id', 'bank_name', 'bank_account_name', 'bank_account_number'] as $ck) {
     $data[$ck] = $com[$ck] ?? '';
 }
 
@@ -97,17 +97,8 @@ $final_grand_total = $after_wht - $retention;
 $company_address_one_line = preg_replace('/\s+/u', ' ', trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($data['address'] ?? ''))));
 $customer_address_one_line = preg_replace('/\s+/u', ' ', trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($data['customer_address'] ?? ''))));
 $customer_tax_trim = trim((string) ($data['customer_tax'] ?? ''));
-$company_phone_trim = trim((string) ($data['phone'] ?? ''));
 $company_tax_trim = trim((string) ($data['tax_id'] ?? ''));
-$company_contact_bits = array_filter([
-    $company_phone_trim !== '' ? 'โทร: ' . $company_phone_trim : '',
-], static fn (string $s): bool => $s !== '');
 $company_detail_line = $company_address_one_line;
-if ($company_detail_line !== '' && count($company_contact_bits) > 0) {
-    $company_detail_line .= ' | ' . implode(' | ', $company_contact_bits);
-} elseif ($company_detail_line === '' && count($company_contact_bits) > 0) {
-    $company_detail_line = implode(' | ', $company_contact_bits);
-}
 
 /** ชื่อแท็บ / ชื่อไฟล์เริ่มต้นตอนพิมพ์หรือบันทึก PDF (Ctrl+P) */
 $invDocTitle = trim((string) ($data['invoice_number'] ?? ''));

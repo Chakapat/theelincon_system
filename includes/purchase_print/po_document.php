@@ -158,13 +158,12 @@ function tnc_purchase_po_print_prepare(int $id): ?array
     $com = $companyRows[0] ?? [];
 
     $data = $po;
-    foreach (['name', 'logo', 'address', 'phone', 'tax_id'] as $ck) {
+    foreach (['name', 'logo', 'address', 'tax_id'] as $ck) {
         $data[$ck] = $com[$ck] ?? '';
     }
     $data['s_name'] = $sup['name'] ?? '';
     $data['s_address'] = $sup['address'] ?? '';
     $data['s_tax'] = $sup['tax_id'] ?? '';
-    $data['s_phone'] = $sup['phone'] ?? '';
     $data['contact_person'] = $sup['contact_person'] ?? '';
     $data['pr_number'] = is_array($pr) ? (string) ($pr['pr_number'] ?? '') : '';
     $orderType = trim((string) ($data['order_type'] ?? 'purchase'));

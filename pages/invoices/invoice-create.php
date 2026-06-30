@@ -368,10 +368,6 @@ Db::sortRows($customer_data, 'name', false);
                         </select>
                         <input type="text" id="com_tax" class="form-control mb-2" placeholder="เลขผู้เสียภาษี" readonly>
                         <textarea id="com_address" class="form-control mb-2" rows="2" placeholder="ที่อยู่บริษัท" readonly></textarea>
-                        <div class="row g-2">
-                            <div class="col-6"><input type="text" id="com_email" class="form-control" placeholder="อีเมล" readonly></div>
-                            <div class="col-6"><input type="text" id="com_phone" class="form-control" placeholder="เบอร์โทร" readonly></div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -491,8 +487,6 @@ document.getElementById('company_select').addEventListener('change', function() 
     const com = companyData.find(i => i.id == this.value);
     document.getElementById('com_tax').value = com ? (com.tax_id || '') : '';
     document.getElementById('com_address').value = com ? (com.address || '') : '';
-    document.getElementById('com_email').value = com ? (com.email || '') : '';
-    document.getElementById('com_phone').value = com ? (com.phone || '') : '';
 });
 
 // --- ดึงข้อมูลลูกค้า ---

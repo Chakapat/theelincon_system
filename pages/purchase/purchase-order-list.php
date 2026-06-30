@@ -155,6 +155,8 @@ usort($po_rows, static function (array $a, array $b): int {
     return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
 });
 
+$poMirrorChecksum = hash('sha256', json_encode(Db::tableRows('purchase_orders'), JSON_UNESCAPED_UNICODE));
+
 // ---- PO ไม่สมบูรณ์: ยังไม่มีหลักฐานชำระ หรือ ยังไม่มีเลขที่ใบกำกับ (ไม่นับใบที่ยกเลิก) ----
 $poMissingReasons = static function (array $r): array {
     if (($r['status'] ?? '') === 'cancelled') {
@@ -340,7 +342,7 @@ $ignoredCountAll = count($ignoredPoList);
         }
     </style>
 </head>
-<body class="purchase-module tnc-app-body tnc-layout-list tnc-po-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ PO…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้แนบสลิปและบันทึกเลขบิลเมื่อโหลดเสร็จ">
+<body class="purchase-module tnc-app-body tnc-layout-list tnc-po-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ PO…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้แนบสลิปและบันทึกเลขบิลเมื่อโหลดเสร็จ" data-tnc-boot-checksum="<?= htmlspecialchars($poMirrorChecksum, ENT_QUOTES, 'UTF-8') ?>">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -367,7 +369,11 @@ $ignoredCountAll = count($ignoredPoList);
                 <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
             </button>
             <?php if (user_can('po.create')): ?>
-            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php') . ($filterSiteId > 0 ? ('?site_id=' . $filterSiteId) : ''), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-3 shadow-sm">
+            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php') . ($filterSiteId > 0 ? ('?site_id=' . $filterSiteId) : ''), ENT_QUOTES, 'UTF-8') ?>"
+               class="btn btn-orange rounded-pill px-3 shadow-sm"
+               data-tnc-nav-loading
+               data-tnc-nav-loading-title="กำลังเปิดฟอร์มสร้าง PO…"
+               data-tnc-nav-loading-sub="กรุณารอสักครู่ ระบบกำลังเตรียมฟอร์มใบสั่งซื้อ">
                 <i class="bi bi-plus-lg me-1"></i>สร้างใบสั่งซื้อ
             </a>
             <?php endif; ?>
@@ -436,7 +442,7 @@ $ignoredCountAll = count($ignoredPoList);
                         <tr><td colspan="6" class="po-empty-state text-center text-muted">
                             <i class="bi bi-inbox d-block mb-2" aria-hidden="true"></i>
                             <div class="fw-semibold text-dark"><?= $filterSiteId > 0 ? 'ยังไม่มี PO ของไซต์นี้' : 'ยังไม่มีใบสั่งซื้อ' ?></div>
-                            <div class="small mt-1"><?php if (user_can('po.create')): ?><a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php') . ($filterSiteId > 0 ? ('?site_id=' . $filterSiteId) : ''), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ออก PO โดยตรง</a> · <?php endif; ?>จาก<a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php') . $siteFilterQuery, ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ใบขอซื้อ (PR)</a></div>
+                            <div class="small mt-1"><?php if (user_can('po.create')): ?><a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php') . ($filterSiteId > 0 ? ('?site_id=' . $filterSiteId) : ''), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange" data-tnc-nav-loading data-tnc-nav-loading-title="กำลังเปิดฟอร์มสร้าง PO…" data-tnc-nav-loading-sub="กรุณารอสักครู่ ระบบกำลังเตรียมฟอร์มใบสั่งซื้อ">ออก PO โดยตรง</a> · <?php endif; ?>จาก<a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php') . $siteFilterQuery, ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ใบขอซื้อ (PR)</a></div>
                         </td></tr>
                     <?php else: ?>
                         <?= tnc_purchase_table_skeleton_tr(6, 'po') ?>
@@ -802,7 +808,8 @@ $ignoredCountAll = count($ignoredPoList);
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
-window.__tncPoBoot = window.__tncPoBoot || { table: false, sync: false };
+window.__tncPoBoot = window.__tncPoBoot || { table: false, sync: true };
+window.__tncPoMirrorChecksum = <?= json_encode($poMirrorChecksum, JSON_UNESCAPED_UNICODE) ?>;
 window.tncPoLiveDatasetsUrl = <?= json_encode(app_path('actions/live-datasets.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 
 window.tncPoShowWait = function (title, sub) {
@@ -868,14 +875,8 @@ include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
                 pageLength: 10,
                 lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
                 language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
-                columnDefs: [{ targets: [0, 5], orderable: false, searchable: false }],
-                initComplete: function () {
-                    poBoot.table = true;
-                    window.tncPoTryPageReady();
-                }
+                columnDefs: [{ targets: [0, 5], orderable: false, searchable: false }]
             });
-        } else {
-            poBoot.table = true;
         }
     }
 
@@ -883,33 +884,25 @@ include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
         window.TncTableSkeleton.bootListPage({
             bodyId: 'poTableBody',
             tableId: 'poTable',
-            onReady: initPoDataTable
+            onReady: function () {
+                poBoot.table = true;
+                window.tncPoTryPageReady();
+                initPoDataTable();
+            }
         });
     } else {
+        poBoot.table = true;
+        window.tncPoTryPageReady();
         initPoDataTable();
     }
 
-    var u = window.tncPoLiveDatasetsUrl + '?dataset=mirror_table&table=purchase_orders';
-    var c = '';
-    fetch(u, { credentials: 'same-origin' })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-            if (d && d.ok) {
-                c = d.checksum || '';
-            }
-        })
-        .catch(function () {})
-        .finally(function () {
-            poBoot.sync = true;
-            window.tncPoTryPageReady();
-        });
-
+    var u = window.tncPoLiveDatasetsUrl + '?dataset=mirror_checksum&table=purchase_orders';
+    var c = window.__tncPoMirrorChecksum || '';
     setInterval(function () {
         if (document.hidden) return;
         if (window.__poBlockReload) return;
         fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
-            if (!d || !d.ok) return;
-            if (c === '') { c = d.checksum; return; }
+            if (!d || !d.ok || !d.checksum) return;
             if (d.checksum !== c) {
                 window.tncPoReloadWithWait();
             }

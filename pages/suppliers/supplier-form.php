@@ -22,8 +22,6 @@ $supplier = [
     'name' => '',
     'tax_id' => '',
     'contact_person' => '',
-    'phone' => '',
-    'email' => '',
     'address' => '',
     'bank_name' => '',
     'bank_account_name' => '',
@@ -113,22 +111,6 @@ if ($id > 0) {
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-person"></i></span>
                                 <input type="text" name="contact_person" class="form-control" value="<?= htmlspecialchars($supplier['contact_person']) ?>" placeholder="ชื่อบุคคลที่ประสานงานด้วย">
-                            </div>
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">เบอร์โทรศัพท์</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-telephone"></i></span>
-                                <input type="text" name="phone" class="form-control" value="<?= htmlspecialchars($supplier['phone']) ?>" placeholder="012-345-6789">
-                            </div>
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">อีเมล</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-                                <input type="email" name="email" class="form-control" value="<?= htmlspecialchars($supplier['email']) ?>" placeholder="example@company.com">
                             </div>
                         </div>
 

@@ -46,10 +46,11 @@ $prFooterHasNotes = $detailsText !== '';
                     <img src="<?= htmlspecialchars($tncCompanyLogoUrl, ENT_QUOTES, 'UTF-8') ?>" class="company-logo" alt="Logo">
                 <?php endif; ?>
                 <div class="fw-bold mt-2 pr-company-name"><?= htmlspecialchars((string) ($com['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
-                <div class="small text-muted pr-company-detail">
-                    <?= htmlspecialchars((string) ($com['address'] ?? ''), ENT_QUOTES, 'UTF-8') ?><br>
-                    <span class="pr-company-phone">โทร: <?= htmlspecialchars((string) ($com['phone'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span><br>
-                    <span class="pr-company-tax">เลขประจำตัวผู้เสียภาษีอากร: <?= htmlspecialchars((string) ($com['tax_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                <div class="small text-muted pr-company-detail doc-company-meta">
+                    <?php
+                    require_once __DIR__ . '/company_detail.php';
+                    echo tnc_doc_company_detail_html($com, 'เลขประจำตัวผู้เสียภาษีอากร');
+                    ?>
                 </div>
             </div>
             <div class="col-6 text-end">

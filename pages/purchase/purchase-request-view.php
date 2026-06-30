@@ -195,7 +195,7 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
         }
 
         .invoice-box.pr-purchase-requisition-doc .pr-company-name {
-            font-size: 1.25rem;
+            font-size: 1.125rem;
             font-weight: 800;
             color: #0f172a;
             line-height: 1.25;
