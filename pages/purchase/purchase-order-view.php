@@ -68,6 +68,10 @@ if ($poEmbed) {
 /** วันที่ PO สำหรับฟอร์มบันทึกบิลซื้อ — ใช้วันที่ออกใบสั่งซื้อตอนสร้าง */
 $poIssueDateForBill = tnc_po_issue_date_ymd($po);
 $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
+$supplierInvoiceNoView = trim((string) ($po['supplier_invoice_no'] ?? ''));
+$supplierInvoiceDateView = trim((string) ($po['supplier_invoice_date'] ?? ''));
+$supplierInvoiceDateYmd = tnc_po_parse_date_ymd($supplierInvoiceDateView);
+$supplierInvoiceDateViewDisplay = $supplierInvoiceDateYmd !== '' ? tnc_po_ymd_to_dmy($supplierInvoiceDateYmd) : '';
 ?>
 
 <!DOCTYPE html>
@@ -236,6 +240,12 @@ $poIssueDateForBillDisplay = tnc_po_ymd_to_dmy($poIssueDateForBill);
         .po-view-chip--link:hover {
             background: #dcfce7;
             border-color: #4ade80 !important;
+        }
+
+        .po-view-chip--bill {
+            background: #fffbeb;
+            color: #92400e;
+            border-color: #fcd34d;
         }
 
         #poPrintChoiceModal .modal-content {
@@ -665,6 +675,17 @@ $hasAlerts = $poViewFlash !== null
                         </a>
                         <?php endforeach; ?>
                     <?php endif; ?>
+                <?php endif; ?>
+                <?php if ($supplierInvoiceNoView !== ''): ?>
+                    <span class="po-view-chip po-view-chip--bill" title="<?= htmlspecialchars(
+                        $supplierInvoiceDateViewDisplay !== ''
+                            ? ('เลขที่บิล / ใบกำกับภาษี · วันที่บิล ' . $supplierInvoiceDateViewDisplay)
+                            : 'เลขที่บิล / ใบกำกับภาษี',
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>">
+                        <i class="bi bi-journal-text" aria-hidden="true"></i>เลขที่บิล <?= htmlspecialchars($supplierInvoiceNoView, ENT_QUOTES, 'UTF-8') ?>
+                    </span>
                 <?php endif; ?>
                 <?php if (user_can('po.update') && !$poPaidLocksActions): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm js-tnc-doc-action" data-dock-primary="edit">

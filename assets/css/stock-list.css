@@ -1,0 +1,154 @@
+.stock-card {
+    border: 1px solid var(--tnc-border, #e2e8f0);
+    border-radius: var(--tnc-radius, 0.875rem);
+    background: var(--tnc-surface-white, #fff);
+}
+
+.stock-card:focus-visible {
+    outline: 2px solid var(--tnc-orange, #ea580c);
+    outline-offset: 2px;
+}
+
+.stock-kpi {
+    border-radius: var(--tnc-radius, 0.875rem);
+    border: 1px solid var(--tnc-border, #e2e8f0);
+    background: var(--tnc-surface-white, #fff);
+}
+
+.stock-txn-badge {
+    font-size: 0.78rem;
+}
+
+.stock-thumb {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 0.5rem;
+    border: 1px solid var(--tnc-border, #e2e8f0);
+}
+
+.stock-thumb-link {
+    display: inline-flex;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+}
+
+.stock-empty-hint {
+    max-width: 36ch;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.stock-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.35rem;
+}
+
+@media (max-width: 991.98px) {
+    .stock-row-actions .btn {
+        min-height: 2.75rem;
+        padding-left: 0.85rem;
+        padding-right: 0.85rem;
+    }
+}
+
+.print-only {
+    display: none;
+}
+
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 12mm;
+    }
+
+    body {
+        background: #fff;
+        font-size: 12px;
+        color: #111827;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    .print-only {
+        display: block !important;
+    }
+
+    .stock-card {
+        border: 0;
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    .table {
+        font-size: 12px;
+        margin-bottom: 0;
+    }
+
+    .stock-thumb {
+        width: 72px;
+        height: 72px;
+    }
+
+    a {
+        color: inherit !important;
+        text-decoration: none !important;
+    }
+
+    .print-balance-only {
+        display: block !important;
+    }
+
+    .container {
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+
+    .print-header {
+        border-bottom: 2px solid #111827;
+        padding-bottom: 8px;
+        margin-bottom: 12px !important;
+    }
+
+    .print-title {
+        font-size: 19px;
+        font-weight: 700;
+        margin-bottom: 3px;
+    }
+
+    .print-date {
+        font-size: 12px;
+        color: #374151;
+    }
+
+    .print-balance-only .table thead th {
+        background: #f3f4f6 !important;
+        color: #111827 !important;
+        border-top: 1px solid #9ca3af !important;
+        border-bottom: 1px solid #9ca3af !important;
+        padding-top: 8px;
+        padding-bottom: 8px;
+    }
+
+    .print-balance-only .table td {
+        border-color: #d1d5db !important;
+        padding-top: 7px;
+        padding-bottom: 7px;
+    }
+
+    .print-balance-only .table tbody tr:nth-child(even) {
+        background: #f9fafb !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stock-card:focus-visible {
+        transition: none;
+    }
+}

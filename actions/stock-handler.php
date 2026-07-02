@@ -93,6 +93,81 @@ function stock_combine_datetime(string $dateYmd): string
     return $dateYmd . ' ' . date('H:i:s');
 }
 
+function stock_product_row(int $productId): ?array
+{
+    if ($productId <= 0) {
+        return null;
+    }
+    $row = Db::rowByIdField('stock_products', $productId);
+    if ($row === null || empty($row['is_active'])) {
+        return null;
+    }
+
+    return $row;
+}
+
+/**
+ * @return array{out_id: int, in_id: int, transfer_ref: string}
+ */
+function stock_create_site_transfer(
+    int $fromSite,
+    int $toSite,
+    int $productId,
+    string $personName,
+    string $txnDate,
+    float $qtyAbs,
+    string $noteEsc,
+    int $createdBy
+): array {
+    $fromName = stock_site_name($fromSite);
+    $toName = stock_site_name($toSite);
+    $transferRef = bin2hex(random_bytes(8));
+    $createdAt = stock_combine_datetime($txnDate);
+    $personEsc = mb_substr($personName, 0, 120, 'UTF-8');
+
+    $outId = Db::nextNumericId('stock_movements', 'id');
+    $inId = $outId + 1;
+    while (Db::row('stock_movements', (string) $inId) !== null) {
+        ++$inId;
+    }
+
+    Db::setRow('stock_movements', (string) $outId, [
+        'id' => $outId,
+        'site_id' => $fromSite,
+        'product_id' => $productId,
+        'person_name' => $personEsc,
+        'qty' => -$qtyAbs,
+        'movement_type' => 'out',
+        'note' => $noteEsc !== '' ? $noteEsc : 'โอนไปยัง ' . ($toName !== '' ? $toName : 'ไซต์ #' . $toSite),
+        'transfer_ref' => $transferRef,
+        'counter_site_id' => $toSite,
+        'counter_site_name' => $toName,
+        'created_by' => $createdBy,
+        'created_at' => $createdAt,
+    ]);
+
+    Db::setRow('stock_movements', (string) $inId, [
+        'id' => $inId,
+        'site_id' => $toSite,
+        'product_id' => $productId,
+        'person_name' => $personEsc,
+        'qty' => $qtyAbs,
+        'movement_type' => 'in',
+        'note' => $noteEsc !== '' ? $noteEsc : 'รับจาก ' . ($fromName !== '' ? $fromName : 'ไซต์ #' . $fromSite),
+        'transfer_ref' => $transferRef,
+        'source_site_id' => $fromSite,
+        'source_site_name' => $fromName,
+        'created_by' => $createdBy,
+        'created_at' => $createdAt,
+    ]);
+
+    return [
+        'out_id' => $outId,
+        'in_id' => $inId,
+        'transfer_ref' => $transferRef,
+    ];
+}
+
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 if ($action === 'save_product' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
@@ -216,8 +291,8 @@ if ($action === 'add_movement' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')
         stock_redirect('pages/stock/stock-adjust.php?error=invalid&product_id=' . $productId);
     }
 
-    $prod = Db::row('stock_products', (string) $productId);
-    if ($prod === null || empty($prod['is_active'])) {
+    $prod = stock_product_row($productId);
+    if ($prod === null) {
         stock_redirect('pages/stock/stock-list.php?error=notfound');
     }
 
@@ -274,8 +349,11 @@ if ($action === 'save_transaction' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
     $note = trim((string) ($_POST['note'] ?? ''));
     $noteEsc = $note === '' ? '' : mb_substr($note, 0, 500, 'UTF-8');
 
-    if ($siteId <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $txnDate) || $personName === '' || $productId <= 0) {
+    if ($siteId <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $txnDate) || $personName === '') {
         stock_redirect('pages/stock/stock-adjust.php?error=site&site_id=' . $siteId);
+    }
+    if ($productId <= 0) {
+        stock_redirect('pages/stock/stock-adjust.php?error=product&site_id=' . $siteId);
     }
     if (!is_numeric($qtyRaw) || (float) $qtyRaw <= 0) {
         stock_redirect('pages/stock/stock-adjust.php?error=qty&site_id=' . $siteId);
@@ -284,12 +362,37 @@ if ($action === 'save_transaction' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         stock_redirect('pages/stock/stock-adjust.php?error=type&site_id=' . $siteId);
     }
 
-    $prod = Db::row('stock_products', (string) $productId);
-    if ($prod === null || empty($prod['is_active'])) {
-        stock_redirect('pages/stock/stock-list.php?error=notfound');
+    $prod = stock_product_row($productId);
+    if ($prod === null) {
+        stock_redirect('pages/stock/stock-adjust.php?error=product&site_id=' . $siteId);
     }
 
     $qtyAbs = round(abs((float) $qtyRaw), 3);
+    $toSiteOptional = (int) ($_POST['to_site_id'] ?? 0);
+
+    if ($movementType === 'out' && $toSiteOptional > 0) {
+        if ($toSiteOptional === $siteId) {
+            stock_redirect('pages/stock/stock-adjust.php?error=transfer&site_id=' . $siteId);
+        }
+        $balFrom = stock_balance_site_product($productId, $siteId, null);
+        if ($balFrom + (-$qtyAbs) < -0.0001) {
+            stock_redirect('pages/stock/stock-adjust.php?error=insufficient&site_id=' . $siteId);
+        }
+        $xfer = stock_create_site_transfer($siteId, $toSiteOptional, $productId, $personName, $txnDate, $qtyAbs, $noteEsc, $me);
+        $outMv = Db::row('stock_movements', (string) $xfer['out_id']);
+        $inMv = Db::row('stock_movements', (string) $xfer['in_id']);
+        tnc_audit_log('create', 'stock_transfer', $xfer['transfer_ref'], trim(($prod['code'] ?? '') . ' โอน ' . $qtyAbs . ' ' . stock_site_name($siteId) . '→' . stock_site_name($toSiteOptional)), [
+            'source' => 'stock-handler',
+            'action' => 'save_transaction_transfer',
+            'meta' => [
+                'transfer_ref' => $xfer['transfer_ref'],
+                'out_movement' => $outMv,
+                'in_movement' => $inMv,
+            ],
+        ]);
+        stock_redirect('pages/stock/stock-list.php?site_id=' . $siteId . '&saved=1');
+    }
+
     $delta = $movementType === 'in' ? $qtyAbs : -$qtyAbs;
 
     $bal = stock_balance_site_product($productId, $siteId, null);
@@ -352,16 +455,19 @@ if ($action === 'save_site_transfer' && ($_SERVER['REQUEST_METHOD'] ?? '') === '
     $note = trim((string) ($_POST['note'] ?? ''));
     $noteEsc = $note === '' ? '' : mb_substr($note, 0, 500, 'UTF-8');
 
-    if ($fromSite <= 0 || $toSite <= 0 || $fromSite === $toSite || $productId <= 0 || $personName === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $txnDate)) {
+    if ($fromSite <= 0 || $toSite <= 0 || $fromSite === $toSite || $personName === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $txnDate)) {
         stock_redirect('pages/stock/stock-adjust.php?error=transfer&site_id=' . $fromSite);
+    }
+    if ($productId <= 0) {
+        stock_redirect('pages/stock/stock-adjust.php?error=product&site_id=' . $fromSite);
     }
     if (!is_numeric($qtyRaw) || (float) $qtyRaw <= 0) {
         stock_redirect('pages/stock/stock-adjust.php?error=qty&site_id=' . $fromSite);
     }
 
-    $prod = Db::row('stock_products', (string) $productId);
-    if ($prod === null || empty($prod['is_active'])) {
-        stock_redirect('pages/stock/stock-list.php?error=notfound');
+    $prod = stock_product_row($productId);
+    if ($prod === null) {
+        stock_redirect('pages/stock/stock-adjust.php?error=product&site_id=' . $fromSite);
     }
 
     $qtyAbs = round(abs((float) $qtyRaw), 3);
@@ -370,55 +476,20 @@ if ($action === 'save_site_transfer' && ($_SERVER['REQUEST_METHOD'] ?? '') === '
         stock_redirect('pages/stock/stock-adjust.php?error=insufficient&site_id=' . $fromSite);
     }
 
-    $fromName = stock_site_name($fromSite);
-    $toName = stock_site_name($toSite);
-    $transferRef = bin2hex(random_bytes(8));
-    $createdAt = stock_combine_datetime($txnDate);
-
-    $outId = Db::nextNumericId('stock_movements', 'id');
-    Db::setRow('stock_movements', (string) $outId, [
-        'id' => $outId,
-        'site_id' => $fromSite,
-        'product_id' => $productId,
-        'person_name' => mb_substr($personName, 0, 120, 'UTF-8'),
-        'qty' => -$qtyAbs,
-        'movement_type' => 'out',
-        'note' => $noteEsc !== '' ? $noteEsc : 'โอนไปยัง ' . ($toName !== '' ? $toName : 'ไซต์ #' . $toSite),
-        'transfer_ref' => $transferRef,
-        'counter_site_id' => $toSite,
-        'counter_site_name' => $toName,
-        'created_by' => $me,
-        'created_at' => $createdAt,
-    ]);
-
-    $inId = Db::nextNumericId('stock_movements', 'id');
-    Db::setRow('stock_movements', (string) $inId, [
-        'id' => $inId,
-        'site_id' => $toSite,
-        'product_id' => $productId,
-        'person_name' => mb_substr($personName, 0, 120, 'UTF-8'),
-        'qty' => $qtyAbs,
-        'movement_type' => 'in',
-        'note' => $noteEsc !== '' ? $noteEsc : 'รับจาก ' . ($fromName !== '' ? $fromName : 'ไซต์ #' . $fromSite),
-        'transfer_ref' => $transferRef,
-        'source_site_id' => $fromSite,
-        'source_site_name' => $fromName,
-        'created_by' => $me,
-        'created_at' => $createdAt,
-    ]);
-    $outMv = Db::row('stock_movements', (string) $outId);
-    $inMv = Db::row('stock_movements', (string) $inId);
-    tnc_audit_log('create', 'stock_transfer', $transferRef, trim(($prod['code'] ?? '') . ' โอน ' . $qtyAbs . ' ' . $fromName . '→' . $toName), [
+    $xfer = stock_create_site_transfer($fromSite, $toSite, $productId, $personName, $txnDate, $qtyAbs, $noteEsc, $me);
+    $outMv = Db::row('stock_movements', (string) $xfer['out_id']);
+    $inMv = Db::row('stock_movements', (string) $xfer['in_id']);
+    tnc_audit_log('create', 'stock_transfer', $xfer['transfer_ref'], trim(($prod['code'] ?? '') . ' โอน ' . $qtyAbs . ' ' . stock_site_name($fromSite) . '→' . stock_site_name($toSite)), [
         'source' => 'stock-handler',
         'action' => 'save_site_transfer',
         'meta' => [
-            'transfer_ref' => $transferRef,
+            'transfer_ref' => $xfer['transfer_ref'],
             'out_movement' => $outMv,
             'in_movement' => $inMv,
         ],
     ]);
 
-    stock_redirect('pages/stock/stock-list.php?site_id=' . $toSite . '&saved=1');
+    stock_redirect('pages/stock/stock-list.php?site_id=' . $fromSite . '&saved=1');
 }
 
 if ($action === 'update_transaction' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $canManage) {

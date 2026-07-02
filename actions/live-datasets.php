@@ -8,6 +8,7 @@ header('Content-Type: application/json; charset=UTF-8');
 require_once dirname(__DIR__) . '/config/connect_database.php';
 require_once dirname(__DIR__) . '/includes/purchase_po_payment_slips.php';
 require_once dirname(__DIR__) . '/includes/purchase/po_item_search.php';
+require_once dirname(__DIR__) . '/includes/stock_site_data.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -19,35 +20,24 @@ if (!isset($_SESSION['user_id'])) {
 
 $dataset = trim((string) ($_GET['dataset'] ?? ''));
 
-if ($dataset === 'stock_movements_site') {
+if ($dataset === 'stock_movements_site' || $dataset === 'stock_site_checksum') {
     $siteId = (int) ($_GET['site_id'] ?? 0);
     if ($siteId <= 0) {
         http_response_code(400);
         echo json_encode(['ok' => false, 'error' => 'site_id'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    $products = [];
-    foreach (Db::tableRows('stock_products') as $p) {
-        if (empty($p['is_active'])) {
-            continue;
-        }
-        $pid = (int) ($p['id'] ?? 0);
-        if ($pid > 0) {
-            $products[$pid] = $p;
-        }
+    $payload = tnc_stock_site_live_payload($siteId);
+    if ($dataset === 'stock_site_checksum') {
+        echo json_encode(['ok' => true, 'checksum' => $payload['checksum']], JSON_UNESCAPED_UNICODE);
+        exit;
     }
-    $movements = [];
-    foreach (Db::tableRows('stock_movements') as $m) {
-        $pid = (int) ($m['product_id'] ?? 0);
-        $rowSiteId = (int) ($m['site_id'] ?? 0);
-        if ($rowSiteId !== $siteId || !isset($products[$pid])) {
-            continue;
-        }
-        $movements[] = $m;
-    }
-    Db::sortRows($movements, 'created_at', true);
-    $checksum = hash('sha256', json_encode($movements, JSON_UNESCAPED_UNICODE));
-    echo json_encode(['ok' => true, 'checksum' => $checksum, 'movements' => $movements, 'products' => $products], JSON_UNESCAPED_UNICODE);
+    echo json_encode([
+        'ok' => true,
+        'checksum' => $payload['checksum'],
+        'movements' => $payload['movements'],
+        'products' => $payload['products'],
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
