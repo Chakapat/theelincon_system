@@ -213,7 +213,7 @@ body.signin-page::after {
   background: rgba(15, 23, 42, 0.45);
 }
 
-.signin-success-overlay.show {
+.signin-success-overlay.is-visible {
   display: flex;
 }
 
@@ -269,7 +269,7 @@ body.signin-page::after {
   stroke-dashoffset: 80;
 }
 
-.signin-success-overlay.show .signin-success-check .check-path {
+.signin-success-overlay.is-visible .signin-success-check .check-path {
   animation: drawCheck 0.72s ease forwards;
 }
 

@@ -224,7 +224,7 @@ function runLoginSuccessExperience(redirectUrl) {
         return;
     }
     progress.classList.remove('is-running');
-    overlay.classList.add('show');
+    overlay.classList.add('is-visible');
     overlay.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
 

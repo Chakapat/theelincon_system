@@ -10,6 +10,25 @@
     --tnc-sidebar-active-bar: var(--tnc-orange);
 }
 
+/* Bootstrap 5 coexistence — loaded after tailwind.css */
+.collapse:not(.show) {
+    display: none !important;
+    visibility: visible !important;
+}
+.collapsing {
+    height: 0;
+    overflow: hidden;
+    transition: height 0.35s ease;
+    visibility: visible !important;
+}
+.collapse.show {
+    visibility: visible !important;
+}
+.home-hub-panel.collapse.show,
+.collapse.show:not(.navbar-collapse):not(.d-flex) {
+    display: block !important;
+}
+
 /* ---- Canvas ---- */
 body.tnc-app-body {
     font-family: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', system-ui, sans-serif;

@@ -6,6 +6,12 @@ module.exports = {
     '!./vendor/**',
     '!./.cursor/**',
   ],
+  /* Bootstrap 5 uses .collapse, .show, .container — do not emit Tailwind utilities with the same names */
+  blocklist: ['collapse', 'show', 'container'],
+  corePlugins: {
+    collapse: false,
+    container: false,
+  },
   theme: {
     extend: {
       colors: {
