@@ -57,6 +57,24 @@ function line_effective_target_group_id(): string
     return line_notify_field('target_group_id');
 }
 
+function line_effective_task_group_id(): string
+{
+    return line_notify_field('task_target_group_id');
+}
+
+/** @return list<string> Group IDs configured for PR approval and task orders */
+function line_effective_configured_group_ids(): array
+{
+    $ids = [];
+    foreach ([line_effective_target_group_id(), line_effective_task_group_id()] as $gid) {
+        if ($gid !== '' && !in_array($gid, $ids, true)) {
+            $ids[] = $gid;
+        }
+    }
+
+    return $ids;
+}
+
 function line_effective_approver_user_id(): string
 {
     return line_notify_field('approver_user_id');

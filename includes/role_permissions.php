@@ -102,6 +102,7 @@ function tnc_role_permission_defaults(): array
         'page.internal.roles' => false,
         'page.internal.audit' => false,
         'page.internal.line' => false,
+        'page.internal.line_task' => false,
         'page.internal.doc_colors' => false,
     ];
 

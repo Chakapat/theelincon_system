@@ -201,6 +201,15 @@ function tnc_role_permission_menu_tree(): array
                     'paths' => ['pages/internal/line-notify-config.php'],
                     'actions' => [],
                 ],
+                'page.internal.line_task' => [
+                    'label' => 'สั่งงาน LINE',
+                    'path' => 'pages/internal/line-task-create.php',
+                    'paths' => [
+                        'pages/internal/line-task-create.php',
+                        'pages/internal/line-task-assignees.php',
+                    ],
+                    'actions' => [],
+                ],
                 'page.internal.doc_colors' => [
                     'label' => 'ตั้งค่าโทนสีเอกสาร',
                     'path' => 'pages/internal/config_color_docs.php',

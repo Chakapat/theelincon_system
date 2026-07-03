@@ -6,6 +6,7 @@ require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/line_notify_runtime.php';
 require_once __DIR__ . '/../includes/line_messaging.php';
 require_once __DIR__ . '/../includes/line_pr_approval.php';
+require_once __DIR__ . '/../includes/line_task_order.php';
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
 
 header('Content-Type: application/json; charset=UTF-8');
@@ -61,6 +62,15 @@ function line_webhook_reply_text(string $replyToken, string $text): void
     ]);
 }
 
+function line_webhook_reply_messages(string $replyToken, array $messages): void
+{
+    $token = line_effective_channel_access_token();
+    if ($token === '' || $replyToken === '' || $messages === []) {
+        return;
+    }
+    line_messaging_reply($token, $replyToken, array_values($messages));
+}
+
 $rawBody = file_get_contents('php://input');
 if ($rawBody === false) {
     http_response_code(400);
@@ -108,16 +118,35 @@ if (is_array($events)) {
             }
             $dataRaw = (string) ($postback['data'] ?? '');
             $params = line_webhook_parse_postback_data($dataRaw);
-            if (($params['action'] ?? '') !== 'line_pr_decision') {
+            $replyToken = (string) ($event['replyToken'] ?? '');
+            $source = $event['source'] ?? [];
+            $lineUserId = is_array($source) ? trim((string) ($source['userId'] ?? '')) : '';
+
+            $action = (string) ($params['action'] ?? '');
+            if ($action === 'line_task_status') {
+                $taskId = (int) ($params['id'] ?? 0);
+                $decision = (string) ($params['decision'] ?? '');
+                $taskToken = (string) ($params['token'] ?? '');
+                $postedStatus = (string) ($params['status'] ?? '');
+                $result = line_task_apply_postback($taskId, $decision, $lineUserId, $taskToken, $postedStatus);
+                if ($replyToken !== '') {
+                    if (($result['reply_messages'] ?? []) !== []) {
+                        line_webhook_reply_messages($replyToken, $result['reply_messages']);
+                    } elseif (!$result['ok']) {
+                        line_webhook_reply_text($replyToken, $result['message']);
+                    }
+                }
+                $postbackHandled++;
+                continue;
+            }
+
+            if ($action !== 'line_pr_decision') {
                 continue;
             }
             $prId = (int) ($params['id'] ?? 0);
             $decision = (string) ($params['decision'] ?? '');
             $approvalToken = (string) ($params['token'] ?? '');
-            $source = $event['source'] ?? [];
-            $lineUserId = is_array($source) ? trim((string) ($source['userId'] ?? '')) : '';
             $result = line_pr_apply_decision($prId, $decision, $lineUserId, $approvalToken);
-            $replyToken = (string) ($event['replyToken'] ?? '');
             if ($replyToken !== '') {
                 line_webhook_reply_text($replyToken, $result['message']);
             }
@@ -134,11 +163,10 @@ if (is_array($events)) {
         $groupId = isset($source['groupId']) ? trim((string) $source['groupId']) : '';
         $roomId = isset($source['roomId']) ? trim((string) $source['roomId']) : '';
         $sourceType = (string) ($source['type'] ?? '');
-        $configuredGroup = line_effective_target_group_id();
-        $inConfiguredGroup = $configuredGroup !== ''
-            && $sourceType === 'group'
+        $configuredGroups = line_effective_configured_group_ids();
+        $inConfiguredGroup = $sourceType === 'group'
             && $groupId !== ''
-            && $groupId === $configuredGroup;
+            && in_array($groupId, $configuredGroups, true);
 
         if (($sourceType === 'group' || $sourceType === 'room') && $eventType === 'message' && !$inConfiguredGroup) {
             if (!line_is_mention_to_bot($event)) {

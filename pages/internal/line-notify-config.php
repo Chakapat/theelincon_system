@@ -38,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_line_notify'])) 
         $channelAccessToken = trim((string) ($_POST['channel_access_token'] ?? ''));
         $channelSecret = trim((string) ($_POST['channel_secret'] ?? ''));
         $targetGroupId = trim((string) ($_POST['target_group_id'] ?? ''));
+        $taskTargetGroupId = trim((string) ($_POST['task_target_group_id'] ?? ''));
         $selectedRaw = $_POST['approver_userids'] ?? [];
         $selectedIds = is_array($selectedRaw) ? array_map('intval', $selectedRaw) : [];
         $selectedIds = array_values(array_unique(array_filter($selectedIds, static fn (int $id): bool => $id > 0)));
@@ -73,6 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_line_notify'])) 
                 'channel_secret' => $channelSecret === '' ? null : $channelSecret,
                 'bot_user_id' => null,
                 'target_group_id' => $targetGroupId,
+                'task_target_group_id' => $taskTargetGroupId === '' ? null : $taskTargetGroupId,
                 'approver_user_id' => $approverCsv,
                 'updated_at' => date('Y-m-d H:i:s'),
                 'updated_by' => (int) $_SESSION['user_id'],
@@ -96,6 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_line_notify'])) 
 $formChannelToken = line_notify_field('channel_access_token');
 $formChannelSecret = line_notify_field('channel_secret');
 $formTargetGroupId = line_effective_target_group_id();
+$formTaskTargetGroupId = line_effective_task_group_id();
 $lineGroupOptions = line_notify_captured_groups();
 $formApproverUserIds = line_notify_internal_ids_matching_line_ids(
     $userRows,
@@ -106,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_line_notify']) &
     $formChannelToken = trim((string) ($_POST['channel_access_token'] ?? ''));
     $formChannelSecret = trim((string) ($_POST['channel_secret'] ?? ''));
     $formTargetGroupId = trim((string) ($_POST['target_group_id'] ?? ''));
+    $formTaskTargetGroupId = trim((string) ($_POST['task_target_group_id'] ?? ''));
     $selectedRaw = $_POST['approver_userids'] ?? [];
     $formApproverUserIds = is_array($selectedRaw)
         ? array_values(array_unique(array_filter(array_map('intval', $selectedRaw), static fn (int $x): bool => $x > 0)))
@@ -318,7 +322,6 @@ foreach ($userRows as $u) {
                         <i class="bi bi-people-fill me-1 text-success"></i>กลุ่ม LINE สำหรับแจ้งอนุมัติ PR <span class="text-danger">*</span>
                     </label>
                     <?php if ($lineGroupOptions !== []): ?>
-                        <label class="form-label small text-muted mb-1" for="target_group_pick">เลือกจากกลุ่มที่บอทเคยเห็น (Webhook)</label>
                         <select class="form-select font-monospace mb-2" id="target_group_pick" aria-label="เลือกกลุ่ม LINE">
                             <option value="">— เลือกกลุ่ม —</option>
                             <?php foreach ($lineGroupOptions as $g): ?>
@@ -340,6 +343,30 @@ foreach ($userRows as $u) {
                     <input type="text" class="form-control font-monospace" id="target_group_id" name="target_group_id" required
                            value="<?= htmlspecialchars($formTargetGroupId, ENT_QUOTES, 'UTF-8') ?>"
                            autocomplete="off">
+                </div>
+
+                <div class="mb-4 p-3 rounded-3 border bg-light">
+                    <label class="form-label fw-semibold" for="task_target_group_id">
+                        <i class="bi bi-clipboard-check-fill me-1 text-warning"></i>กลุ่ม LINE สั่งงาน
+                    </label>
+                    <?php if ($lineGroupOptions !== []): ?>
+                        <select class="form-select font-monospace mb-2" id="task_target_group_pick" aria-label="เลือกกลุ่ม LINE สั่งงาน">
+                            <option value="">— เลือกกลุ่ม —</option>
+                            <?php foreach ($lineGroupOptions as $g): ?>
+                                <option value="<?= htmlspecialchars((string) $g['id'], ENT_QUOTES, 'UTF-8') ?>"
+                                    <?= $formTaskTargetGroupId === (string) $g['id'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars((string) $g['id'], ENT_QUOTES, 'UTF-8') ?>
+                                    <?php if (!empty($g['last_seen'])): ?>
+                                        (ล่าสุด <?= htmlspecialchars((string) $g['last_seen'], ENT_QUOTES, 'UTF-8') ?>)
+                                    <?php endif; ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    <?php endif; ?>
+                    <label class="form-label small text-muted mb-1" for="task_target_group_id">Group ID</label>
+                    <input type="text" class="form-control font-monospace" id="task_target_group_id" name="task_target_group_id"
+                           value="<?= htmlspecialchars($formTaskTargetGroupId, ENT_QUOTES, 'UTF-8') ?>"
+                           autocomplete="off" placeholder="Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
                 </div>
 
                 <div class="mb-4">
@@ -560,6 +587,29 @@ foreach ($userRows as $u) {
             }
             if (groupPick.selectedIndex > 0 && groupPick.value !== v) {
                 groupPick.selectedIndex = 0;
+            }
+        });
+    }
+
+    var taskGroupPick = document.getElementById('task_target_group_pick');
+    var taskGroupInput = document.getElementById('task_target_group_id');
+    if (taskGroupPick && taskGroupInput) {
+        taskGroupPick.addEventListener('change', function () {
+            if (taskGroupPick.value) {
+                taskGroupInput.value = taskGroupPick.value;
+            }
+        });
+        taskGroupInput.addEventListener('input', function () {
+            var v = taskGroupInput.value.trim();
+            var opts = taskGroupPick.options;
+            for (var i = 0; i < opts.length; i++) {
+                if (opts[i].value === v) {
+                    taskGroupPick.selectedIndex = i;
+                    return;
+                }
+            }
+            if (taskGroupPick.selectedIndex > 0 && taskGroupPick.value !== v) {
+                taskGroupPick.selectedIndex = 0;
             }
         });
     }
