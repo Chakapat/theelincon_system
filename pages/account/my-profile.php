@@ -6,6 +6,7 @@ use Theelincon\Rtdb\Db;
 
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_shell_head.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -55,16 +56,11 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แก้ไขข้อมูลส่วนตัว | Invoice System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <?php tnc_shell_head([
+        'title' => 'แก้ไขข้อมูลส่วนตัว | Invoice System',
+        'sweetalert' => true,
+    ]); ?>
     <style>
-        body { font-family: 'Sarabun', sans-serif; background-color: #fffaf5; }
-        /* .btn-orange: tnc-app.css */
         .tnc-sw-change-pw .swal2-html-container { text-align: start; }
         .tnc-sw-change-pw .swal2-html-container .input-group .form-control { font-size: 1rem; }
     </style>
@@ -124,7 +120,7 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
 (function () {
     var form = document.getElementById('tnc-my-profile-form');

@@ -12,3 +12,7 @@ server/.env
 
 # Local LINE user mapping (optional; may contain identifiers)
 line-user-ids.json
+
+# Cursor / design tooling (local only — canonical copy is .agents/skills/)
+.cursor/
+.impeccable/

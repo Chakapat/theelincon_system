@@ -8,6 +8,8 @@ require_once dirname(__DIR__, 2) . '/includes/line_task_assignees.php';
 require_once dirname(__DIR__, 2) . '/includes/line_notify_runtime.php';
 require_once dirname(__DIR__, 2) . '/includes/line_task_order.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_shell_head.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
 
 use Theelincon\Rtdb\Db;
 
@@ -90,38 +92,28 @@ $formDisabled = !$setupReady;
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>สั่งงาน LINE | THEELIN CON</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/line-task-create.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <?php tnc_shell_head([
+        'title' => 'สั่งงาน LINE | THEELIN CON',
+        'extra_css' => ['assets/css/line-task-create.css'],
+        'flatpickr' => true,
+        'sarabun_weights' => '400;600;700;800',
+    ]); ?>
 </head>
 <body class="tnc-app-body">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <main class="container py-4 pb-5 line-task-page">
-    <header class="tnc-page-head mb-3">
-        <div>
-            <p class="tnc-page-kicker">LINE Task</p>
-            <h1 class="tnc-list-title">
-                <span class="tnc-list-title__icon me-2" aria-hidden="true"><i class="bi bi-clipboard-check"></i></span>
-                สั่งงาน LINE
-            </h1>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
-            <a href="<?= htmlspecialchars($assigneesPath, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-orange rounded-pill">
-                <i class="bi bi-people me-1" aria-hidden="true"></i>รายชื่อผู้รับงาน
-            </a>
-            <a href="<?= htmlspecialchars($configPath, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill">
-                <i class="bi bi-gear me-1" aria-hidden="true"></i>ตั้งค่า LINE
-            </a>
-        </div>
-    </header>
+    <?php tnc_ui_page_head([
+        'kicker' => 'LINE Task',
+        'title' => 'สั่งงาน LINE',
+        'icon' => 'bi-clipboard-check',
+        'class' => 'mb-3',
+        'actions_html' => '<a href="' . htmlspecialchars($assigneesPath, ENT_QUOTES, 'UTF-8') . '" class="btn btn-outline-orange rounded-pill">'
+            . '<i class="bi bi-people me-1" aria-hidden="true"></i>รายชื่อผู้รับงาน</a>'
+            . '<a href="' . htmlspecialchars($configPath, ENT_QUOTES, 'UTF-8') . '" class="btn btn-outline-secondary rounded-pill">'
+            . '<i class="bi bi-gear me-1" aria-hidden="true"></i>ตั้งค่า LINE</a>',
+    ]); ?>
 
     <div class="line-task-setup" role="list" aria-label="สถานะการตั้งค่า LINE">
         <a href="<?= htmlspecialchars($configPath, ENT_QUOTES, 'UTF-8') ?>"
@@ -360,7 +352,7 @@ $formDisabled = !$setupReady;
 <script>
 window.lineTaskSiteNames = <?= json_encode($siteNameById, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="<?= htmlspecialchars($lineTaskJsPath, ENT_QUOTES, 'UTF-8') ?>?v=<?= (int) $lineTaskJsVer ?>"></script>
 </body>

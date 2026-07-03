@@ -10,6 +10,7 @@ session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/line_pr_approval.php';
 require_once dirname(__DIR__, 2) . '/includes/line_notify_runtime.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_purchase_head.php';
 
 $prOfferLineOnSave = line_effective_channel_access_token() !== '' && line_effective_target_group_id() !== '';
 
@@ -112,13 +113,10 @@ if ($hubSiteIdParam > 0 && !$isEdit) {
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <title><?= $isEdit ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)' ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css') . '?v=' . (@filemtime(dirname(__DIR__, 2) . '/assets/css/purchase-ui.css') ?: time()), ENT_QUOTES, 'UTF-8') ?>">
+    <?php tnc_purchase_head([
+        'title' => $isEdit ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)',
+        'flatpickr' => true,
+    ]); ?>
     <style>
         .pr-create-wrap { max-width: 1100px; }
         .card-soft { border: 1px solid rgba(226, 232, 240, 0.95); border-radius: var(--tnc-radius-lg); box-shadow: var(--tnc-shadow-sm); background: #fff; }
@@ -488,7 +486,7 @@ if ($hubSiteIdParam > 0 && !$isEdit) {
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/site-category-select.js'), ENT_QUOTES, 'UTF-8') ?>"></script>

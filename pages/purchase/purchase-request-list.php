@@ -11,6 +11,7 @@ require_once dirname(__DIR__, 2) . '/includes/line_pr_approval.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_table_skeleton.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_flash.php';
 require_once dirname(__DIR__, 2) . '/includes/site_budget.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_purchase_head.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -62,15 +63,7 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>รายการใบขอซื้อ (PR)</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <?php require_once dirname(__DIR__, 2) . '/includes/document_color_css.php'; tnc_doc_color_render_head_assets(); ?>
+    <?php tnc_purchase_head(['title' => 'รายการใบขอซื้อ (PR)', 'document_color' => true]); ?>
     <style>
         .table-card { border: none; border-radius: var(--tnc-radius-lg); box-shadow: var(--tnc-shadow-sm); }
         .badge { font-weight: 500; }
@@ -295,7 +288,7 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
 
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-table-skeleton.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
 (function () {
     var batchBase = <?= json_encode(app_path('pages/purchase/purchase-batch-print.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;

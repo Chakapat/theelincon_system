@@ -44,30 +44,10 @@ if ($id > 0) {
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $title ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
-    
-    <style>
-        body { background-color: #f4f7f6; font-family: 'Sarabun', sans-serif; }
-        .form-card { 
-            border: none; 
-            border-radius: 20px; 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
-            background: #ffffff;
-        }
-        .form-label { font-weight: 600; color: #495057; }
-        .input-group-text { background-color: #f8f9fa; border-right: none; }
-        .form-control { border-left: none; }
-        .form-control:focus { box-shadow: none; border-color: #dee2e6; }
-        .btn-save { background-color: #198754; color: white; border-radius: 10px; padding: 12px 30px; font-weight: 600; transition: 0.3s; }
-        .btn-save:hover { background-color: #146c43; transform: translateY(-2px); }
-        .bank-logo-chip { width: 22px; height: 22px; object-fit: contain; border-radius: 4px; flex-shrink: 0; }
-        .bank-select-preview { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; font-size: 12px; color: #6b7280; }
-    </style>
+    <?php
+    require_once dirname(__DIR__, 2) . '/includes/tnc_ops_head.php';
+    tnc_ops_head(['title' => $title]);
+    ?>
 </head>
 <body class="tnc-app-body tnc-layout-form">
 
@@ -161,7 +141,7 @@ if ($id > 0) {
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
 const BANK_LOGOS = <?= json_encode($bankLogos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 

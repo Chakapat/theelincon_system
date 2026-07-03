@@ -6,6 +6,7 @@ session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/line_task_assignees.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_shell_head.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -39,12 +40,7 @@ $editRow = $editId > 0 ? line_task_assignee_by_id($editId) : null;
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>รายชื่อผู้รับงาน LINE | THEELIN CON</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <?php tnc_shell_head(['title' => 'รายชื่อผู้รับงาน LINE | THEELIN CON']); ?>
     <style>
         body { background:#f6f8fb; font-family:'Sarabun', sans-serif; }
         .task-shell { max-width: 920px; }
@@ -190,6 +186,6 @@ $editRow = $editId > 0 ? line_task_assignee_by_id($editId) : null;
     </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 </body>
 </html>

@@ -119,7 +119,8 @@ body.invoice-embed .doc-view-canvas {
 }
 
 .inv-sales-doc .doc-site-block {
-    border-left-color: var(--orange, #ff6600);
+    border-top: 3px solid var(--orange, #ff6600);
+    border-left: none;
     background: #fff9f5;
 }
 

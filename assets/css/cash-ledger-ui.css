@@ -1,0 +1,326 @@
+.cash-ledger-shell { max-width: 1360px; }
+.card-dash { border-radius: 14px; border: 1px solid #e2e8f0; background: #fff; }
+.ledger-kpi {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #fff;
+    padding: 0.85rem 1rem;
+}
+.ledger-kpi--income { background: #f0fdf4; border-color: #bbf7d0; }
+.ledger-kpi--expense { background: #fef2f2; border-color: #fecaca; }
+.ledger-kpi--balance { background: #fff7ed; border-color: #fed7aa; }
+.ledger-kpi__label { font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.15rem; }
+.ledger-kpi__value {
+    font-size: 1.15rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+    line-height: 1.2;
+}
+.ledger-period-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem 1rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #fed7aa;
+    border-radius: 12px;
+    background: #fff7ed;
+}
+.ledger-period-bar__label { font-size: 0.8125rem; font-weight: 700; color: #9a3412; }
+.ledger-period-bar__chip {
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+.ledger-table-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+.ledger-table-head__meta { font-size: 0.8125rem; color: #64748b; }
+.table-cash-report thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f8fafc;
+    box-shadow: 0 1px 0 #fdba74;
+}
+.table-cash-report .ledger-money {
+    font-variant-numeric: tabular-nums;
+}
+.ledger-opening-row td {
+    background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+}
+.ledger-opening-row .ledger-cell-desc {
+    font-weight: 700;
+    color: #334155;
+}
+.ledger-hero-title { letter-spacing: 0.01em; }
+.ledger-subtitle { color: #6c757d; font-size: 0.93rem; margin-bottom: 0; }
+.ledger-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .45rem;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: .01em;
+    border: 1px solid transparent;
+    transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+.ledger-cta-btn:hover { transform: translateY(-1px); text-decoration: none; }
+.ledger-cta-primary {
+    color: #fff;
+    background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+    box-shadow: 0 .38rem .9rem rgba(253,126,20,.33);
+}
+.ledger-cta-primary:hover { color:#fff; filter: brightness(1.03); }
+.ledger-cta-secondary {
+    color: #1f2937;
+    background: #fff;
+    border-color: rgba(0,0,0,.16);
+    box-shadow: 0 .22rem .62rem rgba(0,0,0,.08);
+}
+.ledger-cta-secondary:hover { color:#111827; border-color: rgba(0,0,0,.22); }
+.ledger-filter-input { width: 100%; }
+#ledgerFilterModal .modal-content { border: 0; box-shadow: 0 1rem 2.5rem rgba(15, 23, 42, 0.14); }
+#ledgerForm .ledger-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+}
+.table-cash-report { table-layout: fixed; width: 100%; }
+.table-cash-report th,
+.table-cash-report td { padding-left: .45rem; padding-right: .45rem; }
+.table-cash-report .col-date { width: 104px; }
+.table-cash-report .col-desc { width: 18%; }
+.table-cash-report .col-in,
+.table-cash-report .col-out,
+.table-cash-report .col-balance { width: 126px; }
+.table-cash-report .col-action { width: 76px; }
+.table-cash-report tbody tr {
+    transition: background-color .16s ease, box-shadow .16s ease;
+}
+.table-cash-report tbody tr:hover {
+    background: #fff9f2;
+    box-shadow: inset 0 0 0 1px rgba(253,126,20,.12);
+}
+.table-cash-report tbody td.no-print .btn {
+    min-width: 2.05rem;
+    border-radius: .55rem;
+}
+
+/* Mobile: card list instead of stacked label/value rows (screen only — ไม่กระทบ print) */
+@media screen and (max-width: 767.98px) {
+    .container.pb-5 {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    .tnc-page-head.no-print {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+    .tnc-page-head.no-print .d-flex.flex-wrap.gap-2 {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem !important;
+    }
+    .ledger-cta-btn { width: 100%; min-height: 2.75rem; }
+    .ledger-hero-title { font-size: 1.05rem; line-height: 1.35; }
+    #ledger-form-card .card-body {
+        padding: 1rem !important;
+    }
+    #ledgerForm .col-md-2,
+    #ledgerForm .col-md-3,
+    #ledgerForm .col-md-4,
+    #ledgerForm .col-md-5,
+    #ledgerForm .col-lg-2,
+    #ledgerForm .col-lg-3,
+    #ledgerForm .col-lg-5 {
+        width: 100%;
+    }
+    #ledgerForm .ledger-form-actions {
+        display: flex !important;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+    #ledgerForm .ledger-form-submit,
+    #ledgerForm .ledger-form-actions .btn {
+        width: 100%;
+        min-height: 2.75rem;
+    }
+    .tnc-page-head.no-print .d-flex.flex-wrap.gap-2 {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem !important;
+    }
+    .tnc-page-head.no-print .ledger-filter-open-btn {
+        grid-column: 1 / -1;
+    }
+    .no-print.row.g-4.mb-4 {
+        --bs-gutter-x: 0.65rem;
+    }
+    .no-print.row.g-4.mb-4 > .col-md-4 {
+        flex: 0 0 auto;
+        width: 50%;
+    }
+    .no-print.row.g-4.mb-4 > .col-md-4:last-child,
+    .no-print.row.g-4.mb-4 > .col-md-6 {
+        width: 100%;
+    }
+    .no-print.row.g-4.mb-4 > [class*="col-"] .ledger-kpi {
+        padding: 0.75rem !important;
+    }
+    .card-dash > .card-header {
+        padding: 0.85rem 1rem !important;
+    }
+    .table-wrap-screen {
+        padding: 0.35rem 0.55rem 0.75rem !important;
+    }
+    .table-cash-report thead {
+        display: none;
+    }
+    .table-cash-report tbody tr.ledger-entry-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "date amount"
+            "desc desc"
+            "balance actions";
+        gap: 0.15rem 0.65rem;
+        margin: 0.55rem 0;
+        padding: 0.75rem 0.85rem;
+        border: 1px solid rgba(0, 0, 0, 0.09);
+        border-radius: 0.85rem;
+        background: #fff;
+        box-shadow: 0 0.12rem 0.55rem rgba(0, 0, 0, 0.05);
+    }
+    .table-cash-report tbody tr.ledger-entry-row:hover {
+        background: #fffbf7;
+        box-shadow: 0 0.18rem 0.65rem rgba(234, 88, 12, 0.12);
+    }
+    .table-cash-report tbody td {
+        display: block;
+        border: 0;
+        padding: 0 !important;
+        text-align: left !important;
+        min-width: 0;
+    }
+    .table-cash-report tbody td::before {
+        content: none;
+        display: none;
+    }
+    .table-cash-report .ledger-cell-date {
+        grid-area: date;
+        align-self: center;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #64748b;
+        padding-left: 0 !important;
+    }
+    .table-cash-report .ledger-cell-desc {
+        grid-area: desc;
+        grid-column: 1 / -1;
+        width: 100%;
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #1e293b;
+        line-height: 1.55;
+        white-space: normal !important;
+        word-break: normal !important;
+        overflow-wrap: break-word !important;
+        padding: 0.85rem 0.95rem !important;
+        margin: 0.4rem 0 0.15rem;
+        min-height: 3.75rem;
+        background: #f8fafc;
+        border: 1px solid rgba(148, 163, 184, 0.32);
+        border-radius: 0.7rem;
+        box-sizing: border-box;
+    }
+    .table-cash-report .ledger-cell-in.ledger-cell-empty,
+    .table-cash-report .ledger-cell-out.ledger-cell-empty {
+        display: none;
+    }
+    .table-cash-report .ledger-cell-in:not(.ledger-cell-empty),
+    .table-cash-report .ledger-cell-out:not(.ledger-cell-empty) {
+        grid-area: amount;
+        justify-self: end;
+        align-self: start;
+        font-size: 1.02rem;
+        font-weight: 800;
+        padding: 0.2rem 0.55rem !important;
+        border-radius: 999px;
+        line-height: 1.2;
+    }
+    .table-cash-report .ledger-cell-in:not(.ledger-cell-empty) {
+        color: #15803d;
+        background: rgba(25, 135, 84, 0.12);
+    }
+    .table-cash-report .ledger-cell-out:not(.ledger-cell-empty) {
+        color: #b42318;
+        background: rgba(220, 53, 69, 0.1);
+    }
+    .table-cash-report .ledger-cell-balance {
+        grid-area: balance;
+        align-self: center;
+        margin-top: 0.45rem;
+        padding-top: 0.55rem !important;
+        border-top: 1px dashed rgba(0, 0, 0, 0.08);
+        font-size: 0.92rem;
+    }
+    .table-cash-report .ledger-cell-balance::before {
+        content: "คงเหลือ ";
+        display: inline;
+        font-size: 0.74rem;
+        font-weight: 700;
+        color: #94a3b8;
+        letter-spacing: 0.02em;
+    }
+    .table-cash-report .ledger-cell-actions {
+        grid-area: actions;
+        justify-self: end;
+        align-self: center;
+        margin-top: 0.45rem;
+        padding-top: 0.55rem !important;
+        border-top: 1px dashed rgba(0, 0, 0, 0.08);
+        text-align: right !important;
+    }
+    .table-cash-report .ledger-cell-actions .btn {
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+        border-radius: 0.65rem;
+    }
+    .table-cash-report tbody td[colspan] {
+        display: block;
+        grid-column: 1 / -1;
+        text-align: center !important;
+        padding: 1.25rem 0.5rem !important;
+    }
+    .no-print.d-flex.justify-content-between.align-items-center.px-3.py-3.border-top.bg-white {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 0.65rem;
+    }
+    .no-print.d-flex.justify-content-between.align-items-center.px-3.py-3.border-top.bg-white .d-flex.gap-2 {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.45rem !important;
+    }
+    .no-print.d-flex.justify-content-between.align-items-center.px-3.py-3.border-top.bg-white .d-flex.gap-2 .btn {
+        width: 100%;
+        min-height: 2.65rem;
+    }
+    .cash-report-final-summary table td {
+        font-size: 0.88rem;
+    }
+}
+

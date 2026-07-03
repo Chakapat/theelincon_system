@@ -1,75 +1,22 @@
 /**
- * Purchase module — shared design tokens & utilities (Theelincon ERP)
- * Aligns with DESIGN.md: Construction Orange signal, office canvas, Sarabun-first.
+ * Purchase module — module-specific styles (Theelincon ERP).
+ * Shared tokens/buttons/page-head: assets/css/tnc-components.css (Tailwind build).
  */
 
 :root {
-    --tnc-orange: #ea580c;
-    --tnc-orange-dark: #c2410c;
-    --tnc-orange-soft: #ffedd5;
-    --tnc-orange-border: #fdba74;
-    --tnc-surface: #f6f7f9;
-    --tnc-ink: #0f172a;
-    --tnc-muted: #64748b;
-    --tnc-border: #e2e8f0;
-    --tnc-radius: 0.875rem;
     --tnc-radius-lg: 1rem;
     --tnc-shadow-sm: 0 4px 24px rgba(15, 23, 42, 0.06);
 }
 
 body.purchase-module,
 .purchase-module body {
-    background-color: var(--tnc-surface);
+    background-color: var(--tnc-surface, #f6f7f9);
     font-family: 'Sarabun', 'Leelawadee UI', 'Segoe UI', Tahoma, sans-serif;
-    color: var(--tnc-ink);
+    color: var(--tnc-ink, #0f172a);
     min-height: 100vh;
 }
 
-.text-tnc-orange { color: var(--tnc-orange) !important; }
-
-.btn-orange {
-    background-color: var(--tnc-orange);
-    border-color: var(--tnc-orange);
-    color: #fff;
-}
-.btn-orange:hover,
-.btn-orange:focus {
-    background-color: var(--tnc-orange-dark);
-    border-color: var(--tnc-orange-dark);
-    color: #fff;
-}
-.btn-orange:disabled,
-.btn-orange.disabled {
-    background-color: var(--tnc-orange);
-    border-color: var(--tnc-orange);
-    opacity: 0.65;
-}
-
-.btn-pr-primary {
-    background-color: var(--tnc-orange);
-    border-color: var(--tnc-orange);
-    color: #fff;
-    font-weight: 600;
-}
-.btn-pr-primary:hover:not(:disabled),
-.btn-pr-primary:focus:not(:disabled) {
-    background-color: var(--tnc-orange-dark);
-    border-color: var(--tnc-orange-dark);
-    color: #fff;
-}
-
-.btn-outline-orange {
-    color: var(--tnc-orange);
-    border-color: var(--tnc-orange);
-}
-.btn-outline-orange:hover,
-.btn-outline-orange:focus {
-    background-color: var(--tnc-orange-soft);
-    color: var(--tnc-orange-dark);
-    border-color: var(--tnc-orange-dark);
-}
-
-/* List pages (PR / PO) */
+/* List pages (PR / PO) — aliases aligned with .tnc-page-head */
 .purchase-list-card {
     border: none;
     border-radius: var(--tnc-radius-lg);
@@ -416,9 +363,7 @@ body.purchase-module,
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .po-create-hero,
-    .btn-orange,
-    .btn-pr-primary {
+    .po-create-hero {
         transition: none;
     }
 }
@@ -717,24 +662,4 @@ body.pr-doc-view-page {
 #poTableBody.tnc-table-is-loading > tr:not(.tnc-table-skeleton-row),
 #woTableBody.tnc-table-is-loading > tr:not(.tnc-table-skeleton-row) {
     display: none;
-}
-
-/* Submit button loading (Purchase) */
-@keyframes tncBtnSpin {
-    to { transform: rotate(360deg); }
-}
-.btn.tnc-is-loading {
-    pointer-events: none;
-    opacity: 0.88;
-}
-.tnc-btn-spinner {
-    display: inline-block;
-    width: 0.95rem;
-    height: 0.95rem;
-    margin-right: 0.4rem;
-    vertical-align: -0.15em;
-    border: 2px solid currentColor;
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: tncBtnSpin 0.65s linear infinite;
 }

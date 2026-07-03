@@ -1,0 +1,26 @@
+@import './sign-in.page.css';
+@import './tnc-components.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+}
+
+@layer components {
+  .btn-copper {
+    @apply inline-flex items-center justify-center rounded-tnc bg-tnc-orange px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-tnc-orange-dark hover:-translate-y-px focus:outline-none focus:ring-2 focus:ring-tnc-orange/25 disabled:opacity-60 disabled:pointer-events-none;
+  }
+
+  .btn-copper-lg {
+    @apply btn-copper rounded-xl px-5 py-3 text-base;
+  }
+
+  .tnc-input {
+    @apply w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-tnc-ink placeholder:text-slate-400 focus:border-tnc-orange focus:outline-none focus:ring-2 focus:ring-tnc-orange/15;
+  }
+}

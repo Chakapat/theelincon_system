@@ -9,6 +9,7 @@ session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/banks.php';
 require_once dirname(__DIR__, 2) . '/includes/party_logo.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_shell_head.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -43,13 +44,10 @@ function company_type_label_th(string $type): string
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>จัดการบริษัท | Invoice System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <?php tnc_shell_head([
+        'title' => 'จัดการบริษัท | Invoice System',
+        'sweetalert' => true,
+    ]); ?>
     <style>
         body { background-color: #fffaf5; }
         .logo-preview { height: 88px; width: 88px; object-fit: contain; border-radius: 10px; background: var(--tnc-surface, #f6f7f9); }
@@ -260,7 +258,7 @@ function company_type_label_th(string $type): string
 </div>
 
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
 const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;

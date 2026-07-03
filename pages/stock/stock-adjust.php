@@ -53,17 +53,10 @@ function stock_adjust_render_product_options(array $prodRows, int $selectedId = 
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>บันทึก Stock | THEELIN CON</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Sarabun', sans-serif; background: #f8fafc; }
-        .stock-form-card { border: 1px solid #e8edf5; border-radius: 1rem; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05); }
-        .mode-pill .btn-check:checked + .btn { background: #ea580c; border-color: #ea580c; color: #fff; }
-    </style>
+    <?php
+    require_once dirname(__DIR__, 2) . '/includes/tnc_ops_head.php';
+    tnc_ops_head(['title' => 'บันทึก Stock | THEELIN CON', 'sarabun_weights' => '400;600;700']);
+    ?>
 </head>
 <body class="tnc-app-body tnc-layout-form">
 
@@ -226,7 +219,7 @@ function stock_adjust_render_product_options(array $prodRows, int $selectedId = 
     </form>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
 function stockApplyTxnMode() {
     var tr = document.getElementById('formTr');

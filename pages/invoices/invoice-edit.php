@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/invoice_cancel_helpers.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_invoice_head.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -48,56 +49,10 @@ Db::sortRows($customers, 'name', false);
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แก้ไข Invoice - <?= htmlspecialchars($invoice['invoice_number']) ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
-    <style>
-        /* body canvas: tnc-app.css */
-        .card { border: none; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-        .border-orange { border-left: 5px solid #FF6600 !important; }
-        .btn-orange { background: linear-gradient(135deg, #FF9966 0%, #FF6600 100%); color: white; border: none; border-radius: 10px; font-weight: 600; padding: 10px 25px; transition: 0.3s; }
-        .btn-orange:hover { opacity: 0.9; color: white; transform: translateY(-2px); }
-        .readonly-grand-total {
-            font-size: 2.2rem; font-weight: bold; color: #FF6600;
-            border: none; background-color: transparent !important;
-            text-align: right; width: 100%; padding: 10px; outline: none;
-        }
-        .total-box { background: #fff; border-radius: 15px; padding: 25px; border: 1px solid #eee; }
-        .remove-row { color: #dc3545; cursor: pointer; font-size: 1.3rem; transition: 0.2s; }
-        .remove-row:hover { transform: scale(1.2); }
-        .invoice-add-row-bar {
-            padding: .85rem 1rem 1rem;
-            background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
-            border-top: 1px solid #e5e7eb;
-        }
-        .btn-add-invoice-row {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: .45rem;
-            width: 100%;
-            padding: .72rem 1.25rem;
-            font-weight: 700;
-            font-size: 1rem;
-            color: #c2410c;
-            background: rgba(255, 102, 0, .08);
-            border: 2px dashed rgba(255, 102, 0, .45);
-            border-radius: .75rem;
-            transition: background .15s, border-color .15s, transform .12s;
-        }
-        .btn-add-invoice-row:hover {
-            color: #9a3412;
-            background: rgba(255, 102, 0, .14);
-            border-color: rgba(255, 102, 0, .65);
-            transform: translateY(-1px);
-        }
-        .btn-add-invoice-row .bi { font-size: 1.25rem; }
-    </style>
+    <?php tnc_invoice_head([
+        'title' => 'แก้ไข Invoice - ' . (string) ($invoice['invoice_number'] ?? ''),
+        'sweetalert' => true,
+    ]); ?>
 </head>
 <body class="tnc-app-body tnc-layout-form">
 
@@ -409,6 +364,6 @@ async function confirmUpdate() {
 
 window.onload = calculate;
 </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 </body>
 </html>

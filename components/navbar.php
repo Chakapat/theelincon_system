@@ -2,9 +2,11 @@
 if (!function_exists('app_path')) {
     require_once __DIR__ . '/../config/foundation.php';
 }
+require_once __DIR__ . '/../includes/tnc_tailwind_assets.php';
 
 ?>
-<link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
+<?php tnc_tailwind_css_tag(); ?>
+<?php tnc_app_css_tag(); ?>
 <?php
 $tncMobileCss = [
     'assets/css/tnc-mobile-shell.css',

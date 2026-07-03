@@ -3,6 +3,8 @@ declare(strict_types=1);
 use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_shell_head.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
     exit();
@@ -28,28 +30,22 @@ function member_role_badge_class(array $row): string
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>จัดการสมาชิก | Invoice System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-        body { font-family: 'Sarabun', sans-serif; background-color: #fffaf5; }
-    </style>
+    <?php tnc_shell_head([
+        'title' => 'จัดการสมาชิก | Invoice System',
+        'sweetalert' => true,
+    ]); ?>
 </head>
 <body class="tnc-app-body tnc-layout-list">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container pb-5">
-    <div class="tnc-page-head pt-4">
-        <div>
-            <p class="tnc-page-kicker">Organization · Admin</p>
-            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-person-gear"></i></span>จัดการสมาชิก</h1>
-        </div>
-    </div>
+    <?php tnc_ui_page_head([
+        'kicker' => 'Organization · Admin',
+        'title' => 'จัดการสมาชิก',
+        'icon' => 'bi-person-gear',
+        'class' => 'pt-4',
+    ]); ?>
     <div class="row g-4 tnc-mobile-master">
         <div class="col-lg-4">
             <div class="card shadow-sm border-0 rounded-4">
@@ -152,7 +148,7 @@ function member_role_badge_class(array $row): string
 
 <?php include dirname(__DIR__, 2) . '/components/modals_edit.php'; ?>
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
 const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;

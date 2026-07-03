@@ -9,6 +9,7 @@ use Theelincon\Rtdb\Purchase;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/line_pr_approval.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_purchase_head.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -103,15 +104,10 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>สร้างใบสั่งซื้อจาก PR</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php tnc_purchase_head([
+        'title' => 'สร้างใบสั่งซื้อจาก PR',
+        'sarabun_weights' => '400;500;600;700',
+    ]); ?>
     <style>
         .po-from-pr-shell { max-width: 720px; }
         .po-field-label { font-size: 0.8rem; font-weight: 600; color: var(--tnc-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
@@ -415,5 +411,6 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
     }
 })();
 </script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 </body>
 </html>

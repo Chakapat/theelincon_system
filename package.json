@@ -1,15 +1,17 @@
 {
   "name": "theelincon-system",
   "private": true,
-  "description": "THEELIN CON office system (PHP) — Node scripts for RTDB migration",
+  "description": "THEELIN CON office system (PHP) — Tailwind CSS build",
   "scripts": {
-    "migrate:mysql-to-rtdb": "node scripts/migrate-all-mysql-to-rtdb.js"
+    "css:build": "tailwindcss -i ./assets/css/tailwind.input.css -o ./assets/css/tailwind.css --minify",
+    "css:watch": "tailwindcss -i ./assets/css/tailwind.input.css -o ./assets/css/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17"
   },
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "firebase-admin": "^13.8.0",
-    "mysql2": "^3.11.0"
   }
 }

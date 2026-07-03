@@ -51,29 +51,14 @@ if (!in_array($paymentMethod, ['cash', 'transfer', 'cheque'], true)) {
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($titleTh, ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars((string) ($po['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { font-family: 'Sarabun', sans-serif; background: #f5f5f5; }
-        .doc-wrap { max-width: 1000px; margin: 24px auto; background: #fff; padding: 28px; border-top: 6px solid #198754; min-height: 1120px; }
-        .doc-content { display: flex; flex-direction: column; min-height: 1040px; }
-        .doc-title { font-size: 2rem; font-weight: 800; line-height: 1; }
-        .company-logo { max-height: 76px; width: auto; max-width: 220px; object-fit: contain; }
-        .bill-table thead th { border-bottom: 2px solid #198754 !important; background: #f9faf9; }
-        .summary-box { max-width: 380px; margin-left: auto; border-top: 1px dashed #b7b7b7; padding-top: 10px; }
-        .sig-line { border-bottom: 1px solid #333; height: 56px; margin-bottom: 8px; }
-        .signature-footer { margin-top: auto; padding-top: 24px; }
-        @media print {
-            body { background: #fff; }
-            .no-print { display: none !important; }
-            @page { size: A4; margin: 8mm; }
-            .doc-wrap { margin: 0; max-width: 100%; padding: 0; border: 0; min-height: auto; height: 281mm; }
-            .doc-content { min-height: auto; height: 100%; }
-            .signature-footer { margin-top: auto; break-inside: avoid; page-break-inside: avoid; }
-        }
-    </style>
+    <?php
+    require_once dirname(__DIR__, 2) . '/includes/tnc_ops_head.php';
+    tnc_ops_head([
+        'title' => $titleTh . ' - ' . (string) ($po['po_number'] ?? ''),
+        'po_payment' => true,
+        'include_ops_ui' => false,
+    ]);
+    ?>
 </head>
 <body class="tnc-app-body">
 <div class="no-print">
@@ -204,7 +189,7 @@ if (!in_array($paymentMethod, ['cash', 'transfer', 'cheque'], true)) {
     updateDocChecks();
 })();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script>
 (function ($) {

@@ -9,6 +9,7 @@ session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
 require_once dirname(__DIR__, 2) . '/includes/stock_site_data.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_shell_head.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -127,14 +128,11 @@ if ($selectedSite !== null) {
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>คลังสินค้า | THEELIN CON</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/stock-list.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php tnc_shell_head([
+        'title' => 'คลังสินค้า | THEELIN CON',
+        'extra_css' => ['assets/css/stock-list.css'],
+        'sarabun_weights' => '400;600;700;800',
+    ]); ?>
 </head>
 <body class="tnc-app-body tnc-layout-list">
 
@@ -488,7 +486,7 @@ if ($selectedSite !== null) {
 
 <?php if ($selectedSite !== null): ?>
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
 window.__tncStockListBoot = {
     checksum: <?= json_encode($stockLiveChecksum, JSON_UNESCAPED_UNICODE) ?>,
@@ -501,7 +499,7 @@ window.__tncStockListBoot = {
 </script>
 <script src="<?= htmlspecialchars(app_path('assets/js/stock-list.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php else: ?>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <?php endif; ?>
 </body>
 </html>

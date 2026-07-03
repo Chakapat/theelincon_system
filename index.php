@@ -6,6 +6,7 @@ session_start();
 require_once __DIR__ . '/config/connect_database.php';
 require_once __DIR__ . '/includes/tnc_hub_nav.php';
 require_once __DIR__ . '/includes/invoice_cancel_helpers.php';
+require_once __DIR__ . '/includes/tnc_shell_head.php';
 
 use Theelincon\Rtdb\Portal;
 
@@ -101,14 +102,10 @@ if ($index_display_name === '') {
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TNC | OFFICE SYSTEM</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/index-page.css') . '?v=' . rawurlencode((string) @filemtime(__DIR__ . '/assets/css/index-page.css')), ENT_QUOTES, 'UTF-8') ?>">
+    <?php tnc_shell_head([
+        'title' => 'TNC | OFFICE SYSTEM',
+        'extra_css' => ['assets/css/index-page.css'],
+    ]); ?>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="tnc-app-body tnc-index-page tnc-has-hub-fab tnc-index-desktop-sidebar">
@@ -210,7 +207,7 @@ if ($index_display_name === '') {
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once __DIR__ . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-invoice-cancel.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php include __DIR__ . '/includes/datatables_bundle.php'; ?>

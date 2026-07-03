@@ -9,6 +9,7 @@ session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
 require_once dirname(__DIR__, 2) . '/includes/banks.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_shell_head.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -23,14 +24,12 @@ Db::sortRows($suppliers, 'name', false);
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>จัดการผู้ขาย (Suppliers)</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+    <?php tnc_shell_head([
+        'title' => 'จัดการผู้ขาย (Suppliers)',
+        'sarabun_weights' => '400;600',
+    ]); ?>
     <style>
-        /* canvas + cards: tnc-app.css */
+        /* canvas + cards: tailwind tnc-components */
         .bank-logo-chip { width: 22px; height: 22px; object-fit: contain; border-radius: 4px; flex-shrink: 0; }
     </style>
 </head>
@@ -117,7 +116,7 @@ Db::sortRows($suppliers, 'name', false);
 </div>
 
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;

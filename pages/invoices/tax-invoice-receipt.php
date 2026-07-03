@@ -11,6 +11,7 @@ require_once dirname(__DIR__, 2) . '/includes/banks.php';
 require_once dirname(__DIR__, 2) . '/includes/tax_invoice_ref_search_catalog.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
 require_once dirname(__DIR__, 2) . '/includes/document_color_css.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_invoice_head.php';
 require_once dirname(__DIR__, 2) . '/includes/invoice_cancel_helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -453,15 +454,14 @@ if (!$inv) {
     <!DOCTYPE html>
     <html lang="th">
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>สร้าง Tax Invoice</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-        <?php tnc_doc_color_render_style_tag(); ?>
+        <?php tnc_invoice_head([
+            'title' => 'สร้าง Tax Invoice',
+            'document_color_style' => true,
+            'include_invoice_ui' => false,
+            'extra_head' => '<link rel="preconnect" href="https://fonts.googleapis.com">' . "\n"
+                . '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' . "\n"
+                . '<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">' . "\n",
+        ]); ?>
         <style>
             :root {
                 --tir-focus: rgba(253, 126, 20, 0.35);
@@ -620,7 +620,7 @@ if (!$inv) {
             </div>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
     <script>
     (function () {
         const allRefs = <?= json_encode($autocompleteOptions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
@@ -783,27 +783,11 @@ if ((!$has_tax_invoice || $edit_mode) && !$isInvCancelled && !$isTaxCancelled) {
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($tirDraftDocTitle, ENT_QUOTES, 'UTF-8') ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <?php tnc_doc_color_render_style_tag(); ?>
-    <style>
-        .border-orange { border-left: 5px solid var(--doc-tax-primary, #ff6600) !important; }
-        .btn-orange { background: linear-gradient(135deg, color-mix(in srgb, var(--doc-tax-primary, #ff6600) 65%, #fff) 0%, var(--doc-tax-primary, #ff6600) 100%); color: white; border: none; border-radius: 10px; font-weight: 600; padding: 10px 25px; }
-        .btn-orange:hover { opacity: 0.9; color: white; }
-        .readonly-grand-total {
-            font-size: 2.2rem; font-weight: bold; color: var(--doc-tax-primary, #ff6600);
-            border: none; background-color: transparent !important;
-            text-align: right; width: 100%; padding: 10px; outline: none;
-        }
-        .total-box { background: #fff; border-radius: 15px; padding: 25px; border: 1px solid #eee; }
-        .remove-row { color: #dc3545; cursor: pointer; font-size: 1.3rem; transition: 0.2s; }
-        .remove-row:hover { transform: scale(1.2); }
-    </style>
+    <?php tnc_invoice_head([
+        'title' => $tirDraftDocTitle,
+        'document_color_style' => true,
+        'sweetalert' => true,
+    ]); ?>
 </head>
 <body class="tnc-app-body tnc-doc-tax">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -1103,7 +1087,7 @@ async function confirmSaveTax() {
 
 window.onload = calculate;
 </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 </body>
 </html>
 <?php
@@ -1201,17 +1185,13 @@ $docCancelReason = $isTaxCancelled && $taxCancelReason !== '' ? $taxCancelReason
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <title><?= htmlspecialchars($tirPrintDocTitle, ENT_QUOTES, 'UTF-8') ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <?php tnc_doc_color_render_head_assets(); ?>
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/doc-view-shell.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php tnc_invoice_head([
+        'title' => $tirPrintDocTitle,
+        'document_color' => true,
+        'doc_view_shell' => true,
+        'sweetalert' => true,
+        'sarabun_weights' => '400;500;600;700',
+    ]); ?>
     <style>
         :root { --dark: #333; }
         

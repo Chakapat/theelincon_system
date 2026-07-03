@@ -10,6 +10,7 @@ require_once dirname(__DIR__, 2) . '/includes/site_budget.php';
 require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
 require_once dirname(__DIR__, 2) . '/includes/site_favorites.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_shell_head.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -151,14 +152,11 @@ if (user_can('page.po')) {
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เลือกไซต์งาน | THEELIN CON</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/site-picker.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php tnc_shell_head([
+        'title' => 'เลือกไซต์งาน | THEELIN CON',
+        'extra_css' => ['assets/css/site-picker.css'],
+        'sarabun_weights' => '400;600;700;800',
+    ]); ?>
 </head>
 <body class="tnc-app-body tnc-layout-list">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -457,7 +455,7 @@ if (user_can('page.po')) {
     </div>
 </div>
 <?php endif; ?>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
 window.__tncSitePickerBoot = {
     pickerUrl: <?= json_encode($pickerUrl, JSON_UNESCAPED_SLASHES) ?>,

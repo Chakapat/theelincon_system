@@ -8,6 +8,7 @@ use Theelincon\Rtdb\Invoice;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_invoice_head.php';
 
 if(!isset($_SESSION['user_id'])){
     header('Location: ' . app_path('sign-in.php'));
@@ -138,202 +139,11 @@ Db::sortRows($customer_data, 'name', false);
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>สร้าง Invoice ใหม่</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-        .invoice-shell { max-width: 1320px; }
-        .invoice-card {
-            border: 1px solid #e0e0e0 !important;
-            border-radius: 14px;
-            box-shadow: 0 .22rem .75rem rgba(0,0,0,.045);
-            background: #fff;
-        }
-        .invoice-card .card-header {
-            border-bottom: 1px solid #ececec;
-            color: #374151;
-            font-weight: 700;
-            font-size: 1.02rem;
-        }
-        .invoice-title {
-            color: #1f2937;
-            letter-spacing: .01em;
-        }
-        .invoice-shell .form-label {
-            color: #374151;
-            font-weight: 700 !important;
-            font-size: .93rem;
-        }
-        .invoice-shell .form-control,
-        .invoice-shell .form-select,
-        .invoice-shell .btn {
-            min-height: 44px;
-        }
-        .invoice-shell .form-control,
-        .invoice-shell .form-select {
-            padding: .62rem .82rem;
-            border: 1px solid #d9dde3;
-            border-radius: .72rem;
-        }
-        .invoice-shell .form-control:focus,
-        .invoice-shell .form-select:focus {
-            border-color: rgba(234, 88, 12, .5);
-            box-shadow: 0 0 0 .2rem rgba(234, 88, 12, .14);
-        }
-        .invoice-shell .form-control[readonly],
-        .invoice-shell textarea.form-control[readonly] {
-            background: transparent !important;
-            border-color: #e4e7eb !important;
-            color: #4b5563;
-        }
-        .btn-primary-save {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: .35rem;
-            background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
-            color: #fff;
-            border: none;
-            border-radius: .78rem;
-            font-weight: 700;
-            letter-spacing: .01em;
-            padding: .72rem 1.35rem;
-            transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
-            box-shadow: 0 .38rem .92rem rgba(234, 88, 12, .3);
-        }
-        .btn-primary-save:hover,
-        .btn-primary-save:focus {
-            color: #fff;
-            transform: translateY(-1px);
-            filter: brightness(1.03);
-            box-shadow: 0 .52rem 1.05rem rgba(234, 88, 12, .35);
-        }
-        .btn-back-home {
-            display: inline-flex;
-            align-items: center;
-            gap: .4rem;
-            padding: .55rem 1.15rem;
-            border-radius: 999px;
-            font-weight: 600;
-            color: #475569;
-            background: #fff;
-            border: 1px solid #cbd5e1;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
-            transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
-        }
-        .btn-back-home:hover {
-            color: #0f172a;
-            background: #f8fafc;
-            border-color: #94a3b8;
-            box-shadow: 0 2px 6px rgba(15, 23, 42, .08);
-        }
-        .invoice-table-wrap {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        #items_table {
-            min-width: 860px;
-        }
-        #items_table th {
-            vertical-align: middle;
-            background-color: #f9fafb !important;
-            color: #4b5563;
-            font-size: .85rem;
-            letter-spacing: .02em;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        #items_table td {
-            padding-top: .68rem;
-            padding-bottom: .68rem;
-            vertical-align: middle;
-        }
-        .invoice-add-row-bar {
-            padding: .85rem 1rem 1rem;
-            background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
-            border-top: 1px solid #e5e7eb;
-        }
-        .btn-add-invoice-row {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: .45rem;
-            width: 100%;
-            padding: .72rem 1.25rem;
-            font-weight: 700;
-            font-size: 1rem;
-            color: #c2410c;
-            background: rgba(253, 126, 20, .08);
-            border: 2px dashed rgba(253, 126, 20, .45);
-            border-radius: .75rem;
-            transition: background .15s, border-color .15s, transform .12s;
-        }
-        .btn-add-invoice-row:hover {
-            color: #9a3412;
-            background: rgba(253, 126, 20, .14);
-            border-color: rgba(253, 126, 20, .65);
-            transform: translateY(-1px);
-        }
-        .btn-add-invoice-row:active {
-            transform: translateY(0);
-        }
-        .btn-add-invoice-row .bi {
-            font-size: 1.25rem;
-        }
-        .total-box {
-            background: #fff;
-            border-radius: 14px;
-            padding: 1.2rem 1.2rem 1.05rem;
-            border: 1px solid #e0e0e0;
-            box-shadow: 0 .2rem .7rem rgba(0,0,0,.045);
-        }
-        .grand-total-wrap {
-            background: linear-gradient(135deg, rgba(234, 88, 12, .1) 0%, rgba(234, 88, 12, .05) 100%);
-            border: 1px solid rgba(234, 88, 12, .2);
-            border-radius: .82rem;
-            padding: .7rem .85rem;
-        }
-        .grand-total-text { font-size: 2.15rem; font-weight: 800; color: #ea580c; line-height: 1; }
-        .section-title { color: #374151; font-size: 1.06rem; }
-
-        .sticky-save-bar {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 1050;
-            background: #fff;
-            border-top: 1px solid var(--tnc-orange-border, #fdba74);
-            box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
-            padding: .6rem .75rem calc(.6rem + env(safe-area-inset-bottom, 0px));
-        }
-        .sticky-save-inner {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: .7rem;
-        }
-        .sticky-save-label { font-size: .75rem; color: #6b7280; }
-        .sticky-save-total { font-size: 1.28rem; font-weight: 800; color: #ea580c; line-height: 1; }
-
-        @media (max-width: 767.98px) {
-            .invoice-shell {
-                padding-left: .65rem;
-                padding-right: .65rem;
-                margin-bottom: 5.2rem !important;
-            }
-            .invoice-title {
-                font-size: 1.25rem;
-            }
-            .btn-primary-save {
-                width: 100%;
-            }
-        }
-    </style>
+    <?php tnc_invoice_head([
+        'title' => 'สร้าง Invoice ใหม่',
+        'sweetalert' => true,
+        'sarabun_weights' => '400;500;600;700',
+    ]); ?>
 </head>
 <body class="tnc-app-body tnc-layout-form">
 
@@ -594,6 +404,6 @@ document.addEventListener('DOMContentLoaded', calculate);
     Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: 'บันทึกเลขที่ <?= $new_inv_number ?> เรียบร้อยแล้ว' }).then(() => { window.location.href = <?= json_encode(app_path('index.php'), JSON_UNESCAPED_SLASHES) ?>; });
 <?php endif; ?>
 </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 </body>
 </html>

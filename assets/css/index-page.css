@@ -6,7 +6,8 @@
 .nav-link { font-weight: 500; transition: 0.3s; }
 .nav-link:hover { opacity: 0.8; transform: translateY(-1px); }
 .card-stats {
-    border-left: 4px solid #dee2e6;
+    border: 1px solid #e2e8f0;
+    border-top: 3px solid var(--tnc-orange, #ea580c);
     transition: transform 0.2s, box-shadow 0.2s;
     border-radius: var(--tnc-radius) !important;
 }
@@ -387,6 +388,15 @@
 #invoice_table.table-invoice-index tbody td {
     padding: 1.1rem 1.25rem;
     vertical-align: middle;
+}
+#invoice_table.table-invoice-index tbody td:nth-child(3) {
+    font-size: 1.02rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--tnc-ink);
+}
+#invoice_table.table-invoice-index tbody tr:hover td:nth-child(3) {
+    color: var(--tnc-orange-deep);
 }
 #invoice_table.table-invoice-index tbody tr:last-child td {
     border-bottom: 0;

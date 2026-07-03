@@ -26,17 +26,10 @@ Db::sortRows($customers, 'id', true);
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>จัดการข้อมูลลูกค้า | Invoice System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-        body { background-color: #fffaf5; }
-        .logo-preview { height: 50px; width: 50px; object-fit: contain; border-radius: 8px; background: var(--tnc-surface, #f6f7f9); }
-    </style>
+    <?php
+    require_once dirname(__DIR__, 2) . '/includes/tnc_ops_head.php';
+    tnc_ops_head(['title' => 'จัดการข้อมูลลูกค้า | Invoice System', 'sweetalert' => true]);
+    ?>
 </head>
 <body class="tnc-app-body tnc-layout-list">
 
@@ -173,7 +166,7 @@ Db::sortRows($customers, 'id', true);
 </div>
 
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
 const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;

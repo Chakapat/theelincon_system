@@ -14,6 +14,7 @@ $pr_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/pr_document.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_flash.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_purchase_head.php';
 use Theelincon\Rtdb\Purchase;
 $prCtx = tnc_purchase_pr_print_prepare($pr_id);
 if ($prCtx === null) {
@@ -40,17 +41,11 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($prDocTitle, ENT_QUOTES, 'UTF-8') ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <?php require_once dirname(__DIR__, 2) . '/includes/document_color_css.php'; tnc_doc_color_render_head_assets(); ?>
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php tnc_purchase_head([
+        'title' => $prDocTitle,
+        'document_color' => true,
+        'sarabun_weights' => '400;500;600;700',
+    ]); ?>
     <style>
         :root {
             --dark: #333;
@@ -524,7 +519,7 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
     <input type="hidden" name="decision" value="reject">
 </form>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
 (function () {
     function submitIfConfirm(form, msg) {

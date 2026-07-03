@@ -18,6 +18,8 @@ if (!is_file($tncRolePermissionsFile) || !function_exists('tnc_role_permission_d
 
 require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_shell_head.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -117,13 +119,7 @@ $roleLabels = [
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ตั้งค่าสิทธิ์ตามบทบาท | Theelincon</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php tnc_shell_head(['title' => 'ตั้งค่าสิทธิ์ตามบทบาท | Theelincon']); ?>
     <style>
         body { font-family: 'Sarabun', sans-serif; background: #fffaf5; }
         .perm-card { border: 0; border-radius: 1rem; box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06); }
@@ -396,7 +392,7 @@ $roleLabels = [
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
 (function () {
     var defaults = <?= json_encode(tnc_role_permission_defaults(), JSON_UNESCAPED_UNICODE) ?>;

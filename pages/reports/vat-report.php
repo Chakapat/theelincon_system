@@ -545,178 +545,16 @@ if ($printType === 'sales' || $printType === 'purchase') {
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= h($printTitle) ?> | <?= h($periodText) ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --vat-a4-w: 210mm;
-            --vat-a4-h: 297mm;
-            --vat-print-pad-x: 10mm;
-            --vat-print-pad-y: 12mm;
-        }
-        *, *::before, *::after { box-sizing: border-box; }
-        html { -webkit-text-size-adjust: 100%; }
-        body {
-            font-family: 'Sarabun', 'Leelawadee UI', sans-serif;
-            background: #e9ecef;
-            color: #1f2937;
-            margin: 0;
-            line-height: 1.45;
-        }
-        .vat-print-toolbar {
-            background: #212529;
-            color: #fff;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        .vat-print-sheet {
-            background: #fff;
-            width: 100%;
-            max-width: var(--vat-a4-w);
-            min-height: var(--vat-a4-h);
-            margin: 0.75rem auto 2rem;
-            padding: 1rem;
-            box-shadow: 0 6px 24px rgba(15, 23, 42, .12);
-            border: 1px solid #e5e7eb;
-        }
-        .vat-print-header {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .vat-print-title { font-size: 1.25rem; font-weight: 800; margin: 0; line-height: 1.25; }
-        .vat-print-meta { font-size: 0.82rem; color: #4b5563; }
-        .vat-print-meta > div + div { margin-top: 0.15rem; }
-        .vat-print-table-wrap {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        .vat-print-table {
-            width: 100%;
-            min-width: 520px;
-            font-size: 0.75rem;
-            border-collapse: collapse;
-            table-layout: fixed;
-        }
-        .vat-print-table th,
-        .vat-print-table td {
-            border: 1px solid #d1d5db;
-            padding: 0.35rem 0.45rem;
-            vertical-align: top;
-            word-break: break-word;
-        }
-        .vat-print-table thead th {
-            background: #f3f4f6 !important;
-            font-weight: 700;
-            font-size: 0.76rem;
-        }
-        .vat-print-table tr.vat-print-total-row th,
-        .vat-print-table tr.vat-print-total-row td {
-            background: #e5e7eb !important;
-            font-weight: 700;
-        }
-        .vat-print-table col.col-date { width: 12%; }
-        .vat-print-table col.col-doc { width: 15%; }
-        .vat-print-table col.col-name { width: 28%; }
-        .vat-print-table col.col-amt { width: 15%; }
-        .vat-print-summary {
-            margin-top: 0.75rem;
-            font-size: 0.85rem;
-            color: #374151;
-        }
-
-        @media (min-width: 576px) {
-            .vat-print-sheet { padding: 1.25rem 1.5rem; margin: 1rem auto 2rem; }
-            .vat-print-title { font-size: 1.4rem; }
-        }
-        @media (min-width: 768px) {
-            .vat-print-header {
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: flex-start;
-            }
-            .vat-print-meta { text-align: right; max-width: 48%; }
-            .vat-print-sheet {
-                padding: var(--vat-print-pad-y) var(--vat-print-pad-x);
-                min-height: var(--vat-a4-h);
-            }
-            .vat-print-table { font-size: 9pt; min-width: 100%; }
-        }
-        @media (min-width: 992px) {
-            .vat-print-title { font-size: 16pt; }
-            .vat-print-table { font-size: 9.5pt; }
-        }
-
-        @media print {
-            @page {
-                size: A4 portrait;
-                margin: 12mm 10mm 14mm 10mm;
-            }
-            .no-print { display: none !important; }
-            html, body {
-                width: 100%;
-                height: auto;
-                background: #fff !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
-            .vat-print-sheet {
-                width: 100% !important;
-                max-width: none !important;
-                min-height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                box-shadow: none !important;
-                border: 0 !important;
-            }
-            .vat-print-header {
-                border-bottom-color: #9ca3af;
-                margin-bottom: 4mm;
-                padding-bottom: 3mm;
-            }
-            .vat-print-title { font-size: 14pt; }
-            .vat-print-meta { font-size: 9pt; }
-            .vat-print-table-wrap { overflow: visible !important; }
-            .vat-print-table {
-                min-width: 0 !important;
-                font-size: 7.5pt;
-                page-break-inside: auto;
-            }
-            .vat-print-table thead { display: table-header-group; }
-            .vat-print-table tr { page-break-inside: avoid; break-inside: avoid; }
-            .vat-print-table tr.vat-print-total-row { page-break-inside: avoid; break-inside: avoid; }
-            .vat-print-table th,
-            .vat-print-table td {
-                padding: 1.5mm 2mm;
-                border-color: #6b7280 !important;
-            }
-            .vat-print-table thead th {
-                background: #f3f4f6 !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .vat-print-table tr.vat-print-total-row th,
-            .vat-print-table tr.vat-print-total-row td {
-                background: #e5e7eb !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .vat-print-summary {
-                margin-top: 3mm;
-                font-size: 9pt;
-            }
-            a { color: inherit !important; text-decoration: none !important; }
-        }
-    </style>
+    <?php
+    require_once dirname(__DIR__, 2) . '/includes/tnc_ops_head.php';
+    tnc_ops_head([
+        'title' => $printTitle . ' | ' . $periodText,
+        'minimal' => true,
+        'vat_print' => true,
+        'include_ops_ui' => false,
+        'sarabun_weights' => '400;500;600;700;800',
+    ]);
+    ?>
 </head>
 <body class="tnc-app-body tnc-layout-list">
 <div class="vat-print-toolbar py-2 px-3 mb-0 d-flex flex-wrap gap-2 align-items-center justify-content-between no-print">
@@ -749,183 +587,15 @@ if ($printType === 'sales' || $printType === 'purchase') {
 <!doctype html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>รายงานภาษีซื้อ-ภาษีขาย (VAT Report)</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        .card-soft {
-            border: 1px solid var(--tnc-orange-border, #fdba74);
-            border-radius: 0.875rem;
-            background: #fff;
-            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
-        }
-        .report-summary-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-        .report-badge {
-            font-size: 0.8125rem;
-            font-weight: 600;
-            padding: 0.35rem 0.75rem;
-            border-radius: 50rem;
-            border: 1px solid var(--tnc-border-soft, #e2e8f0);
-            background: #fff;
-            color: var(--tnc-body-ink, #1f2937);
-        }
-        .report-badge--sales { background: var(--tnc-orange-soft, #ffedd5); color: var(--tnc-orange-dark, #9a3412); border-color: var(--tnc-orange-border, #fdba74); }
-        .report-badge--purchase { background: #e6f4ea; color: #1e7e34; border-color: #b7dfc4; }
-        .report-badge--diff { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
-        .report-badge--refund { background: #e0f2fe; color: #0369a1; border-color: #7dd3fc; }
-        .vat-print-table-wrap {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        .vat-print-table {
-            width: 100%;
-            min-width: 520px;
-            font-size: 0.8125rem;
-            border-collapse: collapse;
-            table-layout: fixed;
-        }
-        .vat-print-table th,
-        .vat-print-table td {
-            border: 1px solid #d1d5db;
-            padding: 0.35rem 0.45rem;
-            vertical-align: top;
-            word-break: break-word;
-        }
-        .vat-print-table thead th {
-            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-            border-bottom: 2px solid var(--tnc-orange-border, #fdba74);
-            font-weight: 700;
-            font-size: 0.8125rem;
-        }
-        .vat-print-table tr.vat-print-total-row th,
-        .vat-print-table tr.vat-print-total-row td {
-            background: #e5e7eb !important;
-            font-weight: 700;
-        }
-        .vat-print-table col.col-date { width: 12%; }
-        .vat-print-table col.col-doc { width: 15%; }
-        .vat-print-table col.col-name { width: 28%; }
-        .vat-print-table col.col-amt { width: 15%; }
-        .vat-print-table td.text-end,
-        .vat-print-table th.text-end { font-variant-numeric: tabular-nums; }
-        .vat-doc-link { font-weight: 600; text-decoration: none; color: var(--tnc-orange, #ea580c); }
-        .vat-doc-link:hover { text-decoration: underline; color: var(--tnc-orange-dark, #9a3412); }
-        .vat-row-duplicate td { background: #fff7ed !important; }
-        .vat-row-duplicate td.vat-duplicate-doc { box-shadow: inset 3px 0 0 #ea580c; font-weight: 700; color: #c2410c; }
-        .vat-duplicate-bill-alert ul { margin-bottom: 0; }
-        .vat-tab-meta { font-size: 0.82rem; color: #64748b; margin-bottom: 0.75rem; }
-        .vat-filter-card .form-label { margin-bottom: 0.25rem; }
-        .vat-summary-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.5rem;
-        }
-        .vat-summary-grid .report-badge {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            min-height: 3.25rem;
-            line-height: 1.35;
-        }
-        .vat-summary-grid .report-badge--period {
-            grid-column: 1 / -1;
-        }
-        @media (max-width: 991.98px) {
-            .vat-print-table {
-                min-width: 0 !important;
-                width: 100%;
-                table-layout: auto;
-            }
-            .vat-print-table-wrap {
-                overflow: visible !important;
-                margin: 0;
-            }
-            .vat-filter-card .card-body { padding: 1rem; }
-            .vat-filter-actions {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 0.5rem;
-                width: 100%;
-            }
-            .vat-filter-actions .btn {
-                width: 100%;
-                justify-content: center;
-                min-height: var(--tnc-mobile-tap-min, 44px);
-            }
-            .vat-filter-actions .btn-export {
-                grid-column: 1 / -1;
-            }
-            #vatTabs {
-                display: flex;
-                flex-wrap: nowrap;
-                gap: 0.35rem;
-                border-bottom: 0;
-                margin-bottom: 0.85rem !important;
-            }
-            #vatTabs .nav-item {
-                flex: 1 1 0;
-                min-width: 0;
-            }
-            #vatTabs .nav-link {
-                width: 100%;
-                text-align: center;
-                border: 1px solid rgba(15, 23, 42, 0.1);
-                border-radius: 999px !important;
-                font-size: 0.82rem;
-                font-weight: 700;
-                padding: 0.55rem 0.5rem;
-                color: #475569;
-                background: #fff;
-            }
-            #vatTabs .nav-link.active {
-                background: var(--tnc-orange-soft, #ffedd5);
-                border-color: var(--tnc-orange-border, #fdba74);
-                color: var(--tnc-orange-dark, #c2410c);
-            }
-            .vat-table-card .card-body {
-                padding: 1rem 0.85rem;
-            }
-            .vat-doc-link {
-                display: inline-block;
-                min-height: 1.75rem;
-                padding: 0.1rem 0;
-            }
-            .vat-row-duplicate {
-                border-color: rgba(234, 88, 12, 0.35) !important;
-                box-shadow: 0 0 0 1px rgba(234, 88, 12, 0.12), 0 0.2rem 0.75rem rgba(15, 23, 42, 0.06) !important;
-            }
-        }
-        @media (max-width: 575.98px) {
-            .card-soft .card-body { padding: 1rem; }
-            .report-actions .btn { width: 100%; justify-content: center; }
-        }
-        @media (min-width: 992px) {
-            .vat-summary-grid {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.5rem;
-                align-items: center;
-            }
-            .vat-summary-grid .report-badge {
-                display: inline-flex;
-                flex-direction: row;
-                min-height: 0;
-                text-align: left;
-            }
-            .vat-summary-grid .report-badge--period {
-                grid-column: auto;
-            }
-        }
-        @media (min-width: 1200px) {
-            .container { max-width: 1140px; }
-        }
-    </style>
+    <?php
+    require_once dirname(__DIR__, 2) . '/includes/tnc_ops_head.php';
+    tnc_ops_head([
+        'title' => 'รายงานภาษีซื้อ-ภาษีขาย (VAT Report)',
+        'vat_report' => true,
+        'include_ops_ui' => false,
+        'sarabun_weights' => '400;600;700;800',
+    ]);
+    ?>
 </head>
 <body class="tnc-app-body tnc-layout-list vat-report-page">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -1023,6 +693,6 @@ if ($printType === 'sales' || $printType === 'purchase') {
         </div>
     </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 </body>
 </html>

@@ -13,6 +13,7 @@ require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.p
 require_once dirname(__DIR__, 2) . '/includes/purchase_table_skeleton.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_flash.php';
 require_once dirname(__DIR__, 2) . '/includes/site_budget.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_purchase_head.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -212,28 +213,9 @@ $ignoredCountAll = count($ignoredPoList);
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>รายการใบสั่งซื้อ (PO List)</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <?php tnc_purchase_head(['title' => 'รายการใบสั่งซื้อ (PO List)', 'flatpickr' => true]); ?>
     <style>
         .po-list-title { font-size: clamp(1.35rem, 2.5vw, 1.65rem); letter-spacing: -0.02em; }
-        .po-list-title__icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 2.35rem;
-            height: 2.35rem;
-            border-radius: 0.625rem;
-            background: rgba(253, 126, 20, 0.12);
-            color: var(--tnc-orange);
-            font-size: 1.1rem;
-            vertical-align: -0.15em;
-        }
         .main-card {
             border: 1px solid rgba(0, 0, 0, 0.06);
             border-radius: var(--tnc-radius);
@@ -805,7 +787,7 @@ $ignoredCountAll = count($ignoredPoList);
 
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-table-skeleton.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
 window.__tncPoBoot = window.__tncPoBoot || { table: false, sync: true };

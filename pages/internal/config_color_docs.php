@@ -82,84 +82,16 @@ $updatedAt = trim((string) ($configRow['updated_at'] ?? ''));
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ตั้งค่าโทนสีเอกสาร | THEELIN CON</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <?php require dirname(__DIR__, 2) . '/includes/document_color_css.php'; tnc_doc_color_render_style_tag(); ?>
-    <style>
-        body { background: #f6f8fb; font-family: 'Sarabun', sans-serif; }
-        .doc-color-shell { max-width: 920px; }
-        .doc-color-card {
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
-            background: #fff;
-            box-shadow: 0 .28rem .95rem rgba(0, 0, 0, .055);
-            overflow: hidden;
-        }
-        .doc-type-row {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 1rem;
-            align-items: center;
-            padding: 1.1rem 1.25rem;
-            border-bottom: 1px solid #eef2f7;
-        }
-        .doc-type-row:last-child { border-bottom: 0; }
-        .doc-type-title { font-weight: 800; color: #0f172a; margin: 0 0 .15rem; }
-        .doc-type-sub { font-size: .82rem; color: #64748b; margin: 0; }
-        .doc-color-controls {
-            display: flex;
-            align-items: center;
-            gap: .55rem;
-            flex-shrink: 0;
-        }
-        .doc-color-controls input[type="color"] {
-            width: 52px;
-            height: 44px;
-            padding: .15rem;
-            border: 1px solid #d1d5db;
-            border-radius: 10px;
-            cursor: pointer;
-            background: #fff;
-        }
-        .doc-color-controls input[type="text"] {
-            width: 7.5rem;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-            text-transform: uppercase;
-            border-radius: 10px;
-            border-color: #d1d5db;
-            min-height: 44px;
-        }
-        .doc-preview-strip {
-            margin-top: .65rem;
-            display: flex;
-            gap: .45rem;
-            flex-wrap: wrap;
-        }
-        .doc-preview-chip {
-            font-size: .72rem;
-            font-weight: 700;
-            padding: .28rem .55rem;
-            border-radius: 999px;
-            border: 1px solid transparent;
-        }
-        .doc-preview-title {
-            margin-top: .55rem;
-            font-size: 1.05rem;
-            font-weight: 800;
-            line-height: 1.1;
-        }
-        .doc-preview-bar {
-            margin-top: .45rem;
-            height: 8px;
-            border-radius: 999px;
-            max-width: 220px;
-        }
-    </style>
+    <?php
+    require_once dirname(__DIR__, 2) . '/includes/tnc_ops_head.php';
+    tnc_ops_head([
+        'title' => 'ตั้งค่าโทนสีเอกสาร | THEELIN CON',
+        'doc_color_config' => true,
+        'document_color_style' => true,
+        'sweetalert' => true,
+        'include_ops_ui' => false,
+    ]);
+    ?>
 </head>
 <body class="tnc-app-body">
 
@@ -315,5 +247,6 @@ $updatedAt = trim((string) ($configRow['updated_at'] ?? ''));
     }
 })();
 </script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 </body>
 </html>

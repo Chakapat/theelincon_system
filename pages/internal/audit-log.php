@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_shell_head.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -102,12 +103,7 @@ if (!function_exists('tnc_audit_log_format_datetime_th')) {
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ประวัติระบบ | THEELIN CON</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    <?php tnc_shell_head(['title' => 'ประวัติระบบ | THEELIN CON']); ?>
     <style>
         body { font-family: 'Sarabun', sans-serif; background: #f8f9fa; }
         .audit-card { border-radius: 12px; box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06); border: none; }
@@ -317,7 +313,7 @@ if (!function_exists('tnc_audit_log_format_datetime_th')) {
 </div>
 
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
 window.TNC_AUDIT_PAYLOADS = <?= json_encode($auditUiPayloads, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 (function ($) {

@@ -34,6 +34,7 @@ $backUrl = $kind === 'po' ? $backPo : $backPr;
 
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/pr_document.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/po_document.php';
+require_once dirname(__DIR__, 2) . '/includes/tnc_purchase_head.php';
 
 $poPrintModeBatch = ($kind === 'po') ? tnc_purchase_po_resolve_print_mode() : 'both';
 
@@ -57,17 +58,11 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/purchase-ui.css'), ENT_QUOTES, 'UTF-8') ?>">
-    <?php require_once dirname(__DIR__, 2) . '/includes/document_color_css.php'; tnc_doc_color_render_head_assets(); ?>
-    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-app.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php tnc_purchase_head([
+        'title' => $pageTitle,
+        'document_color' => true,
+        'sarabun_weights' => '400;500;600;700',
+    ]); ?>
     <style>
         <?php if ($kind === 'po'): ?>
         :root { --dark: #333; }
@@ -385,7 +380,7 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
 <?php endif; ?>
 
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-po-print.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <?php
 $tncPrintOnlyCss = app_path('assets/css/print-document-only.css');
 tnc_doc_color_render_print_style_tag();

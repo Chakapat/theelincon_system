@@ -121,19 +121,16 @@ foreach ($siteRows as $siteRow) {
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ค่าใช้จ่ายแต่ละไซต์ | THEELIN CON</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <?php
+    require_once dirname(__DIR__, 2) . '/includes/tnc_ops_head.php';
+    tnc_ops_head([
+        'title' => 'ค่าใช้จ่ายแต่ละไซต์ | THEELIN CON',
+    ]);
+    ?>
     <style>
-        body { font-family: 'Sarabun', sans-serif; background: #fffaf5; }
-        .card-dash { border-radius: 16px; border: none; box-shadow: 0 4px 20px rgba(0,0,0,.06); }
         @media print {
             body { background: #fff; }
             .no-print { display: none !important; }
-            .card-dash { box-shadow: none; border: 1px solid #dee2e6; }
         }
     </style>
 </head>
@@ -223,7 +220,7 @@ foreach ($siteRows as $siteRow) {
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <script>
 (function ($) {
