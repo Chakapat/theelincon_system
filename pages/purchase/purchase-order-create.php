@@ -67,7 +67,12 @@ foreach ($pr_prefill_items as $prItemRow) {
     }
 }
 
-$po_number = Purchase::generatePONumber();
+try {
+    $po_number = Purchase::poNumberFromPr($pr);
+} catch (InvalidArgumentException) {
+    header('Location: ' . app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=invalid_pr_number');
+    exit();
+}
 $supplier_rows = Db::tableRows('suppliers');
 Db::sortRows($supplier_rows, 'name', false);
 
@@ -507,6 +512,8 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                 'billing_required' => 'กรุณากรอกวันที่ออกใบสั่งซื้อให้ถูกต้อง',
                 'site_budget_exceeded' => 'งบไซต์ไม่พอ — ไม่สามารถออก PO ได้ (เกินวงเงินรวมของไซต์)',
                 'site_budget_cat_exceeded' => 'งบหมวดไม่พอ — ไม่สามารถออก PO ได้ (เกินวงเงินหมวดที่กำหนด)',
+                'invalid_pr_number' => 'เลข PR ไม่ถูกต้อง — ไม่สามารถออก PO ที่เลขท้ายตรงกันได้',
+                'po_number_conflict' => 'เลข PO ที่ตรงกับ PR ถูกใช้ไปแล้ว — ติดต่อผู้ดูแลระบบ',
                 default => 'บันทึกใบสั่งซื้อไม่สำเร็จ กรุณาตรวจสอบข้อมูลและลองใหม่',
             };
             ?>

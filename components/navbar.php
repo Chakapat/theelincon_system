@@ -29,7 +29,8 @@ foreach ($tncMobileCss as $tncMobileCssFile) {
         gap: 0.35rem;
     }
     @media (min-width: 992px) {
-        .navbar-hub { gap: 0.45rem; }
+        .navbar-hub { gap: 0.45rem; flex-wrap: nowrap !important; }
+        .tnc-navbar .navbar-collapse { overflow: visible; flex-wrap: nowrap; }
     }
     .navbar-hub .nav-hub-block {
         background: rgba(255, 255, 255, 0.14);
@@ -240,7 +241,7 @@ foreach ($tncMobileCss as $tncMobileCssFile) {
 
         <div class="collapse navbar-collapse" id="navbarNav">
             <?php if (isset($_SESSION['user_id'])): ?>
-            <ul class="navbar-nav ms-auto navbar-hub flex-wrap align-items-lg-center py-1 py-lg-0">
+            <ul class="navbar-nav ms-auto navbar-hub flex-wrap flex-lg-nowrap align-items-lg-center py-1 py-lg-0">
                 <li class="nav-item nav-hub-block" id="tncNotifBlock">
                     <button type="button" class="nav-link text-white fw-semibold px-2 px-lg-3 py-1 py-lg-2 position-relative border-0 bg-transparent" id="tncNotifToggle" aria-expanded="false" aria-controls="tncNotifPopover" title="การแจ้งเตือน">
                         <span class="nav-hub-toggle-inner">

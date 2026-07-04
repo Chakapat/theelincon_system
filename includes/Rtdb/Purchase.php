@@ -6,6 +6,15 @@ namespace Theelincon\Rtdb;
 
 final class Purchase
 {
+    private static function docSlotRegistryEnsure(): void
+    {
+        static $loaded = false;
+        if (!$loaded) {
+            require_once dirname(__DIR__) . '/purchase/doc_slot_registry.php';
+            $loaded = true;
+        }
+    }
+
     private static function tncAuditEnsure(): void
     {
         static $loaded = false;
@@ -15,36 +24,45 @@ final class Purchase
         }
     }
 
+    /** @deprecated Prefer poNumberFromPr() or generateDirectPONumber() */
     public static function generatePONumber(): string
     {
-        $prefix = 'PO-TNC-' . date('ym') . '-';
-        $rows = Db::tableRows('purchase_orders');
-        $max = 0;
-        foreach ($rows as $r) {
-            $pn = (string) ($r['po_number'] ?? '');
-            if (strncmp($pn, $prefix, strlen($prefix)) === 0) {
-                $tail = substr($pn, -3);
-                $max = max($max, (int) $tail);
-            }
-        }
+        self::docSlotRegistryEnsure();
 
-        return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
+        return tnc_purchase_next_direct_po_number();
     }
 
-    public static function nextPRNumber(): string
+    public static function generateDirectPONumber(?string $ym = null): string
     {
-        $suffix = date('ym');
-        $prefix = 'PR-TNC-' . $suffix . '-';
-        $max = 0;
-        foreach (Db::tableRows('purchase_requests') as $r) {
-            $pn = (string) ($r['pr_number'] ?? '');
-            if (strncmp($pn, $prefix, strlen($prefix)) === 0) {
-                $tail = substr($pn, -3);
-                $max = max($max, (int) $tail);
-            }
-        }
+        self::docSlotRegistryEnsure();
 
-        return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
+        return tnc_purchase_next_direct_po_number($ym);
+    }
+
+    public static function nextPRNumber(?string $ym = null): string
+    {
+        self::docSlotRegistryEnsure();
+
+        return tnc_purchase_next_pr_number($ym);
+    }
+
+    /**
+     * PO จาก PR — ใช้เลขท้ายเดียวกับ PR (PR-TNC-…-011 → PO-TNC-…-011)
+     *
+     * @param array<string, mixed> $prRow
+     */
+    public static function poNumberFromPr(array $prRow): string
+    {
+        self::docSlotRegistryEnsure();
+
+        return tnc_purchase_po_number_from_pr($prRow);
+    }
+
+    public static function poNumberTaken(string $poNumber, int $ignorePoId = 0): bool
+    {
+        self::docSlotRegistryEnsure();
+
+        return tnc_purchase_po_number_taken($poNumber, $ignorePoId);
     }
 
     /** CEO / ADMIN — แก้ไข ยกเลิก ลบ PO ที่จ่ายแล้ว (สมบูรณ์) ได้ */

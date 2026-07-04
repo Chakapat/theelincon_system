@@ -201,3 +201,12 @@ if (!function_exists('tnc_site_save_name')) {
         return ['ok' => true, 'error_code' => null, 'message' => null];
     }
 }
+
+if (!function_exists('tnc_site_hub_post_redirect')) {
+    /** Post/Redirect/Get — 303 forces GET on the next request. */
+    function tnc_site_hub_post_redirect(string $url): void
+    {
+        header('Location: ' . $url, true, 303);
+        exit;
+    }
+}

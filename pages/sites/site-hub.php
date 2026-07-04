@@ -11,6 +11,14 @@ require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
 require_once dirname(__DIR__, 2) . '/includes/sites.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
 
+if (!function_exists('tnc_site_hub_post_redirect')) {
+    function tnc_site_hub_post_redirect(string $url): void
+    {
+        header('Location: ' . $url, true, 303);
+        exit;
+    }
+}
+
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
     exit;
@@ -33,6 +41,8 @@ if ($site === null) {
     exit;
 }
 
+@set_time_limit(120);
+
 $hubUrl = app_path('pages/sites/site-hub.php?site_id=' . $siteId);
 $pickerUrl = app_path('pages/sites/site-picker.php');
 $siteName = trim((string) ($site['name'] ?? ''));
@@ -41,18 +51,15 @@ $canDeleteSite = user_is_admin_only_role();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_budget'])) {
     if (!$canEditBudget) {
-        header('Location: ' . app_path('index.php') . '?error=forbidden');
-        exit;
+        tnc_site_hub_post_redirect(app_path('index.php') . '?error=forbidden');
     }
     if (!csrf_verify_request()) {
-        header('Location: ' . $hubUrl . '&error=csrf');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=csrf');
     }
     require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
     $postSiteId = (int) ($_POST['site_id'] ?? 0);
     if ($postSiteId !== $siteId) {
-        header('Location: ' . $hubUrl . '&error=invalid');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=invalid');
     }
     $budgetRaw = trim(str_replace([',', ' '], '', (string) ($_POST['site_budget'] ?? '0')));
     $siteBudget = max(0.0, round((float) $budgetRaw, 2));
@@ -72,32 +79,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_budget'])) 
             ]);
         }
     }
-    header('Location: ' . $hubUrl . '&updated=1');
-    exit;
+    tnc_site_hub_post_redirect($hubUrl . '&updated=1');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_name'])) {
     if (!$canEditBudget) {
-        header('Location: ' . app_path('index.php') . '?error=forbidden');
-        exit;
+        tnc_site_hub_post_redirect(app_path('index.php') . '?error=forbidden');
     }
     if (!csrf_verify_request()) {
-        header('Location: ' . $hubUrl . '&error=csrf&open_rename=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=csrf&open_rename=1');
     }
     require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
     $postSiteId = (int) ($_POST['site_id'] ?? 0);
     if ($postSiteId !== $siteId) {
-        header('Location: ' . $hubUrl . '&error=invalid&open_rename=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=invalid&open_rename=1');
     }
     $newName = trim((string) ($_POST['site_name'] ?? ''));
     $beforeSite = Db::rowByIdField('sites', $siteId);
     $saveResult = tnc_site_save_name($siteId, $newName);
     if (empty($saveResult['ok'])) {
         $code = (string) ($saveResult['error_code'] ?? 'invalid_name');
-        header('Location: ' . $hubUrl . '&error=' . rawurlencode($code) . '&open_rename=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=' . rawurlencode($code) . '&open_rename=1');
     }
     $afterSite = Db::rowByIdField('sites', $siteId);
     tnc_audit_log('update', 'site', (string) $siteId, $newName, [
@@ -106,29 +108,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_name'])) {
         'before' => $beforeSite,
         'after' => $afterSite,
     ]);
-    header('Location: ' . $hubUrl . '&name_updated=1');
-    exit;
+    tnc_site_hub_post_redirect($hubUrl . '&name_updated=1');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_category'])) {
     if (!$canEditBudget) {
-        header('Location: ' . app_path('index.php') . '?error=forbidden');
-        exit;
+        tnc_site_hub_post_redirect(app_path('index.php') . '?error=forbidden');
     }
     if (!csrf_verify_request()) {
-        header('Location: ' . $hubUrl . '&error=csrf&open_cat=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=csrf&open_cat=1');
     }
     require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
     $postSiteId = (int) ($_POST['category_site_id'] ?? 0);
     if ($postSiteId !== $siteId) {
-        header('Location: ' . $hubUrl . '&error=invalid&open_cat=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=invalid&open_cat=1');
     }
     $catId = (int) ($_POST['category_id'] ?? 0);
     if ($catId > 0 && !tnc_site_category_belongs_to_site($catId, $siteId)) {
-        header('Location: ' . $hubUrl . '&error=cat_forbidden&open_cat=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=cat_forbidden&open_cat=1');
     }
     $catName = trim((string) ($_POST['category_name'] ?? ''));
     $pctRaw = trim(str_replace('%', '', (string) ($_POST['category_budget_percent'] ?? '')));
@@ -139,8 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_category'])
     }
     if ($catName === '') {
         $catOpen = $catId > 0 ? '&open_cat=1&edit_cat=' . $catId : '&open_cat=1';
-        header('Location: ' . $hubUrl . '&error=invalid_name' . $catOpen);
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=invalid_name' . $catOpen);
     }
     $catParentId = (int) ($_POST['category_parent_id'] ?? 0);
     if ($catId > 0 && $catParentId <= 0) {
@@ -152,13 +148,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_category'])
     $savedId = tnc_site_category_save($catId, $siteId, $catName, 0, $catBudgetPercent, $catParentId);
     if (is_array($savedId) && isset($savedId['error']) && $savedId['error'] === 'percent_sum_exceeded') {
         $catOpen = $catId > 0 ? '&open_cat=1&edit_cat=' . $catId : '&open_cat=1';
-        header('Location: ' . $hubUrl . '&error=percent_sum' . $catOpen);
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=percent_sum' . $catOpen);
     }
     if (is_array($savedId) && isset($savedId['error']) && in_array($savedId['error'], ['invalid_parent', 'has_children'], true)) {
         $catOpen = $catId > 0 ? '&open_cat=1&edit_cat=' . $catId : '&open_cat=1';
-        header('Location: ' . $hubUrl . '&error=' . rawurlencode((string) $savedId['error']) . $catOpen);
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=' . rawurlencode((string) $savedId['error']) . $catOpen);
     }
     if (is_int($savedId) && $savedId > 0) {
         tnc_audit_log($catId > 0 ? 'update' : 'create', 'site_cost_category', (string) $savedId, $catName, [
@@ -172,27 +166,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_category'])
                 'parent_id' => $catParentId,
             ],
         ]);
-        header('Location: ' . $hubUrl . '&cat_saved=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&cat_saved=1');
     }
-    header('Location: ' . $hubUrl . '&error=invalid&open_cat=1');
-    exit;
+    tnc_site_hub_post_redirect($hubUrl . '&error=invalid&open_cat=1');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site_category'])) {
     if (!$canEditBudget) {
-        header('Location: ' . app_path('index.php') . '?error=forbidden');
-        exit;
+        tnc_site_hub_post_redirect(app_path('index.php') . '?error=forbidden');
     }
     if (!csrf_verify_request()) {
-        header('Location: ' . $hubUrl . '&error=csrf');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=csrf');
     }
     require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
     $postSiteId = (int) ($_POST['category_site_id'] ?? 0);
     if ($postSiteId !== $siteId) {
-        header('Location: ' . $hubUrl . '&error=invalid');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=invalid');
     }
     $catId = (int) ($_POST['category_id'] ?? 0);
     $deleteResult = tnc_site_category_delete_for_site($catId, $siteId);
@@ -202,8 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site_category'
         if ($code === 'in_use' && $catId > 0) {
             $redirect .= '&cat_ref=' . $catId;
         }
-        header('Location: ' . $redirect);
-        exit;
+        tnc_site_hub_post_redirect($redirect);
     }
     $beforeCat = is_array($deleteResult['before'] ?? null) ? $deleteResult['before'] : [];
     tnc_audit_log('delete', 'site_cost_category', (string) $catId, trim((string) ($beforeCat['name'] ?? '')), [
@@ -212,43 +200,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site_category'
         'before' => $beforeCat,
         'site_id' => $siteId,
     ]);
-    header('Location: ' . $hubUrl . '&cat_deleted=1');
-    exit;
+    tnc_site_hub_post_redirect($hubUrl . '&cat_deleted=1');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remap_site_category_docs'])) {
     if (!$canEditBudget) {
-        header('Location: ' . app_path('index.php') . '?error=forbidden');
-        exit;
+        tnc_site_hub_post_redirect(app_path('index.php') . '?error=forbidden');
     }
     if (!csrf_verify_request()) {
-        header('Location: ' . $hubUrl . '&error=csrf');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=csrf');
     }
     require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
     $postSiteId = (int) ($_POST['category_site_id'] ?? 0);
     if ($postSiteId !== $siteId) {
-        header('Location: ' . $hubUrl . '&error=invalid');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=invalid');
     }
     $sourceCategoryId = (int) ($_POST['remap_source_category_id'] ?? 0);
     $targetCategoryId = (int) ($_POST['remap_target_category_id'] ?? 0);
     if (!function_exists('tnc_site_category_remap_documents_for_site')) {
-        header('Location: ' . $hubUrl . '&error=server_config');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=server_config');
     }
     $remapResult = tnc_site_category_remap_documents_for_site($siteId, $sourceCategoryId, $targetCategoryId);
     $remapError = (string) ($remapResult['error_code'] ?? '');
     if (in_array($remapError, ['invalid', 'same_category', 'forbidden', 'invalid_target', 'no_documents'], true)) {
-        header('Location: ' . $hubUrl . '&error=' . rawurlencode($remapError));
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=' . rawurlencode($remapError));
     }
     $prUpdated = (int) ($remapResult['pr_updated'] ?? 0);
     $poUpdated = (int) ($remapResult['po_updated'] ?? 0);
     $failedCount = (int) ($remapResult['failed'] ?? 0);
     if ($prUpdated <= 0 && $poUpdated <= 0 && $failedCount <= 0) {
-        header('Location: ' . $hubUrl . '&error=no_documents');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=no_documents');
     }
     foreach ($remapResult['results'] ?? [] as $remapItem) {
         if (!is_array($remapItem) || ($remapItem['status'] ?? '') !== 'updated') {
@@ -272,37 +253,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remap_site_category_d
         ]);
     }
     if ($failedCount > 0) {
-        header('Location: ' . $hubUrl . '&cat_remap_partial=1&prs=' . $prUpdated . '&pos=' . $poUpdated . '&failed=' . $failedCount);
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&cat_remap_partial=1&prs=' . $prUpdated . '&pos=' . $poUpdated . '&failed=' . $failedCount);
     }
-    header('Location: ' . $hubUrl . '&cat_remapped=1&prs=' . $prUpdated . '&pos=' . $poUpdated);
-    exit;
+    tnc_site_hub_post_redirect($hubUrl . '&cat_remapped=1&prs=' . $prUpdated . '&pos=' . $poUpdated);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site'])) {
     if (!$canDeleteSite) {
-        header('Location: ' . app_path('index.php') . '?error=forbidden');
-        exit;
+        tnc_site_hub_post_redirect(app_path('index.php') . '?error=forbidden');
     }
     if (!csrf_verify_request()) {
-        header('Location: ' . $hubUrl . '&error=csrf&open_delete=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=csrf&open_delete=1');
     }
     require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
     $postSiteId = (int) ($_POST['site_id'] ?? 0);
     if ($postSiteId !== $siteId) {
-        header('Location: ' . $hubUrl . '&error=invalid&open_delete=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=invalid&open_delete=1');
     }
     $confirmName = trim((string) ($_POST['confirm_site_name'] ?? ''));
     if ($confirmName !== $siteName) {
-        header('Location: ' . $hubUrl . '&error=confirm_mismatch&open_delete=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=confirm_mismatch&open_delete=1');
     }
     $confirmPassword = trim((string) ($_POST['confirm_password'] ?? ''));
     if ($confirmPassword === '') {
-        header('Location: ' . $hubUrl . '&error=confirm_password_required&open_delete=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=confirm_password_required&open_delete=1');
     }
     $user = null;
     $uid = (string) ($_SESSION['user_id'] ?? '');
@@ -316,15 +290,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site'])) {
         }
     }
     if (!tnc_verify_user_password_row($user, $confirmPassword)) {
-        header('Location: ' . $hubUrl . '&error=confirm_password_invalid&open_delete=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=confirm_password_invalid&open_delete=1');
     }
     $beforeSite = Db::rowByIdField('sites', $siteId);
     $deleteResult = tnc_site_delete($siteId);
     if (empty($deleteResult['ok'])) {
         $code = (string) ($deleteResult['error_code'] ?? 'site_delete_failed');
-        header('Location: ' . $hubUrl . '&error=' . rawurlencode($code) . '&open_delete=1');
-        exit;
+        tnc_site_hub_post_redirect($hubUrl . '&error=' . rawurlencode($code) . '&open_delete=1');
     }
     tnc_audit_log('delete', 'site', (string) $siteId, $siteName, [
         'source' => 'site-hub.php',
@@ -332,12 +304,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site'])) {
         'before' => $beforeSite,
         'nested' => $deleteResult['nested'] ?? [],
     ]);
-    header('Location: ' . $pickerUrl . '?deleted=1');
-    exit;
+    tnc_site_hub_post_redirect($pickerUrl . '?deleted=1');
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    tnc_site_hub_post_redirect($hubUrl);
 }
 
 $siteBudgetRaw = round((float) ($site['site_budget'] ?? 0), 2);
-@set_time_limit(120);
 
 $hubRequiredFunctions = [
     'tnc_site_category_references_site_index',
@@ -345,14 +319,25 @@ $hubRequiredFunctions = [
     'tnc_site_category_remap_documents_for_site',
     'tnc_site_category_is_valid_for_site',
 ];
+$hubMissingRequiredFn = null;
 foreach ($hubRequiredFunctions as $hubRequiredFn) {
     if (!function_exists($hubRequiredFn)) {
-        error_log('site-hub.php: missing function ' . $hubRequiredFn . ' — upload includes/site_cost_categories.php');
+        $hubMissingRequiredFn = $hubRequiredFn;
+        break;
+    }
+}
+if ($hubMissingRequiredFn !== null) {
+    error_log('site-hub.php: missing function ' . $hubMissingRequiredFn . ' — upload includes/site_cost_categories.php');
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+        tnc_site_hub_post_redirect($hubUrl . '&error=server_config');
+    }
+    if ((string) ($_GET['error'] ?? '') !== 'server_config') {
         header('Location: ' . $hubUrl . '&error=server_config');
         exit;
     }
 }
 
+if ($hubMissingRequiredFn === null) {
 $summary = tnc_site_budget_site_summary_for_site_row($siteId, $site);
 $hubCatRefIndex = tnc_site_category_references_site_index($siteId);
 $hubCatDocsMap = [];
@@ -476,11 +461,42 @@ $openRenameModal = !empty($_GET['open_rename']);
 $catRefId = isset($_GET['cat_ref']) ? (int) $_GET['cat_ref'] : 0;
 $catRefBlock = null;
 $openCatRefModal = false;
-if ((string) ($_GET['error'] ?? '') === 'in_use' && $catRefId > 0) {
+if ((string) ($_GET['error'] ?? '') === 'in_use' && $catRefId > 0 && $hubMissingRequiredFn === null) {
     $catRefBlock = tnc_site_category_list_references($catRefId, $siteId);
     if ((int) ($catRefBlock['total'] ?? 0) > 0) {
         $openCatRefModal = true;
     }
+}
+} else {
+    $hubBudgetLimit = $siteBudgetRaw;
+    $summary = [
+        'categories' => [],
+        'used' => 0.0,
+        'limit' => $hubBudgetLimit > 0.0 ? $hubBudgetLimit : null,
+        'remaining' => null,
+        'unlimited' => $hubBudgetLimit <= 0.0,
+        'exhausted' => false,
+        'low' => false,
+    ];
+    $hubCatRefIndex = ['prs_by_cat' => [], 'pos_by_cat' => []];
+    $hubCatDocsMap = [];
+    $hubCatTableRows = [];
+    $hubParentCategoryOptions = [];
+    $hubRemapRefIndex = $hubCatRefIndex;
+    $hubCatById = [];
+    $hubRemapSourceOptions = [];
+    $hubRemapTargetOptions = [];
+    $hubCanRemapCategories = false;
+    $catPercentUsed = 0.0;
+    $catPercentRoom = 100.0;
+    $hubCatPercentRoomById = [];
+    $openCatEditId = isset($_GET['edit_cat']) ? (int) $_GET['edit_cat'] : 0;
+    $openCatModal = !empty($_GET['open_cat']) || $openCatEditId > 0;
+    $openDeleteModal = !empty($_GET['open_delete']);
+    $openRenameModal = !empty($_GET['open_rename']);
+    $catRefId = isset($_GET['cat_ref']) ? (int) $_GET['cat_ref'] : 0;
+    $catRefBlock = null;
+    $openCatRefModal = false;
 }
 $qSite = 'site_id=' . $siteId;
 $sitePurchaseCounts = tnc_site_purchase_counts($siteId);

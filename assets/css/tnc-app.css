@@ -11,11 +11,11 @@
 }
 
 /* Bootstrap 5 coexistence — loaded after tailwind.css */
-.collapse:not(.show) {
+.collapse:not(.show):not(.navbar-collapse) {
     display: none !important;
     visibility: visible !important;
 }
-.collapsing {
+.collapsing:not(.navbar-collapse) {
     height: 0;
     overflow: hidden;
     transition: height 0.35s ease;
@@ -35,6 +35,19 @@ tr.collapse.collapsing {
 tr.collapsing {
     height: auto !important;
     overflow: visible !important;
+}
+@media (max-width: 991.98px) {
+    .navbar-collapse.collapse:not(.show) {
+        display: none !important;
+    }
+}
+@media (min-width: 992px) {
+    .navbar-expand-lg .navbar-collapse.collapse {
+        display: flex !important;
+        flex-basis: auto;
+        height: auto !important;
+        overflow: visible !important;
+    }
 }
 
 /* ---- Canvas ---- */

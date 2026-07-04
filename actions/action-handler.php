@@ -477,8 +477,8 @@ if ($action === 'save_pr') {
         $cost_category_id = 0;
     }
 
-    $pr_number = trim((string) ($_POST['pr_number'] ?? ''));
     $created_at = trim((string) ($_POST['created_at'] ?? date('Y-m-d')));
+    $pr_number = Purchase::nextPRNumber();
     $requested_by = (int) ($_POST['requested_by'] ?? 0);
     $created_by = (int) $_SESSION['user_id'];
     $details = trim((string) ($_POST['details'] ?? ''));
@@ -974,12 +974,19 @@ if ($action === 'create_po_from_pr') {
     tnc_require_can('po.create', 'ไม่มีสิทธิ์สร้าง PO');
     $pr_id = (int) ($_POST['pr_id'] ?? 0);
     $supplier_id = (int) ($_POST['supplier_id'] ?? 0);
-    $po_number = Purchase::generatePONumber();
     $created_by = (int) $_SESSION['user_id'];
 
     $pr_row = Db::row('purchase_requests', (string) $pr_id);
     if ($pr_row === null) {
         tnc_action_redirect( app_path('pages/purchase/purchase-request-list.php') . '?error=pr_not_found');
+    }
+    try {
+        $po_number = Purchase::poNumberFromPr($pr_row);
+    } catch (InvalidArgumentException) {
+        tnc_action_redirect(app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id . '&error=invalid_pr_number');
+    }
+    if (Purchase::poNumberTaken($po_number)) {
+        tnc_action_redirect(app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id . '&error=po_number_conflict');
     }
     if (!line_pr_is_approved_for_po($pr_row)) {
         $st = line_pr_normalize_status($pr_row);
@@ -1197,7 +1204,7 @@ if ($action === 'create_po_direct') {
     $pr_id_link = (int) ($_POST['pr_id'] ?? 0);
     $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
     $created_by = (int) $_SESSION['user_id'];
-    $po_number = Purchase::generatePONumber();
+    $po_number = Purchase::generateDirectPONumber();
     $poCreateDirectUrl = app_path('pages/purchase/purchase-order-create-direct.php');
     $formFallbackUrl = $pr_id_link > 0
         ? app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id_link

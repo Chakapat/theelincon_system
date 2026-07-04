@@ -26,7 +26,7 @@ $prListUrl = app_path('pages/purchase/purchase-request-list.php');
 $handlerUrl = app_path('actions/action-handler.php') . '?action=create_po_direct';
 $errorCode = trim((string) ($_GET['error'] ?? ''));
 
-$po_number = Purchase::generatePONumber();
+$po_number = Purchase::generateDirectPONumber();
 $supplierRows = Db::tableRows('suppliers');
 Db::sortRows($supplierRows, 'name', false);
 
