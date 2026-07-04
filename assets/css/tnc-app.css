@@ -25,8 +25,16 @@
     visibility: visible !important;
 }
 .home-hub-panel.collapse.show,
-.collapse.show:not(.navbar-collapse):not(.d-flex) {
+.collapse.show:not(.navbar-collapse):not(.d-flex):not(tr) {
     display: block !important;
+}
+tr.collapse.show,
+tr.collapse.collapsing {
+    display: table-row !important;
+}
+tr.collapsing {
+    height: auto !important;
+    overflow: visible !important;
 }
 
 /* ---- Canvas ---- */

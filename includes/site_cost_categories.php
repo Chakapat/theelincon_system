@@ -895,6 +895,442 @@ if (!function_exists('tnc_site_category_delete')) {
     }
 }
 
+if (!function_exists('tnc_site_category_is_descendant')) {
+    /** ตรวจว่า $candidateId อยู่ใต้ $ancestorId (หมวดย่อยโดยตรงหรือซ้อนลึก) */
+    function tnc_site_category_is_descendant(int $ancestorId, int $candidateId): bool
+    {
+        if ($ancestorId <= 0 || $candidateId <= 0 || $ancestorId === $candidateId) {
+            return false;
+        }
+        $parentId = tnc_site_category_parent_id($candidateId);
+        if ($parentId === $ancestorId) {
+            return true;
+        }
+        if ($parentId <= 0) {
+            return false;
+        }
+
+        return tnc_site_category_is_descendant($ancestorId, $parentId);
+    }
+}
+
+if (!function_exists('tnc_site_category_validate_parent_for_site')) {
+    /**
+     * ตรวจว่า parent_id เป็นหมวดหลักที่ใช้ได้กับไซต์
+     *
+     * @return array{ok:bool,error_code?:string}
+     */
+    function tnc_site_category_validate_parent_for_site(int $parentId, int $siteId): array
+    {
+        if ($parentId <= 0 || $siteId <= 0) {
+            return ['ok' => false, 'error_code' => 'invalid_parent'];
+        }
+        $parentRow = Db::rowByIdField('site_cost_categories', $parentId);
+        if (!is_array($parentRow) || (int) ($parentRow['parent_id'] ?? 0) !== 0) {
+            return ['ok' => false, 'error_code' => 'invalid_parent'];
+        }
+        if ((int) ($parentRow['active'] ?? 1) !== 1) {
+            return ['ok' => false, 'error_code' => 'invalid_parent'];
+        }
+        $parentSiteId = (int) ($parentRow['site_id'] ?? 0);
+        if ($parentSiteId !== 0 && $parentSiteId !== $siteId) {
+            return ['ok' => false, 'error_code' => 'invalid_parent'];
+        }
+
+        return ['ok' => true];
+    }
+}
+
+if (!function_exists('tnc_site_category_remap_documents_for_site')) {
+    /**
+     * เปลี่ยนหมวด cost_category ใน PR/PO ของไซต์ (เฉพาะเอกสารที่อ้างอิง source ตรงๆ)
+     *
+     * @return array{
+     *   ok:bool,
+     *   pr_updated:int,
+     *   po_updated:int,
+     *   failed:int,
+     *   results:list<array<string,mixed>>,
+     *   error_code?:string|null
+     * }
+     */
+    function tnc_site_category_remap_documents_for_site(int $siteId, int $sourceCategoryId, int $targetCategoryId): array
+    {
+        $fail = static function (string $code): array {
+            return [
+                'ok' => false,
+                'pr_updated' => 0,
+                'po_updated' => 0,
+                'failed' => 0,
+                'results' => [],
+                'error_code' => $code,
+            ];
+        };
+
+        if ($siteId <= 0 || $sourceCategoryId <= 0 || $targetCategoryId <= 0) {
+            return $fail('invalid');
+        }
+        if ($sourceCategoryId === $targetCategoryId) {
+            return $fail('same_category');
+        }
+        if (!tnc_site_category_is_valid_for_site($sourceCategoryId, $siteId)) {
+            return $fail('forbidden');
+        }
+        $targetResolved = tnc_site_category_resolve_selection($targetCategoryId, $siteId);
+        if (empty($targetResolved['ok'])) {
+            return $fail('invalid_target');
+        }
+        $targetName = (string) ($targetResolved['name'] ?? '');
+
+        if (!function_exists('tnc_site_purchase_requests_cached')) {
+            require_once __DIR__ . '/sites.php';
+        }
+        if (!function_exists('tnc_site_budget_purchase_orders_cached')) {
+            require_once __DIR__ . '/site_budget.php';
+        }
+        require_once __DIR__ . '/pr_po_sync.php';
+
+        $prUpdated = 0;
+        $poUpdated = 0;
+        $failed = 0;
+        $results = [];
+        $updatedPoIds = [];
+
+        $applyPoCategory = static function (int $poId, array $poRow) use (
+            $siteId,
+            $targetCategoryId,
+            $targetName,
+            &$poUpdated,
+            &$failed,
+            &$results,
+            &$updatedPoIds
+        ): bool {
+            if ($poId <= 0) {
+                return false;
+            }
+            if ((int) ($poRow['cost_category_id'] ?? 0) === $targetCategoryId) {
+                $updatedPoIds[$poId] = $poId;
+
+                return true;
+            }
+            $netAmount = round((float) ($poRow['total_amount'] ?? 0), 2);
+            if ($netAmount <= 0.0) {
+                $netAmount = round((float) ($poRow['payable_amount'] ?? ($poRow['gross_amount'] ?? 0)), 2);
+            }
+            if (!\Theelincon\Rtdb\Purchase::poPaidLocksMutation($poRow)) {
+                $budget = tnc_site_budget_validate($siteId, $targetCategoryId, $netAmount, $poId);
+                if (empty($budget['ok'])) {
+                    ++$failed;
+                    $results[] = [
+                        'doc_type' => 'po',
+                        'doc_id' => $poId,
+                        'doc_number' => trim((string) ($poRow['po_number'] ?? '')),
+                        'status' => 'failed',
+                        'error_code' => (string) ($budget['error_code'] ?? 'budget'),
+                    ];
+
+                    return false;
+                }
+            }
+            $pk = Db::pkForLogicalId('purchase_orders', $poId);
+            if ($pk === null || $pk === '') {
+                ++$failed;
+                $results[] = [
+                    'doc_type' => 'po',
+                    'doc_id' => $poId,
+                    'status' => 'failed',
+                    'error_code' => 'not_found',
+                ];
+
+                return false;
+            }
+            $before = Db::row('purchase_orders', $pk) ?? $poRow;
+            $after = array_merge($before, [
+                'cost_category_id' => $targetCategoryId,
+                'cost_category_name' => $targetName,
+            ]);
+            Db::setRow('purchase_orders', $pk, $after);
+            ++$poUpdated;
+            $updatedPoIds[$poId] = $poId;
+            $results[] = [
+                'doc_type' => 'po',
+                'doc_id' => $poId,
+                'doc_number' => trim((string) ($before['po_number'] ?? '')),
+                'status' => 'updated',
+                'before' => $before,
+                'after' => $after,
+            ];
+
+            return true;
+        };
+
+        foreach (tnc_site_purchase_requests_cached() as $prRow) {
+            if (!is_array($prRow) || (int) ($prRow['site_id'] ?? 0) !== $siteId) {
+                continue;
+            }
+            if ((int) ($prRow['cost_category_id'] ?? 0) !== $sourceCategoryId) {
+                continue;
+            }
+            $prId = (int) ($prRow['id'] ?? 0);
+            if ($prId <= 0) {
+                continue;
+            }
+            $pk = Db::pkForLogicalId('purchase_requests', $prId);
+            if ($pk === null || $pk === '') {
+                ++$failed;
+                continue;
+            }
+            $before = Db::row('purchase_requests', $pk) ?? $prRow;
+            $afterRow = array_merge($before, [
+                'cost_category_id' => $targetCategoryId,
+                'cost_category_name' => $targetName,
+            ]);
+            Db::setRow('purchase_requests', $pk, $afterRow);
+            ++$prUpdated;
+            $results[] = [
+                'doc_type' => 'pr',
+                'doc_id' => $prId,
+                'doc_number' => trim((string) ($before['pr_number'] ?? '')),
+                'status' => 'updated',
+                'before' => $before,
+                'after' => $afterRow,
+            ];
+
+            foreach (\Theelincon\Rtdb\Purchase::collectPurchaseOrdersForPr($prId) as $po) {
+                $poId = (int) ($po['id'] ?? 0);
+                if ($poId <= 0 || isset($updatedPoIds[$poId])) {
+                    continue;
+                }
+                if (trim((string) ($po['order_type'] ?? 'purchase')) !== 'purchase') {
+                    continue;
+                }
+                if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+                    continue;
+                }
+                $freshPo = Db::rowByIdField('purchase_orders', $poId) ?? $po;
+                if ((int) ($freshPo['cost_category_id'] ?? 0) !== $sourceCategoryId) {
+                    continue;
+                }
+                if (\Theelincon\Rtdb\Purchase::poPaidLocksMutation($freshPo)) {
+                    $applyPoCategory($poId, $freshPo);
+                    continue;
+                }
+                $sync = tnc_pr_sync_purchase_po_from_pr(
+                    $poId,
+                    $freshPo,
+                    $afterRow,
+                    tnc_pr_load_purchase_line_items($prId)
+                );
+                if (!empty($sync['ok'])) {
+                    $updatedPoIds[$poId] = $poId;
+                    ++$poUpdated;
+                    $results[] = [
+                        'doc_type' => 'po',
+                        'doc_id' => $poId,
+                        'doc_number' => trim((string) ($freshPo['po_number'] ?? '')),
+                        'status' => 'updated',
+                        'via' => 'pr_sync',
+                    ];
+                    continue;
+                }
+                $applyPoCategory($poId, $freshPo);
+            }
+        }
+
+        foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
+            if (!is_array($poRow) || (int) ($poRow['site_id'] ?? 0) !== $siteId) {
+                continue;
+            }
+            if ((int) ($poRow['cost_category_id'] ?? 0) !== $sourceCategoryId) {
+                continue;
+            }
+            $poId = (int) ($poRow['id'] ?? 0);
+            if ($poId <= 0 || isset($updatedPoIds[$poId])) {
+                continue;
+            }
+            if (strtolower(trim((string) ($poRow['status'] ?? ''))) === 'cancelled') {
+                continue;
+            }
+            $applyPoCategory($poId, $poRow);
+        }
+
+        if ($prUpdated <= 0 && $poUpdated <= 0 && $failed <= 0) {
+            return $fail('no_documents');
+        }
+
+        return [
+            'ok' => $failed === 0 && ($prUpdated > 0 || $poUpdated > 0),
+            'pr_updated' => $prUpdated,
+            'po_updated' => $poUpdated,
+            'failed' => $failed,
+            'results' => $results,
+            'error_code' => $failed > 0 ? 'partial' : null,
+        ];
+    }
+}
+
+if (!function_exists('tnc_site_category_move_parent')) {
+    /**
+     * ย้ายหมวดไปอยู่ใต้หมวดหลักอื่น
+     * หมวดหลักที่มีหมวดย่อย — หมวดย่อยเดิมจะถูกย้ายไปอยู่ใต้หมวดหลักปลายทางด้วย (โครงสร้าง 2 ระดับ)
+     *
+     * @return array{ok:bool,error_code?:string,no_change?:bool,before?:array<string,mixed>,after?:array<string,mixed>,reparented_children?:list<int>}
+     */
+    function tnc_site_category_move_parent(int $categoryId, int $newParentId, int $siteId): array
+    {
+        if ($categoryId <= 0 || $siteId <= 0) {
+            return ['ok' => false, 'error_code' => 'invalid'];
+        }
+        if ($newParentId <= 0) {
+            return ['ok' => false, 'error_code' => 'invalid_parent'];
+        }
+        if ($categoryId === $newParentId) {
+            return ['ok' => false, 'error_code' => 'invalid_parent'];
+        }
+        if (!tnc_site_category_belongs_to_site($categoryId, $siteId)) {
+            return ['ok' => false, 'error_code' => 'forbidden'];
+        }
+        $row = Db::rowByIdField('site_cost_categories', $categoryId);
+        if (!is_array($row)) {
+            return ['ok' => false, 'error_code' => 'not_found'];
+        }
+        $currentParentId = (int) ($row['parent_id'] ?? 0);
+        if ($currentParentId === $newParentId) {
+            return ['ok' => true, 'no_change' => true, 'before' => $row];
+        }
+        if (tnc_site_category_is_descendant($categoryId, $newParentId)) {
+            return ['ok' => false, 'error_code' => 'cycle'];
+        }
+        $parentCheck = tnc_site_category_validate_parent_for_site($newParentId, $siteId);
+        if (empty($parentCheck['ok'])) {
+            return ['ok' => false, 'error_code' => (string) ($parentCheck['error_code'] ?? 'invalid_parent')];
+        }
+
+        $reparentedChildren = [];
+        if ($currentParentId === 0) {
+            foreach (tnc_site_category_child_ids($categoryId) as $childId) {
+                if ($childId <= 0 || $childId === $newParentId) {
+                    continue;
+                }
+                $childRow = Db::rowByIdField('site_cost_categories', $childId);
+                if (!is_array($childRow)) {
+                    continue;
+                }
+                if ((int) ($childRow['parent_id'] ?? 0) === $newParentId) {
+                    continue;
+                }
+                $childPk = Db::pkForLogicalId('site_cost_categories', $childId);
+                if ($childPk === null) {
+                    continue;
+                }
+                Db::setRow('site_cost_categories', $childPk, array_merge($childRow, [
+                    'parent_id' => $newParentId,
+                ]));
+                $reparentedChildren[] = $childId;
+            }
+        }
+
+        $pk = Db::pkForLogicalId('site_cost_categories', $categoryId);
+        if ($pk === null) {
+            return ['ok' => false, 'error_code' => 'not_found'];
+        }
+        $merge = [
+            'parent_id' => $newParentId,
+            'budget_percent' => '',
+        ];
+        Db::setRow('site_cost_categories', $pk, array_merge($row, $merge));
+        $after = array_merge($row, $merge);
+
+        return [
+            'ok' => true,
+            'before' => $row,
+            'after' => $after,
+            'reparented_children' => $reparentedChildren,
+        ];
+    }
+}
+
+if (!function_exists('tnc_site_category_move_batch')) {
+    /**
+     * ย้ายหลายหมวดไปอยู่ใต้หมวดหลักเดียวกัน
+     *
+     * @param list<int> $categoryIds
+     * @return array{
+     *   ok:bool,
+     *   moved:int,
+     *   skipped:int,
+     *   failed:int,
+     *   results:list<array<string,mixed>>,
+     *   error_code?:string
+     * }
+     */
+    function tnc_site_category_move_batch(int $siteId, array $categoryIds, int $newParentId): array
+    {
+        if ($siteId <= 0) {
+            return ['ok' => false, 'moved' => 0, 'skipped' => 0, 'failed' => 0, 'results' => [], 'error_code' => 'invalid'];
+        }
+        if ($newParentId <= 0) {
+            return ['ok' => false, 'moved' => 0, 'skipped' => 0, 'failed' => 0, 'results' => [], 'error_code' => 'invalid_parent'];
+        }
+        $parentCheck = tnc_site_category_validate_parent_for_site($newParentId, $siteId);
+        if (empty($parentCheck['ok'])) {
+            return ['ok' => false, 'moved' => 0, 'skipped' => 0, 'failed' => 0, 'results' => [], 'error_code' => (string) ($parentCheck['error_code'] ?? 'invalid_parent')];
+        }
+
+        $uniqueIds = [];
+        foreach ($categoryIds as $rawId) {
+            $cid = (int) $rawId;
+            if ($cid > 0) {
+                $uniqueIds[$cid] = $cid;
+            }
+        }
+        if ($uniqueIds === []) {
+            return ['ok' => false, 'moved' => 0, 'skipped' => 0, 'failed' => 0, 'results' => [], 'error_code' => 'no_selection'];
+        }
+        if (isset($uniqueIds[$newParentId])) {
+            return ['ok' => false, 'moved' => 0, 'skipped' => 0, 'failed' => 0, 'results' => [], 'error_code' => 'invalid_parent'];
+        }
+
+        $moved = 0;
+        $skipped = 0;
+        $failed = 0;
+        $results = [];
+        foreach (array_values($uniqueIds) as $categoryId) {
+            $result = tnc_site_category_move_parent($categoryId, $newParentId, $siteId);
+            if (!empty($result['no_change'])) {
+                ++$skipped;
+                $results[] = ['category_id' => $categoryId, 'status' => 'skipped'];
+                continue;
+            }
+            if (empty($result['ok'])) {
+                ++$failed;
+                $results[] = [
+                    'category_id' => $categoryId,
+                    'status' => 'failed',
+                    'error_code' => (string) ($result['error_code'] ?? 'invalid'),
+                ];
+                continue;
+            }
+            ++$moved;
+            $results[] = [
+                'category_id' => $categoryId,
+                'status' => 'moved',
+                'before' => is_array($result['before'] ?? null) ? $result['before'] : [],
+                'after' => is_array($result['after'] ?? null) ? $result['after'] : [],
+            ];
+        }
+
+        return [
+            'ok' => $moved > 0 && $failed === 0,
+            'moved' => $moved,
+            'skipped' => $skipped,
+            'failed' => $failed,
+            'results' => $results,
+            'error_code' => $failed > 0 ? 'partial' : null,
+        ];
+    }
+}
+
 if (!function_exists('tnc_site_category_delete_for_site')) {
     /**
      * ลบหมวดเฉพาะไซต์จาก Site Hub

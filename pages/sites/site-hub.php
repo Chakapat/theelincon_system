@@ -8,7 +8,6 @@ session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/site_budget.php';
 require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
-require_once dirname(__DIR__, 2) . '/includes/line_pr_approval.php';
 require_once dirname(__DIR__, 2) . '/includes/sites.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
 
@@ -217,6 +216,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site_category'
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remap_site_category_docs'])) {
+    if (!$canEditBudget) {
+        header('Location: ' . app_path('index.php') . '?error=forbidden');
+        exit;
+    }
+    if (!csrf_verify_request()) {
+        header('Location: ' . $hubUrl . '&error=csrf');
+        exit;
+    }
+    require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
+    $postSiteId = (int) ($_POST['category_site_id'] ?? 0);
+    if ($postSiteId !== $siteId) {
+        header('Location: ' . $hubUrl . '&error=invalid');
+        exit;
+    }
+    $sourceCategoryId = (int) ($_POST['remap_source_category_id'] ?? 0);
+    $targetCategoryId = (int) ($_POST['remap_target_category_id'] ?? 0);
+    if (!function_exists('tnc_site_category_remap_documents_for_site')) {
+        header('Location: ' . $hubUrl . '&error=server_config');
+        exit;
+    }
+    $remapResult = tnc_site_category_remap_documents_for_site($siteId, $sourceCategoryId, $targetCategoryId);
+    $remapError = (string) ($remapResult['error_code'] ?? '');
+    if (in_array($remapError, ['invalid', 'same_category', 'forbidden', 'invalid_target', 'no_documents'], true)) {
+        header('Location: ' . $hubUrl . '&error=' . rawurlencode($remapError));
+        exit;
+    }
+    $prUpdated = (int) ($remapResult['pr_updated'] ?? 0);
+    $poUpdated = (int) ($remapResult['po_updated'] ?? 0);
+    $failedCount = (int) ($remapResult['failed'] ?? 0);
+    if ($prUpdated <= 0 && $poUpdated <= 0 && $failedCount <= 0) {
+        header('Location: ' . $hubUrl . '&error=no_documents');
+        exit;
+    }
+    foreach ($remapResult['results'] ?? [] as $remapItem) {
+        if (!is_array($remapItem) || ($remapItem['status'] ?? '') !== 'updated') {
+            continue;
+        }
+        $docType = (string) ($remapItem['doc_type'] ?? '');
+        $docId = (int) ($remapItem['doc_id'] ?? 0);
+        if ($docId <= 0 || !in_array($docType, ['pr', 'po'], true)) {
+            continue;
+        }
+        $entity = $docType === 'pr' ? 'purchase_request' : 'purchase_order';
+        $docNo = trim((string) ($remapItem['doc_number'] ?? ''));
+        tnc_audit_log('update', $entity, (string) $docId, $docNo !== '' ? $docNo : ('#' . $docId), [
+            'source' => 'site-hub.php',
+            'action' => 'remap_site_category_docs',
+            'before' => is_array($remapItem['before'] ?? null) ? $remapItem['before'] : [],
+            'after' => is_array($remapItem['after'] ?? null) ? $remapItem['after'] : [],
+            'source_category_id' => $sourceCategoryId,
+            'target_category_id' => $targetCategoryId,
+            'site_id' => $siteId,
+        ]);
+    }
+    if ($failedCount > 0) {
+        header('Location: ' . $hubUrl . '&cat_remap_partial=1&prs=' . $prUpdated . '&pos=' . $poUpdated . '&failed=' . $failedCount);
+        exit;
+    }
+    header('Location: ' . $hubUrl . '&cat_remapped=1&prs=' . $prUpdated . '&pos=' . $poUpdated);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site'])) {
     if (!$canDeleteSite) {
         header('Location: ' . app_path('index.php') . '?error=forbidden');
@@ -275,8 +337,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_site'])) {
 }
 
 $siteBudgetRaw = round((float) ($site['site_budget'] ?? 0), 2);
+@set_time_limit(120);
+
+$hubRequiredFunctions = [
+    'tnc_site_category_references_site_index',
+    'tnc_site_category_list_references',
+    'tnc_site_category_remap_documents_for_site',
+    'tnc_site_category_is_valid_for_site',
+];
+foreach ($hubRequiredFunctions as $hubRequiredFn) {
+    if (!function_exists($hubRequiredFn)) {
+        error_log('site-hub.php: missing function ' . $hubRequiredFn . ' — upload includes/site_cost_categories.php');
+        header('Location: ' . $hubUrl . '&error=server_config');
+        exit;
+    }
+}
+
 $summary = tnc_site_budget_site_summary_for_site_row($siteId, $site);
-tnc_site_category_references_site_index($siteId);
+$hubCatRefIndex = tnc_site_category_references_site_index($siteId);
 $hubCatDocsMap = [];
 foreach ($summary['categories'] ?? [] as $hubCatSummaryRow) {
     $hubCatSummaryId = (int) ($hubCatSummaryRow['id'] ?? 0);
@@ -317,6 +395,62 @@ foreach ($summary['categories'] ?? [] as $hubParentOptRow) {
         'is_global' => !empty($hubParentOptRow['is_global']),
     ];
 }
+$hubRemapRefIndex = $hubCatRefIndex;
+$hubCatById = [];
+foreach ($hubCatTableRows as $hubCatLookupRow) {
+    $hubCatLookupId = (int) ($hubCatLookupRow['id'] ?? 0);
+    if ($hubCatLookupId > 0) {
+        $hubCatById[$hubCatLookupId] = $hubCatLookupRow;
+    }
+}
+$hubRemapSourceOptions = [];
+$hubRemapSourceCatIds = array_unique(array_merge(
+    array_keys($hubRemapRefIndex['prs_by_cat'] ?? []),
+    array_keys($hubRemapRefIndex['pos_by_cat'] ?? [])
+));
+sort($hubRemapSourceCatIds);
+foreach ($hubRemapSourceCatIds as $hubRemapSrcId) {
+    $hubRemapSrcId = (int) $hubRemapSrcId;
+    if ($hubRemapSrcId <= 0) {
+        continue;
+    }
+    $hubRemapPrCount = count($hubRemapRefIndex['prs_by_cat'][$hubRemapSrcId] ?? []);
+    $hubRemapPoCount = count($hubRemapRefIndex['pos_by_cat'][$hubRemapSrcId] ?? []);
+    $hubRemapDocCount = $hubRemapPrCount + $hubRemapPoCount;
+    if ($hubRemapDocCount <= 0) {
+        continue;
+    }
+    $hubRemapCatRow = $hubCatById[$hubRemapSrcId] ?? null;
+    $hubRemapIsSub = is_array($hubRemapCatRow) && (($hubRemapCatRow['row_kind'] ?? '') === 'sub');
+    $hubRemapSourceOptions[] = [
+        'id' => $hubRemapSrcId,
+        'name' => is_array($hubRemapCatRow) ? (string) ($hubRemapCatRow['name'] ?? '') : tnc_site_category_display_name($hubRemapSrcId),
+        'is_sub' => $hubRemapIsSub,
+        'parent_id' => $hubRemapIsSub ? (int) ($hubRemapCatRow['parent_id'] ?? 0) : 0,
+        'parent_name' => $hubRemapIsSub ? (string) ($hubRemapCatRow['parent_name'] ?? '') : '',
+        'is_global' => is_array($hubRemapCatRow) && !empty($hubRemapCatRow['is_global']),
+        'doc_count' => $hubRemapDocCount,
+        'pr_count' => $hubRemapPrCount,
+        'po_count' => $hubRemapPoCount,
+    ];
+}
+$hubRemapTargetOptions = [];
+foreach (tnc_site_categories_for_site($siteId) as $hubRemapTargetRow) {
+    $hubRemapTargetId = (int) ($hubRemapTargetRow['id'] ?? 0);
+    if ($hubRemapTargetId <= 0 || !tnc_site_category_is_selectable($hubRemapTargetId)) {
+        continue;
+    }
+    $hubRemapTargetParentId = (int) ($hubRemapTargetRow['parent_id'] ?? 0);
+    $hubRemapTargetOptions[] = [
+        'id' => $hubRemapTargetId,
+        'name' => tnc_site_category_display_name($hubRemapTargetId),
+        'is_sub' => $hubRemapTargetParentId > 0,
+        'parent_id' => $hubRemapTargetParentId,
+        'parent_name' => $hubRemapTargetParentId > 0 ? tnc_site_category_name($hubRemapTargetParentId) : '',
+        'is_global' => (int) ($hubRemapTargetRow['site_id'] ?? 0) === 0,
+    ];
+}
+$hubCanRemapCategories = $canEditBudget && $hubRemapSourceOptions !== [] && $hubRemapTargetOptions !== [];
 $catPercentUsed = tnc_site_category_percent_sum($siteId);
 $catPercentRoom = round(max(0.0, 100.0 - $catPercentUsed), 2);
 $hubCatPercentRoomById = [];
@@ -498,6 +632,25 @@ $renderHubMenuItems = static function (array $items): void {
     if ($hubFlash === null && !empty($_GET['cat_deleted'])) {
         $hubFlash = ['type' => 'success', 'message' => 'ลบหมวดค่าใช้จ่ายแล้ว', 'audio' => 'update'];
     }
+    if ($hubFlash === null && !empty($_GET['cat_remapped'])) {
+        $remapPrs = max(0, (int) ($_GET['prs'] ?? 0));
+        $remapPos = max(0, (int) ($_GET['pos'] ?? 0));
+        $hubFlash = [
+            'type' => 'success',
+            'message' => 'เปลี่ยนหมวดในเอกสารแล้ว PR ' . number_format($remapPrs) . ' · PO ' . number_format($remapPos),
+            'audio' => 'update',
+        ];
+    }
+    if ($hubFlash === null && !empty($_GET['cat_remap_partial'])) {
+        $remapPrs = max(0, (int) ($_GET['prs'] ?? 0));
+        $remapPos = max(0, (int) ($_GET['pos'] ?? 0));
+        $remapFailed = max(0, (int) ($_GET['failed'] ?? 0));
+        $hubFlash = [
+            'type' => 'warning',
+            'message' => 'เปลี่ยนหมวดสำเร็จ PR ' . number_format($remapPrs) . ' · PO ' . number_format($remapPos) . ' · ไม่สำเร็จ ' . number_format($remapFailed) . ' รายการ',
+            'audio' => 'update',
+        ];
+    }
     if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'percent_sum') {
         $hubFlash['message'] = 'รวม % หมวดของไซต์นี้เกิน 100% — กรุณาปรับสัดส่วน';
     }
@@ -534,8 +687,37 @@ $renderHubMenuItems = static function (array $items): void {
     if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'has_children') {
         $hubFlash['message'] = 'ลบหมวดไม่ได้ — กรุณาลบหมวดย่อยภายใต้หมวดนี้ก่อน';
     }
+    if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'no_selection') {
+        $hubFlash['message'] = 'กรุณาเลือกหมวดต้นทางและปลายทาง';
+    }
+    if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'same_category') {
+        $hubFlash['message'] = 'หมวดต้นทางและปลายทางต้องไม่ใช่หมวดเดียวกัน';
+    }
+    if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'invalid_target') {
+        $hubFlash['message'] = 'หมวดปลายทางไม่ถูกต้อง — กรุณาเลือกหมวดที่ใช้บน PR/PO ได้';
+    }
+    if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'no_documents') {
+        $hubFlash['type'] = 'warning';
+        $hubFlash['message'] = 'ไม่พบ PR/PO ที่ใช้หมวดต้นทางนี้';
+    }
+    if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'no_change') {
+        $hubFlash['type'] = 'warning';
+        $hubFlash['message'] = 'หมวดที่เลือกอยู่ใต้หมวดหลักนี้อยู่แล้ว — ไม่มีการเปลี่ยนแปลง';
+    }
+    if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'cycle') {
+        $hubFlash['message'] = 'ย้ายหมวดไม่ได้ — ไม่สามารถย้ายไปอยู่ใต้หมวดย่อยของตัวเอง';
+    }
     if ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'forbidden' && empty($_GET['open_delete'])) {
         $hubFlash['message'] = 'ไม่สามารถลบหมวดนี้ได้';
+    }
+    if ($hubFlash === null && !empty($_GET['error']) && (string) $_GET['error'] === 'server_config') {
+        $hubFlash = [
+            'type' => 'danger',
+            'message' => 'ระบบยังไม่พร้อม — กรุณาอัปโหลด includes/site_cost_categories.php ให้ครบ แล้วเปิด site-hub-check.php ตรวจสอบ',
+        ];
+    } elseif ($hubFlash !== null && !empty($_GET['error']) && (string) $_GET['error'] === 'server_config') {
+        $hubFlash['type'] = 'danger';
+        $hubFlash['message'] = 'ระบบยังไม่พร้อม — กรุณาอัปโหลด includes/site_cost_categories.php ให้ครบ แล้วเปิด site-hub-check.php ตรวจสอบ';
     }
     tnc_render_flash($hubFlash);
     ?>
@@ -608,22 +790,42 @@ $renderHubMenuItems = static function (array $items): void {
                 <p class="hub-cat-section-meta">จัดสรรแล้ว <?= htmlspecialchars(number_format($catPercentUsed, 2), ENT_QUOTES, 'UTF-8') ?>% · เหลือ <?= htmlspecialchars(number_format($catPercentRoom, 2), ENT_QUOTES, 'UTF-8') ?>%</p>
             </div>
             <?php if ($canEditBudget): ?>
-            <button type="button" class="btn btn-sm btn-warning rounded-pill hub-cat-open-add" data-bs-toggle="modal" data-bs-target="#hubCategoryModal">
-                <i class="bi bi-plus-lg me-1"></i>เพิ่มหมวด
-            </button>
+            <div class="hub-cat-section-actions d-flex flex-wrap gap-2 align-items-center">
+                <?php if ($hubCanRemapCategories): ?>
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary rounded-pill hub-cat-remap-open"
+                        id="hubCatRemapOpenBtn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#hubCategoryRemapModal">
+                    <i class="bi bi-arrow-left-right me-1"></i>ต้องการเปลี่ยนหมวดหมู่
+                </button>
+                <?php endif; ?>
+                <button type="button" class="btn btn-sm btn-warning rounded-pill hub-cat-open-add" data-bs-toggle="modal" data-bs-target="#hubCategoryModal">
+                    <i class="bi bi-plus-lg me-1"></i>เพิ่มหมวด
+                </button>
+            </div>
             <?php endif; ?>
         </div>
-        <div class="table-responsive">
+        <div class="hub-cat-table-shell table-responsive">
             <table class="table table-sm align-middle mb-0 hub-cat-table">
+                <colgroup>
+                    <col class="hub-cat-col-name">
+                    <col class="hub-cat-col-status">
+                    <col class="hub-cat-col-budget">
+                    <col class="hub-cat-col-used">
+                    <col class="hub-cat-col-remain">
+                    <col class="hub-cat-col-docs">
+                    <?php if ($canEditBudget): ?><col class="hub-cat-col-actions"><?php endif; ?>
+                </colgroup>
                 <thead>
                     <tr>
-                        <th>หมวด</th>
-                        <th>สถานะ</th>
-                        <th class="text-end">งบหมวด</th>
-                        <th class="text-end">ยอดซื้อ</th>
-                        <th class="text-end">คงเหลือ</th>
-                        <th>เอกสาร</th>
-                        <?php if ($canEditBudget): ?><th class="text-end">จัดการ</th><?php endif; ?>
+                        <th class="hub-cat-th-name">หมวด</th>
+                        <th class="hub-cat-th-status">สถานะ</th>
+                        <th class="hub-cat-th-budget text-end">งบหมวด</th>
+                        <th class="hub-cat-th-money text-end">ยอดซื้อ</th>
+                        <th class="hub-cat-th-money text-end">คงเหลือ</th>
+                        <th class="hub-cat-th-docs">เอกสาร</th>
+                        <?php if ($canEditBudget): ?><th class="hub-cat-th-actions text-end">จัดการ</th><?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
@@ -640,8 +842,7 @@ $renderHubMenuItems = static function (array $items): void {
                         $catDocTotal = (int) ($catDocs['total'] ?? 0);
                         $catParentIdRow = $catIsSub ? (int) ($cat['parent_id'] ?? 0) : 0;
                         $catHasChildren = !$catIsSub && (int) ($cat['child_count'] ?? 0) > 0;
-                        $catSubUsed = (float) ($cat['used'] ?? 0);
-                        $catUsedVal = $catIsSub ? $catSubUsed : (float) ($cat['used'] ?? 0);
+                        $catUsedVal = (float) ($cat['used'] ?? 0);
                         $catLimitVal = $catIsSub ? null : ($cat['limit'] ?? null);
                         $catProgressPct = 0.0;
                         $catProgressClass = '';
@@ -654,8 +855,8 @@ $renderHubMenuItems = static function (array $items): void {
                             }
                         }
                         if ($catIsSub) {
-                            $catStatusClass = 'hub-cat-status--muted';
-                            $catStatusText = 'หมวดย่อย';
+                            $catStatusClass = '';
+                            $catStatusText = '';
                         } elseif (!empty($cat['over_budget'])) {
                             $catStatusClass = 'hub-cat-status--danger';
                             $catStatusText = 'เกินงบ';
@@ -676,24 +877,25 @@ $renderHubMenuItems = static function (array $items): void {
                             $catStatusText = 'ปกติ';
                         }
                         ?>
-                        <tr class="<?= $catIsSub ? 'hub-cat-sub-row collapse hub-cat-sub-of-' . $catParentIdRow : 'hub-cat-parent-row' ?><?= !$catIsSub && (!empty($cat['over_budget']) || !empty($cat['low']) || ($cat['remaining'] !== null && $cat['remaining'] <= 0.0001)) ? ' cat-low' : '' ?>">
+                        <tr class="<?= $catIsSub ? 'hub-cat-sub-row hub-cat-sub-of-' . $catParentIdRow . ' hub-cat-sub-row--hidden' : 'hub-cat-parent-row' ?><?= $catHasChildren ? ' hub-cat-parent-row--branch' : '' ?><?= !$catIsSub && (!empty($cat['over_budget']) || !empty($cat['low']) || ($cat['remaining'] !== null && $cat['remaining'] <= 0.0001)) ? ' cat-low' : '' ?>">
                             <td class="hub-cat-td-name" data-label="หมวด">
                                 <div class="hub-cat-name-cell">
                                     <?php if ($catHasChildren): ?>
                                     <button type="button"
                                             class="hub-cat-sub-toggle"
-                                            data-bs-toggle="collapse"
-                                            data-bs-target=".hub-cat-sub-of-<?= $catIdRow ?>"
+                                            data-hub-cat-sub-target=".hub-cat-sub-of-<?= $catIdRow ?>"
                                             aria-expanded="false"
                                             title="แสดง/ซ่อนหมวดย่อย"
                                             aria-label="แสดงหมวดย่อย <?= (int) ($cat['child_count'] ?? 0) ?> รายการ">
                                         <i class="bi bi-chevron-right hub-cat-sub-toggle__icon" aria-hidden="true"></i>
                                     </button>
                                     <?php elseif ($catIsSub): ?>
-                                    <span class="hub-cat-tree-mark" aria-hidden="true">└</span>
+                                    <span class="hub-cat-sub-indent" aria-hidden="true"></span>
+                                    <?php else: ?>
+                                    <span class="hub-cat-sub-toggle-spacer" aria-hidden="true"></span>
                                     <?php endif; ?>
                                     <div class="hub-cat-name-cell__text<?= $catIsSub ? ' hub-cat-name-cell__text--sub' : '' ?>">
-                                        <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                                        <span class="hub-cat-name-cell__title"><?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
                                         <?php if (!$catIsSub && $catIsGlobal): ?>
                                             <span class="badge bg-secondary-subtle text-secondary ms-1">หมวดกลาง</span>
                                         <?php endif; ?>
@@ -703,14 +905,19 @@ $renderHubMenuItems = static function (array $items): void {
                                     </div>
                                 </div>
                             </td>
-                            <td data-label="สถานะ">
+                            <td class="hub-cat-td-status" data-label="สถานะ">
+                                <?php if ($catStatusText !== ''): ?>
                                 <span class="hub-cat-status <?= $catStatusClass ?>"><?= htmlspecialchars($catStatusText, ENT_QUOTES, 'UTF-8') ?></span>
+                                <?php else: ?>
+                                <span class="hub-cat-status-placeholder" aria-hidden="true">—</span>
+                                <?php endif; ?>
                             </td>
-                            <td class="text-end" data-label="งบหมวด">
+                            <td class="text-end hub-cat-td-budget" data-label="งบหมวด">
+                                <div class="hub-cat-budget-cell">
                                 <?php if ($catIsSub): ?>
-                                    <span class="hub-cat-name-cell__hint">ใช้งบหมวดหลัก</span>
+                                    <span class="hub-cat-budget-sub-note">ใช้งบหมวดหลัก</span>
                                 <?php elseif (!empty($cat['unlimited'])): ?>
-                                    <span class="text-muted small">ไม่จำกัดหมวด</span>
+                                    <span class="hub-cat-budget-sub-note">ไม่จำกัดหมวด</span>
                                 <?php elseif ($catPctVal === 0.0 || $catPctVal === 0): ?>
                                     <span class="hub-cat-budget-pct text-danger">0%</span>
                                     <div class="hub-cat-budget-limit">งบหมด</div>
@@ -723,11 +930,12 @@ $renderHubMenuItems = static function (array $items): void {
                                     </div>
                                     <?php endif; ?>
                                 <?php endif; ?>
+                                </div>
                             </td>
                             <td class="text-end hub-cat-money" data-label="ยอดซื้อ"><?= tnc_site_budget_format_money($catUsedVal) ?></td>
-                            <td class="text-end hub-cat-money" data-label="คงเหลือ">
+                            <td class="text-end hub-cat-td-remain" data-label="คงเหลือ">
                                 <?php if ($catIsSub): ?>
-                                    <span class="hub-cat-name-cell__hint">ใช้งบหมวดหลัก</span>
+                                    <span class="text-muted">—</span>
                                 <?php elseif ($cat['remaining'] !== null): ?>
                                     <span class="<?= ($cat['remaining'] <= 0.0001) ? 'text-danger' : '' ?>">
                                         <?= tnc_site_budget_format_money($cat['remaining']) ?>
@@ -736,7 +944,7 @@ $renderHubMenuItems = static function (array $items): void {
                                     —
                                 <?php endif; ?>
                             </td>
-                            <td data-label="เอกสาร">
+                            <td class="hub-cat-td-docs" data-label="เอกสาร">
                                 <?php if ($catDocTotal > 0): ?>
                                 <button type="button"
                                         class="btn btn-link p-0 hub-cat-docs-open"
@@ -754,16 +962,19 @@ $renderHubMenuItems = static function (array $items): void {
                                 <div class="hub-cat-actions">
                                     <?php if (!$catIsSub): ?>
                                     <button type="button"
-                                            class="btn btn-outline-warning btn-sm hub-cat-open-add-sub"
+                                            class="btn btn-outline-warning btn-sm hub-cat-action-btn hub-cat-open-add-sub"
                                             data-bs-toggle="modal"
                                             data-bs-target="#hubCategoryModal"
                                             data-parent-id="<?= $catIdRow ?>"
-                                            data-parent-name="<?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                                        หมวดย่อย
+                                            data-parent-name="<?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            title="เพิ่มหมวดย่อย"
+                                            aria-label="เพิ่มหมวดย่อย <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                                        <span class="hub-cat-action-btn__label">หมวดย่อย</span>
                                     </button>
                                     <?php endif; ?>
                                     <button type="button"
-                                            class="btn btn-outline-secondary btn-sm hub-cat-open-edit"
+                                            class="btn btn-outline-secondary btn-sm hub-cat-action-btn hub-cat-open-edit"
                                             data-bs-toggle="modal"
                                             data-bs-target="#hubCategoryModal"
                                             data-cat-id="<?= $catIdRow ?>"
@@ -771,17 +982,27 @@ $renderHubMenuItems = static function (array $items): void {
                                             data-cat-percent="<?= htmlspecialchars($catPctInput, ENT_QUOTES, 'UTF-8') ?>"
                                             data-cat-percent-room="<?= htmlspecialchars(number_format($catEditPercentRoom, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>"
                                             data-cat-parent-id="<?= $catParentIdRow ?>"
-                                            data-cat-is-sub="<?= $catIsSub ? '1' : '0' ?>">
-                                        แก้ไข
+                                            data-cat-is-sub="<?= $catIsSub ? '1' : '0' ?>"
+                                            title="แก้ไขหมวด"
+                                            aria-label="แก้ไข <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                        <i class="bi bi-pencil" aria-hidden="true"></i>
+                                        <span class="hub-cat-action-btn__label">แก้ไข</span>
                                     </button>
                                     <form method="post"
+                                          class="hub-cat-action-form"
                                           action="<?= htmlspecialchars($hubUrl, ENT_QUOTES, 'UTF-8') ?>"
                                           onsubmit="return confirm(<?= json_encode('ลบหมวด «' . (string) ($cat['name'] ?? '') . '» ถาวร?', JSON_UNESCAPED_UNICODE) ?>);">
                                         <?php csrf_field(); ?>
                                         <input type="hidden" name="delete_site_category" value="1">
                                         <input type="hidden" name="category_site_id" value="<?= $siteId ?>">
                                         <input type="hidden" name="category_id" value="<?= $catIdRow ?>">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm">ลบ</button>
+                                        <button type="submit"
+                                                class="btn btn-outline-danger btn-sm hub-cat-action-btn"
+                                                title="ลบหมวด"
+                                                aria-label="ลบ <?= htmlspecialchars((string) ($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                            <i class="bi bi-trash" aria-hidden="true"></i>
+                                            <span class="hub-cat-action-btn__label">ลบ</span>
+                                        </button>
                                     </form>
                                 </div>
                                 <?php else: ?>
@@ -846,6 +1067,91 @@ $renderHubMenuItems = static function (array $items): void {
             </div>
         </div>
     </div>
+
+    <?php if ($hubCanRemapCategories): ?>
+    <div class="modal fade" id="hubCategoryRemapModal" tabindex="-1" aria-labelledby="hubCategoryRemapModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <form method="post" action="<?= htmlspecialchars($hubUrl, ENT_QUOTES, 'UTF-8') ?>" id="hubCategoryRemapForm">
+                    <?php csrf_field(); ?>
+                    <input type="hidden" name="remap_site_category_docs" value="1">
+                    <input type="hidden" name="category_site_id" value="<?= $siteId ?>">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="hubCategoryRemapModalLabel">
+                            <i class="bi bi-arrow-left-right me-2 text-warning"></i>เปลี่ยนหมวดใน PR/PO
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small hub-cat-move-intro">เลือกหมวดเดิมที่ใช้ในเอกสารทางซ้าย แล้วเลือกหมวดใหม่ทางขวา — ระบบจะอัปเดต PR/PO ทั้งหมดที่ใช้หมวดเดิมให้เป็นหมวดใหม่ (ไม่ได้ย้ายโครงสร้างหมวดในระบบ)</p>
+                        <div class="hub-cat-move-panels">
+                            <div class="hub-cat-move-panel hub-cat-move-panel--source">
+                                <label for="hubCatRemapSourceSelect" class="hub-cat-move-panel__label">หมวดเดิมใน PR/PO</label>
+                                <select class="form-select hub-cat-move-panel__select" name="remap_source_category_id" id="hubCatRemapSourceSelect" required>
+                                    <option value="">— เลือกหมวดเดิม —</option>
+                                    <?php foreach ($hubRemapSourceOptions as $hubRemapSrc): ?>
+                                        <?php
+                                        $hubRemapSrcId = (int) ($hubRemapSrc['id'] ?? 0);
+                                        $hubRemapSrcLabel = (string) ($hubRemapSrc['name'] ?? '');
+                                        if (!empty($hubRemapSrc['is_sub']) && !empty($hubRemapSrc['parent_name'])) {
+                                            $hubRemapSrcLabel .= ' · จาก ' . (string) $hubRemapSrc['parent_name'];
+                                        } elseif (empty($hubRemapSrc['is_sub'])) {
+                                            $hubRemapSrcLabel .= ' · หมวดหลัก';
+                                        }
+                                        $hubRemapDocCount = (int) ($hubRemapSrc['doc_count'] ?? 0);
+                                        if ($hubRemapDocCount > 0) {
+                                            $hubRemapSrcLabel .= ' · ' . number_format($hubRemapDocCount) . ' เอกสาร';
+                                        }
+                                        if (!empty($hubRemapSrc['is_global'])) {
+                                            $hubRemapSrcLabel .= ' (หมวดกลาง)';
+                                        }
+                                        ?>
+                                        <option value="<?= $hubRemapSrcId ?>"
+                                                data-doc-count="<?= $hubRemapDocCount ?>"
+                                                data-pr-count="<?= (int) ($hubRemapSrc['pr_count'] ?? 0) ?>"
+                                                data-po-count="<?= (int) ($hubRemapSrc['po_count'] ?? 0) ?>">
+                                            <?= htmlspecialchars($hubRemapSrcLabel, ENT_QUOTES, 'UTF-8') ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <div class="hub-cat-move-panel__hint" id="hubCatRemapSourceHint">แสดงเฉพาะหมวดที่มี PR/PO อ้างอิงอยู่</div>
+                            </div>
+                            <div class="hub-cat-move-arrow" aria-hidden="true">
+                                <i class="bi bi-arrow-right"></i>
+                            </div>
+                            <div class="hub-cat-move-panel hub-cat-move-panel--target">
+                                <label for="hubCatRemapTargetSelect" class="hub-cat-move-panel__label">เปลี่ยนเป็นหมวดนี้</label>
+                                <select class="form-select hub-cat-move-panel__select" name="remap_target_category_id" id="hubCatRemapTargetSelect" required>
+                                    <option value="">— เลือกหมวดใหม่ —</option>
+                                    <?php foreach ($hubRemapTargetOptions as $hubRemapTarget): ?>
+                                        <?php
+                                        $hubRemapTargetId = (int) ($hubRemapTarget['id'] ?? 0);
+                                        $hubRemapTargetLabel = (string) ($hubRemapTarget['name'] ?? '');
+                                        if (!empty($hubRemapTarget['is_global'])) {
+                                            $hubRemapTargetLabel .= ' (หมวดกลาง)';
+                                        }
+                                        ?>
+                                        <option value="<?= $hubRemapTargetId ?>">
+                                            <?= htmlspecialchars($hubRemapTargetLabel, ENT_QUOTES, 'UTF-8') ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <div class="hub-cat-move-panel__hint">เลือกหมวดที่ใช้บน PR/PO ได้ (หมวดย่อย หรือหมวดหลักที่ไม่มีหมวดย่อย)</div>
+                            </div>
+                        </div>
+                        <div class="alert alert-warning py-2 px-3 small mb-0 mt-3 d-none" id="hubCatRemapWarn" role="status"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">ยกเลิก</button>
+                        <button type="submit" class="btn btn-warning rounded-pill" id="hubCatRemapSubmitBtn" disabled>
+                            <i class="bi bi-check-lg me-1"></i>ยืนยันเปลี่ยนหมวดในเอกสาร
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
     <?php endif; ?>
 
     <?php if (!empty($summary['categories'])): ?>
@@ -1276,6 +1582,148 @@ $renderHubMenuItems = static function (array $items): void {
 }());
 </script>
 <?php endif; ?>
+<?php if ($hubCanRemapCategories): ?>
+<script>
+(function () {
+    var remapModalEl = document.getElementById('hubCategoryRemapModal');
+    if (!remapModalEl) {
+        return;
+    }
+
+    var remapForm = document.getElementById('hubCategoryRemapForm');
+    var sourceSelect = document.getElementById('hubCatRemapSourceSelect');
+    var targetSelect = document.getElementById('hubCatRemapTargetSelect');
+    var remapSubmitBtn = document.getElementById('hubCatRemapSubmitBtn');
+    var remapWarn = document.getElementById('hubCatRemapWarn');
+
+    function selectedSource() {
+        if (!sourceSelect || sourceSelect.selectedIndex < 0) {
+            return null;
+        }
+        var opt = sourceSelect.options[sourceSelect.selectedIndex];
+        if (!opt || !opt.value) {
+            return null;
+        }
+        return {
+            id: parseInt(String(opt.value || '0'), 10),
+            label: (opt.textContent || '').trim(),
+            docCount: parseInt(String(opt.getAttribute('data-doc-count') || '0'), 10),
+            prCount: parseInt(String(opt.getAttribute('data-pr-count') || '0'), 10),
+            poCount: parseInt(String(opt.getAttribute('data-po-count') || '0'), 10)
+        };
+    }
+
+    function syncTargetOptions() {
+        if (!targetSelect) {
+            return;
+        }
+        var source = selectedSource();
+        Array.prototype.forEach.call(targetSelect.options, function (opt, index) {
+            if (index === 0) {
+                opt.disabled = false;
+                return;
+            }
+            var targetId = parseInt(String(opt.value || '0'), 10);
+            var blocked = source && source.id > 0 && targetId === source.id;
+            opt.disabled = blocked;
+            if (blocked && opt.selected) {
+                targetSelect.selectedIndex = 0;
+            }
+        });
+    }
+
+    function syncRemapSubmitState() {
+        var source = selectedSource();
+        var targetId = parseInt(String(targetSelect ? targetSelect.value : '0'), 10);
+        var warnMsg = '';
+        var infoMsg = '';
+
+        if (source && targetId > 0) {
+            if (source.id === targetId) {
+                warnMsg = 'หมวดใหม่ต้องไม่ใช่หมวดเดิม';
+            } else if (source.docCount > 0) {
+                var parts = [];
+                if (source.prCount > 0) {
+                    parts.push('PR ' + source.prCount);
+                }
+                if (source.poCount > 0) {
+                    parts.push('PO ' + source.poCount);
+                }
+                infoMsg = 'จะเปลี่ยนหมวดในเอกสาร ' + (parts.length ? parts.join(' · ') : source.docCount + ' รายการ') + ' ทั้งหมด';
+            }
+        }
+
+        if (remapWarn) {
+            if (warnMsg) {
+                remapWarn.textContent = warnMsg;
+                remapWarn.className = 'alert alert-warning py-2 px-3 small mb-0 mt-3';
+                remapWarn.classList.remove('d-none');
+            } else if (infoMsg) {
+                remapWarn.textContent = infoMsg;
+                remapWarn.className = 'alert alert-info py-2 px-3 small mb-0 mt-3';
+                remapWarn.classList.remove('d-none');
+            } else {
+                remapWarn.textContent = '';
+                remapWarn.classList.add('d-none');
+            }
+        }
+
+        if (remapSubmitBtn) {
+            remapSubmitBtn.disabled = !(source && source.id > 0 && targetId > 0 && warnMsg === '');
+        }
+    }
+
+    function resetRemapModal() {
+        if (sourceSelect) {
+            sourceSelect.selectedIndex = 0;
+        }
+        if (targetSelect) {
+            targetSelect.selectedIndex = 0;
+        }
+        syncTargetOptions();
+        syncRemapSubmitState();
+    }
+
+    if (sourceSelect) {
+        sourceSelect.addEventListener('change', function () {
+            syncTargetOptions();
+            syncRemapSubmitState();
+        });
+    }
+
+    if (targetSelect) {
+        targetSelect.addEventListener('change', syncRemapSubmitState);
+    }
+
+    remapModalEl.addEventListener('show.bs.modal', resetRemapModal);
+    remapModalEl.addEventListener('shown.bs.modal', function () {
+        if (sourceSelect) {
+            sourceSelect.focus();
+        }
+    });
+
+    if (remapForm) {
+        remapForm.addEventListener('submit', function (event) {
+            syncRemapSubmitState();
+            var source = selectedSource();
+            var targetId = parseInt(String(targetSelect ? targetSelect.value : '0'), 10);
+            if (!source || source.id <= 0 || targetId <= 0 || remapSubmitBtn.disabled) {
+                event.preventDefault();
+                return;
+            }
+            var targetLabel = targetSelect.options[targetSelect.selectedIndex].text.trim();
+            var msg = 'เปลี่ยนหมวดใน PR/PO จาก «' + source.label + '» เป็น «' + targetLabel + '»?';
+            if (source.docCount > 0) {
+                msg += '\n\nเอกสาร ' + source.docCount + ' รายการจะถูกอัปเดตทั้งหมด';
+            }
+            if (!window.confirm(msg)) {
+                event.preventDefault();
+            }
+        });
+    }
+}());
+</script>
+<?php endif; ?>
 <?php if ($openCatRefModal): ?>
 <script>
 (function () {
@@ -1289,7 +1737,41 @@ $renderHubMenuItems = static function (array $items): void {
 <?php if (!empty($summary['categories'])): ?>
 <script>
 (function () {
-    var docsMap = <?= json_encode($hubCatDocsMap, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>;
+    document.querySelectorAll('.hub-cat-sub-toggle').forEach(function (btn) {
+        var targetSel = btn.getAttribute('data-hub-cat-sub-target');
+        if (!targetSel) {
+            return;
+        }
+        btn.addEventListener('click', function () {
+            var targets = document.querySelectorAll(targetSel);
+            if (targets.length === 0) {
+                return;
+            }
+            var willHide = btn.getAttribute('aria-expanded') !== 'false';
+            targets.forEach(function (row) {
+                row.classList.toggle('hub-cat-sub-row--hidden', willHide);
+            });
+            btn.setAttribute('aria-expanded', willHide ? 'false' : 'true');
+            var parentRow = btn.closest('tr');
+            if (parentRow) {
+                parentRow.classList.toggle('hub-cat-parent-row--expanded', !willHide);
+            }
+        });
+    });
+}());
+</script>
+<script>
+(function () {
+    <?php
+    $hubCatDocsMapJson = json_encode(
+        $hubCatDocsMap,
+        JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE
+    );
+    if ($hubCatDocsMapJson === false) {
+        $hubCatDocsMapJson = '{}';
+    }
+    ?>
+    var docsMap = <?= $hubCatDocsMapJson ?>;
     var docsModalEl = document.getElementById('hubCatDocsModal');
     var docsNameEl = document.getElementById('hubCatDocsModalName');
     var docsBodyEl = document.getElementById('hubCatDocsModalBody');
