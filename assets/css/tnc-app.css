@@ -454,3 +454,76 @@ body > .dropdown-menu.show {
         border: none !important;
     }
 }
+
+/* ---- Accessibility & global polish (audit fixes) ---- */
+.tnc-skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0.75rem;
+    z-index: 1200;
+    padding: 0.55rem 1rem;
+    border-radius: var(--tnc-radius, 0.875rem);
+    background: var(--tnc-ink, #0f172a);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.875rem;
+    text-decoration: none;
+    box-shadow: var(--tnc-shadow-md, 0 8px 28px rgba(15, 23, 42, 0.08));
+}
+
+.tnc-skip-link:focus {
+    left: 0.75rem;
+    outline: 2px solid var(--tnc-orange, #ea580c);
+    outline-offset: 2px;
+}
+
+body.tnc-app-body ::placeholder {
+    color: var(--tnc-muted, #64748b);
+    opacity: 1;
+}
+
+body.tnc-app-body .text-muted,
+body.tnc-app-body .text-secondary {
+    color: var(--tnc-muted, #64748b) !important;
+}
+
+body.tnc-app-body :focus-visible {
+    outline: 2px solid var(--tnc-orange, #ea580c);
+    outline-offset: 2px;
+}
+
+body.tnc-app-body .form-control:focus-visible,
+body.tnc-app-body .form-select:focus-visible,
+body.tnc-app-body .btn:focus-visible {
+    outline: 2px solid var(--tnc-orange, #ea580c);
+    outline-offset: 2px;
+}
+
+.tnc-icon-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0.375rem 0.5rem;
+}
+
+.tnc-mobile-actions .btn,
+.tnc-mobile-actions .btn-sm {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

@@ -8,77 +8,83 @@
     height: 50px;
     width: 50px;
     object-fit: contain;
-    border-radius: 8px;
+    border-radius: var(--tnc-radius, 0.875rem);
     background: var(--tnc-surface, #f6f7f9);
 }
 
 /* Cash ledger — site expense summary cards */
 .card-dash {
-    border-radius: 16px;
-    border: none;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-    background: #fff;
+    border-radius: var(--tnc-radius, 0.875rem);
+    border: 1px solid var(--tnc-border, #e2e8f0);
+    box-shadow: var(--tnc-shadow-md, 0 8px 28px rgba(15, 23, 42, 0.08));
+    background: var(--surface-white, #fff);
 }
 
 @media print {
     .card-dash {
         box-shadow: none;
-        border: 1px solid #dee2e6;
+        border: 1px solid var(--tnc-border, #e2e8f0);
     }
 }
 
 /* Stock forms */
 .stock-form-card {
-    border: 1px solid #e8edf5;
-    border-radius: 1rem;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    border: 1px solid var(--tnc-border, #e2e8f0);
+    border-radius: var(--tnc-radius, 0.875rem);
+    box-shadow: var(--tnc-shadow-md, 0 8px 28px rgba(15, 23, 42, 0.08));
+    background: #fff;
 }
 
 .mode-pill .btn-check:checked + .btn {
-    background: #ea580c;
-    border-color: #ea580c;
+    background: var(--tnc-orange, #ea580c);
+    border-color: var(--tnc-orange, #ea580c);
     color: #fff;
 }
 
-/* Supplier form */
+/* Supplier / organization forms */
 .form-card {
-    border: none;
-    border-radius: 20px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-    background: #ffffff;
+    border: 1px solid var(--tnc-border, #e2e8f0);
+    border-radius: var(--tnc-radius, 0.875rem);
+    box-shadow: var(--tnc-shadow-md, 0 8px 28px rgba(15, 23, 42, 0.08));
+    background: #fff;
 }
 
 .form-card .form-label {
     font-weight: 600;
-    color: #495057;
+    color: var(--tnc-ink, #0f172a);
 }
 
 .form-card .input-group-text {
-    background-color: #f8f9fa;
+    background-color: var(--tnc-surface, #f6f7f9);
     border-right: none;
+    color: var(--tnc-orange, #ea580c);
 }
 
 .form-card .form-control {
     border-left: none;
 }
 
-.form-card .form-control:focus {
-    box-shadow: none;
-    border-color: #dee2e6;
+.form-card .form-control:focus,
+.form-card .form-control:focus-visible {
+    box-shadow: 0 0 0 0.2rem rgba(234, 88, 12, 0.12);
+    border-color: rgba(234, 88, 12, 0.55);
 }
 
 .form-card .btn-save {
-    background-color: #198754;
-    color: white;
-    border-radius: 10px;
-    padding: 12px 30px;
-    font-weight: 600;
-    transition: 0.3s;
+    background-color: var(--tnc-orange, #ea580c);
+    color: #fff;
+    border-radius: 50rem;
+    padding: 0.65rem 1.75rem;
+    font-weight: 700;
+    border: 0;
+    transition: background-color 0.18s ease, transform 0.18s ease;
 }
 
-.form-card .btn-save:hover {
-    background-color: #146c43;
-    transform: translateY(-2px);
+.form-card .btn-save:hover,
+.form-card .btn-save:focus-visible {
+    background-color: var(--tnc-orange-dark, #c2410c);
+    color: #fff;
+    transform: translateY(-1px);
 }
 
 .bank-logo-chip {
@@ -93,17 +99,17 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 22px;
-    font-size: 12px;
-    color: #6b7280;
+    min-height: 2.75rem;
+    font-size: 0.8125rem;
+    color: var(--tnc-muted, #64748b);
 }
 
 /* Reports — shared card + badges (site-spending, VAT) */
 .card-soft {
     border: 1px solid var(--tnc-orange-border, #fdba74);
-    border-radius: 0.875rem;
+    border-radius: var(--tnc-radius, 0.875rem);
     background: #fff;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+    box-shadow: var(--tnc-shadow-md, 0 8px 28px rgba(15, 23, 42, 0.08));
 }
 
 .report-badge {
@@ -121,7 +127,7 @@
 
 .report-badge--sales {
     background: var(--tnc-orange-soft, #ffedd5);
-    color: var(--tnc-orange-dark, #9a3412);
+    color: var(--tnc-orange-deep, #9a3412);
     border-color: var(--tnc-orange-border, #fdba74);
 }
 
@@ -146,13 +152,13 @@
 .report-badge--filter {
     border-color: var(--tnc-orange-border, #fdba74);
     background: var(--tnc-orange-soft, #ffedd5);
-    color: var(--tnc-orange-dark, #9a3412);
+    color: var(--tnc-orange-deep, #9a3412);
 }
 
 .report-badge--accent {
     border-color: var(--tnc-orange-border, #fdba74);
     background: #fff;
-    color: var(--tnc-orange-dark, #9a3412);
+    color: var(--tnc-orange-deep, #9a3412);
     font-weight: 700;
 }
 
@@ -167,4 +173,10 @@
     flex-wrap: wrap;
     gap: 0.5rem;
     align-items: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .form-card .btn-save:hover {
+        transform: none;
+    }
 }

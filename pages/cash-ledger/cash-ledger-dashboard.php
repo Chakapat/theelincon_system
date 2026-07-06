@@ -591,5 +591,6 @@ if (!is_int($cashLedgerFormJsVer) || $cashLedgerFormJsVer <= 0) {
 }
 ?>
 <script src="<?= htmlspecialchars(app_path('assets/js/cash-ledger-form.js') . '?v=' . $cashLedgerFormJsVer, ENT_QUOTES, 'UTF-8') ?>"></script>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

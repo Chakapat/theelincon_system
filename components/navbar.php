@@ -343,9 +343,14 @@ foreach ($tncMobileCss as $tncMobileCssFile) {
         </div>
     </div>
 </nav>
+<?php
+require_once __DIR__ . '/../includes/tnc_shell_layout.php';
+tnc_shell_skip_link();
+if (isset($_SESSION['user_id'])) {
+    tnc_shell_main_open();
+}
+?>
 <?php if (isset($_SESSION['user_id'])): ?>
-<?php include __DIR__ . '/hub-fab.php'; ?>
-<?php include __DIR__ . '/mobile-bottom-nav.php'; ?>
 <?php
 $tncMobileJsPath = dirname(__DIR__) . '/assets/js/tnc-mobile-nav.js';
 $tncMobileJsVer = @filemtime($tncMobileJsPath);

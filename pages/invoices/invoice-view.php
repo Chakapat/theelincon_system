@@ -653,5 +653,6 @@ window.tncCsrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS
 </script>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-invoice-cancel.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php endif; ?>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

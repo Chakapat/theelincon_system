@@ -436,5 +436,6 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
 })(jQuery);
 </script>
 
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

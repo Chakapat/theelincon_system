@@ -186,9 +186,16 @@
     box-shadow: 0 0 0 0.2rem rgba(234, 88, 12, 0.12);
   }
 
+  .tnc-input:focus-visible,
+  .tnc-select:focus-visible,
+  .tnc-textarea:focus-visible {
+    outline: 2px solid var(--tnc-orange, #ea580c);
+    outline-offset: 2px;
+  }
+
   .tnc-input::placeholder,
   .tnc-textarea::placeholder {
-    color: #94a3b8;
+    color: var(--tnc-muted, #64748b);
   }
 
   .tnc-input-group {

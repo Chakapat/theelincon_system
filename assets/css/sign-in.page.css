@@ -7,7 +7,27 @@
   --tnc-orange: #ea580c;
   --tnc-orange-strong: #c2410c;
   --tnc-text: #1f2937;
-  --tnc-muted: #6b7280;
+  --tnc-muted: #64748b;
+}
+
+.tnc-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0.75rem;
+  z-index: 1200;
+  padding: 0.55rem 1rem;
+  border-radius: 0.875rem;
+  background: #0f172a;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.tnc-skip-link:focus {
+  left: 0.75rem;
+  outline: 2px solid var(--tnc-orange);
+  outline-offset: 2px;
 }
 
 body.signin-page {
@@ -138,7 +158,7 @@ body.signin-page::after {
   border: 0;
   background: #fff;
   padding: 0.625rem 0.75rem;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   color: var(--tnc-text);
 }
 
@@ -147,8 +167,13 @@ body.signin-page::after {
   box-shadow: none;
 }
 
+.signin-input-field:focus-visible {
+  outline: 2px solid var(--tnc-orange, #ea580c);
+  outline-offset: -2px;
+}
+
 .signin-input-field::placeholder {
-  color: #9ca3af;
+  color: var(--tnc-muted, #64748b);
 }
 
 .signin-password-toggle {

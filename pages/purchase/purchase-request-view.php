@@ -580,5 +580,6 @@ tnc_doc_color_render_print_style_tag();
         margin: 0;
     }
 </style>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

@@ -199,5 +199,6 @@ if (!in_array($paymentMethod, ['cash', 'transfer', 'cheque'], true)) {
     TncLiveDT.init('#tncPoPayDocTable', { order: [], columnDefs: [{ orderable: false, targets: '_all' }] });
 })(jQuery);
 </script>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

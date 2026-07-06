@@ -65,18 +65,14 @@ $editRow = $editId > 0 ? line_task_assignee_by_id($editId) : null;
 <body>
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
-<main class="container task-shell py-4 py-lg-5">
+<div class="container task-shell py-4 py-lg-5">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
         <div>
-            <h1 class="h3 fw-bold mb-1">รายชื่อผู้รับงาน LINE</h1>
-            <p class="text-muted mb-0 small">แยกจากพนักงานในระบบ — ใช้เลือกผู้รับผิดชอบเมื่อสั่งงานในกลุ่ม LINE</p>
+            <h1 class="h3 fw-bold mb-1">สร้างรายชื่อผู้รับงาน</h1>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <a href="<?= htmlspecialchars(app_path('pages/internal/line-task-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3">
                 <i class="bi bi-clipboard-check me-1"></i>หน้าสั่งงาน
-            </a>
-            <a href="<?= htmlspecialchars(app_path('pages/internal/line-notify-config.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-success rounded-pill px-3">
-                <i class="bi bi-gear me-1"></i>ตั้งค่า LINE
             </a>
         </div>
     </div>
@@ -106,15 +102,13 @@ $editRow = $editId > 0 ? line_task_assignee_by_id($editId) : null;
                 <div class="col-md-5">
                     <label class="form-label fw-semibold" for="name">ชื่อ <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" id="name" name="name" required maxlength="120"
-                           value="<?= htmlspecialchars((string) ($editRow['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                           placeholder="เช่น คุณสมชาย">
+                           value="<?= htmlspecialchars((string) ($editRow['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                 </div>
                 <div class="col-md-5">
-                    <label class="form-label fw-semibold" for="user_line_id">User LINE ID <span class="text-danger">*</span></label>
+                    <label class="form-label fw-semibold" for="user_line_id">USER LINE ID<span class="text-danger">*</span></label>
                     <input type="text" class="form-control mono" id="user_line_id" name="user_line_id" required
                            value="<?= htmlspecialchars((string) ($editRow['user_line_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                            placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
-                    <div class="form-text">ดึงจาก Webhook / ตั้งค่า LINE — ต้องอยู่ในกลุ่มสั่งงานด้วย</div>
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
                     <div class="form-check form-switch mb-2">
@@ -145,8 +139,7 @@ $editRow = $editId > 0 ? line_task_assignee_by_id($editId) : null;
                     <thead class="table-light">
                         <tr>
                             <th scope="col">ชื่อ</th>
-                            <th scope="col">User LINE ID</th>
-                            <th scope="col">สถานะ</th>
+                            <th scope="col">USER LINE ID</th>
                             <th scope="col" class="text-end">จัดการ</th>
                         </tr>
                     </thead>
@@ -159,13 +152,6 @@ $editRow = $editId > 0 ? line_task_assignee_by_id($editId) : null;
                             <tr>
                                 <td class="fw-semibold"><?= htmlspecialchars((string) ($row['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td class="mono small"><?= htmlspecialchars((string) ($row['user_line_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                <td>
-                                    <?php if ($active): ?>
-                                        <span class="badge rounded-pill text-bg-success-subtle text-success-emphasis border border-success-subtle">ใช้งาน</span>
-                                    <?php else: ?>
-                                        <span class="badge rounded-pill text-bg-secondary-subtle text-secondary-emphasis border">ปิด</span>
-                                    <?php endif; ?>
-                                </td>
                                 <td class="text-end">
                                     <a href="<?= htmlspecialchars(app_path('pages/internal/line-task-assignees.php?edit=' . $rid), ENT_QUOTES, 'UTF-8') ?>"
                                        class="btn btn-sm btn-outline-primary rounded-pill px-3 me-1">แก้ไข</a>
@@ -184,8 +170,9 @@ $editRow = $editId > 0 ? line_task_assignee_by_id($editId) : null;
             </div>
         <?php endif; ?>
     </div>
-</main>
+</div>
 
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

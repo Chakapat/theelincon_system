@@ -446,6 +446,11 @@ a.btn-invoice-action { text-decoration: none; }
     outline: none;
     background: #fff;
 }
+
+#tirCreateModal .tir-modal-ref-input:focus-visible {
+    outline: 2px solid #ea580c;
+    outline-offset: 2px;
+}
 #tirCreateModal .tir-modal-autocomplete {
     position: absolute;
     left: 0;

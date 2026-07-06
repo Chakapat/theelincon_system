@@ -21,6 +21,6 @@
   }
 
   .tnc-input {
-    @apply w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-tnc-ink placeholder:text-slate-400 focus:border-tnc-orange focus:outline-none focus:ring-2 focus:ring-tnc-orange/15;
+    @apply w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-tnc-ink placeholder:text-slate-500 focus:border-tnc-orange focus:outline-none focus:ring-2 focus:ring-tnc-orange/15;
   }
 }

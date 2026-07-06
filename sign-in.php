@@ -78,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="signin-page">
+<a class="tnc-skip-link" href="#main-content">ข้ามไปเนื้อหาหลัก</a>
 <i class="bi bi-coin signin-floating-icon i1" aria-hidden="true"></i>
 <i class="bi bi-shield-lock signin-floating-icon i2" aria-hidden="true"></i>
 <i class="bi bi-cash-stack signin-floating-icon i3" aria-hidden="true"></i>
@@ -97,6 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <i class="bi bi-calculator signin-floating-icon i17" aria-hidden="true"></i>
 <i class="bi bi-file-earmark-lock2 signin-floating-icon i18" aria-hidden="true"></i>
 
+<main id="main-content" tabindex="-1">
 <div class="signin-shell flex min-h-screen items-center justify-center px-4 py-6">
     <div class="w-full max-w-md">
         <div class="signin-card rounded-2xl overflow-hidden">
@@ -112,11 +114,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="signin-card-body p-8 pt-6">
-                <div class="text-center mb-6">
-                    <h1 class="text-xl font-bold text-gray-800 mb-1">สวัสดี</h1>
-                    <p class="signin-subtitle text-sm mb-0">ระบบสำนักงาน Theelincon</p>
-                </div>
-
                 <form method="POST" action="<?= htmlspecialchars(app_path('sign-in.php')) ?>" id="signinForm">
                     <?php csrf_field(); ?>
                     <div class="mb-4">
@@ -162,6 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 </div>
+</main>
 
 <div class="signin-success-overlay" id="signinSuccessOverlay" aria-hidden="true">
     <div class="signin-success-box">

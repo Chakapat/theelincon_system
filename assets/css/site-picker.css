@@ -247,9 +247,7 @@ body { font-family: 'Sarabun', sans-serif; background: var(--tnc-surface-warm, #
     justify-content: center;
     flex-direction: column;
     gap: 0.45rem;
-    background: rgba(255, 255, 255, 0.82);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    background: #fff;
 }
 .site-card.is-navigating .site-card__nav-busy { display: flex; }
 .site-card__nav-spinner {

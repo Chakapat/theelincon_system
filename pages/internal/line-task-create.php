@@ -103,7 +103,7 @@ $formDisabled = !$setupReady;
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
-<main class="container py-4 pb-5 line-task-page">
+<div class="container py-4 pb-5 line-task-page">
     <?php tnc_ui_page_head([
         'kicker' => 'LINE Task',
         'title' => 'สั่งงาน LINE',
@@ -337,7 +337,7 @@ $formDisabled = !$setupReady;
             </div>
         <?php endif; ?>
     </section>
-</main>
+</div>
 
 <?php if (!$formDisabled): ?>
 <div class="tnc-mobile-sticky-cta d-lg-none line-task-sticky">
@@ -355,5 +355,6 @@ window.lineTaskSiteNames = <?= json_encode($siteNameById, JSON_UNESCAPED_UNICODE
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="<?= htmlspecialchars($lineTaskJsPath, ENT_QUOTES, 'UTF-8') ?>?v=<?= (int) $lineTaskJsVer ?>"></script>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

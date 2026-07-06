@@ -544,8 +544,6 @@ a.btn-invoice-action { text-decoration: none; }
     inset: 0;
     z-index: 1040;
     background: rgba(15, 23, 42, 0.28);
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
     opacity: 0;
     transition: opacity 0.2s ease;
     pointer-events: none;
@@ -690,9 +688,7 @@ body.tnc-invoice-popover-open { overflow: hidden; }
         position: sticky;
         top: 0.35rem;
         z-index: 20;
-        background: rgba(255, 255, 255, 0.92) !important;
-        backdrop-filter: blur(7px);
-        -webkit-backdrop-filter: blur(7px);
+        background: #fff !important;
         box-shadow: 0 0.22rem 0.65rem rgba(0, 0, 0, 0.06);
     }
     .index-table-toolbar {

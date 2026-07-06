@@ -130,8 +130,8 @@ function member_role_badge_class(array $row): string
                                     </td>
                                     <td class="small text-muted" data-label="ตำแหน่งงาน"><?= htmlspecialchars(trim((string) ($row['job_title'] ?? '')) ?: '—') ?></td>
                                     <td class="text-end pe-3 tnc-mobile-actions" data-label="จัดการ">
-                                        <button type="button" onclick="editMember(<?= (int) ($row['userid'] ?? 0) ?>)" class="btn btn-sm btn-light border text-warning rounded-3"><i class="bi bi-pencil-square"></i></button>
-                                        <button type="button" onclick="confirmDelete(<?= (int) ($row['userid'] ?? 0) ?>, 'member')" class="btn btn-sm btn-light border text-danger rounded-3 ms-1"><i class="bi bi-trash3-fill"></i></button>
+                                        <button type="button" onclick="editMember(<?= (int) ($row['userid'] ?? 0) ?>)" class="btn btn-sm btn-light border text-warning rounded-3 tnc-icon-action" aria-label="แก้ไขสมาชิก"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>
+                                        <button type="button" onclick="confirmDelete(<?= (int) ($row['userid'] ?? 0) ?>, 'member')" class="btn btn-sm btn-light border text-danger rounded-3 ms-1 tnc-icon-action" aria-label="ลบสมาชิก"><i class="bi bi-trash3-fill" aria-hidden="true"></i></button>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -246,5 +246,6 @@ function confirmDelete(id, type) {
     $('#memberTable').DataTable({ order: [[0, 'asc']] });
 })();
 </script>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

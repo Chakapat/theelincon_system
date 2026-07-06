@@ -16,9 +16,7 @@
         z-index: 1045;
         height: calc(var(--tnc-mobile-bottom-nav-h, 3.65rem) + env(safe-area-inset-bottom, 0px));
         padding-bottom: env(safe-area-inset-bottom, 0px);
-        background: rgba(255, 255, 255, 0.94);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        background: #fff;
         border-top: 1px solid rgba(15, 23, 42, 0.08);
         box-shadow: 0 -0.25rem 1rem rgba(15, 23, 42, 0.08);
     }
@@ -46,7 +44,7 @@
         background: transparent;
         color: #64748b;
         text-decoration: none;
-        font-size: 0.62rem;
+        font-size: 0.6875rem;
         font-weight: 700;
         letter-spacing: 0.02em;
         line-height: 1.15;

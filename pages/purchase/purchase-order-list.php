@@ -1490,5 +1490,6 @@ include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
 })();
 </script>
 
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

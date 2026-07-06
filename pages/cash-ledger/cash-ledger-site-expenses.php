@@ -231,6 +231,7 @@ foreach ($siteRows as $siteRow) {
     TncLiveDT.init('#tncSiteExpensesTable', { order: [[3, 'desc']], columnDefs: [{ orderable: false, targets: 0 }] });
 })(jQuery);
 </script>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>
 

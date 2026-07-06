@@ -1877,5 +1877,6 @@ $renderHubMenuItems = static function (array $items): void {
 }());
 </script>
 <?php endif; ?>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

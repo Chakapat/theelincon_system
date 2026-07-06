@@ -180,8 +180,8 @@ function company_type_label_th(string $type): string
                                 </td>
                                 <td class="text-end pe-4 tnc-mobile-actions" data-label="จัดการ">
                                     <?php if($is_admin): ?>
-                                    <button onclick="editCompany(<?= $row['id'] ?>)" class="btn btn-sm btn-outline-warning rounded-circle me-1"><i class="bi bi-pencil-square"></i></button>
-                                    <button onclick="confirmDelete(<?= $row['id'] ?>, 'company')" class="btn btn-sm btn-outline-danger rounded-circle"><i class="bi bi-trash3"></i></button>
+                                    <button type="button" onclick="editCompany(<?= $row['id'] ?>)" class="btn btn-sm btn-outline-warning rounded-circle me-1 tnc-icon-action" aria-label="แก้ไขบริษัท"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>
+                                    <button type="button" onclick="confirmDelete(<?= $row['id'] ?>, 'company')" class="btn btn-sm btn-outline-danger rounded-circle tnc-icon-action" aria-label="ลบบริษัท"><i class="bi bi-trash3" aria-hidden="true"></i></button>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -489,5 +489,6 @@ if (params.get('error') === 'confirm_password_invalid') Swal.fire({ icon: 'error
     $('#companyTable').DataTable({ order: [[0, 'asc']] });
 })();
 </script>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

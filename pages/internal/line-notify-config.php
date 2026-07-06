@@ -508,5 +508,6 @@ foreach ($userRows as $u) {
     syncHiddenInputs();
 })();
 </script>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

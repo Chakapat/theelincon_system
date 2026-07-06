@@ -79,7 +79,7 @@ if (isset($_GET['ajax_search'])) {
                             <button type="button" class="btn btn-invoice-action btn-invoice-action-cancel" data-tnc-cancel-invoice data-invoice-id="<?= (int) $row['id'] ?>" title="ยกเลิกใบแจ้งหนี้"><i class="bi bi-x-circle"></i></button>
                         <?php endif; ?>
                         <?php if ($can_delete_invoice): ?>
-                            <button type="button" onclick="deleteItem(<?= $row['id']; ?>, 'invoice')" class="btn btn-invoice-action btn-invoice-action-delete" title="ลบ"><i class="bi bi-trash3-fill"></i></button>
+                            <button type="button" onclick="deleteItem(<?= $row['id']; ?>, 'invoice')" class="btn btn-invoice-action btn-invoice-action-delete tnc-icon-action" aria-label="ลบใบแจ้งหนี้"><i class="bi bi-trash3-fill" aria-hidden="true"></i></button>
                         <?php endif; ?>
                     </div>
                 </td>
@@ -128,7 +128,7 @@ if ($index_display_name === '') {
         </div>
     </aside>
 
-    <main class="col-lg-8 col-xl-9 index-main-col order-2 order-lg-2 min-w-0" id="main-content">
+    <div class="col-lg-8 col-xl-9 index-main-col order-2 order-lg-2 min-w-0">
     <div class="index-dashboard-block">
     <div class="card index-table-card border-0 shadow-sm overflow-hidden mb-0">
         <div class="card-header border-bottom py-3 px-3 px-md-4">
@@ -202,7 +202,7 @@ if ($index_display_name === '') {
             <iframe id="tncInvoicePopoverFrame" title="Invoice"></iframe>
         </div>
     </div>
-    </main>
+    </div>
 
     </div>
 </div>
@@ -587,5 +587,6 @@ window.onload = () => {
 };
 </script>
 <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/print-document-only.css'), ENT_QUOTES, 'UTF-8') ?>" media="print">
+<?php include __DIR__ . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

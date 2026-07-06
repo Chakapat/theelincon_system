@@ -405,5 +405,6 @@ document.addEventListener('DOMContentLoaded', calculate);
 <?php endif; ?>
 </script>
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

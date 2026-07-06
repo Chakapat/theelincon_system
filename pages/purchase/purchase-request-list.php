@@ -384,5 +384,6 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
 })(jQuery);
 </script>
 
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

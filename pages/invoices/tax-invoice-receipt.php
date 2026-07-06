@@ -718,7 +718,8 @@ if (!$inv) {
         }
     })();
     </script>
-    </body>
+    <?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
+</body>
     </html>
     <?php
     exit;
@@ -1088,6 +1089,7 @@ async function confirmSaveTax() {
 window.onload = calculate;
 </script>
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>
 <?php
@@ -1671,5 +1673,6 @@ window.tncActionHandlerUrl = <?= json_encode(app_path('actions/action-handler.ph
 window.tncCsrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-invoice-cancel.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

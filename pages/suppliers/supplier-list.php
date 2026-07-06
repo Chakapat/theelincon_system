@@ -101,9 +101,9 @@ Db::sortRows($suppliers, 'name', false);
                             <?php endif; ?>
                         </td>
                         <td class="text-center tnc-mobile-actions" data-label="จัดการ">
-                            <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-form.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-warning me-1"><i class="bi bi-pencil"></i></a>
+                            <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-form.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-warning me-1 tnc-icon-action" aria-label="แก้ไขผู้ขาย"><i class="bi bi-pencil" aria-hidden="true"></i></a>
                             <?php if($is_admin): ?>
-                            <button onclick="deleteSup(<?= $row['id'] ?>)" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                            <button type="button" onclick="deleteSup(<?= $row['id'] ?>)" class="btn btn-sm btn-outline-danger tnc-icon-action" aria-label="ลบผู้ขาย"><i class="bi bi-trash" aria-hidden="true"></i></button>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -180,5 +180,6 @@ function deleteSup(id) {
     }, 6000);
 })(jQuery);
 </script>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

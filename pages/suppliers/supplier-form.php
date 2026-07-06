@@ -165,5 +165,6 @@ document.querySelectorAll('.js-bank-select').forEach(function (sel) {
     updateBankLogoPreview(scope, sel.value);
 });
 </script>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

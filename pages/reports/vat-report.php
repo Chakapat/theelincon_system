@@ -188,8 +188,13 @@ function tnc_vat_render_table_html(
     float $sumBase,
     float $sumVat,
     float $sumNet,
-    bool $withDocLinks = false
+    bool $withDocLinks = false,
+    bool $forPrint = false
 ): string {
+    $baseLabel = ($forPrint && !$isSales) ? 'ก่อน VAT' : 'มูลค่าสินค้า/บริการ';
+    $vatLabel = ($forPrint && !$isSales) ? 'VAT 7%' : 'จำนวน VAT (7%)';
+    $purchaseDocLabel = ($forPrint && !$isSales) ? 'เลขใบกำกับภาษี' : 'เลขที่บิล/ใบกำกับภาษี';
+    $purchaseNameLabel = ($forPrint && !$isSales) ? 'แหล่งซื้อ' : 'ชื่อซัพพลายเออร์';
     ob_start();
     ?>
     <div class="vat-print-table-wrap tnc-mobile-table-wrap">
@@ -210,11 +215,11 @@ function tnc_vat_render_table_html(
                     <th>ชื่อลูกค้า</th>
                 <?php else: ?>
                     <th>วันที่บิล</th>
-                    <th>เลขที่บิล/ใบกำกับภาษี</th>
-                    <th>ชื่อซัพพลายเออร์</th>
+                    <th><?= h($purchaseDocLabel) ?></th>
+                    <th><?= h($purchaseNameLabel) ?></th>
                 <?php endif; ?>
-                <th class="text-end">มูลค่าสินค้า/บริการ</th>
-                <th class="text-end">จำนวน VAT (7%)</th>
+                <th class="text-end"><?= h($baseLabel) ?></th>
+                <th class="text-end"><?= h($vatLabel) ?></th>
                 <th class="text-end">ยอดรวมสุทธิ</th>
             </tr>
             </thead>
@@ -229,18 +234,18 @@ function tnc_vat_render_table_html(
                     ?>
                     <tr<?= !$isSales && !empty($row['is_duplicate_bill']) ? ' class="vat-row-duplicate"' : '' ?>>
                         <td data-label="<?= $isSales ? 'วันที่เอกสาร' : 'วันที่บิล' ?>"><?= h((string) ($row['doc_date'] ?? '')) ?></td>
-                        <td data-label="<?= $isSales ? 'เลขที่ใบกำกับภาษี' : 'เลขที่บิล/ใบกำกับภาษี' ?>" class="tnc-mobile-primary<?= !$isSales && !empty($row['is_duplicate_bill']) ? ' vat-duplicate-doc' : '' ?>"><?= $withDocLinks ? tnc_vat_render_doc_no($docNo, (string) ($row['link_url'] ?? '')) : h($docNo) ?></td>
-                        <td data-label="<?= $isSales ? 'ชื่อลูกค้า' : 'ชื่อซัพพลายเออร์' ?>"><?= h($nameCol) ?></td>
-                        <td class="text-end tnc-mobile-amount" data-label="มูลค่าสินค้า/บริการ"><?= number_format((float) ($row['base'] ?? 0), 2) ?></td>
-                        <td class="text-end" data-label="จำนวน VAT (7%)"><?= number_format((float) ($row['vat'] ?? 0), 2) ?></td>
+                        <td data-label="<?= $isSales ? 'เลขที่ใบกำกับภาษี' : h($purchaseDocLabel) ?>" class="tnc-mobile-primary<?= !$isSales && !empty($row['is_duplicate_bill']) ? ' vat-duplicate-doc' : '' ?>"><?= $withDocLinks ? tnc_vat_render_doc_no($docNo, (string) ($row['link_url'] ?? '')) : h($docNo) ?></td>
+                        <td data-label="<?= $isSales ? 'ชื่อลูกค้า' : h($purchaseNameLabel) ?>"><?= h($nameCol) ?></td>
+                        <td class="text-end tnc-mobile-amount" data-label="<?= h($baseLabel) ?>"><?= number_format((float) ($row['base'] ?? 0), 2) ?></td>
+                        <td class="text-end" data-label="<?= h($vatLabel) ?>"><?= number_format((float) ($row['vat'] ?? 0), 2) ?></td>
                         <td class="text-end tnc-mobile-amount" data-label="ยอดรวมสุทธิ"><?= number_format((float) ($row['net'] ?? 0), 2) ?></td>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
             <tr class="vat-print-total-row">
                 <td colspan="3" class="vat-total-heading text-end">รวมเงินสุทธิ</td>
-                <td class="text-end" data-label="มูลค่าสินค้า/บริการ"><?= number_format($sumBase, 2) ?></td>
-                <td class="text-end" data-label="จำนวน VAT (7%)"><?= number_format($sumVat, 2) ?></td>
+                <td class="text-end" data-label="<?= h($baseLabel) ?>"><?= number_format($sumBase, 2) ?></td>
+                <td class="text-end" data-label="<?= h($vatLabel) ?>"><?= number_format($sumVat, 2) ?></td>
                 <td class="text-end tnc-mobile-amount" data-label="ยอดรวมสุทธิ"><?= number_format($sumNet, 2) ?></td>
             </tr>
             </tbody>
@@ -540,7 +545,9 @@ if ($printType === 'sales' || $printType === 'purchase') {
     $sumBase = $isSalesPrint ? $sumSalesBase : $sumPurchaseBase;
     $sumVat = $isSalesPrint ? $sumSalesVat : $sumPurchaseVat;
     $sumNet = $isSalesPrint ? $sumSalesNet : $sumPurchaseNet;
-    $printedAt = date('d/m/Y H:i');
+    $printHeading = $isSalesPrint
+        ? $companyName . ' - ภาษีขาย'
+        : $companyName . ' - ภาษีซื้อ';
     ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -567,16 +574,13 @@ if ($printType === 'sales' || $printType === 'purchase') {
 <div class="vat-print-sheet">
     <div class="vat-print-header">
         <div>
-            <p class="mb-1 fw-semibold text-secondary"><?= h($companyName) ?></p>
-            <h1 class="vat-print-title"><?= h($printTitle) ?></h1>
+            <h1 class="vat-print-title mb-0"><?= h($printHeading) ?></h1>
         </div>
         <div class="vat-print-meta">
             <div>ช่วงข้อมูล: <strong><?= h($periodText) ?></strong></div>
-            <div>พิมพ์เมื่อ: <?= h($printedAt) ?></div>
-            <div>จำนวนรายการ: <?= count($printRows) ?> รายการ</div>
         </div>
     </div>
-    <?= tnc_vat_render_table_html($isSalesPrint, $printRows, $sumBase, $sumVat, $sumNet, false) ?>
+    <?= tnc_vat_render_table_html($isSalesPrint, $printRows, $sumBase, $sumVat, $sumNet, false, true) ?>
 </div>
 </body>
 </html>
@@ -694,5 +698,6 @@ if ($printType === 'sales' || $printType === 'purchase') {
     </div>
 </div>
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

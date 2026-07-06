@@ -1185,5 +1185,6 @@ const SUPPLIER_PAYMENT_MAP = <?= json_encode($supplier_payment_map, JSON_UNESCAP
 
 </script>
 
+<?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>
