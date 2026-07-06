@@ -108,7 +108,34 @@ $items = [[
         @media (min-width: 992px) { .po-summary-sticky { position: sticky; top: 5.5rem; } }
         .summary-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; margin-bottom: 10px; }
         .summary-grand { padding-top: 0.35rem; margin-top: 0.25rem; border-top: 2px dashed rgba(253, 126, 20, 0.25); }
-        .po-vat-panel { background: #fffbf5; border: 1px solid var(--tnc-orange-border); border-radius: 0.75rem; }
+        .po-vat-panel { background: #fffbf5; border: 1px solid var(--tnc-orange-border); border-radius: 0.75rem; padding: 0.85rem; }
+        .po-vat-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.45rem 0.85rem;
+        }
+        .po-vat-switch-wrap .form-check { margin-bottom: 0; }
+        .po-vat-dropdown-wrap {
+            position: relative;
+            flex: 1 1 11rem;
+            min-width: min(100%, 10.5rem);
+            max-width: 20rem;
+        }
+        #vat_mode_wrap.po-vat-select-hidden {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            height: 0;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+        @media (max-width: 575.98px) {
+            .po-vat-toolbar { flex-direction: column; align-items: stretch; }
+            .po-vat-dropdown-wrap { max-width: none; }
+        }
         .po-actions-bar { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eef2f7; }
         .site-field-locked .form-select:disabled {
             background-color: #f8fafc;
@@ -220,7 +247,7 @@ $items = [[
                     <?php endif; ?>
                 </div>
                 <div class="col-md-6">
-                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span> <span class="text-muted small fw-normal">(เลือกหมวดย่อยภายใต้หมวดหลัก)</span></label>
+                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span></label>
                     <select name="cost_category_id" id="cost_category_id" class="form-select" required disabled>
                         <option value="" disabled selected>— เลือกไซต์ก่อน —</option>
                     </select>
@@ -235,7 +262,7 @@ $items = [[
                     <label class="po-field-label d-block mb-2">ช่องทางชำระ</label>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="payment_method" id="payMethodTransfer" value="transfer" checked>
-                        <label class="form-check-label" for="payMethodTransfer">โอนเงิน</label>
+                        <label class="form-check-label" for="payMethodTransfer">เงินโอน</label>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="payment_method" id="payMethodCash" value="cash">
@@ -244,9 +271,10 @@ $items = [[
                 </div>
                 <div class="col-md-6 d-none" id="poCreateCashWrap">
                     <label class="po-field-label" for="payment_cash_paid_by">จ่ายโดย <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" name="payment_cash_paid_by" id="payment_cash_paid_by" maxlength="255" placeholder="เช่น ชื่อผู้รับเงิน / แผนก" autocomplete="off">
+                    <input type="text" class="form-control" name="payment_cash_paid_by" id="payment_cash_paid_by" maxlength="255" placeholder="เช่น ชื่อผู้จ่าย / แผนก" autocomplete="off">
                 </div>
                 <div class="col-md-6" id="poCreateSlipWrap">
+                    <label class="po-field-label" for="payment_slips">แนบสลิป / หลักฐานการจ่าย</label>
                     <input type="file" name="payment_slips[]" id="payment_slips" class="form-control" accept="image/*,.pdf" multiple>
                 </div>
             </div>
@@ -259,6 +287,11 @@ $items = [[
             <textarea name="po_note" id="po_note" class="form-control" rows="2" maxlength="500" placeholder="หมายเหตุ (ถ้ามี)"></textarea>
         </div>
         <div class="card card-soft p-4 p-md-4 mb-4">
+            <div class="po-section-head">
+                <div>
+                    <h2 class="section-title mb-0">รายการสินค้า</h2>
+                </div>
+            </div>
             <div class="table-responsive po-table-wrap po-line-table-mobile">
                 <table class="table align-middle table-hover mb-0 po-line-table" id="poTable">
                     <thead>
@@ -302,20 +335,22 @@ $items = [[
             </div>
             <div class="row g-4 mt-1">
                 <div class="col-lg-7 order-2 order-lg-1">
-                    <div class="po-vat-panel p-3 mb-3">
-                        <div class="form-check form-switch mb-2">
-                            <input class="form-check-input" type="checkbox" role="switch" name="vat_enabled" id="vat_enabled" value="1" onchange="updatePoVatBasisUi(); calculateTotal()"<?= $poVatEnabled === 1 ? ' checked' : '' ?>>
-                            <label class="form-check-label fw-semibold" for="vat_enabled">มี VAT 7%</label>
-                        </div>
-                        <input type="hidden" name="vat_mode" id="vat_mode" value="<?= htmlspecialchars($poVatMode, ENT_QUOTES, 'UTF-8') ?>">
-                        <div id="vat_basis_wrap" class="pt-2 border-top border-secondary border-opacity-25">
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="radio" name="vat_basis" id="vat_basis_inclusive" value="inclusive" onchange="calculateTotal()">
-                                <label class="form-check-label" for="vat_basis_inclusive">รวม VAT <span class="text-muted small">(รวมภาษีมูลค่าเพิ่มในราคารวม)</span></label>
+                    <div class="po-vat-panel mb-3">
+                        <label class="po-field-label d-block mb-2">ภาษีมูลค่าเพิ่ม</label>
+                        <div class="po-vat-toolbar">
+                            <div class="po-vat-switch-wrap">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" role="switch" name="vat_enabled" id="vat_enabled" value="1" onchange="updatePoVatBasisUi(); calculateTotal()"<?= $poVatEnabled === 1 ? ' checked' : '' ?>>
+                                    <label class="form-check-label fw-semibold" for="vat_enabled">มี VAT 7%</label>
+                                </div>
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="vat_basis" id="vat_basis_exclusive" value="exclusive" checked onchange="calculateTotal()">
-                                <label class="form-check-label" for="vat_basis_exclusive">แยก VAT <span class="text-muted small">(บวกภาษีมูลค่าเพิ่มแยกจากราคารวม)</span></label>
+                            <div class="po-vat-dropdown-wrap">
+                                <div id="vat_mode_wrap" class="<?= $poVatEnabled === 1 ? '' : 'po-vat-select-hidden' ?>">
+                                    <select class="form-select form-select-sm" name="vat_mode" id="vat_mode" onchange="calculateTotal()" aria-label="วิธีคิด VAT"<?= $poVatEnabled === 1 ? '' : ' disabled' ?>>
+                                        <option value="exclusive"<?= $poVatMode === 'exclusive' ? ' selected' : '' ?>>แยก VAT (บวก 7% จากฐาน)</option>
+                                        <option value="inclusive"<?= $poVatMode === 'inclusive' ? ' selected' : '' ?>>รวม VAT (ราคารวมภาษีแล้ว)</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -345,11 +380,15 @@ $items = [[
             </div>
         </div>
 
-        <div class="po-submit-panel mb-2 d-none d-lg-block">
+        <div class="card card-soft po-submit-panel mb-2 d-none d-lg-block">
             <div class="po-submit-panel-inner">
+                <div class="po-submit-panel-meta">
+                    <div>
+                    </div>
+                </div>
                 <div class="po-submit-panel-action">
-                    <button type="submit" class="btn btn-orange btn-lg po-submit-btn rounded-pill w-100 w-lg-auto"<?= count($sites) === 0 ? ' disabled' : '' ?>>
-                        <i class="bi bi-check2-circle me-2"></i>ยืนยันสร้างใบสั่งซื้อ
+                    <button type="submit" class="btn btn-orange btn-lg po-submit-btn rounded-pill"<?= count($sites) === 0 ? ' disabled' : '' ?>>
+                        <i class="bi bi-check2-circle me-2"></i>สร้างใบสั่งซื้อ
                     </button>
                 </div>
             </div>
@@ -668,27 +707,28 @@ function poLineAmountAfterDiscount(qty, price, discRaw) {
     return Math.round((base - discount) * 100) / 100;
 }
 function updatePoVatBasisUi() {
-    const vatBasisWrap = document.getElementById('vat_basis_wrap');
+    const vatModeWrap = document.getElementById('vat_mode_wrap');
     const vatEnabled = document.getElementById('vat_enabled');
-    if (!vatBasisWrap || !vatEnabled) return;
+    const vatModeSelect = document.getElementById('vat_mode');
+    const vatModeHint = document.getElementById('vat_mode_hint');
+    if (!vatEnabled) return;
     const on = vatEnabled.checked;
-    vatBasisWrap.classList.toggle('opacity-50', !on);
-    vatBasisWrap.style.pointerEvents = on ? '' : 'none';
-    vatBasisWrap.setAttribute('aria-disabled', on ? 'false' : 'true');
-    vatBasisWrap.querySelectorAll('input[name="vat_basis"]').forEach(function (el) {
-        el.disabled = !on;
-    });
+    if (vatModeWrap) {
+        vatModeWrap.classList.toggle('po-vat-select-hidden', !on);
+    }
+    if (vatModeSelect) {
+        vatModeSelect.disabled = !on;
+        vatModeSelect.setAttribute('aria-hidden', on ? 'false' : 'true');
+    }
 }
 function calculateTotal() {
     const vatModeInput = document.getElementById('vat_mode');
     const vatEnabledEl = document.getElementById('vat_enabled');
     const vatOn = !!(vatEnabledEl && vatEnabledEl.checked);
     let vatMode = 'exclusive';
-    if (vatOn) {
-        const selectedBasis = document.querySelector('input[name="vat_basis"]:checked');
-        vatMode = selectedBasis ? selectedBasis.value : 'exclusive';
+    if (vatOn && vatModeInput) {
+        vatMode = vatModeInput.value === 'inclusive' ? 'inclusive' : 'exclusive';
     }
-    if (vatModeInput) vatModeInput.value = vatMode;
     let lineAmount = 0;
     const rows = document.getElementById('poTable').getElementsByTagName('tbody')[0].rows;
     for (const row of rows) {
@@ -710,8 +750,11 @@ function calculateTotal() {
     if (vatOn) { vatRow.style.display = 'grid'; document.getElementById('vat_display').innerText = vat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     else { vatRow.style.display = 'none'; }
     document.getElementById('grand_total').innerText = gross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const grossFormatted = gross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const submitGrandEl = document.getElementById('submit_grand_total');
-    if (submitGrandEl) submitGrandEl.innerText = gross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (submitGrandEl) submitGrandEl.innerText = grossFormatted;
+    const stickyGrandEl = document.getElementById('grand_total_sticky');
+    if (stickyGrandEl) stickyGrandEl.innerText = grossFormatted;
     const billedTotalEl = document.getElementById('billed_total_amount');
     const billedVatEl = document.getElementById('billed_vat_amount');
     if (billedTotalEl) billedTotalEl.value = gross.toFixed(2);

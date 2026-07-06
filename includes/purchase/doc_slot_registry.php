@@ -43,7 +43,6 @@ if (!function_exists('tnc_purchase_shared_max_tail')) {
     function tnc_purchase_shared_max_tail(string $ym): int
     {
         $prPrefix = 'PR-TNC-' . $ym . '-';
-        $poPrefix = 'PO-TNC-' . $ym . '-';
         $max = 0;
 
         foreach (Db::tableRows('purchase_requests') as $row) {
@@ -54,25 +53,12 @@ if (!function_exists('tnc_purchase_shared_max_tail')) {
         }
 
         foreach (Db::tableRows('purchase_orders') as $row) {
-            $tail = tnc_purchase_doc_tail_from_number((string) ($row['po_number'] ?? ''), $poPrefix);
-            if ($tail !== null) {
-                $max = max($max, $tail);
-            }
-        }
-
-        return $max;
-    }
-}
-
-if (!function_exists('tnc_purchase_direct_po_max_tail')) {
-    function tnc_purchase_direct_po_max_tail(string $ym): int
-    {
-        $prefix = 'PO-D-TNC-' . $ym . '-';
-        $max = 0;
-        foreach (Db::tableRows('purchase_orders') as $row) {
-            $tail = tnc_purchase_doc_tail_from_number((string) ($row['po_number'] ?? ''), $prefix);
-            if ($tail !== null) {
-                $max = max($max, $tail);
+            $poNumber = (string) ($row['po_number'] ?? '');
+            foreach (['PO-TNC-' . $ym . '-', 'PO-D-TNC-' . $ym . '-'] as $poPrefix) {
+                $tail = tnc_purchase_doc_tail_from_number($poNumber, $poPrefix);
+                if ($tail !== null) {
+                    $max = max($max, $tail);
+                }
             }
         }
 
@@ -163,11 +149,12 @@ if (!function_exists('tnc_purchase_po_number_taken')) {
 }
 
 if (!function_exists('tnc_purchase_next_direct_po_number')) {
+    /** PO โดยตรง — ใช้ prefix PO-TNC เดียวกับ PO จาก PR, เลขท้ายจาก pool ร่วม PR+PO */
     function tnc_purchase_next_direct_po_number(?string $ym = null): string
     {
         $ym = $ym ?? tnc_purchase_doc_ym();
-        $tail = tnc_purchase_direct_po_max_tail($ym) + 1;
+        $tail = tnc_purchase_shared_max_tail($ym) + 1;
 
-        return tnc_purchase_format_doc_number('PO-D-TNC-', $ym, $tail);
+        return tnc_purchase_format_doc_number('PO-TNC-', $ym, $tail);
     }
 }

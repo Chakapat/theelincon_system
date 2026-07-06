@@ -297,11 +297,10 @@ if ($hubSiteIdParam > 0 && !$isEdit) {
                 </div>
                 <?php endif; ?>
                 <div class="col-md-6">
-                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span> <span class="text-muted small fw-normal">(เลือกหมวดย่อยภายใต้หมวดหลัก)</span></label>
+                    <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span></label>
                     <select name="cost_category_id" id="cost_category_id" class="form-select"<?= count($sites) > 0 ? ' required' : '' ?>>
                         <option value="" disabled<?= $editCostCategoryId <= 0 ? ' selected' : '' ?>>— เลือกหมวด —</option>
                     </select>
-                    <div class="form-text">เลือกไซต์ก่อน — เพิ่มหมวดได้ที่ <a href="<?= htmlspecialchars(app_path('pages/sites/site-picker.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Site Picker / Site Hub</a></div>
                 </div>
                 <div class="col-12">
                     <label class="po-field-label" id="details_label" for="details_textarea">รายละเอียด/วัตถุประสงค์</label>
