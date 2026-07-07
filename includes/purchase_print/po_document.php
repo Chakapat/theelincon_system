@@ -231,9 +231,10 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         && function_exists('tnc_purchase_po_items_line_sum')
         && function_exists('tnc_purchase_totals_from_line_sum')
     ) {
-        $itemsLineSum = tnc_purchase_po_items_line_sum($items, $orderType);
+        $lineSums = tnc_purchase_items_vat_sums($items);
+        $itemsLineSum = round($lineSums['taxable'] + $lineSums['exempt'], 2);
         if ($itemsLineSum > 0) {
-            $poDerivedFromItems = tnc_purchase_totals_from_line_sum($itemsLineSum, $po_vat_enabled === 1, $poVatMode);
+            $poDerivedFromItems = tnc_purchase_vat_split_from_line_sums($lineSums['taxable'], $lineSums['exempt'], $po_vat_enabled === 1, $poVatMode);
             $po_grand_total = $poDerivedFromItems['net'];
             $po_vat_amount = $poDerivedFromItems['vat'];
         }

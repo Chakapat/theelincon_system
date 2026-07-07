@@ -145,14 +145,22 @@ foreach (tnc_site_budget_purchase_orders_cached() as $po) {
     $po_rows[] = $merged;
 }
 usort($po_rows, static function (array $a, array $b): int {
-    $da = (string) ($a['_list_sort_ymd'] ?? '');
-    $db = (string) ($b['_list_sort_ymd'] ?? '');
-    $daKey = $da !== '' ? $da : '0000-00-00';
-    $dbKey = $db !== '' ? $db : '0000-00-00';
-    $cmp = strcmp($dbKey, $daKey);
+    $na = trim((string) ($a['po_number'] ?? ''));
+    $nb = trim((string) ($b['po_number'] ?? ''));
+    if ($na === '' && $nb === '') {
+        return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
+    }
+    if ($na === '') {
+        return 1;
+    }
+    if ($nb === '') {
+        return -1;
+    }
+    $cmp = strcmp($nb, $na);
     if ($cmp !== 0) {
         return $cmp;
     }
+
     return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
 });
 
@@ -439,9 +447,12 @@ $ignoredCountAll = count($ignoredPoList);
                         </td>
                         <?php
                         $ymd = trim((string) ($row['_list_sort_ymd'] ?? ''));
-                        $dateOrderAttr = $ymd !== '' ? $ymd : '0000-00-00';
+                        $poNoSort = trim((string) ($row['po_number'] ?? ''));
+                        $poOrderAttr = $poNoSort !== ''
+                            ? $poNoSort
+                            : ('zzzz-' . str_pad((string) max(0, (int) ($row['id'] ?? 0)), 10, '0', STR_PAD_LEFT));
                         ?>
-                        <td data-order="<?= htmlspecialchars($dateOrderAttr, ENT_QUOTES, 'UTF-8') ?>" data-label="เลขที่ PO" class="tnc-mobile-primary">
+                        <td data-order="<?= htmlspecialchars($poOrderAttr, ENT_QUOTES, 'UTF-8') ?>" data-label="เลขที่ PO" class="tnc-mobile-primary">
                             <div class="fw-bold <?= $poCancelled ? 'text-danger' : ($isDocComplete ? 'text-info' : 'text-warning') ?>">
                                 <?php
                                 $poNoDisp = htmlspecialchars((string) ($row['po_number'] ?? ''), ENT_QUOTES, 'UTF-8');

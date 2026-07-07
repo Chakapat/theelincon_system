@@ -152,7 +152,7 @@ $poTableColCount = 6;
                 $unitCell = trim((string) ($item['unit'] ?? ''));
                 ?>
                 <tr>
-                    <td class="fw-bold text-dark text-start"><?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="fw-bold text-dark text-start"><?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?><?php if ((int) ($item['vat_exempt'] ?? 0) === 1): ?><span class="text-muted fw-normal small"> (ไม่คิด VAT)</span><?php endif; ?></td>
                     <td class="text-center po-td-num"><?= number_format((float) ($item['quantity'] ?? 0), 2); ?></td>
                     <td class="text-center po-td-num text-muted"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—'; ?></td>
                     <td class="text-end po-td-num"><?= number_format((float) ($item['unit_price'] ?? 0), 2); ?></td>

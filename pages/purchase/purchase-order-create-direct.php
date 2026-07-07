@@ -302,12 +302,14 @@ $items = [[
                             <th style="width:6.5rem;">หน่วย</th>
                             <th style="width:7.5rem;">ราคา/หน่วย</th>
                             <th style="width:6.5rem;">ส่วนลด</th>
+                            <th style="width:3.5rem;" class="text-center" title="คิด VAT">VAT</th>
                             <th style="width:7.5rem;">ยอดรวม</th>
                             <th style="width:2.75rem;"></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($items as $index => $item): ?>
+                            <?php $vatApplyChecked = (int) ($item['vat_exempt'] ?? 0) !== 1; ?>
                             <tr>
                                 <td class="po-cell-idx row-number text-secondary small fw-semibold">
                                     <div class="po-mobile-item-head">
@@ -323,6 +325,10 @@ $items = [[
                                 <td class="po-cell-unit" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.001" required value="<?= htmlspecialchars((string) ($item['unit_price'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
                                 <td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" value="<?= htmlspecialchars((string) ($item['discount_input'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td class="po-cell-vat-exempt text-center" data-label="คิด VAT">
+                                    <input type="hidden" class="line-vat-exempt-val" name="item_vat_exempt[]" value="<?= $vatApplyChecked ? '0' : '1' ?>">
+                                    <input type="checkbox" class="form-check-input line-vat-apply m-0" value="1" title="คิด VAT รายการนี้" aria-label="คิด VAT" onchange="if(typeof tncPurchaseSyncVatApplyHidden==='function'){tncPurchaseSyncVatApplyHidden(this);} calculateTotal();"<?= $vatApplyChecked ? ' checked' : '' ?>>
+                                </td>
                                 <td class="po-cell-total" data-label="ยอดรวม"><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
                                 <td class="po-cell-action po-cell-action-desktop"><?php if ($index > 0): ?><button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button><?php endif; ?></td>
                             </tr>
@@ -358,6 +364,7 @@ $items = [[
                 <div class="col-lg-5 order-1 order-lg-2">
                     <div class="summary-box po-summary-sticky">
                         <div class="summary-line small text-muted"><span class="summary-label" id="subtotal_label">ยอดรายการ</span><strong class="summary-value"><span id="subtotal_display">0.00</span> บาท</strong></div>
+                        <div class="summary-line small text-muted d-none" id="vat_exempt_row"><span class="summary-label">ไม่คิด VAT</span><strong class="summary-value"><span id="vat_exempt_display">0.00</span> บาท</strong></div>
                         <div class="summary-line small text-success" id="vat_row" style="display:none;"><span class="summary-label" id="vat_label">ภาษีมูลค่าเพิ่ม</span><strong class="summary-value"><span id="vat_display">0.00</span> บาท</strong></div>
                         <div class="summary-line summary-grand fw-bold"><span class="summary-label">ยอดสุทธิ</span><strong class="summary-value text-tnc-orange"><span id="grand_total">0.00</span> บาท</strong></div>
                     </div>
@@ -400,7 +407,7 @@ $items = [[
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/site-category-select.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
-<script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(tnc_asset_href('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function () {
     const issueDateEl = document.getElementById('issue_date');
@@ -669,6 +676,10 @@ function addRow() {
         '<td class="po-cell-unit" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm"></td>' +
         '<td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.001" required oninput="calculateTotal()"></td>' +
         '<td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-vat-exempt text-center" data-label="คิด VAT">' +
+        '<input type="hidden" class="line-vat-exempt-val" name="item_vat_exempt[]" value="0">' +
+        '<input type="checkbox" class="form-check-input line-vat-apply m-0" value="1" checked title="คิด VAT รายการนี้" aria-label="คิด VAT" onchange="if(typeof tncPurchaseSyncVatApplyHidden===\'function\'){tncPurchaseSyncVatApplyHidden(this);} calculateTotal();">' +
+        '</td>' +
         '<td class="po-cell-total" data-label="ยอดรวม"><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>' +
         '<td class="po-cell-action po-cell-action-desktop"><button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>';
 }
@@ -729,19 +740,82 @@ function calculateTotal() {
     if (vatOn && vatModeInput) {
         vatMode = vatModeInput.value === 'inclusive' ? 'inclusive' : 'exclusive';
     }
-    let lineAmount = 0;
+    let taxableSum = 0;
+    let exemptSum = 0;
     const rows = document.getElementById('poTable').getElementsByTagName('tbody')[0].rows;
-    for (const row of rows) {
-        const total = poLineAmountAfterDiscount(row.querySelector('.qty').value, row.querySelector('.price').value, row.querySelector('.po-discount')?.value || '');
-        row.querySelector('.row-total').value = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        lineAmount += total;
+    const bucketFn = typeof tncPurchaseSumLineVatBuckets === 'function' ? tncPurchaseSumLineVatBuckets : null;
+    if (bucketFn) {
+        for (const row of rows) {
+            const qtyEl = row.querySelector('.qty');
+            const priceEl = row.querySelector('.price');
+            const totalCell = row.querySelector('.row-total');
+            if (!qtyEl || !priceEl || !totalCell) {
+                continue;
+            }
+            const total = poLineAmountAfterDiscount(qtyEl.value, priceEl.value, row.querySelector('.po-discount')?.value || '');
+            totalCell.value = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        const buckets = bucketFn(rows, function (row) {
+            const qtyEl = row.querySelector('.qty');
+            const priceEl = row.querySelector('.price');
+            if (!qtyEl || !priceEl) {
+                return 0;
+            }
+            return poLineAmountAfterDiscount(qtyEl.value, priceEl.value, row.querySelector('.po-discount')?.value || '');
+        });
+        taxableSum = buckets.taxableSum;
+        exemptSum = buckets.exemptSum;
+    } else {
+        for (const row of rows) {
+            const qtyEl = row.querySelector('.qty');
+            const priceEl = row.querySelector('.price');
+            const totalCell = row.querySelector('.row-total');
+            if (!qtyEl || !priceEl || !totalCell) {
+                continue;
+            }
+            const applyEl = row.querySelector('.line-vat-apply');
+            if (applyEl && typeof tncPurchaseSyncVatApplyHidden === 'function') {
+                tncPurchaseSyncVatApplyHidden(applyEl);
+            }
+            const total = poLineAmountAfterDiscount(qtyEl.value, priceEl.value, row.querySelector('.po-discount')?.value || '');
+            totalCell.value = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const hidden = row.querySelector('.line-vat-exempt-val');
+            const isExempt = applyEl ? !applyEl.checked : (hidden && hidden.value === '1');
+            if (isExempt) {
+                exemptSum += total;
+            } else {
+                taxableSum += total;
+            }
+        }
+        taxableSum = Math.round(taxableSum * 100) / 100;
+        exemptSum = Math.round(exemptSum * 100) / 100;
     }
-    lineAmount = Math.round(lineAmount * 100) / 100;
-    const split = tncPurchaseVatFromLineSum(lineAmount, vatOn, vatMode);
+    const splitFn = typeof tncPurchaseVatFromLineSums === 'function'
+        ? tncPurchaseVatFromLineSums
+        : function (t, e, v, m) { return tncPurchaseVatFromLineSum(t + e, v, m); };
+    const split = splitFn(taxableSum, exemptSum, vatOn, vatMode);
     const subtotal = split.subtotal;
     const vat = split.vat;
     const gross = split.gross;
-    document.getElementById('subtotal_display').innerText = subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const lineSum = split.lineSum != null ? split.lineSum : (taxableSum + exemptSum);
+    const subtotalLabelEl = document.getElementById('subtotal_label');
+    if (subtotalLabelEl) {
+        subtotalLabelEl.textContent = vatOn && exemptSum > 0 ? 'ยอดรายการ (คิด VAT)' : 'ยอดรายการ';
+    }
+    const subtotalDisplayEl = document.getElementById('subtotal_display');
+    if (subtotalDisplayEl) {
+        subtotalDisplayEl.innerText = subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    const vatExemptRow = document.getElementById('vat_exempt_row');
+    const vatExemptDisplay = document.getElementById('vat_exempt_display');
+    if (vatExemptRow && vatExemptDisplay) {
+        if (vatOn && exemptSum > 0) {
+            vatExemptRow.classList.remove('d-none');
+            vatExemptDisplay.textContent = exemptSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            vatExemptRow.classList.add('d-none');
+        }
+    }
     const vatLabelEl = document.getElementById('vat_label');
     if (vatLabelEl) {
         vatLabelEl.textContent = vatOn ? (vatMode === 'inclusive' ? 'รวม VAT' : 'แยก VAT') : 'แยก VAT';
@@ -762,6 +836,11 @@ function calculateTotal() {
     updatePoVatBasisUi();
 }
 document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.line-vat-apply').forEach(function (cb) {
+        if (typeof tncPurchaseSyncVatApplyHidden === 'function') {
+            tncPurchaseSyncVatApplyHidden(cb);
+        }
+    });
     updatePoVatBasisUi();
     calculateTotal();
     const poTable = document.getElementById('poTable');

@@ -28,23 +28,64 @@ if (!function_exists('tnc_purchase_po_items_line_sum')) {
  *
  * @return array{subtotal: float, vat: float, gross: float, net: float, line_sum: float}
  */
-if (!function_exists('tnc_purchase_vat_split_from_line_sum')) {
-    function tnc_purchase_vat_split_from_line_sum(float $lineSum, bool $vatOn, string $vatMode): array
+if (!function_exists('tnc_purchase_items_vat_sums')) {
+    /** @return array{taxable: float, exempt: float} */
+    function tnc_purchase_items_vat_sums(array $items): array
     {
-        $lineSum = round($lineSum, 2);
+        $taxable = 0.0;
+        $exempt = 0.0;
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $total = round((float) ($item['total'] ?? 0), 2);
+            if ((int) ($item['vat_exempt'] ?? 0) === 1) {
+                $exempt += $total;
+            } else {
+                $taxable += $total;
+            }
+        }
+
+        return [
+            'taxable' => round($taxable, 2),
+            'exempt' => round($exempt, 2),
+        ];
+    }
+}
+
+if (!function_exists('tnc_purchase_vat_split_from_line_sums')) {
+    /** @return array{subtotal: float, vat: float, gross: float, net: float, line_sum: float, taxable_sum: float, exempt_sum: float} */
+    function tnc_purchase_vat_split_from_line_sums(float $taxableSum, float $exemptSum, bool $vatOn, string $vatMode): array
+    {
+        $taxableSum = round($taxableSum, 2);
+        $exemptSum = round($exemptSum, 2);
+        $lineSum = round($taxableSum + $exemptSum, 2);
         $vatMode = in_array($vatMode, ['exclusive', 'inclusive'], true) ? $vatMode : 'exclusive';
-        $subtotal = $lineSum;
+
+        if (!$vatOn) {
+            return [
+                'subtotal' => $lineSum,
+                'vat' => 0.0,
+                'gross' => $lineSum,
+                'net' => $lineSum,
+                'line_sum' => $lineSum,
+                'taxable_sum' => $taxableSum,
+                'exempt_sum' => $exemptSum,
+            ];
+        }
+
+        $subtotal = $taxableSum;
         $vat = 0.0;
         $gross = $lineSum;
-        if ($vatOn && $lineSum > 0) {
+        if ($vatOn && $taxableSum > 0) {
             if ($vatMode === 'inclusive') {
-                $subtotal = round($lineSum * 100 / 107, 2);
-                $gross = round($subtotal * 1.07, 2);
-                $vat = round($gross - $subtotal, 2);
+                $subtotal = round($taxableSum * 100 / 107, 2);
+                $gross = round($subtotal * 1.07 + $exemptSum, 2);
+                $vat = round($gross - $exemptSum - $subtotal, 2);
             } else {
-                $subtotal = $lineSum;
+                $subtotal = $taxableSum;
                 $vat = round($subtotal * 0.07, 2);
-                $gross = round($subtotal * 1.07, 2);
+                $gross = round($subtotal * 1.07 + $exemptSum, 2);
             }
         }
 
@@ -53,8 +94,17 @@ if (!function_exists('tnc_purchase_vat_split_from_line_sum')) {
             'vat' => $vat,
             'gross' => $gross,
             'net' => $gross,
-            'line_sum' => $lineSum,
+            'line_sum' => round($taxableSum + $exemptSum, 2),
+            'taxable_sum' => $taxableSum,
+            'exempt_sum' => $exemptSum,
         ];
+    }
+}
+
+if (!function_exists('tnc_purchase_vat_split_from_line_sum')) {
+    function tnc_purchase_vat_split_from_line_sum(float $lineSum, bool $vatOn, string $vatMode): array
+    {
+        return tnc_purchase_vat_split_from_line_sums($lineSum, 0.0, $vatOn, $vatMode);
     }
 }
 
@@ -64,9 +114,9 @@ if (!function_exists('tnc_purchase_vat_split_from_line_sum')) {
  * @return array{subtotal: float, vat: float, gross: float, net: float, line_sum: float}
  */
 if (!function_exists('tnc_purchase_totals_from_line_sum')) {
-    function tnc_purchase_totals_from_line_sum(float $lineSum, bool $vatOn, string $vatMode): array
+    function tnc_purchase_totals_from_line_sum(float $lineSum, bool $vatOn, string $vatMode, float $exemptSum = 0.0): array
     {
-        return tnc_purchase_vat_split_from_line_sum($lineSum, $vatOn, $vatMode);
+        return tnc_purchase_vat_split_from_line_sums(round($lineSum - $exemptSum, 2), $exemptSum, $vatOn, $vatMode);
     }
 }
 
@@ -229,7 +279,8 @@ if (!function_exists('tnc_purchase_po_resolved_totals')) {
             ];
         }
 
-        $lineSum = tnc_purchase_po_items_line_sum($items, $orderType);
+        $lineSums = tnc_purchase_items_vat_sums($items);
+        $lineSum = round($lineSums['taxable'] + $lineSums['exempt'], 2);
         if ($lineSum <= 0) {
             return [
                 'subtotal' => $storedSub > 0 ? $storedSub : round($storedNet - $storedVat, 2),
@@ -245,7 +296,7 @@ if (!function_exists('tnc_purchase_po_resolved_totals')) {
             $vatMode = 'exclusive';
         }
 
-        $derived = tnc_purchase_totals_from_line_sum($lineSum, $vatOn, $vatMode);
+        $derived = tnc_purchase_vat_split_from_line_sums($lineSums['taxable'], $lineSums['exempt'], $vatOn, $vatMode);
 
         return [
             'subtotal' => $derived['subtotal'],

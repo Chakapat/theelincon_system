@@ -11,6 +11,7 @@ use Theelincon\Rtdb\Purchase;
 
 require_once __DIR__ . '/purchase_cascade_delete.php';
 require_once __DIR__ . '/site_budget.php';
+require_once __DIR__ . '/purchase_print/vat_print_summary.php';
 
 if (!function_exists('tnc_pr_po_sync_meta_from_pr')) {
     /** @return array<string, mixed> */
@@ -58,6 +59,7 @@ if (!function_exists('tnc_pr_load_purchase_line_items')) {
                 'discount_type' => (string) ($row['discount_type'] ?? 'amount'),
                 'discount_value' => (float) ($row['discount_value'] ?? 0),
                 'discount_amount' => (float) ($row['discount_amount'] ?? 0),
+                'vat_exempt' => (int) ($row['vat_exempt'] ?? 0),
             ];
         }
 
@@ -101,11 +103,8 @@ if (!function_exists('tnc_pr_sync_purchase_po_from_pr')) {
             return ['ok' => false, 'reason' => 'no_items'];
         }
 
-        $lineSum = 0.0;
-        foreach ($prItems as $item) {
-            $lineSum += round((float) ($item['total'] ?? 0), 2);
-        }
-        $lineSum = round($lineSum, 2);
+        $lineSums = tnc_purchase_items_vat_sums($prItems);
+        $lineSum = round($lineSums['taxable'] + $lineSums['exempt'], 2);
         if ($lineSum <= 0) {
             return ['ok' => false, 'reason' => 'no_items'];
         }
@@ -115,7 +114,7 @@ if (!function_exists('tnc_pr_sync_purchase_po_from_pr')) {
         if (!in_array($vatMode, ['exclusive', 'inclusive'], true)) {
             $vatMode = 'exclusive';
         }
-        $totals = tnc_po_compute_totals($lineSum, $vatEnabled, $vatMode, 'none');
+        $totals = tnc_po_compute_totals($lineSums['taxable'], $vatEnabled, $vatMode, 'none', $lineSums['exempt']);
 
         $siteId = (int) ($prRow['site_id'] ?? 0);
         $catId = (int) ($prRow['cost_category_id'] ?? 0);
@@ -156,6 +155,7 @@ if (!function_exists('tnc_pr_sync_purchase_po_from_pr')) {
                 'discount_type' => (string) ($item['discount_type'] ?? 'amount'),
                 'discount_value' => (float) ($item['discount_value'] ?? 0),
                 'discount_amount' => (float) ($item['discount_amount'] ?? 0),
+                'vat_exempt' => (int) ($item['vat_exempt'] ?? 0),
             ]);
         }
 
