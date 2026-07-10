@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\Purchase;
 
+require_once __DIR__ . '/doc_items_pagination.php';
 
 if (!function_exists('tnc_pr_format_date_thai')) {
     function tnc_pr_format_date_thai(mixed $date): string

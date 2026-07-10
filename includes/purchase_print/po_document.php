@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Purchase;
 
 require_once __DIR__ . '/../purchase_po_payment_slips.php';
 require_once __DIR__ . '/vat_print_summary.php';
+require_once __DIR__ . '/doc_items_pagination.php';
 
 if (!function_exists('tnc_po_format_date_thai')) {
     function tnc_po_format_date_thai(mixed $date): string

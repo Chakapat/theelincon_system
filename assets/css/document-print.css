@@ -390,6 +390,52 @@
     min-height: 0;
 }
 
+/* --- Doc Breakpoint: แบ่งหน้า PO/PR สูงสุด 15 รายการต่อหน้า --- */
+.tnc-doc-pages-wrap {
+    display: block;
+    width: 100%;
+}
+
+.tnc-doc-pages-wrap .tnc-doc-sheet + .tnc-doc-sheet {
+    margin-top: 1.25rem;
+}
+
+.tnc-doc-header--compact {
+    padding-bottom: 0.15rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.tnc-doc-compact-name {
+    font-size: 1rem !important;
+    line-height: 1.25;
+}
+
+.tnc-doc-compact-title {
+    font-size: 1.35rem !important;
+    line-height: 1.15;
+}
+
+.tnc-doc-continued-label {
+    font-size: 0.78rem;
+    margin-top: 0.15rem;
+    color: #64748b !important;
+}
+
+.tnc-doc-page-indicator {
+    flex: 0 0 auto;
+    margin-top: auto;
+    padding-top: 0.65rem;
+    text-align: right;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.02em;
+}
+
+.tnc-doc-sheet--last .tnc-doc-page-indicator {
+    margin-top: 0.5rem;
+}
+
 .pr-purchase-requisition-doc .row > [class*="col-"] {
     min-width: 0;
 }
@@ -1653,6 +1699,21 @@
     .tnc-batch-print-wrap:last-child {
         page-break-after: auto;
         break-after: auto;
+    }
+
+    .tnc-doc-pages-wrap .invoice-box.tnc-doc-sheet:not(.tnc-doc-sheet--last) {
+        page-break-after: always !important;
+        break-after: page !important;
+    }
+
+    .tnc-doc-pages-wrap .invoice-box.tnc-doc-sheet--last {
+        page-break-after: auto !important;
+        break-after: auto !important;
+    }
+
+    .tnc-doc-page-indicator {
+        color: #475569 !important;
+        font-size: 0.72rem !important;
     }
 
     .po-payment-slip-print-wrap {

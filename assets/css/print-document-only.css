@@ -116,6 +116,23 @@
         break-inside: avoid-page !important;
     }
 
+    /* ใบ PO/PR หลายหน้า (Doc Breakpoint) — อนุญาตแตกหน้าภายใน wrapper */
+    body.purchase-module .po-view-canvas > .tnc-po-print-page:has(.tnc-doc-pages-wrap),
+    body.purchase-module .pr-view-canvas:has(.tnc-doc-pages-wrap) {
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+    }
+
+    body.purchase-module .tnc-doc-pages-wrap .invoice-box.tnc-doc-sheet:not(.tnc-doc-sheet--last) {
+        page-break-after: always !important;
+        break-after: page !important;
+    }
+
+    body.purchase-module .tnc-doc-pages-wrap .invoice-box.tnc-doc-sheet--last {
+        page-break-after: auto !important;
+        break-after: auto !important;
+    }
+
     body.purchase-module .po-view-canvas > .tnc-po-print-page + .tnc-po-print-page {
         page-break-before: always !important;
         break-before: page !important;

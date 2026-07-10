@@ -42,15 +42,32 @@ if ($poNumberDisplay === '') {
 }
 $poDocDateSubtitle = $poNumberDisplay . ' · ' . tnc_po_format_date_thai($issueDate);
 $poTableColCount = 6;
+$itemPageChunks = tnc_doc_paginate_items($items);
+$totalDocPages = count($itemPageChunks);
+$isMultiPageDoc = $totalDocPages > 1;
 
-?>
-<div class="invoice-box po-purchase-order-doc">
+if ($isMultiPageDoc): ?>
+<div class="tnc-doc-pages-wrap tnc-doc-pages-wrap--po">
+<?php endif; ?>
+
+<?php foreach ($itemPageChunks as $pageIdx => $pageItems):
+    $pageNum = $pageIdx + 1;
+    $isFirstPage = ($pageNum === 1);
+    $isLastPage = ($pageNum === $totalDocPages);
+    $sheetClass = 'invoice-box po-purchase-order-doc';
+    if ($isMultiPageDoc) {
+        $sheetClass .= ' tnc-doc-sheet' . ($isLastPage ? ' tnc-doc-sheet--last' : '');
+    }
+    $pageIndicatorLabel = tnc_doc_page_indicator_label($pageNum, $totalDocPages);
+    ?>
+<div class="<?= $sheetClass ?>">
     <?php if ($isPoCancelled): ?>
     <div class="po-cancelled-watermark" aria-hidden="true">ยกเบิกใบสั่งซื้อ</div>
     <?php endif; ?>
     <div class="po-doc-main">
     <div class="po-doc-content">
-    <div class="row align-items-start mb-2">
+    <?php if ($isFirstPage): ?>
+    <div class="row align-items-start mb-2 tnc-doc-header tnc-doc-header--full">
         <div class="col-6">
             <?php $tncCompanyLogoUrl = tnc_company_logo_url($data['logo'] ?? ''); ?>
             <?php if ($tncCompanyLogoUrl !== ''): ?>
@@ -113,25 +130,26 @@ $poTableColCount = 6;
 
     <div class="row mb-2 doc-site-row">
         <div class="col-12">
-                            <div class="doc-site-block">
-                    <span class="doc-site-label">ผู้ขาย:</span>
-                    <span class="doc-site-value"><?= htmlspecialchars((string) ($data['s_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
-                </div>
-                <?php if (trim((string) ($data['s_address'] ?? '')) !== '' || trim((string) ($data['s_tax'] ?? '')) !== ''): ?>
-                <div class="doc-site-block mt-2">
-                    <span class="doc-site-label">ที่อยู่ / ติดต่อ:</span>
-                    <span class="doc-site-value">
-                        <?= htmlspecialchars((string) ($data['s_address'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-                        <?php if (trim((string) ($data['s_tax'] ?? '')) !== ''): ?>
-                        | เลขผู้เสียภาษี: <?= htmlspecialchars((string) ($data['s_tax'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-                        <?php endif; ?>
-                    </span>
-                </div>
-                <?php endif; ?>
+            <div class="doc-site-block">
+                <span class="doc-site-label">ผู้ขาย:</span>
+                <span class="doc-site-value"><?= htmlspecialchars((string) ($data['s_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+            </div>
+            <?php if (trim((string) ($data['s_address'] ?? '')) !== '' || trim((string) ($data['s_tax'] ?? '')) !== ''): ?>
+            <div class="doc-site-block mt-2">
+                <span class="doc-site-label">ที่อยู่ / ติดต่อ:</span>
+                <span class="doc-site-value">
+                    <?= htmlspecialchars((string) ($data['s_address'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                    <?php if (trim((string) ($data['s_tax'] ?? '')) !== ''): ?>
+                    | เลขผู้เสียภาษี: <?= htmlspecialchars((string) ($data['s_tax'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                    <?php endif; ?>
+                </span>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
+    <?php endif; ?>
 
-    <table class="table table-custom po-items-table mt-2">
+    <table class="table table-custom po-items-table<?= $isFirstPage ? ' mt-2' : ' mt-0' ?>">
         <thead>
             <tr class="text-center">
                 <th style="width:38%;" class="text-start po-th-desc">รายละเอียดสินค้า / บริการ</th>
@@ -143,12 +161,12 @@ $poTableColCount = 6;
             </tr>
         </thead>
         <tbody>
-            <?php if (count($items) === 0): ?>
+            <?php if (count($pageItems) === 0): ?>
             <tr>
                 <td colspan="<?= $poTableColCount ?>" class="text-center text-muted py-4">ไม่พบรายการสินค้าในใบสั่งซื้อนี้</td>
             </tr>
             <?php else: ?>
-                <?php foreach ($items as $item):
+                <?php foreach ($pageItems as $item):
                 $unitCell = trim((string) ($item['unit'] ?? ''));
                 ?>
                 <tr>
@@ -177,6 +195,7 @@ $poTableColCount = 6;
     </table>
     </div>
 
+    <?php if ($isLastPage): ?>
     <div class="footer-sticky doc-footer">
         <div class="row po-footer-row align-items-start mb-3">
             <div class="col-7 po-footer-notes-col">
@@ -250,5 +269,15 @@ $poTableColCount = 6;
             </div>
         </div>
     </div>
+    <?php endif; ?>
+
+    <?php if ($pageIndicatorLabel !== ''): ?>
+    <div class="tnc-doc-page-indicator" aria-label="หมายเลขหน้า"><?= htmlspecialchars($pageIndicatorLabel, ENT_QUOTES, 'UTF-8') ?></div>
+    <?php endif; ?>
     </div>
 </div>
+<?php endforeach; ?>
+
+<?php if ($isMultiPageDoc): ?>
+</div>
+<?php endif; ?>

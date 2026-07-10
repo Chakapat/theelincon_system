@@ -32,14 +32,32 @@ if ($prNumberDisplay === '') {
 $prDocDateSubtitle = $prNumberDisplay . ' · ' . $docDateDisplay;
 $requesterLine = trim($requesterDisplay !== '' ? $requesterDisplay : '-');
 $prFooterHasNotes = $detailsText !== '';
-?>
-<div class="invoice-box pr-purchase-requisition-doc">
+$itemPageChunks = tnc_doc_paginate_items($item_rows);
+$totalDocPages = count($itemPageChunks);
+$isMultiPageDoc = $totalDocPages > 1;
+
+if ($isMultiPageDoc): ?>
+<div class="tnc-doc-pages-wrap tnc-doc-pages-wrap--pr">
+<?php endif; ?>
+
+<?php foreach ($itemPageChunks as $pageIdx => $pageItems):
+    $pageNum = $pageIdx + 1;
+    $isFirstPage = ($pageNum === 1);
+    $isLastPage = ($pageNum === $totalDocPages);
+    $sheetClass = 'invoice-box pr-purchase-requisition-doc';
+    if ($isMultiPageDoc) {
+        $sheetClass .= ' tnc-doc-sheet' . ($isLastPage ? ' tnc-doc-sheet--last' : '');
+    }
+    $pageIndicatorLabel = tnc_doc_page_indicator_label($pageNum, $totalDocPages);
+    ?>
+<div class="<?= $sheetClass ?>">
     <?php if (!empty($isPoCancelled)): ?>
     <div class="pr-cancelled-watermark" aria-hidden="true">CANCELLED</div>
     <?php endif; ?>
     <div class="pr-doc-main">
         <div class="pr-doc-content">
-        <div class="row align-items-start mb-2">
+        <?php if ($isFirstPage): ?>
+        <div class="row align-items-start mb-2 tnc-doc-header tnc-doc-header--full">
             <div class="col-6">
                 <?php $tncCompanyLogoUrl = tnc_company_logo_url($com['logo'] ?? ''); ?>
                 <?php if ($tncCompanyLogoUrl !== ''): ?>
@@ -90,8 +108,9 @@ $prFooterHasNotes = $detailsText !== '';
                 <?php endif; ?>
             </div>
         </div>
+        <?php endif; ?>
 
-        <table class="table table-custom pr-items-table mt-2">
+        <table class="table table-custom pr-items-table<?= $isFirstPage ? ' mt-2' : ' mt-0' ?>">
             <thead>
                 <tr class="text-center">
                     <th style="width:38%;" class="text-start pr-th-desc">รายละเอียดสินค้า / บริการ</th>
@@ -103,12 +122,12 @@ $prFooterHasNotes = $detailsText !== '';
                 </tr>
             </thead>
             <tbody>
-                <?php if (count($item_rows) === 0): ?>
+                <?php if (count($pageItems) === 0): ?>
                 <tr>
                     <td colspan="6" class="text-center text-muted py-4">ไม่พบรายการสินค้า / บริการ</td>
                 </tr>
                 <?php else: ?>
-                    <?php foreach ($item_rows as $item):
+                    <?php foreach ($pageItems as $item):
                     $unitCell = trim((string) ($item['unit'] ?? ''));
                     ?>
                     <tr>
@@ -135,6 +154,7 @@ $prFooterHasNotes = $detailsText !== '';
         </table>
         </div><!-- /.pr-doc-content -->
 
+    <?php if ($isLastPage): ?>
     <div class="footer-sticky doc-footer">
         <div class="row pr-footer-row align-items-start mb-3<?= $prFooterHasNotes ? ' pr-footer-row--has-notes' : '' ?>">
             <div class="col-7 pr-footer-notes-col">
@@ -179,5 +199,15 @@ $prFooterHasNotes = $detailsText !== '';
             </div>
         </div>
     </div>
+    <?php endif; ?>
+
+    <?php if ($pageIndicatorLabel !== ''): ?>
+    <div class="tnc-doc-page-indicator" aria-label="หมายเลขหน้า"><?= htmlspecialchars($pageIndicatorLabel, ENT_QUOTES, 'UTF-8') ?></div>
+    <?php endif; ?>
     </div>
 </div>
+<?php endforeach; ?>
+
+<?php if ($isMultiPageDoc): ?>
+</div>
+<?php endif; ?>

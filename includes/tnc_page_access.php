@@ -132,6 +132,7 @@ function tnc_role_permission_menu_tree(): array
                     'path' => 'pages/stock/stock-list.php',
                     'paths' => [
                         'pages/stock/stock-list.php',
+                        'pages/stock/stock-list-report.php',
                         'pages/stock/stock-adjust.php',
                         'pages/stock/stock-product-form.php',
                         'pages/stock/stock-movements.php',

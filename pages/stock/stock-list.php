@@ -149,8 +149,17 @@ if ($selectedSite !== null) {
             </div>
             <?php if ($canManage): ?>
                 <div class="d-flex flex-wrap gap-2">
+                    <a href="<?= htmlspecialchars(app_path('pages/stock/stock-list-report.php')) ?>" class="btn btn-outline-dark rounded-pill">
+                        <i class="bi bi-table me-1"></i>รายงานไซต์ × สินค้า
+                    </a>
                     <a href="<?= htmlspecialchars(app_path('pages/stock/stock-product-form.php')) ?>" class="btn btn-outline-orange rounded-pill">
                         <i class="bi bi-box me-1"></i>เพิ่มประเภทสินค้า/วัสดุ
+                    </a>
+                </div>
+            <?php else: ?>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="<?= htmlspecialchars(app_path('pages/stock/stock-list-report.php')) ?>" class="btn btn-outline-dark rounded-pill">
+                        <i class="bi bi-table me-1"></i>รายงานไซต์ × สินค้า
                     </a>
                 </div>
             <?php endif; ?>
@@ -196,6 +205,9 @@ if ($selectedSite !== null) {
         <div class="d-flex flex-wrap gap-2">
             <a href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php')) ?>" class="btn btn-outline-secondary rounded-pill">
                 <i class="bi bi-arrow-left me-1"></i>เปลี่ยนไซต์
+            </a>
+            <a href="<?= htmlspecialchars(app_path('pages/stock/stock-list-report.php')) ?>" class="btn btn-outline-dark rounded-pill">
+                <i class="bi bi-table me-1"></i>รายงานไซต์ × สินค้า
             </a>
             <button type="button" class="btn btn-outline-dark rounded-pill" onclick="window.print()">
                 <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
