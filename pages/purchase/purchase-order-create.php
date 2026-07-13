@@ -41,13 +41,14 @@ if (!line_pr_is_approved_for_po($pr)) {
     exit();
 }
 
-$existingPoFromPr = Db::findFirst('purchase_orders', static function (array $r) use ($pr_id): bool {
-    return isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
-});
-if ($existingPoFromPr !== null) {
-    header('Location: ' . app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) ($existingPoFromPr['id'] ?? 0));
+require_once dirname(__DIR__, 2) . '/includes/pr_po_split.php';
+if (!tnc_pr_has_remaining_for_po($pr_id)) {
+    header('Location: ' . app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=pr_fully_ordered');
     exit();
 }
+
+$linked_pos = tnc_pr_collect_active_purchase_orders($pr_id);
+$linked_po_count = count($linked_pos);
 
 $pr_number_display = trim((string) ($pr['pr_number'] ?? ('PR-' . $pr_id)));
 $pr_vat_enabled = (int) ($pr['vat_enabled'] ?? 0) === 1 ? 1 : 0;
@@ -56,23 +57,20 @@ if (!in_array($pr_vat_mode, ['exclusive', 'inclusive'], true)) {
     $pr_vat_mode = 'exclusive';
 }
 
-$pr_prefill_items = Db::filter('purchase_request_items', static function (array $r) use ($pr_id): bool {
-    return isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
-});
-Db::sortRows($pr_prefill_items, 'id', false);
 $pr_prefill_items_display = [];
-foreach ($pr_prefill_items as $prItemRow) {
+foreach (tnc_pr_remaining_items_for_po($pr_id) as $prItemRow) {
     if (trim((string) ($prItemRow['description'] ?? '')) !== '') {
         $pr_prefill_items_display[] = $prItemRow;
     }
 }
 
 try {
-    $po_number = Purchase::poNumberFromPr($pr);
+    $po_number = Purchase::poNumberFromPrSplit($pr, $pr_id);
 } catch (InvalidArgumentException) {
     header('Location: ' . app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=invalid_pr_number');
     exit();
 }
+$po_split_label = tnc_pr_po_split_sequence_label($linked_po_count);
 $supplier_rows = Db::tableRows('suppliers');
 Db::sortRows($supplier_rows, 'name', false);
 
@@ -514,6 +512,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                 'site_budget_cat_exceeded' => 'งบหมวดไม่พอ — ไม่สามารถออก PO ได้ (เกินวงเงินหมวดที่กำหนด)',
                 'invalid_pr_number' => 'เลข PR ไม่ถูกต้อง — ไม่สามารถออก PO ที่เลขท้ายตรงกันได้',
                 'po_number_conflict' => 'เลข PO ที่ตรงกับ PR ถูกใช้ไปแล้ว — ติดต่อผู้ดูแลระบบ',
+                'qty_exceeds_pr' => 'จำนวนรายการเกินยอดที่เหลือในใบขอซื้อ — ลดจำนวนหรือลบแถวที่เกิน',
                 default => 'บันทึกใบสั่งซื้อไม่สำเร็จ กรุณาตรวจสอบข้อมูลและลองใหม่',
             };
             ?>
@@ -534,7 +533,20 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                         <span class="po-doc-num"><?= htmlspecialchars($pr_number_display, ENT_QUOTES, 'UTF-8') ?></span>
                         <i class="bi bi-arrow-right po-doc-arrow" aria-hidden="true"></i>
                         <span class="po-doc-num"><?= htmlspecialchars($po_number, ENT_QUOTES, 'UTF-8') ?></span>
+                        <?php if ($linked_po_count > 0): ?>
+                        <span class="po-doc-badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><?= htmlspecialchars($po_split_label, ENT_QUOTES, 'UTF-8') ?></span>
+                        <?php endif; ?>
                     </div>
+                    <?php if ($linked_po_count > 0): ?>
+                    <p class="small text-muted mb-0 mt-2">
+                        มี PO จาก PR นี้แล้ว <?= number_format($linked_po_count) ?> ใบ —
+                        <?php foreach ($linked_pos as $i => $lpo): ?>
+                            <?php if ($i > 0): ?><span class="text-muted">·</span><?php endif; ?>
+                            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) ($lpo['id'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" class="link-secondary fw-semibold"><?= htmlspecialchars(trim((string) ($lpo['po_number'] ?? ('PO-' . (int) ($lpo['id'] ?? 0)))), ENT_QUOTES, 'UTF-8') ?></a>
+                        <?php endforeach; ?>
+                        — กรอกเฉพาะรายการ/จำนวนที่เหลือ
+                    </p>
+                    <?php endif; ?>
                 </div>
                 <div class="col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
                     <a href="<?= htmlspecialchars($pr_view_url, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับใบขอซื้อ</a>
@@ -692,6 +704,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                             <?php
                             $prefillQty = (float) ($prItem['quantity'] ?? 0);
                             $prefillPrice = (float) ($prItem['unit_price'] ?? 0);
+                            $maxQtyRemaining = (float) ($prItem['_pr_qty_remaining'] ?? $prefillQty);
                             $discDisplay = tnc_po_create_pr_discount_label($prItem);
                             $prefillLineTotal = tnc_po_create_pr_line_total($prItem);
                             $unitCell = trim((string) ($prItem['unit'] ?? ''));
@@ -708,7 +721,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                                     <span class="d-none d-lg-inline po-mobile-item-no"><?= $idx + 1 ?></span>
                                 </td>
                                 <td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($prItem['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" required value="<?= htmlspecialchars((string) $prefillQty, ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" max="<?= htmlspecialchars((string) $maxQtyRemaining, ENT_QUOTES, 'UTF-8') ?>" data-max-qty="<?= htmlspecialchars((string) $maxQtyRemaining, ENT_QUOTES, 'UTF-8') ?>" required value="<?= htmlspecialchars((string) $prefillQty, ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()" title="คงเหลือใน PR: <?= htmlspecialchars((string) $maxQtyRemaining, ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td class="po-cell-unit text-center" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" min="0" required value="<?= $prefillPrice > 0 ? htmlspecialchars((string) $prefillPrice, ENT_QUOTES, 'UTF-8') : '' ?>" placeholder="0" oninput="calculateTotal()"></td>
                                 <td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount text-end" maxlength="20" value="<?= htmlspecialchars($discDisplay, ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>

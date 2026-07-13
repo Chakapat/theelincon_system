@@ -54,7 +54,7 @@ $supplier_rows = Db::tableRows('suppliers');
 Db::sortRows($supplier_rows, 'name', false);
 
 try {
-    $po_number = Purchase::poNumberFromPr($pr);
+    $po_number = Purchase::poNumberFromPrSplit($pr, $pr_id);
 } catch (InvalidArgumentException) {
     header('Location: ' . app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=invalid_pr_number');
     exit();

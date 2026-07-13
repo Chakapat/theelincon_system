@@ -58,6 +58,21 @@ final class Purchase
         return tnc_purchase_po_number_from_pr($prRow);
     }
 
+    /**
+     * PO จาก PR — ใบแรกใช้เลขคู่ PR, ใบถัดไปใช้ suffix -2, -3, …
+     *
+     * @param array<string, mixed> $prRow
+     */
+    public static function poNumberFromPrSplit(array $prRow, int $prId): string
+    {
+        self::docSlotRegistryEnsure();
+        if (!function_exists('tnc_purchase_po_split_next_number')) {
+            require_once dirname(__DIR__) . '/pr_po_split.php';
+        }
+
+        return tnc_purchase_po_split_next_number($prRow, $prId);
+    }
+
     public static function poNumberTaken(string $poNumber, int $ignorePoId = 0): bool
     {
         self::docSlotRegistryEnsure();

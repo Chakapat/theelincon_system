@@ -221,6 +221,13 @@ if (!function_exists('tnc_purchase_pr_view_flash')) {
             ];
         }
 
+        if (!empty($get['error']) && (string) $get['error'] === 'pr_fully_ordered') {
+            return [
+                'type' => 'warning',
+                'message' => 'รายการในใบขอซื้อถูกออก PO ครบแล้ว — ไม่สามารถสร้าง PO เพิ่มได้',
+            ];
+        }
+
         if (!empty($get['error']) && (string) $get['error'] === 'pr_not_approved') {
             return [
                 'type' => 'warning',

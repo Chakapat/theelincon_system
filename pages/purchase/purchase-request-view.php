@@ -29,12 +29,26 @@ $prCanEdit = line_pr_user_can_edit($pr);
 $prHandlerUrl = app_path('actions/action-handler.php');
 
 $prToolbarPoNumber = '';
-if (!empty($existing_po) && is_array($existing_po)) {
+$linked_pos = is_array($linked_pos ?? null) ? $linked_pos : [];
+if ($linked_pos !== []) {
+    $poLabels = [];
+    foreach ($linked_pos as $lpo) {
+        $lbl = trim((string) ($lpo['po_number'] ?? ''));
+        if ($lbl === '' && (int) ($lpo['id'] ?? 0) > 0) {
+            $lbl = 'PO-' . (int) $lpo['id'];
+        }
+        if ($lbl !== '') {
+            $poLabels[] = $lbl;
+        }
+    }
+    $prToolbarPoNumber = implode(', ', $poLabels);
+} elseif (!empty($existing_po) && is_array($existing_po)) {
     $prToolbarPoNumber = trim((string) ($existing_po['po_number'] ?? ''));
     if ($prToolbarPoNumber === '' && (int) ($existing_po['id'] ?? 0) > 0) {
         $prToolbarPoNumber = 'PO-' . (int) $existing_po['id'];
     }
 }
+$prCanCreateMorePo = !empty($pr_has_remaining_for_po) && !empty($prIsApprovedForPo) && user_can('po.create');
 $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTitle;
 ?>
 
@@ -453,10 +467,17 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                         </button>
                     <?php endif; ?>
                 <?php endif; ?>
-                <?php if ($existing_po): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $existing_po['id'] ?>" class="btn js-tnc-doc-action btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
-                        <i class="bi bi-eye me-1"></i>ดูใบสั่งซื้อ
+                <?php if ($linked_pos !== []): ?>
+                    <?php foreach ($linked_pos as $lpo): ?>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) ($lpo['id'] ?? 0) ?>" class="btn js-tnc-doc-action btn-orange btn-sm rounded-pill px-3" title="ดู <?= htmlspecialchars(trim((string) ($lpo['po_number'] ?? 'PO')), ENT_QUOTES, 'UTF-8') ?>">
+                        <i class="bi bi-eye me-1"></i><?= htmlspecialchars(trim((string) ($lpo['po_number'] ?? ('PO-' . (int) ($lpo['id'] ?? 0)))), ENT_QUOTES, 'UTF-8') ?>
                     </a>
+                    <?php endforeach; ?>
+                    <?php if ($prCanCreateMorePo): ?>
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn js-tnc-doc-action btn-outline-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
+                        <i class="bi bi-file-earmark-plus me-1"></i>สร้าง PO เพิ่ม
+                    </a>
+                    <?php endif; ?>
                 <?php elseif (!empty($prIsApprovedForPo) && user_can('po.create')): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn js-tnc-doc-action btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-file-earmark-plus me-1"></i>สร้างใบสั่งซื้อ

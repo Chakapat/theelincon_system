@@ -177,6 +177,35 @@ if (!function_exists('tnc_pr_sync_purchase_po_from_pr')) {
     }
 }
 
+if (!function_exists('tnc_pr_sync_po_meta_only')) {
+    /**
+     * @param array<string, mixed> $po
+     * @param array<string, mixed> $prRow
+     */
+    function tnc_pr_sync_po_meta_only(int $poId, array $po, array $prRow): bool
+    {
+        $pk = Db::pkForLogicalId('purchase_orders', $poId);
+        if ($pk === null || $pk === '') {
+            return false;
+        }
+        $before = Db::row('purchase_orders', $pk) ?? $po;
+        Db::setRow('purchase_orders', $pk, array_merge($before, tnc_pr_po_sync_meta_from_pr($prRow)));
+        $after = Db::row('purchase_orders', $pk);
+        if (function_exists('tnc_audit_log')) {
+            $poNo = trim((string) ($after['po_number'] ?? ''));
+            tnc_audit_log('update', 'purchase_order', (string) $poId, $poNo !== '' ? $poNo : ('#' . $poId), [
+                'source' => 'pr_po_sync.php',
+                'action' => 'sync_purchase_po_meta_from_pr',
+                'before' => $before,
+                'after' => $after,
+                'meta' => ['pr_id' => (int) ($prRow['id'] ?? 0)],
+            ]);
+        }
+
+        return true;
+    }
+}
+
 if (!function_exists('tnc_pr_sync_linked_purchase_orders')) {
     /**
      * @return array{synced:int,skipped:list<array{po_id:int,po_number:string,reason:string}>,errors:list<string>}
@@ -188,7 +217,14 @@ if (!function_exists('tnc_pr_sync_linked_purchase_orders')) {
             return $result;
         }
 
+        if (!function_exists('tnc_pr_collect_active_purchase_orders')) {
+            require_once __DIR__ . '/pr_po_split.php';
+        }
+
         $purchaseItems = tnc_pr_load_purchase_line_items($prId);
+        $activePos = tnc_pr_collect_active_purchase_orders($prId);
+        $metaOnly = count($activePos) > 1
+            || (count($activePos) >= 1 && tnc_pr_has_remaining_for_po($prId));
 
         foreach (Purchase::collectPurchaseOrdersForPr($prId) as $po) {
             $poId = (int) ($po['id'] ?? 0);
@@ -219,6 +255,16 @@ if (!function_exists('tnc_pr_sync_linked_purchase_orders')) {
             }
 
             $beforeMeta = Db::row('purchase_orders', $pk) ?? $po;
+            if ($metaOnly) {
+                if (tnc_pr_sync_po_meta_only($poId, $beforeMeta, $prRow)) {
+                    ++$result['synced'];
+                } else {
+                    $result['skipped'][] = ['po_id' => $poId, 'po_number' => $poNo, 'reason' => 'meta_sync_failed'];
+                    $result['errors'][] = $poNo . ': meta_sync_failed';
+                }
+                continue;
+            }
+
             $sync = tnc_pr_sync_purchase_po_from_pr($poId, $beforeMeta, $prRow, $purchaseItems);
 
             if (!empty($sync['ok'])) {

@@ -6,6 +6,7 @@ use Theelincon\Rtdb\Db;
 use Theelincon\Rtdb\Purchase;
 
 require_once __DIR__ . '/doc_items_pagination.php';
+require_once dirname(__DIR__) . '/pr_po_split.php';
 
 if (!function_exists('tnc_pr_format_date_thai')) {
     function tnc_pr_format_date_thai(mixed $date): string
@@ -49,9 +50,18 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
     });
     Db::sortRows($item_rows, 'id', false);
 
-    $existing_po = Db::findFirst('purchase_orders', static function (array $r) use ($pr_id): bool {
-        return isset($r['pr_id']) && (int) $r['pr_id'] === $pr_id;
-    });
+    $linked_pos = tnc_pr_collect_active_purchase_orders($pr_id);
+    $existing_po = $linked_pos[0] ?? null;
+    $pr_has_remaining_for_po = tnc_pr_has_remaining_for_po($pr_id);
+    $has_cancelled_po_only = false;
+    if ($linked_pos === []) {
+        foreach (Purchase::collectPurchaseOrdersForPr($pr_id) as $po) {
+            if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+                $has_cancelled_po_only = true;
+                break;
+            }
+        }
+    }
     $requestType = trim((string) ($pr['request_type'] ?? ($pr['procurement_type'] ?? 'purchase')));
     $requestType = 'purchase';
 
@@ -110,7 +120,9 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
     $prApprovalBadgeClass = line_pr_status_badge_class($prApprovalStatus);
 
     $poShortcutUrl = '';
-    if (is_array($existing_po) && (int) ($existing_po['id'] ?? 0) > 0) {
+    if ($pr_has_remaining_for_po && $prIsApprovedForPo) {
+        $poShortcutUrl = app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . (int) $pr['id'];
+    } elseif (is_array($existing_po) && (int) ($existing_po['id'] ?? 0) > 0) {
         $poShortcutUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $existing_po['id'];
     } elseif ($prIsApprovedForPo) {
         $poShortcutUrl = app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . (int) $pr['id'];
@@ -122,13 +134,12 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
     }
 
     $poStatus = '';
-    $isPoCancelled = false;
+    $isPoCancelled = $has_cancelled_po_only && !$pr_has_remaining_for_po && $linked_pos === [];
     if (is_array($existing_po)) {
         $poStatus = strtolower(trim((string) ($existing_po['status'] ?? 'ordered')));
         if ($poStatus === '') {
             $poStatus = 'ordered';
         }
-        $isPoCancelled = ($poStatus === 'cancelled');
     }
 
     return [
@@ -151,6 +162,8 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         'quotationName' => $quotationName,
         'detailsText' => $detailsText,
         'existing_po' => $existing_po,
+        'linked_pos' => $linked_pos,
+        'pr_has_remaining_for_po' => $pr_has_remaining_for_po,
         'poStatus' => $poStatus,
         'isPoCancelled' => $isPoCancelled,
         'poShortcutUrl' => $poShortcutUrl,

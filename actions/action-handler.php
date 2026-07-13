@@ -993,7 +993,7 @@ if ($action === 'create_po_from_pr') {
         tnc_action_redirect( app_path('pages/purchase/purchase-request-list.php') . '?error=pr_not_found');
     }
     try {
-        $po_number = Purchase::poNumberFromPr($pr_row);
+        $po_number = Purchase::poNumberFromPrSplit($pr_row, $pr_id);
     } catch (InvalidArgumentException) {
         tnc_action_redirect(app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id . '&error=invalid_pr_number');
     }
@@ -1006,15 +1006,9 @@ if ($action === 'create_po_from_pr') {
         tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=' . $err);
     }
 
-    $dup = Db::findFirst('purchase_orders', static function (array $r) use ($pr_id): bool {
-        if ($pr_id <= 0 || !isset($r['pr_id']) || (int) $r['pr_id'] !== $pr_id) {
-            return false;
-        }
-        // ข้าม PO ที่ถูกยกเลิกแล้ว เพื่อให้ออก PO ใหม่จาก PR เดิมได้
-        return strtolower(trim((string) ($r['status'] ?? ''))) !== 'cancelled';
-    });
-    if ($dup !== null) {
-        tnc_action_redirect( app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) ($dup['id'] ?? 0));
+    require_once dirname(__DIR__) . '/includes/pr_po_split.php';
+    if (!tnc_pr_has_remaining_for_po($pr_id)) {
+        tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=pr_fully_ordered');
     }
 
     $poCreateFromPrUrl = app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id;
@@ -1062,6 +1056,10 @@ if ($action === 'create_po_from_pr') {
     $subtotal = round($lineSums['taxable'] + $lineSums['exempt'], 2);
     if ($purchaseLineCount <= 0 || $subtotal <= 0) {
         tnc_action_redirect($poCreateFromPrUrl . '&error=no_items');
+    }
+    $qtyValidateErr = tnc_pr_validate_new_po_items($pr_id, $poItemsToSave);
+    if ($qtyValidateErr !== null) {
+        tnc_action_redirect($poCreateFromPrUrl . '&error=' . $qtyValidateErr);
     }
     $totalsPr = tnc_po_compute_totals($lineSums['taxable'], $vat_en, $vat_mode_post, 'none', $lineSums['exempt']);
     $sub_amt = $totalsPr['subtotal'];
