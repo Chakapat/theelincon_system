@@ -164,7 +164,7 @@ usort($po_rows, static function (array $a, array $b): int {
     return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
 });
 
-$poMirrorChecksum = hash('sha256', json_encode(Db::tableRows('purchase_orders'), JSON_UNESCAPED_UNICODE));
+$poMirrorChecksum = hash('sha256', json_encode(tnc_site_budget_purchase_orders_cached(), JSON_UNESCAPED_UNICODE));
 
 // ---- PO ไม่สมบูรณ์: ยังไม่มีหลักฐานชำระ หรือ ยังไม่มีเลขที่ใบกำกับ (ไม่นับใบที่ยกเลิก) ----
 $poMissingReasons = static function (array $r): array {
@@ -332,7 +332,7 @@ $ignoredCountAll = count($ignoredPoList);
         }
     </style>
 </head>
-<body class="purchase-module tnc-app-body tnc-layout-list tnc-po-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ PO…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้แนบสลิปและบันทึกเลขบิลเมื่อโหลดเสร็จ" data-tnc-boot-checksum="<?= htmlspecialchars($poMirrorChecksum, ENT_QUOTES, 'UTF-8') ?>">
+<body class="purchase-module tnc-app-body tnc-layout-list" data-tnc-boot-checksum="<?= htmlspecialchars($poMirrorChecksum, ENT_QUOTES, 'UTF-8') ?>">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -414,7 +414,7 @@ $ignoredCountAll = count($ignoredPoList);
         </div>
 
         <div id="poListTableWrap" class="table-responsive tnc-mobile-table-wrap">
-            <table class="table table-sm table-hover align-middle tnc-mobile-table" id="poTable"<?= count($po_rows) > 0 ? ' aria-busy="true"' : '' ?>>
+            <table class="table table-sm table-hover align-middle tnc-mobile-table" id="poTable">
                 <thead class="table-light">
                     <tr>
                         <th class="text-center no-print" style="width:2.5rem;" title="เลือกเพื่อพิมพ์หลายใบ">
@@ -427,7 +427,7 @@ $ignoredCountAll = count($ignoredPoList);
                         <th class="text-center po-actions-col"><span class="visually-hidden">จัดการ</span></th>
                     </tr>
                 </thead>
-                <tbody id="poTableBody"<?= count($po_rows) > 0 ? ' class="tnc-table-is-loading"' : '' ?>>
+                <tbody id="poTableBody">
                     <?php if (count($po_rows) === 0): ?>
                         <tr><td colspan="6" class="po-empty-state text-center text-muted">
                             <i class="bi bi-inbox d-block mb-2" aria-hidden="true"></i>
@@ -435,7 +435,6 @@ $ignoredCountAll = count($ignoredPoList);
                             <div class="small mt-1"><?php if (user_can('po.create')): ?><a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create-direct.php') . ($filterSiteId > 0 ? ('?site_id=' . $filterSiteId) : ''), ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange" data-tnc-nav-loading data-tnc-nav-loading-title="กำลังเปิดฟอร์มสร้าง PO…" data-tnc-nav-loading-sub="กรุณารอสักครู่ ระบบกำลังเตรียมฟอร์มใบสั่งซื้อ">ออก PO โดยตรง</a> · <?php endif; ?>จาก<a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php') . $siteFilterQuery, ENT_QUOTES, 'UTF-8') ?>" class="text-tnc-orange">ใบขอซื้อ (PR)</a></div>
                         </td></tr>
                     <?php else: ?>
-                        <?= tnc_purchase_table_skeleton_tr(6, 'po') ?>
                         <?php foreach ($po_rows as $row): ?>
                     <?php
                     $poCancelled = ($row['status'] ?? '') === 'cancelled';
@@ -459,6 +458,9 @@ $ignoredCountAll = count($ignoredPoList);
                                 $poViewHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . (int) ($row['id'] ?? 0);
                                 $poLinkClass = $poCancelled ? 'text-danger' : ($isDocComplete ? 'text-info' : 'text-warning');
                                 echo '<a href="' . $poViewHref . '" class="' . $poLinkClass . ' text-decoration-none" title="ดูรายละเอียด">' . $poNoDisp . '</a>';
+                                if (!$poCancelled && (int) ($row['exceeds_pr'] ?? 0) === 1) {
+                                    echo ' <span class="badge rounded-pill po-exceeds-pr-badge" title="ออก PO เกินยอด PR">เกินยอด</span>';
+                                }
                                 ?>
                             </div>
                             <div class="small text-muted"><?= $ymd !== '' ? htmlspecialchars(date('d/m/Y', strtotime($ymd)), ENT_QUOTES, 'UTF-8') : '—' ?></div>
@@ -863,13 +865,12 @@ include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
     function initPoDataTable() {
         var hasDataRows = $('#poTable tbody tr').length && $('#poTable tbody tr td[colspan]').length === 0;
         if (hasDataRows) {
-            $('#poTable').DataTable({
+            $('#poTable').DataTable($.extend(true, {}, window.TncDataTablesDefaults || {}, {
                 order: [[1, 'desc']],
                 pageLength: 10,
                 lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
-                language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
                 columnDefs: [{ targets: [0, 5], orderable: false, searchable: false }]
-            });
+            }));
         }
     }
 
@@ -900,7 +901,7 @@ include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
                 window.tncPoReloadWithWait();
             }
         }).catch(function () {});
-    }, 6000);
+    }, 30000);
 })(jQuery);
 
 (function ($) {
@@ -967,16 +968,15 @@ include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
             itemSearchTable = $('#poItemSearchTable').DataTable();
             return;
         }
-        itemSearchTable = $('#poItemSearchTable').DataTable({
+        itemSearchTable = $('#poItemSearchTable').DataTable($.extend(true, {}, window.TncDataTablesDefaults || {}, {
             order: [[0, 'desc']],
             pageLength: 25,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
             columnDefs: [
                 { targets: [2, 4, 5, 6], className: 'text-end po-item-num' },
                 { targets: [3], className: 'text-center' }
             ]
-        });
+        }));
     }
 
     function renderEmptySearchRow(message) {

@@ -221,6 +221,14 @@
         overflow: auto;
     }
 
+    /* มือถือ: ไม่ใช้กล่องเลื่อนซ้อนในรายการ — อ่านข้อความเต็มแถว */
+    @media (max-width: 767.98px) {
+        .table-wrap-screen {
+            max-height: none;
+            overflow: visible;
+        }
+    }
+
     .ledger-print-sign__line {
         border-bottom: 1px dashed #cbd5e1;
         margin: 1.5rem 0.5rem 0.35rem;

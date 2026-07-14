@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.php';
+require_once dirname(__DIR__, 2) . '/includes/site_category_document_name.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -191,64 +192,105 @@ function tnc_vat_render_table_html(
     bool $withDocLinks = false,
     bool $forPrint = false
 ): string {
-    $baseLabel = ($forPrint && !$isSales) ? 'ก่อน VAT' : 'มูลค่าสินค้า/บริการ';
-    $vatLabel = ($forPrint && !$isSales) ? 'VAT 7%' : 'จำนวน VAT (7%)';
-    $purchaseDocLabel = ($forPrint && !$isSales) ? 'เลขใบกำกับภาษี' : 'เลขที่บิล/ใบกำกับภาษี';
+    $baseLabel = $forPrint ? 'ก่อน VAT' : 'มูลค่าสินค้า/บริการ';
+    $vatLabel = $forPrint ? 'VAT 7%' : 'จำนวน VAT (7%)';
+    $purchaseDocLabel = ($forPrint && !$isSales) ? 'เลขใบกำกับ' : 'เลขที่บิล/ใบกำกับภาษี';
     $purchaseNameLabel = ($forPrint && !$isSales) ? 'แหล่งซื้อ' : 'ชื่อซัพพลายเออร์';
+    $salesDocLabel = $forPrint ? 'เลขใบกำกับ' : 'เลขที่ใบกำกับภาษี';
+    $salesNameLabel = $forPrint ? 'ลูกค้า' : 'ชื่อลูกค้า';
+    $salesDateLabel = $forPrint ? 'วันที่' : 'วันที่เอกสาร';
+    $metaColspan = $isSales ? 3 : 5;
+    $emptyColspan = $isSales ? 6 : 8;
+    $formatDocDate = static function (string $raw) use ($forPrint): string {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return '—';
+        }
+        if ($forPrint && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $raw, $m) === 1) {
+            return $m[3] . '/' . $m[2] . '/' . $m[1];
+        }
+
+        return $raw;
+    };
     ob_start();
     ?>
-    <div class="vat-print-table-wrap tnc-mobile-table-wrap">
-        <table class="table table-bordered table-sm vat-print-table tnc-mobile-table mb-0">
+    <div class="vat-print-table-wrap<?= $forPrint ? '' : ' tnc-mobile-table-wrap' ?>">
+        <table class="table table-bordered table-sm vat-print-table mb-0<?= $isSales ? ' vat-print-table--sales' : ' vat-print-table--purchase' ?><?= $forPrint ? ' vat-print-table--media' : ' tnc-mobile-table' ?>">
             <colgroup>
                 <col class="col-date">
                 <col class="col-doc">
                 <col class="col-name">
-                <col class="col-amt">
-                <col class="col-amt">
-                <col class="col-amt">
+                <?php if (!$isSales): ?>
+                    <col class="col-site">
+                    <col class="col-cat">
+                <?php endif; ?>
+                <col class="col-amt col-amt-base">
+                <col class="col-amt col-amt-vat">
+                <col class="col-amt col-amt-net">
             </colgroup>
             <thead>
             <tr>
                 <?php if ($isSales): ?>
-                    <th>วันที่เอกสาร</th>
-                    <th>เลขที่ใบกำกับภาษี</th>
-                    <th>ชื่อลูกค้า</th>
+                    <th scope="col" class="col-date"><?= h($salesDateLabel) ?></th>
+                    <th scope="col" class="col-doc"><?= h($salesDocLabel) ?></th>
+                    <th scope="col" class="col-name"><?= h($salesNameLabel) ?></th>
                 <?php else: ?>
-                    <th>วันที่บิล</th>
-                    <th><?= h($purchaseDocLabel) ?></th>
-                    <th><?= h($purchaseNameLabel) ?></th>
+                    <th scope="col" class="col-date">วันที่บิล</th>
+                    <th scope="col" class="col-doc"><?= h($purchaseDocLabel) ?></th>
+                    <th scope="col" class="col-name"><?= h($purchaseNameLabel) ?></th>
+                    <th scope="col" class="col-site">ไซต์</th>
+                    <th scope="col" class="col-cat">หมวด</th>
                 <?php endif; ?>
-                <th class="text-end"><?= h($baseLabel) ?></th>
-                <th class="text-end"><?= h($vatLabel) ?></th>
-                <th class="text-end">ยอดรวมสุทธิ</th>
+                <th scope="col" class="text-end col-amt"><?= h($baseLabel) ?></th>
+                <th scope="col" class="text-end col-amt"><?= h($vatLabel) ?></th>
+                <th scope="col" class="text-end col-amt">ยอดสุทธิ</th>
             </tr>
             </thead>
             <tbody>
             <?php if ($rows === []): ?>
-                <tr><td colspan="6" class="text-center text-muted py-4">ไม่พบข้อมูลตามเงื่อนไข</td></tr>
+                <tr><td colspan="<?= $emptyColspan ?>" class="text-center text-muted py-4">ไม่พบข้อมูลตามเงื่อนไข</td></tr>
             <?php else: ?>
-                <?php foreach ($rows as $row): ?>
+                <?php foreach ($rows as $rowIndex => $row): ?>
                     <?php
                     $docNo = (string) ($isSales ? ($row['invoice_no'] ?? '') : ($row['bill_no'] ?? ''));
                     $nameCol = (string) ($isSales ? ($row['customer_name'] ?? '') : ($row['supplier_name'] ?? ''));
+                    $siteCol = trim((string) ($row['site_name'] ?? ''));
+                    $catCol = trim((string) ($row['category_name'] ?? ''));
+                    $docLabel = $isSales ? $salesDocLabel : $purchaseDocLabel;
+                    $nameLabel = $isSales ? $salesNameLabel : $purchaseNameLabel;
+                    $dateLabel = $isSales ? $salesDateLabel : 'วันที่บิล';
+                    $rowClasses = [];
+                    if (!$isSales && !empty($row['is_duplicate_bill'])) {
+                        $rowClasses[] = 'vat-row-duplicate';
+                    }
+                    if ($forPrint && ($rowIndex % 2) === 1) {
+                        $rowClasses[] = 'vat-row-alt';
+                    }
+                    $rowClassAttr = $rowClasses !== [] ? ' class="' . h(implode(' ', $rowClasses)) . '"' : '';
                     ?>
-                    <tr<?= !$isSales && !empty($row['is_duplicate_bill']) ? ' class="vat-row-duplicate"' : '' ?>>
-                        <td data-label="<?= $isSales ? 'วันที่เอกสาร' : 'วันที่บิล' ?>"><?= h((string) ($row['doc_date'] ?? '')) ?></td>
-                        <td data-label="<?= $isSales ? 'เลขที่ใบกำกับภาษี' : h($purchaseDocLabel) ?>" class="tnc-mobile-primary<?= !$isSales && !empty($row['is_duplicate_bill']) ? ' vat-duplicate-doc' : '' ?>"><?= $withDocLinks ? tnc_vat_render_doc_no($docNo, (string) ($row['link_url'] ?? '')) : h($docNo) ?></td>
-                        <td data-label="<?= $isSales ? 'ชื่อลูกค้า' : h($purchaseNameLabel) ?>"><?= h($nameCol) ?></td>
-                        <td class="text-end tnc-mobile-amount" data-label="<?= h($baseLabel) ?>"><?= number_format((float) ($row['base'] ?? 0), 2) ?></td>
-                        <td class="text-end" data-label="<?= h($vatLabel) ?>"><?= number_format((float) ($row['vat'] ?? 0), 2) ?></td>
-                        <td class="text-end tnc-mobile-amount" data-label="ยอดรวมสุทธิ"><?= number_format((float) ($row['net'] ?? 0), 2) ?></td>
+                    <tr<?= $rowClassAttr ?>>
+                        <td class="col-date" data-label="<?= h($dateLabel) ?>"><?= h($formatDocDate((string) ($row['doc_date'] ?? ''))) ?></td>
+                        <td class="col-doc<?= !$forPrint ? ' tnc-mobile-primary' : '' ?><?= !$isSales && !empty($row['is_duplicate_bill']) ? ' vat-duplicate-doc' : '' ?>" data-label="<?= h($docLabel) ?>"><?= $withDocLinks ? tnc_vat_render_doc_no($docNo, (string) ($row['link_url'] ?? '')) : h($docNo !== '' ? $docNo : '—') ?></td>
+                        <td class="col-name" data-label="<?= h($nameLabel) ?>"><?= h($nameCol !== '' ? $nameCol : '—') ?></td>
+                        <?php if (!$isSales): ?>
+                            <td class="col-site" data-label="ไซต์"><?= h($siteCol !== '' ? $siteCol : '—') ?></td>
+                            <td class="col-cat" data-label="หมวด"><?= h($catCol !== '' ? $catCol : '—') ?></td>
+                        <?php endif; ?>
+                        <td class="text-end col-amt num" data-label="<?= h($baseLabel) ?>"><?= number_format((float) ($row['base'] ?? 0), 2) ?></td>
+                        <td class="text-end col-amt num" data-label="<?= h($vatLabel) ?>"><?= number_format((float) ($row['vat'] ?? 0), 2) ?></td>
+                        <td class="text-end col-amt num col-amt-net" data-label="ยอดสุทธิ"><?= number_format((float) ($row['net'] ?? 0), 2) ?></td>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
-            <tr class="vat-print-total-row">
-                <td colspan="3" class="vat-total-heading text-end">รวมเงินสุทธิ</td>
-                <td class="text-end" data-label="<?= h($baseLabel) ?>"><?= number_format($sumBase, 2) ?></td>
-                <td class="text-end" data-label="<?= h($vatLabel) ?>"><?= number_format($sumVat, 2) ?></td>
-                <td class="text-end tnc-mobile-amount" data-label="ยอดรวมสุทธิ"><?= number_format($sumNet, 2) ?></td>
-            </tr>
             </tbody>
+            <tfoot>
+            <tr class="vat-print-total-row">
+                <th colspan="<?= $metaColspan ?>" scope="row" class="vat-total-heading text-end">รวม</th>
+                <td class="text-end col-amt num" data-label="<?= h($baseLabel) ?>"><?= number_format($sumBase, 2) ?></td>
+                <td class="text-end col-amt num" data-label="<?= h($vatLabel) ?>"><?= number_format($sumVat, 2) ?></td>
+                <td class="text-end col-amt num col-amt-net" data-label="ยอดสุทธิ"><?= number_format($sumNet, 2) ?></td>
+            </tr>
+            </tfoot>
         </table>
     </div>
     <?php
@@ -288,6 +330,58 @@ foreach (Db::tableRows('invoices') as $invoice) {
     }
     $invoiceById[$iid] = $invoice;
 }
+
+$siteNameById = [];
+foreach (Db::tableRows('sites') as $site) {
+    $sid = (int) ($site['id'] ?? 0);
+    if ($sid > 0) {
+        $siteNameById[$sid] = trim((string) ($site['name'] ?? ''));
+    }
+}
+
+$prById = [];
+foreach (Db::tableRows('purchase_requests') as $pr) {
+    $pid = (int) ($pr['id'] ?? 0);
+    if ($pid > 0) {
+        $prById[$pid] = $pr;
+    }
+}
+
+$poById = [];
+foreach (Db::tableRows('purchase_orders') as $poRow) {
+    $pid = (int) ($poRow['id'] ?? 0);
+    if ($pid > 0) {
+        $poById[$pid] = $poRow;
+    }
+}
+
+/**
+ * คืนค่า [site_name, category_name] จาก PO/บิล + PR ที่เชื่อม
+ *
+ * @param array<string, mixed> $row
+ * @param array<string, mixed>|null $pr
+ * @return array{0: string, 1: string}
+ */
+$resolvePurchaseSiteCategory = static function (array $row, ?array $pr = null) use ($siteNameById, $prById): array {
+    if ($pr === null) {
+        $prId = (int) ($row['pr_id'] ?? 0);
+        $pr = ($prId > 0 && isset($prById[$prId])) ? $prById[$prId] : null;
+    }
+
+    $siteName = tnc_purchase_po_resolve_site_name($row, is_array($pr) ? $pr : null, $siteNameById);
+
+    $catId = (int) ($row['cost_category_id'] ?? 0);
+    $catName = trim((string) ($row['cost_category_name'] ?? ''));
+    if ($catId <= 0 && is_array($pr)) {
+        $catId = (int) ($pr['cost_category_id'] ?? 0);
+        if ($catName === '') {
+            $catName = trim((string) ($pr['cost_category_name'] ?? ''));
+        }
+    }
+    $catName = tnc_site_category_document_parent_name($catId, $catName);
+
+    return [$siteName, $catName];
+};
 
 $salesRows = [];
 $purchaseRows = [];
@@ -344,7 +438,7 @@ foreach (Db::tableRows('tax_invoices') as $taxInvoice) {
 
 // ภาษีซื้อจาก PO สมบูรณ์ — ดึงยอดจากรายการ PO ปัจจุบัน (ไม่ใช้ snapshot ใน bills)
 $poItemsByPoId = tnc_purchase_po_items_group_by_po_id();
-foreach (Db::tableRows('purchase_orders') as $po) {
+foreach ($poById as $po) {
     if (!tnc_purchase_po_is_complete_for_report($po)) {
         continue;
     }
@@ -380,11 +474,16 @@ foreach (Db::tableRows('purchase_orders') as $po) {
     $linkUrl = $poId > 0
         ? app_path('pages/purchase/purchase-order-view.php') . '?id=' . $poId
         : '';
+    $prId = (int) ($po['pr_id'] ?? 0);
+    $pr = ($prId > 0 && isset($prById[$prId])) ? $prById[$prId] : null;
+    [$siteName, $categoryName] = $resolvePurchaseSiteCategory($po, is_array($pr) ? $pr : null);
     $purchaseRows[] = [
         'doc_date' => $docDate,
         'bill_no' => $billNo,
         'link_url' => $linkUrl,
         'supplier_name' => $supplierName,
+        'site_name' => $siteName,
+        'category_name' => $categoryName,
         'base' => $subtotal,
         'vat' => $vatAmount,
         'net' => $netAmount,
@@ -432,11 +531,24 @@ foreach (Db::tableRows('bills') as $bill) {
     $linkUrl = $poId > 0
         ? app_path('pages/purchase/purchase-order-view.php') . '?id=' . $poId
         : '';
+    $siteSource = $bill;
+    $pr = null;
+    if ($poId > 0 && isset($poById[$poId])) {
+        $siteSource = $poById[$poId];
+        $prId = (int) ($siteSource['pr_id'] ?? 0);
+        $pr = ($prId > 0 && isset($prById[$prId])) ? $prById[$prId] : null;
+    } else {
+        $prId = (int) ($bill['pr_id'] ?? 0);
+        $pr = ($prId > 0 && isset($prById[$prId])) ? $prById[$prId] : null;
+    }
+    [$siteName, $categoryName] = $resolvePurchaseSiteCategory($siteSource, is_array($pr) ? $pr : null);
     $purchaseRows[] = [
         'doc_date' => $docDate,
         'bill_no' => $billNo,
         'link_url' => $linkUrl,
         'supplier_name' => $supplierName,
+        'site_name' => $siteName,
+        'category_name' => $categoryName,
         'base' => $subtotal,
         'vat' => $vatAmount,
         'net' => $netAmount,
@@ -468,16 +580,6 @@ $vatDiff = round($sumSalesVat - $sumPurchaseVat, 2);
 $vatSummaryLabel = $vatDiff >= 0 ? 'ต้องชำระภาษีเพิ่ม' : 'ขอคืนภาษี';
 $periodText = $fromDate . ' ถึง ' . $toDate;
 
-$reportBaseQuery = array_filter([
-    'month' => $month,
-    'year' => $year,
-    'start_date' => $startDate,
-    'end_date' => $endDate,
-], static fn ($v): bool => $v !== null && $v !== '');
-$reportBackUrl = app_path('pages/reports/vat-report.php') . '?' . http_build_query($reportBaseQuery);
-$printSalesUrl = app_path('pages/reports/vat-report.php') . '?' . http_build_query(array_merge($reportBaseQuery, ['print' => 'sales']));
-$printPurchaseUrl = app_path('pages/reports/vat-report.php') . '?' . http_build_query(array_merge($reportBaseQuery, ['print' => 'purchase']));
-
 $companyName = 'THEELIN CON';
 foreach (Db::tableRows('company') as $companyRow) {
     $name = trim((string) ($companyRow['name'] ?? ''));
@@ -485,6 +587,11 @@ foreach (Db::tableRows('company') as $companyRow) {
         $companyName = $name;
         break;
     }
+}
+
+$autoPrintType = strtolower(trim((string) ($_GET['print'] ?? '')));
+if ($autoPrintType !== 'sales' && $autoPrintType !== 'purchase') {
+    $autoPrintType = '';
 }
 
 $exportRequested = isset($_GET['export']) && in_array((string) $_GET['export'], ['excel', 'csv'], true);
@@ -516,75 +623,26 @@ if ($exportRequested) {
     echo tnc_vat_csv_row(['รายงานภาษีซื้อ (VAT Input Tax)']);
     echo tnc_vat_csv_row(['ช่วงวันที่', $periodText]);
     echo tnc_vat_csv_row([]);
-    echo tnc_vat_csv_row(['วันที่บิล', 'เลขที่บิล/ใบกำกับภาษี', 'ชื่อซัพพลายเออร์', 'มูลค่าสินค้า/บริการ', 'จำนวน VAT (7%)', 'ยอดรวมสุทธิ']);
+    echo tnc_vat_csv_row(['วันที่บิล', 'เลขที่บิล/ใบกำกับภาษี', 'ชื่อซัพพลายเออร์', 'ไซต์', 'หมวด', 'มูลค่าสินค้า/บริการ', 'จำนวน VAT (7%)', 'ยอดรวมสุทธิ']);
     foreach ($purchaseRows as $row) {
         echo tnc_vat_csv_row([
             (string) ($row['doc_date'] ?? ''),
             (string) ($row['bill_no'] ?? ''),
             (string) ($row['supplier_name'] ?? ''),
+            (string) ($row['site_name'] ?? ''),
+            (string) ($row['category_name'] ?? ''),
             number_format((float) ($row['base'] ?? 0), 2, '.', ''),
             number_format((float) ($row['vat'] ?? 0), 2, '.', ''),
             number_format((float) ($row['net'] ?? 0), 2, '.', ''),
         ]);
     }
-    echo tnc_vat_csv_row(['รวมเงินสุทธิ', '', '', number_format($sumPurchaseBase, 2, '.', ''), number_format($sumPurchaseVat, 2, '.', ''), number_format($sumPurchaseNet, 2, '.', '')]);
+    echo tnc_vat_csv_row(['รวมเงินสุทธิ', '', '', '', '', number_format($sumPurchaseBase, 2, '.', ''), number_format($sumPurchaseVat, 2, '.', ''), number_format($sumPurchaseNet, 2, '.', '')]);
 
     echo tnc_vat_csv_row([]);
     echo tnc_vat_csv_row(['สรุปภาพรวม', 'จำนวนเงิน']);
     echo tnc_vat_csv_row(['ภาษีขายรวม', number_format($sumSalesVat, 2, '.', '')]);
     echo tnc_vat_csv_row(['ภาษีซื้อรวม', number_format($sumPurchaseVat, 2, '.', '')]);
     echo tnc_vat_csv_row([$vatSummaryLabel . ' (ภาษีขาย - ภาษีซื้อ)', number_format(abs($vatDiff), 2, '.', '')]);
-    exit;
-}
-
-$printType = strtolower(trim((string) ($_GET['print'] ?? '')));
-if ($printType === 'sales' || $printType === 'purchase') {
-    $isSalesPrint = $printType === 'sales';
-    $printTitle = $isSalesPrint ? 'รายงานภาษีขาย (VAT Output Tax)' : 'รายงานภาษีซื้อ (VAT Input Tax)';
-    $printRows = $isSalesPrint ? $salesRows : $purchaseRows;
-    $sumBase = $isSalesPrint ? $sumSalesBase : $sumPurchaseBase;
-    $sumVat = $isSalesPrint ? $sumSalesVat : $sumPurchaseVat;
-    $sumNet = $isSalesPrint ? $sumSalesNet : $sumPurchaseNet;
-    $printHeading = $isSalesPrint
-        ? $companyName . ' - ภาษีขาย'
-        : $companyName . ' - ภาษีซื้อ';
-    ?>
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <?php
-    require_once dirname(__DIR__, 2) . '/includes/tnc_ops_head.php';
-    tnc_ops_head([
-        'title' => $printTitle . ' | ' . $periodText,
-        'minimal' => true,
-        'vat_print' => true,
-        'include_ops_ui' => false,
-        'sarabun_weights' => '400;500;600;700;800',
-    ]);
-    ?>
-</head>
-<body class="tnc-app-body tnc-layout-list">
-<div class="vat-print-toolbar py-2 px-3 mb-0 d-flex flex-wrap gap-2 align-items-center justify-content-between no-print">
-    <span class="small"><i class="bi bi-printer me-1"></i><?= h($printTitle) ?></span>
-    <div class="d-flex flex-wrap gap-2">
-        <button type="button" class="btn btn-light btn-sm" onclick="window.print()"><i class="bi bi-printer me-1"></i>พิมพ์</button>
-        <a href="<?= h($reportBackUrl) ?>" class="btn btn-outline-light btn-sm"><i class="bi bi-arrow-left me-1"></i>กลับรายงาน</a>
-    </div>
-</div>
-<div class="vat-print-sheet">
-    <div class="vat-print-header">
-        <div>
-            <h1 class="vat-print-title mb-0"><?= h($printHeading) ?></h1>
-        </div>
-        <div class="vat-print-meta">
-            <div>ช่วงข้อมูล: <strong><?= h($periodText) ?></strong></div>
-        </div>
-    </div>
-    <?= tnc_vat_render_table_html($isSalesPrint, $printRows, $sumBase, $sumVat, $sumNet, false, true) ?>
-</div>
-</body>
-</html>
-    <?php
     exit;
 }
 ?>
@@ -596,6 +654,7 @@ if ($printType === 'sales' || $printType === 'purchase') {
     tnc_ops_head([
         'title' => 'รายงานภาษีซื้อ-ภาษีขาย (VAT Report)',
         'vat_report' => true,
+        'vat_print' => true,
         'include_ops_ui' => false,
         'sarabun_weights' => '400;600;700;800',
     ]);
@@ -604,14 +663,42 @@ if ($printType === 'sales' || $printType === 'purchase') {
 <body class="tnc-app-body tnc-layout-list vat-report-page">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 <div class="container pb-5 pt-4">
-    <div class="tnc-page-head mb-3">
+    <div class="tnc-page-head mb-3 no-print">
         <div>
             <p class="tnc-page-kicker">Reports · Accounting</p>
             <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-receipt"></i></span>รายงานภาษีซื้อ / ภาษีขาย (VAT)</h1>
         </div>
     </div>
 
-    <div class="card card-soft mb-3 vat-filter-card">
+    <div class="vat-print-sheet" id="vatPrintSheetSales" aria-hidden="true">
+        <header class="vat-print-header">
+            <div>
+                <p class="vat-print-kicker">รายงานภาษีขาย</p>
+                <h1 class="vat-print-title"><?= h($companyName) ?> - ภาษีขาย</h1>
+            </div>
+            <div class="vat-print-meta">
+                <div>ช่วงข้อมูล: <strong><?= h($periodText) ?></strong></div>
+                <div>จำนวนรายการ: <strong><?= number_format(count($salesRows)) ?></strong></div>
+            </div>
+        </header>
+        <?= tnc_vat_render_table_html(true, $salesRows, $sumSalesBase, $sumSalesVat, $sumSalesNet, false, true) ?>
+    </div>
+
+    <div class="vat-print-sheet" id="vatPrintSheetPurchase" aria-hidden="true">
+        <header class="vat-print-header">
+            <div>
+                <p class="vat-print-kicker">รายงานภาษีซื้อ · บิลซื้อ</p>
+                <h1 class="vat-print-title"><?= h($companyName) ?> - ภาษีซื้อ</h1>
+            </div>
+            <div class="vat-print-meta">
+                <div>ช่วงข้อมูล: <strong><?= h($periodText) ?></strong></div>
+                <div>จำนวนรายการ: <strong><?= number_format(count($purchaseRows)) ?></strong></div>
+            </div>
+        </header>
+        <?= tnc_vat_render_table_html(false, $purchaseRows, $sumPurchaseBase, $sumPurchaseVat, $sumPurchaseNet, false, true) ?>
+    </div>
+
+    <div class="card card-soft mb-3 vat-filter-card no-print">
         <div class="card-body">
             <form method="get" class="row g-2 align-items-end">
                 <div class="col-6 col-md-2">
@@ -638,14 +725,15 @@ if ($printType === 'sales' || $printType === 'purchase') {
                     <button type="submit" class="btn btn-orange w-100"><i class="bi bi-search me-1"></i>ค้นหารายงาน</button>
                 </div>
                 <div class="col-12 vat-filter-actions">
-                    <a href="<?= h($printSalesUrl) ?>" class="btn btn-outline-orange rounded-pill px-3">
+                    <button type="button" class="btn btn-outline-orange rounded-pill px-3" onclick="tncVatReportPrint('sales', event)">
                         <i class="bi bi-printer me-1"></i>พิมพ์ภาษีขาย
-                    </a>
-                    <a href="<?= h($printPurchaseUrl) ?>" class="btn btn-outline-secondary rounded-pill px-3">
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-3" onclick="tncVatReportPrint('purchase', event)">
                         <i class="bi bi-printer me-1"></i>พิมพ์ภาษีซื้อ
-                    </a>
+                    </button>
                     <?php
                     $exportQuery = $_GET;
+                    unset($exportQuery['print']);
                     $exportQuery['export'] = 'csv';
                     ?>
                     <a href="<?= h(app_path('pages/reports/vat-report.php') . '?' . http_build_query($exportQuery)) ?>" class="btn btn-outline-success rounded-pill px-3 fw-semibold btn-export">
@@ -666,10 +754,12 @@ if ($printType === 'sales' || $printType === 'purchase') {
     </div>
 
     <?php if ($duplicatePurchaseBills !== []): ?>
-        <?= tnc_vat_render_duplicate_bill_alert($duplicatePurchaseBills) ?>
+        <div class="no-print">
+            <?= tnc_vat_render_duplicate_bill_alert($duplicatePurchaseBills) ?>
+        </div>
     <?php endif; ?>
 
-    <div class="card card-soft mb-3 vat-table-card">
+    <div class="card card-soft mb-3 vat-table-card no-print">
         <div class="card-body">
             <ul class="nav nav-tabs mb-3" id="vatTabs" role="tablist">
                 <li class="nav-item" role="presentation">
@@ -698,6 +788,32 @@ if ($printType === 'sales' || $printType === 'purchase') {
     </div>
 </div>
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
+<script>
+function tncVatReportPrint(type, e) {
+    if (e && typeof e.preventDefault === 'function') {
+        e.preventDefault();
+    }
+    var body = document.body;
+    body.classList.remove('vat-printing-sales', 'vat-printing-purchase');
+    body.classList.add(type === 'purchase' ? 'vat-printing-purchase' : 'vat-printing-sales');
+    window.print();
+}
+
+(function () {
+    var clearPrintMode = function () {
+        document.body.classList.remove('vat-printing-sales', 'vat-printing-purchase');
+    };
+    window.addEventListener('afterprint', clearPrintMode);
+
+    <?php if ($autoPrintType !== ''): ?>
+    window.addEventListener('load', function () {
+        setTimeout(function () {
+            tncVatReportPrint(<?= json_encode($autoPrintType, JSON_UNESCAPED_UNICODE) ?>);
+        }, 350);
+    });
+    <?php endif; ?>
+})();
+</script>
 <?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

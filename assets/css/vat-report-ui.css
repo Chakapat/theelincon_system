@@ -10,6 +10,12 @@
     border-collapse: collapse;
     table-layout: fixed;
 }
+.vat-print-table--purchase {
+    min-width: 760px;
+}
+.vat-print-table--sales {
+    min-width: 560px;
+}
 .vat-print-table th,
 .vat-print-table td {
     border: 1px solid #d1d5db;
@@ -31,6 +37,16 @@
 .vat-print-table col.col-date { width: 12%; }
 .vat-print-table col.col-doc { width: 15%; }
 .vat-print-table col.col-name { width: 28%; }
+.vat-print-table--sales col.col-date { width: 12%; }
+.vat-print-table--sales col.col-doc { width: 18%; }
+.vat-print-table--sales col.col-name { width: 28%; }
+.vat-print-table--sales col.col-amt { width: 14%; }
+.vat-print-table--purchase col.col-date { width: 9%; }
+.vat-print-table--purchase col.col-doc { width: 12%; }
+.vat-print-table--purchase col.col-name { width: 16%; }
+.vat-print-table--purchase col.col-site { width: 14%; }
+.vat-print-table--purchase col.col-cat { width: 12%; }
+.vat-print-table--purchase col.col-amt { width: 12%; }
 .vat-print-table col.col-amt { width: 15%; }
 .vat-print-table td.text-end,
 .vat-print-table th.text-end { font-variant-numeric: tabular-nums; }
@@ -145,5 +161,5 @@
     }
 }
 @media (min-width: 1200px) {
-    .container { max-width: 1140px; }
+    .vat-report-page .container { max-width: 1280px; }
 }

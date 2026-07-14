@@ -80,6 +80,16 @@ if (!function_exists('tnc_purchase_po_list_flash')) {
                 $message .= ' — เลขที่ ' . $poNumber;
             }
             $message .= ' และบันทึกการจ่าย/เอกสารแล้ว';
+            if (!empty($get['exceeds_pr'])) {
+                $message .= ' · ออก PO เกินยอด PR';
+
+                return [
+                    'type' => 'warning',
+                    'message' => $message,
+                    'audio' => 'create',
+                    'html' => tnc_purchase_po_payment_print_links_html($get),
+                ];
+            }
 
             return [
                 'type' => 'success',
@@ -93,6 +103,11 @@ if (!function_exists('tnc_purchase_po_list_flash')) {
             $message = 'สร้างใบสั่งซื้อ (PO) สำเร็จแล้ว';
             if ($poNumber !== '') {
                 $message .= ' — เลขที่ ' . $poNumber;
+            }
+            if (!empty($get['exceeds_pr'])) {
+                $message .= ' · ออก PO เกินยอด PR';
+
+                return ['type' => 'warning', 'message' => $message, 'audio' => 'create'];
             }
 
             return ['type' => 'success', 'message' => $message, 'audio' => 'create'];
@@ -224,7 +239,7 @@ if (!function_exists('tnc_purchase_pr_view_flash')) {
         if (!empty($get['error']) && (string) $get['error'] === 'pr_fully_ordered') {
             return [
                 'type' => 'warning',
-                'message' => 'รายการในใบขอซื้อถูกออก PO ครบแล้ว — ไม่สามารถสร้าง PO เพิ่มได้',
+                'message' => 'รายการในใบขอซื้อถูกออก PO ครบแล้ว — ยังสร้าง PO เพิ่มได้ แต่จะแสดงว่าออกเกินยอด',
             ];
         }
 

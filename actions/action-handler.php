@@ -356,13 +356,15 @@ function tnc_po_try_auto_bill_on_complete(int $poId, int $createdBy): ?int
  */
 require_once __DIR__ . '/../includes/purchase_cascade_delete.php';
 
-function renderPoCreatedPopupAndRedirect(string $poNumber, ?string $redirectBase = null, bool $paymentExtrasSaved = false)
+function renderPoCreatedPopupAndRedirect(string $poNumber, ?string $redirectBase = null, bool $paymentExtrasSaved = false, bool $exceedsPr = false)
 {
     $listUrl = app_path('pages/purchase/purchase-order-list.php')
         . '?success=1&po_number=' . rawurlencode($poNumber)
-        . ($paymentExtrasSaved ? '&payment_saved=1' : '');
+        . ($paymentExtrasSaved ? '&payment_saved=1' : '')
+        . ($exceedsPr ? '&exceeds_pr=1' : '');
     $message = 'สร้าง PO สำเร็จ หมายเลข ' . $poNumber
-        . ($paymentExtrasSaved ? ' (บันทึกบิลและ/หรือสลิปแล้ว)' : '');
+        . ($paymentExtrasSaved ? ' (บันทึกบิลและ/หรือสลิปแล้ว)' : '')
+        . ($exceedsPr ? ' — ออก PO เกินยอด PR' : '');
     $actionKey = 'po_created';
     if (tnc_ajax_form_requested()) {
         header('Content-Type: application/json; charset=UTF-8');
@@ -371,6 +373,7 @@ function renderPoCreatedPopupAndRedirect(string $poNumber, ?string $redirectBase
             'message' => $message,
             'po_number' => $poNumber,
             'action' => $actionKey,
+            'exceeds_pr' => $exceedsPr,
             'redirect' => $listUrl,
         ], JSON_UNESCAPED_UNICODE);
         exit;
@@ -1007,9 +1010,6 @@ if ($action === 'create_po_from_pr') {
     }
 
     require_once dirname(__DIR__) . '/includes/pr_po_split.php';
-    if (!tnc_pr_has_remaining_for_po($pr_id)) {
-        tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=pr_fully_ordered');
-    }
 
     $poCreateFromPrUrl = app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id;
 
@@ -1057,10 +1057,6 @@ if ($action === 'create_po_from_pr') {
     if ($purchaseLineCount <= 0 || $subtotal <= 0) {
         tnc_action_redirect($poCreateFromPrUrl . '&error=no_items');
     }
-    $qtyValidateErr = tnc_pr_validate_new_po_items($pr_id, $poItemsToSave);
-    if ($qtyValidateErr !== null) {
-        tnc_action_redirect($poCreateFromPrUrl . '&error=' . $qtyValidateErr);
-    }
     $totalsPr = tnc_po_compute_totals($lineSums['taxable'], $vat_en, $vat_mode_post, 'none', $lineSums['exempt']);
     $sub_amt = $totalsPr['subtotal'];
     $vat_amt = $totalsPr['vat'];
@@ -1081,6 +1077,8 @@ if ($action === 'create_po_from_pr') {
             $vat_amt = $parsedBillVat;
         }
     }
+
+    $poExceedsPr = tnc_pr_new_po_would_exceed($pr_id, $poItemsToSave, (float) $total_amount);
 
     $hasQt = !empty($_POST['has_qt']);
     $quotation_number = $hasQt ? mb_substr(trim((string) ($_POST['quotation_number'] ?? '')), 0, 120) : '';
@@ -1183,6 +1181,7 @@ if ($action === 'create_po_from_pr') {
         'site_name' => $prSiteName,
         'cost_category_id' => $prCostCategoryId,
         'cost_category_name' => $prCostCategoryName,
+        'exceeds_pr' => $poExceedsPr ? 1 : 0,
     ], $optionalExtras['po_fields']));
 
     foreach ($poItemsToSave as $item) {
@@ -1207,7 +1206,7 @@ if ($action === 'create_po_from_pr') {
     }
 
     tnc_audit_purchase_order_created($po_id, 'create_po_from_pr_purchase');
-    renderPoCreatedPopupAndRedirect((string) $po_number, null, $optionalExtras['extras_saved']);
+    renderPoCreatedPopupAndRedirect((string) $po_number, null, $optionalExtras['extras_saved'], $poExceedsPr);
 }
 
 // --- PO โดยตรง (ไม่อิง PR) ---

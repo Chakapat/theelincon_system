@@ -12,6 +12,9 @@ use Theelincon\Firebase\RtdbFactory;
  */
 final class Db
 {
+    /** @var array<string, array<string, array<string, mixed>>> request-scoped table snapshots */
+    private static array $tableCache = [];
+
     public static function rootPath(): string
     {
         require_once dirname(__DIR__, 2) . '/config/firebase_settings.php';
@@ -24,14 +27,31 @@ final class Db
         return RtdbFactory::database()->getReference(self::rootPath() . '/' . $table);
     }
 
+    /** ล้าง cache ตาราง (ทั้งก้อนหรือเฉพาะชื่อ) — เรียกหลังเขียนข้อมูล */
+    public static function clearTableCache(?string $table = null): void
+    {
+        if ($table === null || $table === '') {
+            self::$tableCache = [];
+
+            return;
+        }
+        unset(self::$tableCache[$table]);
+    }
+
     /** @return array<string, array<string, mixed>> */
     public static function tableKeyed(string $table): array
     {
+        if (array_key_exists($table, self::$tableCache)) {
+            return self::$tableCache[$table];
+        }
+
         $snap = self::tableRef($table)->getSnapshot();
         $v = $snap->getValue();
 
         if (!is_array($v)) {
-            return [];
+            self::$tableCache[$table] = [];
+
+            return self::$tableCache[$table];
         }
 
         $out = [];
@@ -41,6 +61,8 @@ final class Db
             }
             $out[(string) $pk] = $row;
         }
+
+        self::$tableCache[$table] = $out;
 
         return $out;
     }
@@ -54,6 +76,10 @@ final class Db
     /** @return array<string, mixed>|null */
     public static function row(string $table, string $pk): ?array
     {
+        if (array_key_exists($table, self::$tableCache) && array_key_exists($pk, self::$tableCache[$table])) {
+            return self::$tableCache[$table][$pk];
+        }
+
         $snap = self::tableRef($table)->getChild($pk)->getSnapshot();
         $v = $snap->getValue();
 
@@ -63,6 +89,7 @@ final class Db
     public static function setRow(string $table, string $pk, array $data): void
     {
         self::tableRef($table)->getChild($pk)->set($data);
+        self::clearTableCache($table);
     }
 
     public static function mergeRow(string $table, string $pk, array $partial): void
@@ -74,6 +101,7 @@ final class Db
     public static function deleteRow(string $table, string $pk): void
     {
         self::tableRef($table)->getChild($pk)->remove();
+        self::clearTableCache($table);
     }
 
     /** ลบหลายแถวที่ key ขึ้นต้นด้วย prefix (ช่วยลบ items ที่เก็บแยก) — ระวังประสิทธิภาพ */
@@ -137,9 +165,15 @@ final class Db
     public static function rowByIdField(string $table, $id, string $field = 'id'): ?array
     {
         $needle = (string) $id;
+        $keyed = self::tableKeyed($table);
 
-        foreach (self::tableRows($table) as $row) {
-            if (!array_key_exists($field, $row)) {
+        // Fast path: Firebase PK matches logical id
+        if ($field === 'id' && isset($keyed[$needle]) && is_array($keyed[$needle])) {
+            return $keyed[$needle];
+        }
+
+        foreach ($keyed as $row) {
+            if (!is_array($row) || !array_key_exists($field, $row)) {
                 continue;
             }
 

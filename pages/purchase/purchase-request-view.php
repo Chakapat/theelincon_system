@@ -48,7 +48,15 @@ if ($linked_pos !== []) {
         $prToolbarPoNumber = 'PO-' . (int) $existing_po['id'];
     }
 }
-$prCanCreateMorePo = !empty($pr_has_remaining_for_po) && !empty($prIsApprovedForPo) && user_can('po.create');
+$prCanCreateMorePo = !empty($prIsApprovedForPo) && user_can('po.create');
+$prExceedSummary = null;
+$prPoExceedsAmount = false;
+if (function_exists('tnc_pr_po_exceed_summary')) {
+    $prExceedSummary = tnc_pr_po_exceed_summary((int) ($pr['id'] ?? $pr_id));
+    $prPoExceedsAmount = !empty($prExceedSummary['exceeds']);
+} elseif (!empty($pr_has_remaining_for_po) === false && $linked_pos !== []) {
+    $prPoExceedsAmount = true;
+}
 $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTitle;
 ?>
 
@@ -474,8 +482,8 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                     </a>
                     <?php endforeach; ?>
                     <?php if ($prCanCreateMorePo): ?>
-                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn js-tnc-doc-action btn-outline-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
-                        <i class="bi bi-file-earmark-plus me-1"></i>สร้าง PO เพิ่ม
+                    <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn js-tnc-doc-action btn-outline-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G<?= $prPoExceedsAmount || empty($pr_has_remaining_for_po) ? ' (จะเกินยอด PR)' : '' ?>">
+                        <i class="bi bi-file-earmark-plus me-1"></i>สร้าง PO เพิ่ม<?= $prPoExceedsAmount || empty($pr_has_remaining_for_po) ? ' (เกินยอด)' : '' ?>
                     </a>
                     <?php endif; ?>
                 <?php elseif (!empty($prIsApprovedForPo) && user_can('po.create')): ?>
@@ -509,6 +517,20 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
         <div class="mb-3">
             <?php tnc_purchase_render_flash($prViewFlash, true); ?>
         </div>
+        <?php endif; ?>
+        <?php if ($prPoExceedsAmount && $linked_pos !== []): ?>
+            <div class="alert alert-warning py-2 px-3 mb-3 border-0 shadow-sm po-over-pr-banner">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                <strong>ออก PO เกินยอด</strong>
+                <?php if (is_array($prExceedSummary) && (float) ($prExceedSummary['pr_total'] ?? 0) > 0): ?>
+                    — ยอด PR <?= number_format((float) $prExceedSummary['pr_total'], 2) ?> บาท · ออก PO รวม <?= number_format((float) $prExceedSummary['allocated'], 2) ?> บาท
+                    <?php if ((float) ($prExceedSummary['over_by'] ?? 0) > 0): ?>
+                        (เกิน <?= number_format((float) $prExceedSummary['over_by'], 2) ?> บาท)
+                    <?php endif; ?>
+                <?php else: ?>
+                    — ยอดหรือจำนวนที่ออก PO รวมเกินใบขอซื้อนี้แล้ว
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
         <?php if (!empty($isPoCancelled)): ?>
             <div class="alert alert-danger py-2 px-3 mb-3 border-0 shadow-sm">

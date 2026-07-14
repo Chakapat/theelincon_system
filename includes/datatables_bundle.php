@@ -18,6 +18,30 @@ window.TncDataTablesDefaults = {
     lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'ทั้งหมด']],
     order: [],
     autoWidth: false,
-    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' }
+    /* Inline Thai strings — avoid extra CDN round-trip that blocked table init */
+    language: {
+        decimal: '',
+        emptyTable: 'ไม่มีข้อมูลในตาราง',
+        info: 'แสดง _START_ ถึง _END_ จาก _TOTAL_ รายการ',
+        infoEmpty: 'แสดง 0 ถึง 0 จาก 0 รายการ',
+        infoFiltered: '(กรองจากทั้งหมด _MAX_ รายการ)',
+        infoPostFix: '',
+        thousands: ',',
+        lengthMenu: 'แสดง _MENU_ รายการ',
+        loadingRecords: 'กำลังโหลด…',
+        processing: 'กำลังดำเนินการ…',
+        search: 'ค้นหา:',
+        zeroRecords: 'ไม่พบข้อมูล',
+        paginate: {
+            first: 'หน้าแรก',
+            last: 'หน้าสุดท้าย',
+            next: 'ถัดไป',
+            previous: 'ก่อนหน้า'
+        },
+        aria: {
+            sortAscending: ': เรียงจากน้อยไปมาก',
+            sortDescending: ': เรียงจากมากไปน้อย'
+        }
+    }
 };
 </script>

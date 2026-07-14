@@ -231,28 +231,8 @@ if (user_can('page.po')) {
     </section>
     <?php endif; ?>
 
-    <div class="row site-picker-grid<?= $hasSites ? ' site-picker-is-loading' : '' ?>" id="sitePickerGrid"<?= $hasSites ? ' aria-busy="true"' : '' ?>>
+    <div class="row site-picker-grid" id="sitePickerGrid">
         <?php if ($hasSites): ?>
-            <?php for ($sk = 0; $sk < 6; $sk++): ?>
-                <div class="col-12 col-md-6 col-lg-4 site-picker-skeleton" aria-hidden="true">
-                    <div class="site-card site-card--skeleton h-100">
-                        <div class="site-card-link">
-                            <div class="site-card__row">
-                                <span class="site-skeleton-icon"></span>
-                                <div class="site-card__body flex-grow-1">
-                                    <span class="site-skeleton-line lg d-block"></span>
-                                    <div class="site-card__stats">
-                                        <span class="site-skeleton-box"></span>
-                                        <span class="site-skeleton-box"></span>
-                                        <span class="site-skeleton-box"></span>
-                                    </div>
-                                    <span class="site-skeleton-panel d-block"></span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            <?php endfor; ?>
             <?php
             $siteBudgetUsedMap = tnc_site_budget_site_used_map();
             $siteSortIndex = 0;

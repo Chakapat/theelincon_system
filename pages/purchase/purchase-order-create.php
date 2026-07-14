@@ -42,13 +42,12 @@ if (!line_pr_is_approved_for_po($pr)) {
 }
 
 require_once dirname(__DIR__, 2) . '/includes/pr_po_split.php';
-if (!tnc_pr_has_remaining_for_po($pr_id)) {
-    header('Location: ' . app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=pr_fully_ordered');
-    exit();
-}
 
 $linked_pos = tnc_pr_collect_active_purchase_orders($pr_id);
 $linked_po_count = count($linked_pos);
+$prHasRemainingForPo = tnc_pr_has_remaining_for_po($pr_id);
+$prExceedSummary = tnc_pr_po_exceed_summary($pr_id);
+$prFullyOrdered = !empty($prExceedSummary['fully_ordered']);
 
 $pr_number_display = trim((string) ($pr['pr_number'] ?? ('PR-' . $pr_id)));
 $pr_vat_enabled = (int) ($pr['vat_enabled'] ?? 0) === 1 ? 1 : 0;
@@ -58,7 +57,7 @@ if (!in_array($pr_vat_mode, ['exclusive', 'inclusive'], true)) {
 }
 
 $pr_prefill_items_display = [];
-foreach (tnc_pr_remaining_items_for_po($pr_id) as $prItemRow) {
+foreach (tnc_pr_items_for_po_create($pr_id) as $prItemRow) {
     if (trim((string) ($prItemRow['description'] ?? '')) !== '') {
         $pr_prefill_items_display[] = $prItemRow;
     }
@@ -512,12 +511,42 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                 'site_budget_cat_exceeded' => 'งบหมวดไม่พอ — ไม่สามารถออก PO ได้ (เกินวงเงินหมวดที่กำหนด)',
                 'invalid_pr_number' => 'เลข PR ไม่ถูกต้อง — ไม่สามารถออก PO ที่เลขท้ายตรงกันได้',
                 'po_number_conflict' => 'เลข PO ที่ตรงกับ PR ถูกใช้ไปแล้ว — ติดต่อผู้ดูแลระบบ',
-                'qty_exceeds_pr' => 'จำนวนรายการเกินยอดที่เหลือในใบขอซื้อ — ลดจำนวนหรือลบแถวที่เกิน',
                 default => 'บันทึกใบสั่งซื้อไม่สำเร็จ กรุณาตรวจสอบข้อมูลและลองใหม่',
             };
             ?>
         </div>
     <?php endif; ?>
+
+    <?php
+    $prTotalForBanner = (float) ($prExceedSummary['pr_total'] ?? 0);
+    $poAllocatedForBanner = (float) ($prExceedSummary['allocated'] ?? 0);
+    ?>
+    <div
+        id="poOverPrBanner"
+        class="po-over-pr-banner alert alert-warning border-0 shadow-sm mb-3<?= $prFullyOrdered || !empty($prExceedSummary['exceeds']) ? '' : ' d-none' ?>"
+        role="status"
+        data-pr-total="<?= htmlspecialchars((string) $prTotalForBanner, ENT_QUOTES, 'UTF-8') ?>"
+        data-po-allocated="<?= htmlspecialchars((string) $poAllocatedForBanner, ENT_QUOTES, 'UTF-8') ?>"
+        data-fully-ordered="<?= $prFullyOrdered ? '1' : '0' ?>"
+    >
+        <div class="d-flex gap-2 align-items-start">
+            <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1" aria-hidden="true"></i>
+            <div>
+                <div class="fw-bold" id="poOverPrBannerTitle"><?= $prFullyOrdered ? 'ออก PO เกินยอด' : 'ใกล้ครบยอด PR' ?></div>
+                <div class="small mb-0" id="poOverPrBannerBody">
+                    <?php if ($prFullyOrdered): ?>
+                        รายการในใบขอซื้อถูกออก PO ครบแล้ว — ยังสร้าง PO เพิ่มได้ แต่ระบบจะแสดงว่าออกเกินยอด PR
+                        <?php if ($prTotalForBanner > 0): ?>
+                            (ยอด PR <?= number_format($prTotalForBanner, 2) ?> บาท · ออกไปแล้ว <?= number_format($poAllocatedForBanner, 2) ?> บาท)
+                        <?php endif; ?>
+                    <?php else: ?>
+                        ยอด PO รวมจะเกินยอดใบขอซื้อ — บันทึกได้ แต่จะติดป้าย «ออก PO เกินยอด»
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1">
         <?php csrf_field(); ?>
         <input type="hidden" name="pr_id" value="<?= $pr_id ?>">
@@ -538,13 +567,17 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                         <?php endif; ?>
                     </div>
                     <?php if ($linked_po_count > 0): ?>
-                    <p class="small text-muted mb-0 mt-2">
+                    <p class="small mb-0 mt-2 po-create-hero__hint">
                         มี PO จาก PR นี้แล้ว <?= number_format($linked_po_count) ?> ใบ —
                         <?php foreach ($linked_pos as $i => $lpo): ?>
-                            <?php if ($i > 0): ?><span class="text-muted">·</span><?php endif; ?>
-                            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) ($lpo['id'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" class="link-secondary fw-semibold"><?= htmlspecialchars(trim((string) ($lpo['po_number'] ?? ('PO-' . (int) ($lpo['id'] ?? 0)))), ENT_QUOTES, 'UTF-8') ?></a>
+                            <?php if ($i > 0): ?><span class="opacity-75">·</span><?php endif; ?>
+                            <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) ($lpo['id'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" class="link-light fw-semibold text-decoration-underline"><?= htmlspecialchars(trim((string) ($lpo['po_number'] ?? ('PO-' . (int) ($lpo['id'] ?? 0)))), ENT_QUOTES, 'UTF-8') ?></a>
                         <?php endforeach; ?>
-                        — กรอกเฉพาะรายการ/จำนวนที่เหลือ
+                        <?php if ($prHasRemainingForPo): ?>
+                            — กรอกเฉพาะรายการ/จำนวนที่เหลือ (เพิ่มเกินได้ ระบบจะเตือน)
+                        <?php else: ?>
+                            — ยอด PR ครบแล้ว ยังออก PO เพิ่มได้ (จะแสดงว่าออกเกินยอด)
+                        <?php endif; ?>
                     </p>
                     <?php endif; ?>
                 </div>
@@ -704,13 +737,17 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                             <?php
                             $prefillQty = (float) ($prItem['quantity'] ?? 0);
                             $prefillPrice = (float) ($prItem['unit_price'] ?? 0);
-                            $maxQtyRemaining = (float) ($prItem['_pr_qty_remaining'] ?? $prefillQty);
+                            $qtyRemaining = (float) ($prItem['_pr_qty_remaining'] ?? $prefillQty);
+                            $isOverOrderLine = !empty($prItem['_pr_over_order']) || $qtyRemaining <= 0.0001;
                             $discDisplay = tnc_po_create_pr_discount_label($prItem);
                             $prefillLineTotal = tnc_po_create_pr_line_total($prItem);
                             $unitCell = trim((string) ($prItem['unit'] ?? ''));
                             $vatApplyChecked = (int) ($prItem['vat_exempt'] ?? 0) !== 1;
+                            $qtyTitle = $isOverOrderLine
+                                ? 'ยอด PR ของรายการนี้ถูกออกครบแล้ว — กรอกจำนวนได้ (จะเกินยอด)'
+                                : ('คงเหลือใน PR: ' . $qtyRemaining);
                             ?>
-                            <tr>
+                            <tr<?= $isOverOrderLine ? ' class="po-line-over-pr"' : '' ?>>
                                 <td class="po-cell-idx row-number text-secondary small fw-semibold">
                                     <div class="po-mobile-item-head">
                                         <span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no"><?= $idx + 1 ?></span></span>
@@ -721,7 +758,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                                     <span class="d-none d-lg-inline po-mobile-item-no"><?= $idx + 1 ?></span>
                                 </td>
                                 <td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($prItem['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                                <td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="any" min="0" max="<?= htmlspecialchars((string) $maxQtyRemaining, ENT_QUOTES, 'UTF-8') ?>" data-max-qty="<?= htmlspecialchars((string) $maxQtyRemaining, ENT_QUOTES, 'UTF-8') ?>" required value="<?= htmlspecialchars((string) $prefillQty, ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()" title="คงเหลือใน PR: <?= htmlspecialchars((string) $maxQtyRemaining, ENT_QUOTES, 'UTF-8') ?>"></td>
+                                <td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end<?= $isOverOrderLine ? ' is-warning' : '' ?>" step="any" min="0" data-pr-remaining="<?= htmlspecialchars((string) max(0, $qtyRemaining), ENT_QUOTES, 'UTF-8') ?>" required value="<?= htmlspecialchars((string) $prefillQty, ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()" title="<?= htmlspecialchars($qtyTitle, ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td class="po-cell-unit text-center" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') ?>"></td>
                                 <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="any" min="0" required value="<?= $prefillPrice > 0 ? htmlspecialchars((string) $prefillPrice, ENT_QUOTES, 'UTF-8') : '' ?>" placeholder="0" oninput="calculateTotal()"></td>
                                 <td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount text-end" maxlength="20" value="<?= htmlspecialchars($discDisplay, ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
@@ -879,7 +916,39 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                     e.preventDefault();
                     alert('กรุณากรอก «จ่ายโดย» เมื่อเลือกชำระด้วยเงินสด');
                     paymentCashPaidBy?.focus();
+                    return;
                 }
+            }
+            if (window.__tncPoExceedsPr && !poCreateForm.dataset.tncOverPrConfirmed) {
+                e.preventDefault();
+                const confirmFn = (typeof Swal !== 'undefined' && Swal.fire)
+                    ? function () {
+                        return Swal.fire({
+                            icon: 'warning',
+                            title: 'ออก PO เกินยอด',
+                            text: 'ยอดหรือจำนวนของ PO นี้เกินใบขอซื้อ (PR) — ต้องการสร้างต่อหรือไม่?',
+                            showCancelButton: true,
+                            confirmButtonText: 'สร้าง PO ต่อ',
+                            cancelButtonText: 'ตรวจอีกครั้ง',
+                            confirmButtonColor: '#ea580c',
+                        }).then(function (result) {
+                            return !!(result && result.isConfirmed);
+                        });
+                    }
+                    : function () {
+                        return Promise.resolve(window.confirm('ออก PO เกินยอด PR — ต้องการสร้างต่อหรือไม่?'));
+                    };
+                confirmFn().then(function (ok) {
+                    if (!ok) {
+                        return;
+                    }
+                    poCreateForm.dataset.tncOverPrConfirmed = '1';
+                    if (typeof poCreateForm.requestSubmit === 'function') {
+                        poCreateForm.requestSubmit();
+                    } else {
+                        poCreateForm.submit();
+                    }
+                });
             }
         });
     }
@@ -1064,6 +1133,61 @@ function calculateTotal() {
     if (billedTotalEl) billedTotalEl.value = gross.toFixed(2);
     if (billedVatEl) billedVatEl.value = vat.toFixed(2);
     updatePoVatBasisUi();
+    if (typeof updatePoOverPrBanner === 'function') {
+        updatePoOverPrBanner(gross);
+    }
+}
+
+function updatePoOverPrBanner(gross) {
+    const banner = document.getElementById('poOverPrBanner');
+    if (!banner) {
+        return;
+    }
+    const prTotal = parseFloat(banner.getAttribute('data-pr-total') || '0') || 0;
+    const allocated = parseFloat(banner.getAttribute('data-po-allocated') || '0') || 0;
+    const fullyOrdered = banner.getAttribute('data-fully-ordered') === '1';
+    const projected = Math.round((allocated + (gross || 0)) * 100) / 100;
+    const amountExceeds = prTotal > 0.01 && projected > prTotal + 0.01;
+    let qtyExceeds = fullyOrdered;
+    if (!qtyExceeds) {
+        document.querySelectorAll('#poTable tbody tr:not(.po-line-empty) .qty').forEach(function (qtyEl) {
+            const remaining = parseFloat(qtyEl.getAttribute('data-pr-remaining') || '');
+            if (!Number.isFinite(remaining)) {
+                return;
+            }
+            const qty = parseFloat(String(qtyEl.value || '').replace(/,/g, '')) || 0;
+            if (qty > remaining + 0.01) {
+                qtyExceeds = true;
+                qtyEl.classList.add('is-warning');
+            } else {
+                qtyEl.classList.remove('is-warning');
+            }
+        });
+    }
+    const exceeds = amountExceeds || qtyExceeds;
+    window.__tncPoExceedsPr = exceeds;
+    banner.classList.toggle('d-none', !exceeds);
+    const titleEl = document.getElementById('poOverPrBannerTitle');
+    const bodyEl = document.getElementById('poOverPrBannerBody');
+    if (!exceeds || !titleEl || !bodyEl) {
+        return;
+    }
+    titleEl.textContent = 'ออก PO เกินยอด';
+    const parts = [];
+    if (fullyOrdered) {
+        parts.push('รายการในใบขอซื้อถูกออก PO ครบแล้ว — ยังบันทึกได้ แต่จะติดป้ายว่าออกเกินยอด');
+    } else if (qtyExceeds) {
+        parts.push('จำนวนบางรายการเกินยอดที่เหลือใน PR — ยังบันทึกได้ แต่จะติดป้ายว่าออกเกินยอด');
+    }
+    if (amountExceeds) {
+        const overBy = Math.round((projected - prTotal) * 100) / 100;
+        parts.push(
+            'ยอด PO รวม ' + projected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            + ' บาท เกินยอด PR ' + prTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            + ' บาท (เกิน ' + overBy.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' บาท)'
+        );
+    }
+    bodyEl.textContent = parts.join(' ');
 }
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.line-vat-apply').forEach(function (cb) {

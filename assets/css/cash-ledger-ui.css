@@ -158,11 +158,6 @@
         width: 100%;
         min-height: 2.75rem;
     }
-    .tnc-page-head.no-print .d-flex.flex-wrap.gap-2 {
-        display: grid !important;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.5rem !important;
-    }
     .tnc-page-head.no-print .ledger-filter-open-btn {
         grid-column: 1 / -1;
     }
@@ -183,83 +178,141 @@
     .card-dash > .card-header {
         padding: 0.85rem 1rem !important;
     }
+    .ledger-table-head {
+        align-items: flex-start;
+        gap: 0.65rem;
+    }
+    .ledger-table-head form {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    /* ยกเลิก nested scroll บนมือถือ — ทำให้ตัดข้อความและ overlap */
     .table-wrap-screen {
-        padding: 0.35rem 0.55rem 0.75rem !important;
+        max-height: none !important;
+        overflow: visible !important;
+        padding: 0.5rem 0.65rem 0.85rem !important;
+    }
+
+    /*
+     * บังคับออกจาก table layout ก่อนค่อยทำ card
+     * (display:grid บน <tr> อย่างเดียวไม่พอ → คอลัมน์แคบจนตัวอักษรไทยเรียงแนวตั้ง)
+     */
+    .table-cash-report {
+        display: block !important;
+        width: 100% !important;
+        table-layout: auto !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+    }
+    .table-cash-report colgroup {
+        display: none !important;
     }
     .table-cash-report thead {
-        display: none;
+        display: none !important;
     }
-    .table-cash-report tbody tr.ledger-entry-row {
-        display: grid;
-        grid-template-columns: 1fr auto;
+    .table-cash-report tbody {
+        display: flex !important;
+        flex-direction: column;
+        gap: 0.65rem;
+        width: 100%;
+    }
+    .table-cash-report tbody tr.ledger-print-chrono-row {
+        display: none !important;
+    }
+    .table-cash-report tbody tr.ledger-entry-row,
+    .table-cash-report tbody tr.ledger-opening-row {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto;
         grid-template-areas:
             "date amount"
             "desc desc"
             "balance actions";
-        gap: 0.15rem 0.65rem;
-        margin: 0.55rem 0;
-        padding: 0.75rem 0.85rem;
-        border: 1px solid rgba(0, 0, 0, 0.09);
+        gap: 0.35rem 0.75rem;
+        width: 100%;
+        margin: 0;
+        padding: 0.85rem 0.9rem;
+        border: 1px solid rgba(15, 23, 42, 0.1);
         border-radius: 0.85rem;
         background: #fff;
-        box-shadow: 0 0.12rem 0.55rem rgba(0, 0, 0, 0.05);
+        box-shadow: 0 0.12rem 0.45rem rgba(15, 23, 42, 0.05);
+        box-sizing: border-box;
+    }
+    .table-cash-report tbody tr.ledger-opening-row {
+        background: #f8fafc;
+        border-color: rgba(148, 163, 184, 0.45);
     }
     .table-cash-report tbody tr.ledger-entry-row:hover {
         background: #fffbf7;
-        box-shadow: 0 0.18rem 0.65rem rgba(234, 88, 12, 0.12);
+        box-shadow: 0 0.18rem 0.65rem rgba(234, 88, 12, 0.1);
     }
     .table-cash-report tbody td {
-        display: block;
-        border: 0;
+        display: block !important;
+        width: auto !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        border: 0 !important;
         padding: 0 !important;
         text-align: left !important;
-        min-width: 0;
+        white-space: normal !important;
+        overflow-wrap: break-word !important;
+        word-break: normal !important;
+        line-break: auto;
     }
     .table-cash-report tbody td::before {
-        content: none;
-        display: none;
+        content: none !important;
+        display: none !important;
     }
     .table-cash-report .ledger-cell-date {
         grid-area: date;
         align-self: center;
-        font-size: 0.82rem;
+        font-size: 0.875rem;
         font-weight: 700;
-        color: #64748b;
-        padding-left: 0 !important;
+        color: #475569;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap !important;
     }
     .table-cash-report .ledger-cell-desc {
         grid-area: desc;
-        grid-column: 1 / -1;
         width: 100%;
-        font-size: 1.05rem;
+        max-width: 100%;
+        font-size: 1rem;
         font-weight: 600;
-        color: #1e293b;
-        line-height: 1.55;
+        color: #0f172a;
+        line-height: 1.5;
         white-space: normal !important;
-        word-break: normal !important;
-        overflow-wrap: break-word !important;
-        padding: 0.85rem 0.95rem !important;
-        margin: 0.4rem 0 0.15rem;
-        min-height: 3.75rem;
+        word-break: keep-all !important;
+        overflow-wrap: anywhere !important;
+        padding: 0.7rem 0.85rem !important;
+        margin: 0.15rem 0 0;
+        min-height: 0;
         background: #f8fafc;
-        border: 1px solid rgba(148, 163, 184, 0.32);
-        border-radius: 0.7rem;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 0.65rem;
         box-sizing: border-box;
+    }
+    .table-cash-report tbody tr.ledger-opening-row .ledger-cell-desc {
+        background: #fff;
+        color: #334155;
+        font-weight: 800;
     }
     .table-cash-report .ledger-cell-in.ledger-cell-empty,
     .table-cash-report .ledger-cell-out.ledger-cell-empty {
-        display: none;
+        display: none !important;
     }
     .table-cash-report .ledger-cell-in:not(.ledger-cell-empty),
     .table-cash-report .ledger-cell-out:not(.ledger-cell-empty) {
         grid-area: amount;
         justify-self: end;
-        align-self: start;
-        font-size: 1.02rem;
+        align-self: center;
+        font-size: 1.05rem;
         font-weight: 800;
-        padding: 0.2rem 0.55rem !important;
+        font-variant-numeric: tabular-nums;
+        padding: 0.28rem 0.65rem !important;
         border-radius: 999px;
-        line-height: 1.2;
+        line-height: 1.25;
+        white-space: nowrap !important;
+        max-width: 100%;
     }
     .table-cash-report .ledger-cell-in:not(.ledger-cell-empty) {
         color: #15803d;
@@ -272,38 +325,62 @@
     .table-cash-report .ledger-cell-balance {
         grid-area: balance;
         align-self: center;
-        margin-top: 0.45rem;
+        margin-top: 0.2rem;
         padding-top: 0.55rem !important;
-        border-top: 1px dashed rgba(0, 0, 0, 0.08);
-        font-size: 0.92rem;
+        border-top: 1px dashed rgba(15, 23, 42, 0.1);
+        font-size: 0.95rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap !important;
+        color: #0f172a;
     }
     .table-cash-report .ledger-cell-balance::before {
         content: "คงเหลือ ";
         display: inline;
-        font-size: 0.74rem;
+        font-size: 0.75rem;
         font-weight: 700;
-        color: #94a3b8;
-        letter-spacing: 0.02em;
+        color: #64748b;
+        letter-spacing: 0.01em;
     }
     .table-cash-report .ledger-cell-actions {
         grid-area: actions;
         justify-self: end;
         align-self: center;
-        margin-top: 0.45rem;
+        margin-top: 0.2rem;
         padding-top: 0.55rem !important;
-        border-top: 1px dashed rgba(0, 0, 0, 0.08);
+        border-top: 1px dashed rgba(15, 23, 42, 0.1);
         text-align: right !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 0.35rem;
+        width: auto !important;
     }
     .table-cash-report .ledger-cell-actions .btn {
-        min-width: 2.5rem;
-        min-height: 2.5rem;
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.65rem;
+        min-height: 2.65rem;
         border-radius: 0.65rem;
+        padding: 0.35rem;
+    }
+    .table-cash-report tbody tr.ledger-empty-row {
+        display: block !important;
+        border: 0;
+        box-shadow: none;
+        background: transparent;
+        padding: 0;
     }
     .table-cash-report tbody td[colspan] {
-        display: block;
+        display: block !important;
         grid-column: 1 / -1;
         text-align: center !important;
         padding: 1.25rem 0.5rem !important;
+        width: 100% !important;
     }
     .no-print.d-flex.justify-content-between.align-items-center.px-3.py-3.border-top.bg-white {
         flex-direction: column;

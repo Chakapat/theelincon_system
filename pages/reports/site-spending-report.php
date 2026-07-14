@@ -7,6 +7,7 @@ use Theelincon\Rtdb\Db;
 session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.php';
+require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -16,6 +17,17 @@ if (!isset($_SESSION['user_id'])) {
 function h(string $value): string
 {
     return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+}
+
+/** คีย์หมวดหลักสำหรับ pivot — รวมชื่อซ้ำข้ามไซต์เป็นคอลัมน์เดียว */
+function tnc_site_spending_parent_cat_key(string $label): string
+{
+    $label = trim($label);
+    if ($label === '') {
+        $label = 'ไม่ระบุหมวด';
+    }
+
+    return 'name:' . mb_strtolower($label, 'UTF-8');
 }
 
 /** หาวันที่ Y-m-d จาก field ที่เป็นไปได้ */
@@ -136,7 +148,7 @@ function tnc_site_spending_apply_cat_filter(array $sites, array $filterCatKeys):
         $cats = [];
         $paidTotal = 0.0;
         foreach ($site['categories'] as $ck => $cv) {
-            if ($ck === 'none' || !isset($allowed[$ck])) {
+            if (!isset($allowed[$ck])) {
                 continue;
             }
             $paid = round((float) ($cv['paid_total'] ?? 0), 2);
@@ -240,7 +252,7 @@ $ensureSite = static function (string $key, string $label) use (&$sites): void {
     }
 };
 
-/** คืนค่า [catKey, catLabel] — ดึงจาก PO ก่อน แล้ว fallback จาก PR ที่เชื่อม */
+/** คืนค่า [catKey, catLabel] — ใช้หมวดหลักเท่านั้น และคีย์ด้วยชื่อ (รวมชื่อซ้ำข้ามไซต์) */
 $resolveCategory = static function (array $row) use ($prById): array {
     $cid = (int) ($row['cost_category_id'] ?? 0);
     $cname = trim((string) ($row['cost_category_name'] ?? ''));
@@ -254,11 +266,14 @@ $resolveCategory = static function (array $row) use ($prById): array {
             }
         }
     }
-    if ($cid > 0) {
-        return ['cid:' . $cid, $cname !== '' ? $cname : ('หมวด #' . $cid)];
-    }
 
-    return ['none', 'ไม่ระบุหมวด'];
+    $parentLabel = tnc_site_category_document_parent_name($cid, $cname);
+    if ($parentLabel === '') {
+        $parentLabel = 'ไม่ระบุหมวด';
+    }
+    $catKey = tnc_site_spending_parent_cat_key($parentLabel);
+
+    return [$catKey, $parentLabel];
 };
 
 $ensureCat = static function (array &$site, string $catKey, string $catLabel): void {
@@ -323,24 +338,27 @@ uasort($sites, static function (array $a, array $b): int {
 
 $sites = tnc_site_spending_keep_paid_only($sites);
 
-// ---------- ตัวเลือกหมวด + กรองตามหมวด ----------
+// ---------- ตัวเลือกหมวดหลัก (รวมชื่อซ้ำ) + กรอง ----------
 $categoryCatalog = [];
 foreach ($sites as $s) {
     foreach ($s['categories'] as $ck => $cv) {
-        if ($ck === 'none') {
-            continue;
-        }
         $paid = round((float) ($cv['paid_total'] ?? 0), 2);
         if ($paid <= 0.0) {
             continue;
         }
-        if (!isset($categoryCatalog[$ck])) {
-            $categoryCatalog[$ck] = [
-                'label' => (string) ($cv['label'] ?? $ck),
+        $label = trim((string) ($cv['label'] ?? ''));
+        if ($label === '') {
+            $label = 'ไม่ระบุหมวด';
+        }
+        // รวมด้วยชื่ออีกครั้ง (กันกรณี key ต่างแต่ชื่อเหมือน)
+        $mergeKey = tnc_site_spending_parent_cat_key($label);
+        if (!isset($categoryCatalog[$mergeKey])) {
+            $categoryCatalog[$mergeKey] = [
+                'label' => $label,
                 'paid_total' => 0.0,
             ];
         }
-        $categoryCatalog[$ck]['paid_total'] += $paid;
+        $categoryCatalog[$mergeKey]['paid_total'] += $paid;
     }
 }
 $filterCategoryOptions = $categoryCatalog;
@@ -357,7 +375,7 @@ if (isset($_GET['cat'])) {
     $validKeys = array_fill_keys(array_keys($filterCategoryOptions), true);
     foreach ($rawCats as $rawKey) {
         $rawKey = trim((string) $rawKey);
-        if ($rawKey !== '' && $rawKey !== 'none' && isset($validKeys[$rawKey])) {
+        if ($rawKey !== '' && isset($validKeys[$rawKey])) {
             $filterCatKeys[] = $rawKey;
         }
     }
@@ -375,7 +393,36 @@ if ($hasCatFilter) {
     $sites = tnc_site_spending_apply_cat_filter($sites, $filterCatKeys);
 }
 
-$catFilterButtonText = 'เลือกหมวดค่าใช้จ่าย';
+/** @var list<array{key:string,label:string}> คอลัมน์หมวดหลักของตาราง pivot */
+$pivotColumns = [];
+$pivotSeen = [];
+foreach ($sites as $s) {
+    foreach ($s['categories'] as $ck => $cv) {
+        $paid = round((float) ($cv['paid_total'] ?? 0), 2);
+        if ($paid <= 0.0) {
+            continue;
+        }
+        $label = trim((string) ($cv['label'] ?? ''));
+        if ($label === '') {
+            $label = 'ไม่ระบุหมวด';
+        }
+        $mergeKey = tnc_site_spending_parent_cat_key($label);
+        if (isset($pivotSeen[$mergeKey])) {
+            continue;
+        }
+        $pivotSeen[$mergeKey] = true;
+        $pivotColumns[] = [
+            'key' => $mergeKey,
+            'label' => $label,
+            'paid_total' => (float) ($categoryCatalog[$mergeKey]['paid_total'] ?? $paid),
+        ];
+    }
+}
+usort($pivotColumns, static function (array $a, array $b): int {
+    return ($b['paid_total'] <=> $a['paid_total']) ?: strcmp($a['label'], $b['label']);
+});
+
+$catFilterButtonText = 'เลือกหมวดหลัก';
 if ($hasCatFilter) {
     if (count($filterCatLabels) <= 2) {
         $catFilterButtonText = implode(', ', $filterCatLabels);
@@ -390,6 +437,11 @@ $grandPoCount = 0;
 $grandPoTotal = 0.0;
 $grandPaid = 0.0;
 $grandOutstanding = 0.0;
+/** @var array<string, float> รวมต่อคอลัมน์หมวด */
+$pivotColTotals = [];
+foreach ($pivotColumns as $col) {
+    $pivotColTotals[$col['key']] = 0.0;
+}
 foreach ($sites as $s) {
     $grandPrCount += $s['pr_count'];
     $grandPrTotal += $s['pr_total'];
@@ -397,7 +449,40 @@ foreach ($sites as $s) {
     $grandPoTotal += $s['po_total'];
     $grandPaid += $s['paid_total'];
     $grandOutstanding += $s['outstanding'];
+    foreach ($s['categories'] as $ck => $cv) {
+        $label = trim((string) ($cv['label'] ?? ''));
+        if ($label === '') {
+            $label = 'ไม่ระบุหมวด';
+        }
+        $mergeKey = tnc_site_spending_parent_cat_key($label);
+        if (!isset($pivotColTotals[$mergeKey])) {
+            continue;
+        }
+        $pivotColTotals[$mergeKey] += round((float) ($cv['paid_total'] ?? 0), 2);
+    }
 }
+foreach ($pivotColTotals as $k => $v) {
+    $pivotColTotals[$k] = round($v, 2);
+}
+
+$pivotColCount = count($pivotColumns);
+$pivotTableColspan = $pivotColCount + 2; // ไซต์ + หมวด… + รวม
+
+/** ดึงยอดหมวดจากไซต์ตามคีย์ชื่อหมวดหลัก */
+$siteCatAmount = static function (array $site, string $catKey): float {
+    $sum = 0.0;
+    foreach ($site['categories'] as $ck => $cv) {
+        $label = trim((string) ($cv['label'] ?? ''));
+        if ($label === '') {
+            $label = 'ไม่ระบุหมวด';
+        }
+        if (tnc_site_spending_parent_cat_key($label) === $catKey) {
+            $sum += round((float) ($cv['paid_total'] ?? 0), 2);
+        }
+    }
+
+    return round($sum, 2);
+};
 
 // ---------- พิมพ์อัตโนมัติ ----------
 $autoPrint = ($_GET['print'] ?? '') === '1';
@@ -421,14 +506,14 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
     <div class="tnc-page-head mb-3 no-print">
         <div>
             <p class="tnc-page-kicker">รายงาน · การใช้จ่ายตามไซต์</p>
-            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-geo-alt"></i></span>รายงานการใช้จ่ายแยกตามไซต์</h1>
+            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-geo-alt"></i></span>Site Spending Summary</h1>
         </div>
     </div>
 
     <div class="site-print-sheet" id="sitePrintSheet" aria-hidden="true">
         <header class="site-print-header">
             <div class="site-print-header__main">
-                <h1 class="site-print-title">รายงานการใช้จ่ายแยกตามไซต์</h1>
+                <h1 class="site-print-title">รายงานค่าใช้จ่าย (เฉพาะค่าวัสดุ)</h1>
             </div>
             <div class="site-print-period">
                 <span class="site-print-period__label">ช่วงข้อมูล</span>
@@ -440,56 +525,50 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
             </div>
         </header>
 
-        <?php if ($sites === []): ?>
+        <?php if ($sites === [] || $pivotColumns === []): ?>
             <p class="site-print-empty">ไม่พบข้อมูล PO ที่ชำระครบและมีใบกำกับ ตามเงื่อนไขที่เลือก</p>
         <?php else: ?>
             <div class="site-print-table-wrap">
-                <table class="site-print-table">
-                    <colgroup>
-                        <col class="col-label">
-                        <col class="col-amt">
-                    </colgroup>
+                <table class="site-print-table site-print-pivot">
                     <thead>
                     <tr class="site-print-thead-gap" aria-hidden="true">
-                        <td colspan="2"></td>
+                        <td colspan="<?= (int) $pivotTableColspan ?>"></td>
                     </tr>
                     <tr>
-                        <th scope="col" class="col-label">ไซต์ / หมวดค่าใช้จ่าย</th>
-                        <th scope="col" class="col-amt">ยอดจ่ายแล้ว (บาท)</th>
+                        <th scope="col" class="col-site">สถานที่</th>
+                        <?php foreach ($pivotColumns as $col): ?>
+                            <th scope="col" class="col-cat"><?= h($col['label']) ?></th>
+                        <?php endforeach; ?>
+                        <th scope="col" class="col-total">รวม</th>
                     </tr>
                     </thead>
+                    <tbody>
                     <?php $printSiteIdx = 0; ?>
                     <?php foreach ($sites as $s): ?>
                         <?php
-                        $printCats = [];
-                        foreach ($s['categories'] as $cv) {
-                            if (round((float) ($cv['paid_total'] ?? 0), 2) > 0.0) {
-                                $printCats[] = $cv;
-                            }
-                        }
-                        if ($printCats === []) {
-                            continue;
-                        }
                         $printSiteIdx++;
+                        $rowTotal = round((float) ($s['paid_total'] ?? 0), 2);
                         ?>
-                        <tbody class="site-print-group">
                         <tr class="site-print-row">
-                            <td class="col-label"><?= h($s['label']) ?></td>
-                            <td class="col-amt num"><?= number_format((float) ($s['paid_total'] ?? 0), 2) ?></td>
+                            <th scope="row" class="col-site"><?= h($s['label']) ?></th>
+                            <?php foreach ($pivotColumns as $col): ?>
+                                <?php $amt = $siteCatAmount($s, $col['key']); ?>
+                                <td class="col-cat num"><?= $amt > 0 ? number_format($amt, 2) : '—' ?></td>
+                            <?php endforeach; ?>
+                            <td class="col-total num"><?= number_format($rowTotal, 2) ?></td>
                         </tr>
-                        <?php foreach ($printCats as $c): ?>
-                            <tr class="cat-print-row">
-                                <td class="col-label"><?= h($c['label']) ?></td>
-                                <td class="col-amt num"><?= number_format((float) ($c['paid_total'] ?? 0), 2) ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                        </tbody>
                     <?php endforeach; ?>
+                    </tbody>
+                    <tfoot>
+                        <tr class="site-print-grand-row">
+                            <th scope="row" class="col-site">ยอดสรุป</th>
+                            <?php foreach ($pivotColumns as $col): ?>
+                                <td class="col-cat num"><?= number_format((float) ($pivotColTotals[$col['key']] ?? 0), 2) ?></td>
+                            <?php endforeach; ?>
+                            <td class="col-total num"><?= number_format($grandPaid, 2) ?></td>
+                        </tr>
+                    </tfoot>
                 </table>
-                <div class="site-print-grand">
-                    <span class="site-print-grand__label">รวมทั้งหมด (<?= $printSiteIdx ?> ไซต์)</span>
-                    <span class="site-print-grand__num num"><?= number_format($grandPaid, 2) ?></span>
-                </div>
             </div>
         <?php endif; ?>
     </div>
@@ -512,7 +591,7 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
                             <input type="number" name="year" min="2000" max="2100" class="form-control" value="<?= $year ?>">
                         </div>
                         <div class="col-12 col-md-6 col-lg">
-                            <label class="form-label small fw-semibold mb-1">หมวดค่าใช้จ่าย</label>
+                            <label class="form-label small fw-semibold mb-1">หมวดหลัก</label>
                             <?php if ($filterCategoryOptions === []): ?>
                                 <div class="form-control bg-light text-muted">ไม่มีหมวดในช่วงนี้</div>
                             <?php else: ?>
@@ -552,82 +631,49 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
 
     <div class="card card-soft mb-3 no-print" id="summaryCard">
         <div class="card-body">
-            <div class="table-responsive site-spend-table-wrap tnc-mobile-table-wrap">
-                <table id="spendTable" class="table table-hover align-middle mb-0 tnc-mobile-table w-100" style="width:100%">
-                    <colgroup>
-                        <col class="spend-col-label">
-                        <col class="spend-col-amt">
-                    </colgroup>
+            <div class="table-responsive site-spend-table-wrap">
+                <table id="spendTable" class="table table-hover align-middle mb-0 spend-pivot-table w-100">
                     <thead>
                     <tr>
-                        <th scope="col">ไซต์ / สถานที่</th>
-                        <th scope="col" class="col-amt">ยอดจ่ายแล้ว (บาท)</th>
+                        <th scope="col" class="col-site">สถานที่</th>
+                        <?php foreach ($pivotColumns as $col): ?>
+                            <th scope="col" class="col-cat text-end"><?= h($col['label']) ?></th>
+                        <?php endforeach; ?>
+                        <th scope="col" class="col-total text-end">รวม</th>
                     </tr>
                     </thead>
                     <tbody>
-                    <?php if ($sites === []): ?>
-                        <tr><td colspan="2" class="text-center text-muted py-4"><?= $hasCatFilter ? 'ไม่พบไซต์ที่มีหมวดที่เลือกในช่วงนี้' : 'ไม่พบ PO ที่ชำระครบและมีใบกำกับในช่วงนี้' ?></td></tr>
+                    <?php if ($sites === [] || $pivotColumns === []): ?>
+                        <tr>
+                            <td colspan="<?= max(2, (int) $pivotTableColspan) ?>" class="text-center text-muted py-4">
+                                <?= $hasCatFilter ? 'ไม่พบไซต์ที่มีหมวดที่เลือกในช่วงนี้' : 'ไม่พบ PO ที่ชำระครบและมีใบกำกับในช่วงนี้' ?>
+                            </td>
+                        </tr>
                     <?php else: ?>
-                        <?php $siteIdx = 0; ?>
                         <?php foreach ($sites as $s): ?>
-                            <?php
-                            $siteIdx++;
-                            $realCats = [];
-                            foreach ($s['categories'] as $cv) {
-                                if (round((float) ($cv['paid_total'] ?? 0), 2) > 0.0) {
-                                    $realCats[] = $cv;
-                                }
-                            }
-                            $hasCats = count($realCats) > 0;
-                            $expandCats = $hasCatFilter && $hasCats;
-                            ?>
                             <tr class="site-row">
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <?php if ($hasCats): ?>
-                                            <button type="button" class="btn btn-cat-toggle" data-bs-toggle="collapse" data-bs-target="#cat-<?= $siteIdx ?>" aria-expanded="<?= $expandCats ? 'true' : 'false' ?>" aria-label="ดูหมวดย่อยของ <?= h($s['label']) ?>">
-                                                <i class="bi bi-caret-right-fill"></i>
-                                            </button>
-                                        <?php else: ?>
-                                            <span class="cat-toggle-spacer"></span>
-                                        <?php endif; ?>
-                                        <div>
-                                            <span class="site-name"><?= h($s['label']) ?></span>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="col-amt num fw-bold"><?= number_format($s['paid_total'], 2) ?></td>
+                                <th scope="row" class="col-site">
+                                    <span class="site-name"><?= h($s['label']) ?></span>
+                                </th>
+                                <?php foreach ($pivotColumns as $col): ?>
+                                    <?php $amt = $siteCatAmount($s, $col['key']); ?>
+                                    <td class="col-cat text-end num<?= $amt <= 0 ? ' is-empty' : '' ?>">
+                                        <?= $amt > 0 ? number_format($amt, 2) : '—' ?>
+                                    </td>
+                                <?php endforeach; ?>
+                                <td class="col-total text-end num fw-bold"><?= number_format((float) $s['paid_total'], 2) ?></td>
                             </tr>
-                            <?php if ($hasCats): ?>
-                            <tr class="cat-detail-row">
-                                <td colspan="2" class="p-0 border-0">
-                                    <div class="collapse<?= $expandCats ? ' show' : '' ?>" id="cat-<?= $siteIdx ?>">
-                                        <table class="table table-sm mb-0 cat-breakdown">
-                                            <colgroup>
-                                                <col class="spend-col-label">
-                                                <col class="spend-col-amt">
-                                            </colgroup>
-                                            <tbody>
-                                            <?php foreach ($realCats as $c): ?>
-                                                <tr>
-                                                    <td class="cat-name"><i class="bi bi-tag-fill me-1"></i><?= h($c['label']) ?></td>
-                                                    <td class="col-amt num"><?= number_format($c['paid_total'], 2) ?></td>
-                                                </tr>
-                                            <?php endforeach; ?>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </td>
-                            </tr>
-                            <?php endif; ?>
                         <?php endforeach; ?>
                     <?php endif; ?>
                     </tbody>
-                    <?php if ($sites !== []): ?>
+                    <?php if ($sites !== [] && $pivotColumns !== []): ?>
                     <tfoot>
                         <tr class="grand-row">
-                            <td>รวมทั้งหมด (<?= number_format(count($sites)) ?> ไซต์)</td>
-                            <td class="col-amt num"><?= number_format($grandPaid, 2) ?></td>
+                            <th scope="row" class="col-site">รวมทั้งหมด (<?= number_format(count($sites)) ?> ไซต์)</th>
+                            <?php foreach ($pivotColumns as $col): ?>
+                                <td class="col-cat text-end num"><?= number_format((float) ($pivotColTotals[$col['key']] ?? 0), 2) ?></td>
+                            <?php endforeach; ?>
+                            <td class="col-total text-end num"><?= number_format($grandPaid, 2) ?></td>
                         </tr>
                     </tfoot>
                     <?php endif; ?>
@@ -664,7 +710,7 @@ function tncSiteSpendingPrint(e) {
             }
         });
         if (selected.length === 0) {
-            labelEl.textContent = 'เลือกหมวดค่าใช้จ่าย';
+            labelEl.textContent = 'เลือกหมวดหลัก';
         } else if (selected.length <= 2) {
             labelEl.textContent = selected.join(', ');
         } else {

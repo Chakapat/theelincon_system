@@ -213,6 +213,14 @@ if (true) {
         .po-vat-panel { background: #fffbf5; border: 1px solid var(--tnc-orange-border); border-radius: 0.75rem; }
         .po-actions-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eef2f7; }
     </style>
+    <?php
+    $poLineMobileCss = dirname(__DIR__, 2) . '/assets/css/po-line-table-mobile.css';
+    $poLineMobileVer = @filemtime($poLineMobileCss);
+    if (!is_int($poLineMobileVer) || $poLineMobileVer <= 0) {
+        $poLineMobileVer = time();
+    }
+    ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-line-table-mobile.css') . '?v=' . $poLineMobileVer, ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body class="purchase-module tnc-app-body tnc-layout-form">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -365,18 +373,18 @@ if (true) {
                 </div>
             </div>
 
-            <div class="table-responsive po-table-wrap">
-                <table class="table align-middle table-hover" id="poTable">
+            <div class="table-responsive po-table-wrap po-line-table-mobile">
+                <table class="table align-middle table-hover po-line-table" id="poTable">
                     <thead>
                         <tr>
-                            <th style="width:3rem;">#</th>
+                            <th style="width:3rem;" class="text-center">#</th>
                             <th>รายการ</th>
-                            <th style="width:6.5rem;">จำนวน</th>
-                            <th style="width:6.5rem;">หน่วย</th>
-                            <th style="width:7.5rem;">ราคา/หน่วย</th>
-                            <th style="width:6.5rem;">ส่วนลด</th>
+                            <th style="width:6.5rem;" class="text-end">จำนวน</th>
+                            <th style="width:6.5rem;" class="text-center">หน่วย</th>
+                            <th style="width:7.5rem;" class="text-end">ราคา/หน่วย</th>
+                            <th style="width:6.5rem;" class="text-end">ส่วนลด</th>
                             <th style="width:3.5rem;" class="text-center" title="คิด VAT">VAT</th>
-                            <th style="width:7.5rem;">ยอดรวม</th>
+                            <th style="width:7.5rem;" class="text-end">ยอดรวม</th>
                             <th style="width:2.75rem;"></th>
                         </tr>
                     </thead>
@@ -396,20 +404,28 @@ if (true) {
                             $vatApplyChecked = (int) ($item['vat_exempt'] ?? 0) !== 1;
                             ?>
                             <tr>
-                                <td class="row-number text-secondary small fw-semibold"><?= $index + 1 ?></td>
-                                <td><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ระบุรายการ"></td>
-                                <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.001" min="0" required value="<?= htmlspecialchars((string) ($item['quantity'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
-                                <td><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ชิ้น"></td>
-                                <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.001" required value="<?= htmlspecialchars((string) ($item['unit_price'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
-                                <td><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>" placeholder="บาท/10%" oninput="calculateTotal()"></td>
-                                <td class="text-center">
+                                <td class="po-cell-idx row-number text-secondary small fw-semibold">
+                                    <div class="po-mobile-item-head">
+                                        <span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no"><?= $index + 1 ?></span></span>
+                                        <?php if ($index > 0): ?>
+                                        <button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn po-row-delete-mobile" onclick="removeRow(this)" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button>
+                                        <?php endif; ?>
+                                    </div>
+                                    <span class="d-none d-lg-inline po-mobile-item-no"><?= $index + 1 ?></span>
+                                </td>
+                                <td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required value="<?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ระบุรายการ"></td>
+                                <td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="0.001" min="0" required value="<?= htmlspecialchars((string) ($item['quantity'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td class="po-cell-unit text-center" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm" value="<?= htmlspecialchars((string) ($item['unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="ชิ้น"></td>
+                                <td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="0.001" required value="<?= htmlspecialchars((string) ($item['unit_price'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" oninput="calculateTotal()"></td>
+                                <td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount text-end" maxlength="20" value="<?= htmlspecialchars($discEdit, ENT_QUOTES, 'UTF-8') ?>" placeholder="บาท/10%" oninput="calculateTotal()"></td>
+                                <td class="po-cell-vat-exempt text-center" data-label="คิด VAT">
                                     <input type="hidden" class="line-vat-exempt-val" name="item_vat_exempt[]" value="<?= $vatApplyChecked ? '0' : '1' ?>">
                                     <input type="checkbox" class="form-check-input line-vat-apply m-0" value="1" title="คิด VAT รายการนี้" aria-label="คิด VAT" onchange="tncPurchaseSyncVatApplyHidden(this); calculateTotal();"<?= $vatApplyChecked ? ' checked' : '' ?>>
                                 </td>
-                                <td><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
-                                <td>
+                                <td class="po-cell-total" data-label="ยอดรวม"><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
+                                <td class="po-cell-action po-cell-action-desktop">
                                     <?php if ($index > 0): ?>
-                                        <button type="button" class="btn btn-outline-danger btn-sm border-0 rounded-3" onclick="removeRow(this)" title="ลบแถว"><i class="bi bi-trash-fill"></i></button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" onclick="removeRow(this)" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -600,33 +616,42 @@ function addRow() {
     const newRow = table.insertRow();
     const rowCount = table.rows.length;
 
-    newRow.innerHTML = `
-        <td class="row-number text-secondary small fw-semibold">${rowCount}</td>
-        <td><input type="text" name="item_description[]" class="form-control form-control-sm" required placeholder="ระบุรายการ"></td>
-        <td><input type="number" name="item_qty[]" class="form-control form-control-sm qty" step="0.001" min="0" required oninput="calculateTotal()"></td>
-        <td><input type="text" name="item_unit[]" class="form-control form-control-sm" placeholder="ชิ้น"></td>
-        <td><input type="number" name="item_price[]" class="form-control form-control-sm price" step="0.001" required oninput="calculateTotal()"></td>
-        <td><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount" maxlength="20" placeholder="บาท/10%" oninput="calculateTotal()"></td>
-        <td class="text-center">
-            <input type="hidden" class="line-vat-exempt-val" name="item_vat_exempt[]" value="0">
-            <input type="checkbox" class="form-check-input line-vat-apply m-0" value="1" checked title="คิด VAT รายการนี้" aria-label="คิด VAT" onchange="tncPurchaseSyncVatApplyHidden(this); calculateTotal();">
-        </td>
-        <td><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>
-        <td><button type="button" class="btn btn-outline-danger btn-sm border-0 rounded-3" onclick="removeRow(this)" title="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>
-    `;
+    newRow.innerHTML = '<td class="po-cell-idx row-number text-secondary small fw-semibold">' +
+        '<div class="po-mobile-item-head">' +
+        '<span class="po-mobile-item-label">รายการที่ <span class="po-mobile-item-no">' + rowCount + '</span></span>' +
+        '<button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn po-row-delete-mobile" onclick="removeRow(this)" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button>' +
+        '</div>' +
+        '<span class="d-none d-lg-inline po-mobile-item-no">' + rowCount + '</span>' +
+        '</td>' +
+        '<td class="po-cell-desc" data-label="รายการ"><input type="text" name="item_description[]" class="form-control form-control-sm" required placeholder="ระบุรายการ"></td>' +
+        '<td class="po-cell-qty" data-label="จำนวน"><input type="number" name="item_qty[]" class="form-control form-control-sm qty text-end" step="0.001" min="0" required oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-unit text-center" data-label="หน่วย"><input type="text" name="item_unit[]" class="form-control form-control-sm" placeholder="ชิ้น"></td>' +
+        '<td class="po-cell-price" data-label="ราคา/หน่วย"><input type="number" name="item_price[]" class="form-control form-control-sm price text-end" step="0.001" required oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-disc" data-label="ส่วนลด"><input type="text" name="item_discount[]" class="form-control form-control-sm po-discount text-end" maxlength="20" placeholder="บาท/10%" oninput="calculateTotal()"></td>' +
+        '<td class="po-cell-vat-exempt text-center" data-label="คิด VAT">' +
+        '<input type="hidden" class="line-vat-exempt-val" name="item_vat_exempt[]" value="0">' +
+        '<input type="checkbox" class="form-check-input line-vat-apply m-0" value="1" checked title="คิด VAT รายการนี้" aria-label="คิด VAT" onchange="tncPurchaseSyncVatApplyHidden(this); calculateTotal();">' +
+        '</td>' +
+        '<td class="po-cell-total" data-label="ยอดรวม"><input type="text" class="form-control form-control-sm row-total bg-light text-end fw-semibold" value="0.00" readonly tabindex="-1"></td>' +
+        '<td class="po-cell-action po-cell-action-desktop"><button type="button" class="btn btn-outline-danger btn-sm border-0 po-row-delete-btn" onclick="removeRow(this)" title="ลบแถว" aria-label="ลบแถว"><i class="bi bi-trash-fill"></i></button></td>';
+    calculateTotal();
 }
 
 function removeRow(btn) {
-    const row = btn.parentNode.parentNode;
+    const row = btn.closest('tr');
+    if (!row || !row.parentNode) {
+        return;
+    }
     row.parentNode.removeChild(row);
     updateRowNumbers();
     calculateTotal();
 }
 
 function updateRowNumbers() {
-    const rows = document.querySelectorAll('.row-number');
-    rows.forEach((td, index) => {
-        td.innerText = index + 1;
+    document.querySelectorAll('#poTable tbody tr').forEach(function (row, index) {
+        row.querySelectorAll('.po-mobile-item-no').forEach(function (el) {
+            el.innerText = index + 1;
+        });
     });
 }
 

@@ -215,8 +215,16 @@ if (!function_exists('tnc_purchase_po_resolve_site_id')) {
 if (!function_exists('tnc_purchase_po_items_group_by_po_id')) {
     function tnc_purchase_po_items_group_by_po_id(): array
     {
+        static $cached = null;
+        if (is_array($cached)) {
+            return $cached;
+        }
+
         $poNumberToId = [];
-        foreach (\Theelincon\Rtdb\Db::tableRows('purchase_orders') as $po) {
+        $poSource = function_exists('tnc_site_budget_purchase_orders_cached')
+            ? tnc_site_budget_purchase_orders_cached()
+            : \Theelincon\Rtdb\Db::tableRows('purchase_orders');
+        foreach ($poSource as $po) {
             if (!is_array($po)) {
                 continue;
             }
@@ -248,7 +256,9 @@ if (!function_exists('tnc_purchase_po_items_group_by_po_id')) {
             $byPo[$poId][] = $item;
         }
 
-        return $byPo;
+        $cached = $byPo;
+
+        return $cached;
     }
 }
 

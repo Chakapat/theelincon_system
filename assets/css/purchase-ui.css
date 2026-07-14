@@ -663,3 +663,165 @@ body.pr-doc-view-page {
 #woTableBody.tnc-table-is-loading > tr:not(.tnc-table-skeleton-row) {
     display: none;
 }
+
+/* Over-PR amount warning */
+.po-over-pr-banner {
+    background: #fff7ed;
+    border: 1px solid var(--tnc-orange-border, #fdba74) !important;
+    color: #9a3412;
+    border-radius: 0.75rem;
+}
+
+.po-over-pr-banner .fw-bold,
+.po-over-pr-banner strong {
+    color: #9a3412;
+}
+
+.po-create-hero .po-create-hero__hint,
+.po-create-hero .po-create-hero__hint a {
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.po-line-over-pr {
+    background: #fffbeb;
+}
+
+.po-line-table .qty.is-warning,
+.form-control.is-warning {
+    border-color: #f59e0b;
+    background-color: #fffbeb;
+}
+
+.po-exceeds-pr-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    vertical-align: middle;
+    background: #ffedd5 !important;
+    color: #9a3412 !important;
+}
+
+/* Purchase form density + mobile readability */
+.purchase-module .po-meta-card .po-field-label--thai,
+.purchase-module .po-field-label--thai {
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #334155;
+}
+
+.purchase-module .po-pr-context {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.85rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.purchase-module .po-pr-context__item {
+    display: flex;
+    gap: 0.65rem;
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.purchase-module .po-pr-context__icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.55rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--tnc-orange-soft, #ffedd5);
+    color: var(--tnc-orange, #ea580c);
+    flex-shrink: 0;
+}
+
+.purchase-module .po-pr-context__label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 0.1rem;
+}
+
+.purchase-module .po-pr-context__value {
+    font-weight: 700;
+    color: #0f172a;
+    word-break: break-word;
+}
+
+.purchase-module .po-pr-context__value.is-empty {
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+@media (max-width: 991.98px) {
+    .purchase-module .card.table-card,
+    .purchase-module .card.card-soft {
+        border-radius: 0.85rem;
+    }
+
+    .purchase-module .po-create-wrap {
+        padding-left: max(0.85rem, env(safe-area-inset-left, 0px));
+        padding-right: max(0.85rem, env(safe-area-inset-right, 0px));
+    }
+
+    .purchase-module .po-create-hero {
+        padding: 1.1rem !important;
+    }
+
+    .purchase-module .po-doc-flow {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.35rem 0.5rem;
+    }
+
+    .purchase-module .po-section-head {
+        flex-wrap: wrap;
+    }
+
+    .purchase-module .summary-box {
+        margin-bottom: 0.25rem;
+    }
+
+    .pr-view-shell-inner {
+        padding: 0.7rem 0.65rem;
+    }
+
+    .pr-view-toolbar-row {
+        justify-content: flex-start;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 0.15rem;
+        scrollbar-width: thin;
+    }
+
+    .pr-view-toolbar-row .btn,
+    .pr-view-toolbar-row .badge {
+        flex: 0 0 auto;
+    }
+
+    .purchase-list-card .pr-po-legend,
+    .card.table-card .pr-po-legend {
+        gap: 0.55rem;
+        font-size: 0.78rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .purchase-module .purchase-list-title {
+        font-size: 1.2rem;
+    }
+
+    .purchase-module .po-submit-btn {
+        font-size: 1rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .po-over-pr-banner {
+        transition: none;
+    }
+}

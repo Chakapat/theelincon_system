@@ -48,6 +48,8 @@ if ($filterSiteId > 0) {
 $pr_ids_with_po = [];
 /** PR id => true when linked PO status is cancelled (lowercase in DB) */
 $pr_ids_po_cancelled = [];
+/** PR id => sum of active PO amounts */
+$pr_po_amount_sum = [];
 foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
     $pRid = (int) ($poRow['pr_id'] ?? 0);
     if ($pRid > 0) {
@@ -55,6 +57,12 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
         $poSt = strtolower(trim((string) ($poRow['status'] ?? 'ordered')));
         if ($poSt === 'cancelled') {
             $pr_ids_po_cancelled[$pRid] = true;
+        } else {
+            $amt = (float) ($poRow['total_amount'] ?? 0);
+            if ($amt <= 0.0001) {
+                $amt = (float) ($poRow['gross_amount'] ?? 0);
+            }
+            $pr_po_amount_sum[$pRid] = ($pr_po_amount_sum[$pRid] ?? 0.0) + $amt;
         }
     }
 }
@@ -117,7 +125,7 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
         }
     </style>
 </head>
-<body class="purchase-module tnc-app-body tnc-layout-list tnc-purchase-boot-lock" data-tnc-boot-title="กำลังโหลดรายการ PR…" data-tnc-boot-sub="กรุณารอสักครู่ ระบบจะพร้อมให้จัดการใบขอซื้อเมื่อโหลดเสร็จ" data-tnc-boot-checksum="<?= htmlspecialchars($prMirrorChecksum, ENT_QUOTES, 'UTF-8') ?>">
+<body class="purchase-module tnc-app-body tnc-layout-list" data-tnc-boot-checksum="<?= htmlspecialchars($prMirrorChecksum, ENT_QUOTES, 'UTF-8') ?>">
 
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
@@ -170,9 +178,11 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
             <span class="pr-po-legend__item"><span class="pr-po-status-dot pr-po-status-dot--no-po" aria-hidden="true"></span>สีเหลือง = ยังไม่ออกใบสั่งซื้อ</span>
             <span class="pr-po-legend__sep d-none d-sm-inline" aria-hidden="true">·</span>
             <span class="pr-po-legend__item"><span class="pr-po-status-dot pr-po-status-dot--has-po" aria-hidden="true"></span>สีเขียว = ออกใบสั่งซื้อแล้ว</span>
+            <span class="pr-po-legend__sep d-none d-sm-inline" aria-hidden="true">·</span>
+            <span class="pr-po-legend__item"><span class="badge rounded-pill po-exceeds-pr-badge">เกินยอด</span> = ออก PO รวมเกินยอด PR</span>
         </div>
         <div class="table-responsive tnc-mobile-table-wrap">
-            <table class="table table-hover align-middle pr-list-print-table tnc-mobile-table" id="prTable"<?= count($pr_rows) > 0 ? ' aria-busy="true"' : '' ?>>
+            <table class="table table-hover align-middle pr-list-print-table tnc-mobile-table" id="prTable">
                 <thead class="table-light">
                     <tr>
                         <th class="text-center no-print" style="width:2.5rem;" title="เลือกเพื่อพิมพ์หลายใบ">
@@ -185,14 +195,19 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
                         <th class="text-center no-print">การจัดการ</th>
                     </tr>
                 </thead>
-                <tbody id="prTableBody"<?= count($pr_rows) > 0 ? ' class="tnc-table-is-loading"' : '' ?>>
+                <tbody id="prTableBody">
                     <?php if (count($pr_rows) > 0): ?>
-                        <?= tnc_purchase_table_skeleton_tr(6, 'pr') ?>
                         <?php foreach ($pr_rows as $row): ?>
                         <?php
                             $rowPrId = (int) ($row['id'] ?? 0);
                             $prHasPo = $rowPrId > 0 && !empty($pr_ids_with_po[$rowPrId]);
                             $prPoCancelled = $rowPrId > 0 && !empty($pr_ids_po_cancelled[$rowPrId]);
+                            $prTotalAmt = (float) ($row['total_amount'] ?? 0);
+                            if ($prTotalAmt <= 0.0001) {
+                                $prTotalAmt = (float) ($row['gross_amount'] ?? 0);
+                            }
+                            $prPoSum = (float) ($pr_po_amount_sum[$rowPrId] ?? 0);
+                            $prPoExceeds = $prHasPo && !$prPoCancelled && $prTotalAmt > 0.01 && $prPoSum > $prTotalAmt + 0.01;
                             $createdRaw = trim((string) ($row['created_at'] ?? ''));
                             $createdTs = $createdRaw !== '' ? strtotime($createdRaw) : false;
                             $prDateDisplay = $createdTs !== false ? date('d/m/Y', $createdTs) : '—';
@@ -216,6 +231,9 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
                                             echo '<span class="pr-po-status-dot pr-po-status-dot--has-po" role="img" aria-label="ออก PO แล้ว" title="ออก PO แล้ว"></span>';
                                         } else {
                                             echo '<span class="pr-po-status-dot pr-po-status-dot--no-po" role="img" aria-label="ยังไม่ออก PO" title="ยังไม่ออก PO"></span>';
+                                        }
+                                        if ($prPoExceeds) {
+                                            echo '<span class="badge rounded-pill po-exceeds-pr-badge" title="ออก PO รวมเกินยอด PR">เกินยอด</span>';
                                         }
                                         ?>
                                     </span>
@@ -338,13 +356,12 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
 (function ($) {
     function initPrDataTable() {
         if ($('#prTable tbody tr td[colspan]').length === 0 && $('#prTable tbody tr').length) {
-            $('#prTable').DataTable({
+            $('#prTable').DataTable($.extend(true, {}, window.TncDataTablesDefaults || {}, {
                 order: [[1, 'desc']],
                 pageLength: 10,
                 info: false,
-                language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
                 columnDefs: [{ targets: [0, 5], orderable: false, searchable: false }]
-            });
+            }));
         }
     }
 
@@ -380,7 +397,7 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
                 }
             }
         }).catch(function () {});
-    }, 6000);
+    }, 30000);
 })(jQuery);
 </script>
 

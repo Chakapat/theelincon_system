@@ -633,7 +633,7 @@ window.TNC_PR_PO_AUDIO.trashDeleteUrl = window.TNC_CRUD_AUDIO.trashDeleteUrl;
     var markAllBtn = document.getElementById('tncNotifMarkAll');
     if (!badge || !listEl) return;
 
-    var pollMs = 3000;
+    var pollMs = 15000;
     var lastChecksum = '';
     var lastUnread = 0;
     var pollTimer = null;

@@ -120,12 +120,10 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
     $prApprovalBadgeClass = line_pr_status_badge_class($prApprovalStatus);
 
     $poShortcutUrl = '';
-    if ($pr_has_remaining_for_po && $prIsApprovedForPo) {
+    if ($prIsApprovedForPo) {
         $poShortcutUrl = app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . (int) $pr['id'];
     } elseif (is_array($existing_po) && (int) ($existing_po['id'] ?? 0) > 0) {
         $poShortcutUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . (int) $existing_po['id'];
-    } elseif ($prIsApprovedForPo) {
-        $poShortcutUrl = app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . (int) $pr['id'];
     }
 
     $prDocTitle = trim((string) ($pr['pr_number'] ?? ''));

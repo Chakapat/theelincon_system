@@ -404,7 +404,7 @@ $periodFilterLabel = $searchDate !== ''
                     </thead>
                     <tbody>
                         <?php if ($rowCount === 0): ?>
-                            <tr><td colspan="6" class="text-center text-muted py-5">ยังไม่มีรายการในงวดนี้</td></tr>
+                            <tr class="ledger-empty-row"><td colspan="6" class="text-center text-muted py-5">ยังไม่มีรายการในงวดนี้</td></tr>
                         <?php else: ?>
                             <tr class="ledger-opening-row">
                                 <td class="ledger-cell-date text-secondary small text-nowrap ps-3">—</td>
