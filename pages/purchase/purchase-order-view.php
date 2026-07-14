@@ -48,22 +48,31 @@ if ($poPrintMode === 'all' && !$hasPrForPrint) {
 }
 $hasPrintChoiceModal = $hasFollowPagesPrint || $hasPrForPrint;
 
-$printIncludePr = ($poPrintMode === 'all' && $hasPrForPrint);
-$printIncludePo = in_array($poPrintMode, ['po', 'both', 'all'], true);
-$printIncludeSlip = in_array($poPrintMode, ['slip', 'both', 'all'], true) && $hasPaymentSlipPrint;
-$printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true) && $hasQuotationAttachPrint;
-
 $poEmbed = isset($_GET['embed']) && (string) $_GET['embed'] === '1';
 $poAutoprint = isset($_GET['autoprint']) && (string) $_GET['autoprint'] === '1';
+$poInteractiveView = !$poEmbed && !$poAutoprint;
+
 if ($poEmbed || $poAutoprint) {
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     header('Pragma: no-cache');
 }
+
 if ($poEmbed) {
     $printIncludePr = false;
     $printIncludePo = true;
     $printIncludeSlip = false;
     $printIncludeQuotation = false;
+} elseif ($poInteractiveView) {
+    // หน้าดูเอกสาร: โหลดทุกส่วนที่มีไว้พิมพ์ในหน้าเดิม (สลับโหมดด้วย body class แบบ VAT report)
+    $printIncludePr = $hasPrForPrint;
+    $printIncludePo = true;
+    $printIncludeSlip = $hasPaymentSlipPrint;
+    $printIncludeQuotation = $hasQuotationAttachPrint;
+} else {
+    $printIncludePr = ($poPrintMode === 'all' && $hasPrForPrint);
+    $printIncludePo = in_array($poPrintMode, ['po', 'both', 'all'], true);
+    $printIncludeSlip = in_array($poPrintMode, ['slip', 'both', 'all'], true) && $hasPaymentSlipPrint;
+    $printIncludeQuotation = in_array($poPrintMode, ['both', 'all'], true) && $hasQuotationAttachPrint;
 }
 
 /** วันที่ PO สำหรับฟอร์มบันทึกบิลซื้อ — ใช้วันที่ออกใบสั่งซื้อตอนสร้าง */
@@ -212,6 +221,15 @@ $supplierInvoiceDateViewDisplay = $supplierInvoiceDateYmd !== '' ? tnc_po_ymd_to
             margin-right: auto;
             padding: 0.75rem 0.75rem 2.5rem;
         }
+
+        /* หน้าจอ: ซ่อน PR ที่โหลดไว้สำหรับโหมดพิมพ์ all */
+        @media screen {
+            body.tnc-doc-po-view:not(.po-doc-embed):not(.po-doc-autoprint) .tnc-po-print-page--pr {
+                display: none !important;
+            }
+        }
+
+        /* พิมพ์ในหน้าเดิม: เลือกชุดเอกสารตาม body.po-printing-* (ดูใน @media print) */
 
         /* PR ฝังในหน้า PO — คงโทนเขียวของ PR (ไม่ใช้ส้มของ PO) */
         .pr-bundle-inline {
@@ -518,6 +536,13 @@ $supplierInvoiceDateViewDisplay = $supplierInvoiceDateYmd !== '' ? tnc_po_ymd_to
                 break-before: page !important;
             }
 
+            body.po-printing-po .tnc-po-print-page:not(.tnc-po-print-page--po),
+            body.po-printing-slip .tnc-po-print-page:not(.tnc-po-print-page--slip),
+            body.po-printing-both .tnc-po-print-page--pr,
+            body.tnc-doc-po-view:not(.po-doc-autoprint):not(.po-printing-all):not(.po-printing-po):not(.po-printing-slip) .tnc-po-print-page--pr {
+                display: none !important;
+            }
+
             .tnc-po-print-page--slip .po-payment-slip-print-wrap {
                 page-break-before: auto !important;
                 break-before: auto !important;
@@ -796,7 +821,7 @@ $hasAlerts = $poViewFlash !== null
             <div class="modal-header border-0 pb-0">
                 <div>
                     <h5 class="modal-title fw-bold" id="poPrintChoiceModalLabel">เลือกรูปแบบการพิมพ์</h5>
-                    <p class="small text-muted mb-0 mt-1">เปิดหน้าพิมพ์พร้อมกล่องพิมพ์อัตโนมัติ</p>
+                    <p class="small text-muted mb-0 mt-1">พิมพ์จากหน้านี้โดยตรง ไม่เปิดหน้าใหม่</p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
             </div>
@@ -899,25 +924,38 @@ include dirname(__DIR__, 2) . '/includes/purchase/po_payment_slips_modal.php';
 <?php if ($hasPrintChoiceModal && !$poEmbed && !$poAutoprint): ?>
 <script>
 (function () {
-    var base = <?= json_encode(app_path('pages/purchase/purchase-order-view.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
-    var id = <?= (int) $id ?>;
+    var printModes = ['po', 'slip', 'both', 'all'];
+    function clearPoPrintMode() {
+        printModes.forEach(function (m) {
+            document.body.classList.remove('po-printing-' + m);
+        });
+    }
+    window.addEventListener('afterprint', clearPoPrintMode);
+
     document.querySelectorAll('#poPrintChoiceModal .js-po-print-choice').forEach(function (btn) {
         btn.addEventListener('click', function () {
             if (btn.disabled) {
                 return;
             }
             var mode = btn.getAttribute('data-print-mode') || 'both';
-            if (mode !== 'po' && mode !== 'slip' && mode !== 'both' && mode !== 'all') {
+            if (printModes.indexOf(mode) === -1) {
                 mode = 'both';
             }
-            var u = base + '?id=' + id + '&print_mode=' + encodeURIComponent(mode) + '&autoprint=1';
-            window.location.href = u;
+            clearPoPrintMode();
+            document.body.classList.add('po-printing-' + mode);
+
             var el = document.getElementById('poPrintChoiceModal');
             if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
                 var m = bootstrap.Modal.getInstance(el);
                 if (m) {
                     m.hide();
                 }
+            }
+
+            if (typeof window.tncPrintPoWhenReady === 'function') {
+                window.tncPrintPoWhenReady();
+            } else {
+                window.print();
             }
         });
     });

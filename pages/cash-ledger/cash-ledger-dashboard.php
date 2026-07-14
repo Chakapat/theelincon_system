@@ -53,21 +53,10 @@ $thaiMonths = [
 ];
 $ymParts = array_map('intval', explode('-', $month));
 $periodLabelTh = ($thaiMonths[$ymParts[1]] ?? '') . ' พ.ศ. ' . ($ymParts[0] + 543);
-$printedBy = trim((string) ($_SESSION['name'] ?? ''));
-if ($printedBy === '') {
-    $printedBy = 'ผู้ใช้งาน';
-}
-$printedAtThai = '';
-try {
-    $printedAtThai = (new DateTimeImmutable('now', new DateTimeZone('Asia/Bangkok')))->format('d/m/Y H:i');
-} catch (Throwable $e) {
-    $printedAtThai = date('d/m/Y H:i');
-}
 
 $users = Db::tableKeyed('users');
 
 $allLedgerChrono = cash_ledger_chronological_rows();
-$latestBalanceAllTime = 0.0;
 $openingBalance = 0.0;
 foreach ($allLedgerChrono as $cAll) {
     $delta = cash_ledger_row_amount_delta($cAll);
@@ -75,7 +64,6 @@ foreach ($allLedgerChrono as $cAll) {
     if ($edAll !== '' && $edAll < $ymStart) {
         $openingBalance += $delta;
     }
-    $latestBalanceAllTime += $delta;
 }
 
 $rows = [];
@@ -176,7 +164,7 @@ $periodFilterLabel = $searchDate !== ''
     <?php
     require_once dirname(__DIR__, 2) . '/includes/tnc_ops_head.php';
     tnc_ops_head([
-        'title' => 'สรุปรายรับรายจ่ายภายใน | THEELIN CON',
+        'title' => 'รายงานสดย่อย | THEELIN CON',
         'sweetalert' => true,
         'cash_ledger_ui' => true,
         'cash_print' => true,
@@ -288,7 +276,6 @@ $periodFilterLabel = $searchDate !== ''
                         <div class="mb-1">
                             <label class="form-label fw-bold small mb-1" for="filter_entry_date">ค้นหาวันที่</label>
                             <input type="date" name="entry_date" id="filter_entry_date" class="form-control rounded-3 ledger-filter-input" value="<?= htmlspecialchars($searchDate, ENT_QUOTES, 'UTF-8') ?>">
-                            <div class="form-text">เว้นว่างเพื่อดูทั้งเดือน</div>
                         </div>
                     </div>
                     <div class="modal-footer border-0 pt-0 flex-column flex-sm-row gap-2">
@@ -305,63 +292,41 @@ $periodFilterLabel = $searchDate !== ''
 
     <div class="d-none d-print-block report-print-header text-center border-bottom border-2 border-dark pb-3 mb-3">
         <h1 class="h4 fw-bold mb-1">THEELIN CON CO.,LTD.</h1>
-        <h2 class="h5 fw-bold mb-2">รายงานสรุปรายรับรายจ่ายภายใน</h2>
-        <p class="mb-1 fw-semibold">งวดบัญชี: <?= htmlspecialchars($periodFilterLabel, ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>)</p>
-        <p class="small mb-2">พิมพ์เมื่อ <?= htmlspecialchars($printedAtThai, ENT_QUOTES, 'UTF-8') ?> &nbsp;|&nbsp; ผู้พิมพ์: <?= htmlspecialchars($printedBy, ENT_QUOTES, 'UTF-8') ?></p>
+        <h2 class="h5 fw-bold mb-2">รายงานสดย่อย</h2>
+        <p class="mb-2 fw-semibold">งวดบัญชี: <?= htmlspecialchars($periodFilterLabel, ENT_QUOTES, 'UTF-8') ?></p>
         <div class="row justify-content-center g-2 small">
             <div class="col-auto border rounded px-3 py-2 mx-1">
-                <span class="fw-semibold d-block">ยอดยกมา</span>
-                <span class="fw-bold d-block ledger-money">฿<?= number_format($openingBalance, 2) ?></span>
-            </div>
-            <div class="col-auto border rounded px-3 py-2 mx-1">
-                <span class="fw-semibold d-block">รายรับในงวด</span>
+                <span class="fw-semibold d-block">รายรับ</span>
                 <span class="fw-bold text-success d-block ledger-money">฿<?= number_format($sumIncome, 2) ?></span>
             </div>
             <div class="col-auto border rounded px-3 py-2 mx-1">
-                <span class="fw-semibold d-block">รายจ่ายในงวด</span>
+                <span class="fw-semibold d-block">รายจ่าย</span>
                 <span class="fw-bold text-danger d-block ledger-money">฿<?= number_format($sumExpense, 2) ?></span>
             </div>
             <div class="col-auto border rounded px-3 py-2 mx-1">
-                <span class="fw-semibold d-block">คงเหลือปลายงวด</span>
+                <span class="fw-semibold d-block">คงเหลือปัจจุบัน</span>
                 <span class="fw-bold d-block ledger-money <?= $periodEndBalance < 0 ? 'text-danger' : '' ?>">฿<?= number_format($periodEndBalance, 2) ?></span>
             </div>
-            <div class="col-auto border rounded px-3 py-2 mx-1">
-                <span class="fw-semibold d-block">จำนวนรายการ</span>
-                <span class="fw-bold d-block"><?= number_format($rowCount) ?> รายการ</span>
-            </div>
         </div>
-        <p class="small text-muted mt-2 mb-0">คงเหลือล่าสุดในระบบ (สะสม): ฿<?= number_format($latestBalanceAllTime, 2) ?></p>
     </div>
 
     <div class="no-print row g-3 mb-4">
         <div class="col-md-4 col-6">
             <div class="ledger-kpi ledger-kpi--income h-100">
-                <div class="ledger-kpi__label">ยอดยกมา</div>
-                <div class="ledger-kpi__value">฿<?= number_format($openingBalance, 2) ?></div>
-            </div>
-        </div>
-        <div class="col-md-4 col-6">
-            <div class="ledger-kpi ledger-kpi--income h-100">
-                <div class="ledger-kpi__label">รายรับในงวด</div>
+                <div class="ledger-kpi__label">รายรับ</div>
                 <div class="ledger-kpi__value text-success">฿<?= number_format($sumIncome, 2) ?></div>
             </div>
         </div>
         <div class="col-md-4 col-6">
             <div class="ledger-kpi ledger-kpi--expense h-100">
-                <div class="ledger-kpi__label">รายจ่ายในงวด</div>
+                <div class="ledger-kpi__label">รายจ่าย</div>
                 <div class="ledger-kpi__value text-danger">฿<?= number_format($sumExpense, 2) ?></div>
             </div>
         </div>
-        <div class="col-md-6 col-6">
+        <div class="col-md-4 col-12">
             <div class="ledger-kpi ledger-kpi--balance h-100">
-                <div class="ledger-kpi__label">คงเหลือปลายงวด</div>
+                <div class="ledger-kpi__label">คงเหลือปัจจุบัน</div>
                 <div class="ledger-kpi__value <?= $periodEndBalance < 0 ? 'text-danger' : '' ?>">฿<?= number_format($periodEndBalance, 2) ?></div>
-            </div>
-        </div>
-        <div class="col-md-6 col-6">
-            <div class="ledger-kpi h-100">
-                <div class="ledger-kpi__label">คงเหลือล่าสุดในระบบ</div>
-                <div class="ledger-kpi__value <?= $latestBalanceAllTime < 0 ? 'text-danger' : '' ?>">฿<?= number_format($latestBalanceAllTime, 2) ?></div>
             </div>
         </div>
     </div>
@@ -410,16 +375,6 @@ $periodFilterLabel = $searchDate !== ''
                         <?php if ($rowCount === 0): ?>
                             <tr class="ledger-empty-row"><td colspan="6" class="text-center text-muted py-5">ยังไม่มีรายการในงวดนี้</td></tr>
                         <?php else: ?>
-                            <tr class="ledger-opening-row">
-                                <td class="ledger-cell-date text-secondary small text-nowrap ps-3">—</td>
-                                <td class="ledger-cell-desc col-desc fw-semibold">ยอดยกมา</td>
-                                <td class="ledger-cell-in ledger-cell-empty ledger-money small text-end"></td>
-                                <td class="ledger-cell-out ledger-cell-empty ledger-money small text-end"></td>
-                                <td class="ledger-cell-balance ledger-money small text-end fw-bold text-nowrap <?= $openingBalance < 0 ? 'text-danger' : 'text-dark' ?>">
-                                    <?= number_format($openingBalance, 2) ?>
-                                </td>
-                                <td class="ledger-cell-actions pe-3 text-center no-print"></td>
-                            </tr>
                             <?php foreach ($pagedRows as $row):
                                 $lid = (int) $row['id'];
                                 $canManage = $isAdmin || (int) ($row['created_by'] ?? 0) === $me;
@@ -470,45 +425,6 @@ $periodFilterLabel = $searchDate !== ''
                     </tbody>
                 </table>
             </div>
-            <?php if ($rowCount > 0): ?>
-            <div class="cash-report-final-summary d-none d-print-block px-3 py-3">
-                <h6 class="fw-bold mb-2">สรุปงวด <?= htmlspecialchars($periodFilterLabel, ENT_QUOTES, 'UTF-8') ?></h6>
-                <table class="table table-sm table-bordered mb-3">
-                    <tbody>
-                        <tr>
-                            <td>ยอดยกมา</td>
-                            <td class="text-end fw-bold ledger-money">฿<?= number_format($openingBalance, 2) ?></td>
-                        </tr>
-                        <tr>
-                            <td>รายรับในงวด</td>
-                            <td class="text-end fw-bold text-success ledger-money">฿<?= number_format($sumIncome, 2) ?></td>
-                        </tr>
-                        <tr>
-                            <td>รายจ่ายในงวด</td>
-                            <td class="text-end fw-bold text-danger ledger-money">฿<?= number_format($sumExpense, 2) ?></td>
-                        </tr>
-                        <tr>
-                            <td class="fw-bold">คงเหลือปลายงวด</td>
-                            <td class="text-end fw-bold ledger-money <?= $periodEndBalance < 0 ? 'text-danger' : '' ?>">฿<?= number_format($periodEndBalance, 2) ?></td>
-                        </tr>
-                    </tbody>
-                </table>
-                <div class="ledger-print-sign row g-3 small">
-                    <div class="col-4 text-center">
-                        <div class="ledger-print-sign__line"></div>
-                        <div>ผู้จัดทำรายงาน</div>
-                    </div>
-                    <div class="col-4 text-center">
-                        <div class="ledger-print-sign__line"></div>
-                        <div>ผู้ตรวจสอบ</div>
-                    </div>
-                    <div class="col-4 text-center">
-                        <div class="ledger-print-sign__line"></div>
-                        <div>ผู้อนุมัติ</div>
-                    </div>
-                </div>
-            </div>
-            <?php endif; ?>
             <?php if ($totalPages > 1): ?>
                 <div class="no-print d-flex justify-content-between align-items-center px-3 py-3 border-top bg-white">
                     <div class="small text-muted">หน้า <?= number_format($page) ?> / <?= number_format($totalPages) ?></div>

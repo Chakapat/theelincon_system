@@ -116,6 +116,25 @@
         break-inside: avoid-page !important;
     }
 
+    /* โหมดพิมพ์ในหน้าเดิม — ต้อง specificity สูงกว่ากฎ display:block ด้านบน */
+    body.purchase-module.po-printing-po .po-view-canvas > .tnc-po-print-page:not(.tnc-po-print-page--po),
+    body.purchase-module.po-printing-slip .po-view-canvas > .tnc-po-print-page:not(.tnc-po-print-page--slip),
+    body.purchase-module.po-printing-both .po-view-canvas > .tnc-po-print-page--pr,
+    body.purchase-module.tnc-doc-po-view:not(.po-doc-autoprint):not(.po-printing-all):not(.po-printing-po):not(.po-printing-slip) .po-view-canvas > .tnc-po-print-page--pr {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        max-height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        page-break-before: auto !important;
+        break-before: auto !important;
+        page-break-after: auto !important;
+        break-after: auto !important;
+    }
+
     /* ใบ PO/PR หลายหน้า (Doc Breakpoint) — อนุญาตแตกหน้าภายใน wrapper */
     body.purchase-module .po-view-canvas > .tnc-po-print-page:has(.tnc-doc-pages-wrap),
     body.purchase-module .pr-view-canvas:has(.tnc-doc-pages-wrap) {

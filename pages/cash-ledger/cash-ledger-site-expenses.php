@@ -35,10 +35,6 @@ $thaiMonths = [
 ];
 $ymParts = array_map('intval', explode('-', $month));
 $periodLabelTh = ($thaiMonths[$ymParts[1]] ?? '') . ' พ.ศ. ' . ($ymParts[0] + 543);
-$printedBy = trim((string) ($_SESSION['name'] ?? ''));
-if ($printedBy === '') {
-    $printedBy = 'ผู้ใช้งาน';
-}
 
 $sitesKeyed = Db::tableKeyed('sites');
 $siteExpenseSummary = [];
@@ -168,8 +164,7 @@ foreach ($siteRows as $siteRow) {
     <div class="d-none d-print-block text-center border-bottom border-2 border-dark pb-3 mb-3">
         <h1 class="h4 fw-bold mb-1">THEELIN CON CO.,LTD.</h1>
         <h2 class="h5 fw-bold mb-2">รายงานค่าใช้จ่ายแต่ละไซต์</h2>
-        <p class="mb-1 fw-semibold">งวดบัญชี: <?= htmlspecialchars($periodLabelTh, ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($month, ENT_QUOTES, 'UTF-8') ?>)</p>
-        <p class="small mb-0">พิมพ์เมื่อ <?= date('d/m/Y H:i') ?> &nbsp;|&nbsp; ผู้พิมพ์: <?= htmlspecialchars($printedBy, ENT_QUOTES, 'UTF-8') ?></p>
+        <p class="mb-0 fw-semibold">งวดบัญชี: <?= htmlspecialchars($periodLabelTh, ENT_QUOTES, 'UTF-8') ?></p>
     </div>
 
     <div class="row g-3 mb-4 no-print">

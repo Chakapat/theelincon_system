@@ -1,10 +1,21 @@
 /**
  * Move document toolbar actions into bottom dock + "more" sheet on mobile.
+ * Important: print preview can make max-width media queries match — never reshuffle
+ * DOM while printing, and always restore nodes to their real toolbar home.
  */
 (function () {
     'use strict';
 
     var mq = window.matchMedia('(max-width: 991.98px)');
+    var printMq = window.matchMedia('print');
+
+    function isPrinting() {
+        try {
+            return printMq.matches;
+        } catch (e) {
+            return false;
+        }
+    }
 
     function ensureChrome() {
         var dock = document.getElementById('tncDocActionDock');
@@ -43,14 +54,28 @@
 
     function rememberHome(el) {
         if (!el._tncDocHome) {
-            el._tncDocHome = { parent: el.parentNode, next: el.nextSibling };
+            el._tncDocHome = {
+                parent: el.parentNode,
+                next: el.nextSibling,
+                html: el.innerHTML,
+                className: el.className,
+            };
         }
     }
 
     function restoreHome(el) {
-        if (!el._tncDocHome || !el._tncDocHome.parent) return;
+        if (!el._tncDocHome || !el._tncDocHome.parent) {
+            return;
+        }
         var home = el._tncDocHome;
-        if (el.nextSibling !== home.next) {
+        if (home.html != null) {
+            el.innerHTML = home.html;
+        }
+        if (home.className != null) {
+            el.className = home.className;
+        }
+        // Must compare parentNode — nextSibling alone misses "last child" cases in the dock
+        if (el.parentNode !== home.parent || el.nextSibling !== home.next) {
             home.parent.insertBefore(el, home.next);
         }
     }
@@ -82,22 +107,34 @@
         el.innerHTML = '<i class="' + iconForAction(el) + '" aria-hidden="true"></i><span>' + labelForAction(el) + '</span>';
     }
 
+    function clearDockSlots() {
+        ['back', 'edit', 'print'].forEach(function (slot) {
+            var holder = document.querySelector('[data-dock-slot="' + slot + '"]');
+            if (holder) {
+                holder.innerHTML = '';
+            }
+        });
+        var sheetBody = document.getElementById('tncDocMoreSheetBody');
+        if (sheetBody) {
+            sheetBody.innerHTML = '';
+        }
+    }
+
     function restoreDesktop() {
         document.body.classList.remove('tnc-layout-doc');
         var dock = document.getElementById('tncDocActionDock');
-        if (dock) dock.hidden = true;
+        if (dock) {
+            dock.hidden = true;
+        }
         document.querySelectorAll('.js-tnc-doc-action').forEach(restoreHome);
-        ['back', 'edit', 'print'].forEach(function (slot) {
-            var holder = document.querySelector('[data-dock-slot="' + slot + '"]');
-            if (holder) holder.innerHTML = '';
-        });
-        var sheetBody = document.getElementById('tncDocMoreSheetBody');
-        if (sheetBody) sheetBody.innerHTML = '';
+        clearDockSlots();
     }
 
     function applyMobile() {
         var toolbar = document.querySelector('.js-tnc-doc-toolbar');
-        if (!toolbar) return;
+        if (!toolbar) {
+            return;
+        }
 
         document.body.classList.add('tnc-layout-doc');
         var dock = ensureChrome();
@@ -106,9 +143,13 @@
 
         ['back', 'edit', 'print'].forEach(function (slot) {
             var holder = dock.querySelector('[data-dock-slot="' + slot + '"]');
-            if (holder) holder.innerHTML = '';
+            if (holder) {
+                holder.innerHTML = '';
+            }
         });
-        if (sheetBody) sheetBody.innerHTML = '';
+        if (sheetBody) {
+            sheetBody.innerHTML = '';
+        }
 
         var moreCount = 0;
         toolbar.querySelectorAll('.js-tnc-doc-action').forEach(function (action) {
@@ -136,6 +177,10 @@
     }
 
     function apply() {
+        // Print preview often flips max-width media queries; do not move toolbar nodes then.
+        if (isPrinting()) {
+            return;
+        }
         if (mq.matches) {
             applyMobile();
         } else {
@@ -154,4 +199,12 @@
     } else if (typeof mq.addListener === 'function') {
         mq.addListener(apply);
     }
+
+    window.addEventListener('beforeprint', function () {
+        // Keep actions in the real toolbar; print CSS already hides .no-print
+        restoreDesktop();
+    });
+    window.addEventListener('afterprint', function () {
+        apply();
+    });
 })();
