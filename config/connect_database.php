@@ -41,6 +41,10 @@ if (session_status() === PHP_SESSION_ACTIVE) {
     unset($_SESSION['position']);
 }
 
+if (function_exists('tnc_flash_bootstrap_request')) {
+    tnc_flash_bootstrap_request();
+}
+
 if (function_exists('tnc_page_access_guard')) {
     tnc_page_access_guard();
 }

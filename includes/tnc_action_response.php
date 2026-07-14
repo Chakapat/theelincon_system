@@ -169,6 +169,9 @@ if (!function_exists('tnc_action_redirect')) {
             echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             exit;
         }
+        if (function_exists('tnc_flash_location')) {
+            tnc_flash_location($url);
+        }
         header('Location: ' . $url);
         exit;
     }

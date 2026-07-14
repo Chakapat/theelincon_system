@@ -14,6 +14,9 @@ require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
 if (!function_exists('tnc_site_hub_post_redirect')) {
     function tnc_site_hub_post_redirect(string $url): void
     {
+        if (function_exists('tnc_flash_location')) {
+            tnc_flash_location($url, 303);
+        }
         header('Location: ' . $url, true, 303);
         exit;
     }

@@ -242,7 +242,7 @@ $updatedAt = trim((string) ($configRow['updated_at'] ?? ''));
         });
     });
 
-    var params = new URLSearchParams(window.location.search);
+    var params = (typeof tncFlashSearchParams === 'function' ? tncFlashSearchParams() : new URLSearchParams(window.location.search));
     if (params.get('saved') && typeof Swal !== 'undefined') {
         Swal.fire({
             icon: 'success',

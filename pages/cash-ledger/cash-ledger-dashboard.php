@@ -551,7 +551,7 @@ $periodFilterLabel = $searchDate !== ''
 
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script>
-const params = new URLSearchParams(window.location.search);
+const params = (typeof tncFlashSearchParams === 'function' ? tncFlashSearchParams() : new URLSearchParams(window.location.search));
 if (params.get('saved') === '1') {
     Swal.fire({ icon: 'success', title: 'บันทึกแล้ว', confirmButtonColor: '#ea580c' });
 }

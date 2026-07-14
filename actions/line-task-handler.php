@@ -17,7 +17,11 @@ $me = (int) $_SESSION['user_id'];
 
 function line_task_redirect(string $path): void
 {
-    header('Location: ' . app_path($path));
+    $url = app_path($path);
+    if (function_exists('tnc_flash_location')) {
+        tnc_flash_location($url);
+    }
+    header('Location: ' . $url);
     exit;
 }
 

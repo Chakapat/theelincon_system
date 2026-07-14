@@ -21,24 +21,6 @@ $is_admin = user_is_admin_role();
 $suppliers = Db::tableRows('suppliers');
 Db::sortRows($suppliers, 'name', false);
 $supplierCount = count($suppliers);
-
-/**
- * Format Thai tax ID as X-XXXX-XXXXX-XX-X when 13 digits.
- */
-function tnc_supplier_format_tax_id(string $taxId): string
-{
-    $digits = preg_replace('/\D+/', '', $taxId) ?? '';
-    if (strlen($digits) !== 13) {
-        return $taxId;
-    }
-
-    return substr($digits, 0, 1)
-        . '-' . substr($digits, 1, 4)
-        . '-' . substr($digits, 5, 5)
-        . '-' . substr($digits, 10, 2)
-        . '-' . substr($digits, 12, 1);
-}
-
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -92,7 +74,7 @@ function tnc_supplier_format_tax_id(string $taxId): string
             <table class="table table-hover align-middle tnc-mobile-table mb-0" id="supplierTable" style="width:100%">
                 <thead>
                     <tr>
-                        <th scope="col">ผู้ขาย</th>
+                        <th scope="col">ชื่อผู้ขายสินค้า/บริการ</th>
                         <th scope="col">เลขผู้เสียภาษี</th>
                         <th scope="col">ที่อยู่บริษัท</th>
                         <th scope="col">บัญชีรับโอน</th>
@@ -122,29 +104,28 @@ function tnc_supplier_format_tax_id(string $taxId): string
                         $rowAccName = trim((string) ($row['bank_account_name'] ?? ''));
                         $rowBankLogo = $rowBank !== '' ? tnc_bank_logo_url($rowBank) : '';
                         $hasBank = $rowBank !== '' || $rowAccNo !== '' || $rowAccName !== '';
-                        $taxDisplay = $rowTaxId !== '' ? tnc_supplier_format_tax_id($rowTaxId) : '';
                     ?>
                     <tr>
                         <td class="tnc-mobile-primary fw-bold" data-label="ผู้ขาย">
                             <div class="sup-name"><?= htmlspecialchars($rowName !== '' ? $rowName : '—', ENT_QUOTES, 'UTF-8') ?></div>
                         </td>
                         <td data-label="เลขประจำตัวผู้เสียภาษี">
-                            <?php if ($taxDisplay !== ''): ?>
-                                <span class="sup-tax" title="<?= htmlspecialchars($rowTaxId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($taxDisplay, ENT_QUOTES, 'UTF-8') ?></span>
+                            <?php if ($rowTaxId !== ''): ?>
+                                <span class="sup-tax"><?= htmlspecialchars($rowTaxId, ENT_QUOTES, 'UTF-8') ?></span>
                             <?php else: ?>
-                                <span class="sup-tax is-empty">ยังไม่ระบุ</span>
+                                <span class="sup-tax is-empty">—</span>
                             <?php endif; ?>
                         </td>
                         <td data-label="ที่อยู่บริษัท">
                             <?php if ($rowAddress !== ''): ?>
                                 <div class="sup-address" title="<?= htmlspecialchars($rowAddress, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($rowAddress, ENT_QUOTES, 'UTF-8') ?></div>
                             <?php else: ?>
-                                <span class="sup-empty">ยังไม่ระบุ</span>
+                                <span class="sup-empty">—</span>
                             <?php endif; ?>
                         </td>
                         <td data-label="บัญชีรับโอน">
                             <?php if (!$hasBank): ?>
-                                <span class="sup-empty">ยังไม่ระบุ</span>
+                                <span class="sup-empty">—</span>
                             <?php else: ?>
                                 <div class="sup-bank">
                                     <?php if ($rowBank !== '' || $rowBankLogo !== ''): ?>
@@ -237,7 +218,7 @@ function deleteSup(id) {
     if ($('#supplierTable tbody tr td[colspan]').length === 0 && $('#supplierTable tbody tr').length) {
         $('#supplierTable').DataTable({
             order: [[0, 'asc']],
-            pageLength: 25,
+            pageLength: 10,
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json' },
             columnDefs: [{ targets: [-1], orderable: false, searchable: false }]
         });

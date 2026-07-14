@@ -132,7 +132,7 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
     var form = document.getElementById('tnc-my-profile-form');
     if (!form || typeof Swal === 'undefined') return;
 
-    var params = new URLSearchParams(window.location.search);
+    var params = (typeof tncFlashSearchParams === 'function' ? tncFlashSearchParams() : new URLSearchParams(window.location.search));
     if (params.get('success') === '1') {
         Swal.fire({
             icon: 'success',

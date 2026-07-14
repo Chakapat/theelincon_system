@@ -203,9 +203,12 @@ if (!function_exists('tnc_site_save_name')) {
 }
 
 if (!function_exists('tnc_site_hub_post_redirect')) {
-    /** Post/Redirect/Get — 303 forces GET on the next request. */
+    /** Post/Redirect/Get — 303 + one-shot flash (clean URL). */
     function tnc_site_hub_post_redirect(string $url): void
     {
+        if (function_exists('tnc_flash_location')) {
+            tnc_flash_location($url, 303);
+        }
         header('Location: ' . $url, true, 303);
         exit;
     }

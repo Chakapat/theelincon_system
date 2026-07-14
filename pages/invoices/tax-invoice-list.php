@@ -336,7 +336,7 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
 
     document.addEventListener('DOMContentLoaded', function () {
         if (typeof Swal === 'undefined') return;
-        var params = new URLSearchParams(window.location.search);
+        var params = (typeof tncFlashSearchParams === 'function' ? tncFlashSearchParams() : new URLSearchParams(window.location.search));
         if (params.get('created') === '1') {
             var taxNo = params.get('tax_no') || '';
             var msg = taxNo !== ''

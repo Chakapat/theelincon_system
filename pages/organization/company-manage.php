@@ -483,7 +483,7 @@ function editCompany(id) {
     }
 })();
 
-const params = new URLSearchParams(window.location.search);
+const params = (typeof tncFlashSearchParams === 'function' ? tncFlashSearchParams() : new URLSearchParams(window.location.search));
 if (params.get('success')) Swal.fire({ icon: 'success', title: 'สำเร็จ!', confirmButtonColor: '#ea580c' });
 if (params.has('deleted')) Swal.fire({ icon: 'success', title: 'ลบเรียบร้อย!', confirmButtonColor: '#ea580c' });
 if (params.get('error') === 'logo_upload_failed') Swal.fire({ icon: 'error', title: 'อัปโหลดโลโก้ไม่สำเร็จ', confirmButtonColor: '#ea580c' });

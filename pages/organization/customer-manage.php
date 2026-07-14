@@ -231,7 +231,7 @@ function confirmDelete(id, type) {
             .catch(function () { Swal.fire({ icon: 'error', title: 'เครือข่ายผิดพลาด' }); });
     });
 }
-const params = new URLSearchParams(window.location.search);
+const params = (typeof tncFlashSearchParams === 'function' ? tncFlashSearchParams() : new URLSearchParams(window.location.search));
 if(params.has('success')) Swal.fire({ icon: 'success', title: 'สำเร็จ!', confirmButtonColor: '#ea580c' });
 if(params.has('deleted')) Swal.fire({ icon: 'success', title: 'ลบแล้ว!', confirmButtonColor: '#ea580c' });
 if (params.get('error') === 'confirm_password_required') Swal.fire({ icon: 'warning', title: 'กรุณากรอกรหัสผ่านเพื่อยืนยันการลบ', confirmButtonColor: '#ea580c' });

@@ -575,6 +575,12 @@ if (!is_int($tncAjaxFormJsVer) || $tncAjaxFormJsVer <= 0) {
 }
 ?>
 <script src="<?= htmlspecialchars(app_path('assets/js/tnc-ajax-form.js') . '?v=' . $tncAjaxFormJsVer, ENT_QUOTES, 'UTF-8') ?>"></script>
+<script>
+window.__TNC_FLASH_Q__ = <?= json_encode(
+    function_exists('tnc_flash_bag') ? tnc_flash_bag() : [],
+    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+) ?>;
+</script>
 <?php
 $tncPurchaseFlashJsPath = dirname(__DIR__) . '/assets/js/tnc-purchase-flash.js';
 $tncPurchaseFlashJsVer = @filemtime($tncPurchaseFlashJsPath);
@@ -582,7 +588,7 @@ if (!is_int($tncPurchaseFlashJsVer) || $tncPurchaseFlashJsVer <= 0) {
     $tncPurchaseFlashJsVer = time();
 }
 ?>
-<script src="<?= htmlspecialchars(app_path('assets/js/tnc-purchase-flash.js') . '?v=' . $tncPurchaseFlashJsVer, ENT_QUOTES, 'UTF-8') ?>" defer></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/tnc-purchase-flash.js') . '?v=' . $tncPurchaseFlashJsVer, ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php
 $tncNavPopoverJsPath = dirname(__DIR__) . '/assets/js/tnc-nav-popover.js';
 $tncNavPopoverJsVer = @filemtime($tncNavPopoverJsPath);

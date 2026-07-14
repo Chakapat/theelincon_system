@@ -177,7 +177,7 @@ function editMember(id) {
     });
 }
 
-const urlParams = new URLSearchParams(window.location.search);
+const urlParams = (typeof tncFlashSearchParams === 'function' ? tncFlashSearchParams() : new URLSearchParams(window.location.search));
 if (urlParams.has('success')) {
     const msg = urlParams.get('success') === 'updated' ? 'แก้ไขข้อมูลสมาชิกเรียบร้อยแล้ว' : 'บันทึกข้อมูลเรียบร้อยแล้ว';
     Swal.fire('สำเร็จ!', msg, 'success');

@@ -328,6 +328,9 @@
     }
 
     function detectFromUrl() {
+        if (typeof window.tncFlashSearchParams === 'function') {
+            return audioFromQuery(window.tncFlashSearchParams());
+        }
         return audioFromQuery(new URLSearchParams(window.location.search || ''));
     }
 

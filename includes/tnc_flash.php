@@ -5,7 +5,261 @@ declare(strict_types=1);
 /**
  * Flash + audio feedback กลางทั้งระบบ
  * ใช้ร่วมกับ assets/js/tnc-pr-po-audio.js (CRUD audio โหลดจาก navbar)
+ *
+ * One-shot flash: ค่า feedback ใน query (?success=1, ?error=…, ?deleted=1 ฯลฯ)
+ * ถูกย้ายเข้า session แล้ว redirect ไป URL สะอาด — refresh จะไม่เด้งแจ้งเตือนซ้ำ
  */
+
+if (!function_exists('tnc_flash_ephemeral_keys')) {
+    /**
+     * Query keys ที่เป็น feedback ครั้งเดียว (ไม่ใช่ state ของหน้า เช่น id / open_*)
+     *
+     * @return list<string>
+     */
+    function tnc_flash_ephemeral_keys(): array
+    {
+        return [
+            'success',
+            'deleted',
+            'cancelled',
+            'created',
+            'updated',
+            'saved',
+            'name_updated',
+            'product_added',
+            'cat_saved',
+            'cat_deleted',
+            'cat_remapped',
+            'cat_remap_partial',
+            'payment_saved',
+            'billing_saved',
+            'payment_reverted',
+            'payment_slips_updated',
+            'approved',
+            'web_approved',
+            'rejected',
+            'web_rejected',
+            'error',
+            'err',
+            'line_error',
+            'line_notify',
+            'pr_updated',
+            'invoice_updated',
+            'exceeds_pr',
+            'po_number',
+            'print_po_id',
+            'po_ignored',
+            'po_unignored',
+            'message',
+            'auto_bill',
+            'bill_month',
+            'bill_id',
+            'prs',
+            'pos',
+            'failed',
+        ];
+    }
+}
+
+if (!function_exists('tnc_flash_extract_from_array')) {
+    /**
+     * @param array<string, mixed> $query
+     * @return array<string, mixed>
+     */
+    function tnc_flash_extract_from_array(array $query): array
+    {
+        $flash = [];
+        foreach (tnc_flash_ephemeral_keys() as $key) {
+            if (array_key_exists($key, $query)) {
+                $flash[$key] = $query[$key];
+            }
+        }
+
+        return $flash;
+    }
+}
+
+if (!function_exists('tnc_flash_store_query')) {
+    /**
+     * @param array<string, mixed> $flash
+     */
+    function tnc_flash_store_query(array $flash): void
+    {
+        if ($flash === [] || session_status() !== PHP_SESSION_ACTIVE) {
+            return;
+        }
+        $_SESSION['_tnc_flash_query'] = $flash;
+    }
+}
+
+if (!function_exists('tnc_flash_split_url')) {
+    /**
+     * แยก ephemeral flash ออกจาก URL → [cleanUrl, flashBag]
+     *
+     * @return array{0: string, 1: array<string, mixed>}
+     */
+    function tnc_flash_split_url(string $url): array
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return ['', []];
+        }
+
+        $hash = '';
+        $hashPos = strpos($url, '#');
+        if ($hashPos !== false) {
+            $hash = substr($url, $hashPos);
+            $url = substr($url, 0, $hashPos);
+        }
+
+        $qPos = strpos($url, '?');
+        if ($qPos === false) {
+            return [$url . $hash, []];
+        }
+
+        $base = substr($url, 0, $qPos);
+        $queryString = substr($url, $qPos + 1);
+        $query = [];
+        parse_str($queryString, $query);
+        $flash = tnc_flash_extract_from_array($query);
+        foreach (array_keys($flash) as $key) {
+            unset($query[$key]);
+        }
+
+        $clean = $base;
+        if ($query !== []) {
+            $clean .= '?' . http_build_query($query);
+        }
+
+        return [$clean . $hash, $flash];
+    }
+}
+
+if (!function_exists('tnc_flash_current_request_url_without')) {
+    /**
+     * @param list<string> $removeKeys
+     */
+    function tnc_flash_current_request_url_without(array $removeKeys): string
+    {
+        $https = (!empty($_SERVER['HTTPS']) && (string) $_SERVER['HTTPS'] !== 'off')
+            || ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443');
+        $scheme = $https ? 'https' : 'http';
+        $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+        $parts = parse_url($uri);
+        $path = (string) ($parts['path'] ?? '/');
+        $query = [];
+        parse_str((string) ($parts['query'] ?? ''), $query);
+        foreach ($removeKeys as $key) {
+            unset($query[$key]);
+        }
+        $out = $scheme . '://' . $host . $path;
+        if ($query !== []) {
+            $out .= '?' . http_build_query($query);
+        }
+
+        return $out;
+    }
+}
+
+if (!function_exists('tnc_flash_location')) {
+    /**
+     * Redirect แบบ one-shot flash: ย้าย ephemeral query เข้า session แล้วไป URL สะอาด
+     *
+     * @return never
+     */
+    function tnc_flash_location(string $url, int $status = 302): void
+    {
+        [$clean, $flash] = tnc_flash_split_url($url);
+        if ($flash !== []) {
+            tnc_flash_store_query($flash);
+        }
+        if ($clean === '') {
+            $clean = '/';
+        }
+        header('Location: ' . $clean, true, $status);
+        exit;
+    }
+}
+
+if (!function_exists('tnc_flash_bag')) {
+    /**
+     * Flash bag ของ request นี้ (หลัง hydrate)
+     *
+     * @return array<string, mixed>
+     */
+    function tnc_flash_bag(): array
+    {
+        $bag = $GLOBALS['_tnc_flash_bag'] ?? null;
+
+        return is_array($bag) ? $bag : [];
+    }
+}
+
+if (!function_exists('tnc_flash_hydrate_get')) {
+    /**
+     * ดึง flash จาก session ใส่ $_GET ของ request นี้ครั้งเดียว (กัน refresh ซ้ำ)
+     */
+    function tnc_flash_hydrate_get(): void
+    {
+        if (!empty($GLOBALS['_tnc_flash_hydrated'])) {
+            return;
+        }
+        $GLOBALS['_tnc_flash_hydrated'] = true;
+        $GLOBALS['_tnc_flash_bag'] = [];
+
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return;
+        }
+
+        $bag = $_SESSION['_tnc_flash_query'] ?? null;
+        unset($_SESSION['_tnc_flash_query']);
+        if (!is_array($bag) || $bag === []) {
+            return;
+        }
+
+        $GLOBALS['_tnc_flash_bag'] = $bag;
+        foreach ($bag as $key => $value) {
+            $_GET[$key] = $value;
+        }
+    }
+}
+
+if (!function_exists('tnc_flash_bootstrap_request')) {
+    /**
+     * ถ้า URL มี flash query → ย้ายเข้า session แล้ว 303 ไป URL สะอาด
+     * มิฉะนั้น hydrate flash จาก session เข้า $_GET
+     */
+    function tnc_flash_bootstrap_request(): void
+    {
+        if (!empty($GLOBALS['_tnc_flash_bootstrapped'])) {
+            return;
+        }
+        $GLOBALS['_tnc_flash_bootstrapped'] = true;
+
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return;
+        }
+
+        $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+        if ($method !== 'GET') {
+            return;
+        }
+
+        $flash = tnc_flash_extract_from_array($_GET);
+        if ($flash !== []) {
+            tnc_flash_store_query($flash);
+            header(
+                'Location: ' . tnc_flash_current_request_url_without(array_keys($flash)),
+                true,
+                303
+            );
+            exit;
+        }
+
+        tnc_flash_hydrate_get();
+    }
+}
 
 if (!function_exists('tnc_audio_kinds')) {
     /** @return list<string> */

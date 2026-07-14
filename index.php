@@ -555,7 +555,7 @@ window.onload = () => {
     indexMarkSidebarActive();
     var si = document.getElementById('search_invoice');
     loadTable(si ? si.value : '');
-    const params = new URLSearchParams(window.location.search);
+    const params = (typeof tncFlashSearchParams === 'function' ? tncFlashSearchParams() : new URLSearchParams(window.location.search));
     if (params.get('invoice_updated') === '1') {
         Swal.fire({
             icon: 'success',
