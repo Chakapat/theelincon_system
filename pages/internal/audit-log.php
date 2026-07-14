@@ -169,7 +169,13 @@ if (!function_exists('tnc_audit_log_format_datetime_th')) {
 <div class="container py-4 pb-5">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <h4 class="fw-bold mb-0"><i class="bi bi-clock-history me-2 text-tnc-orange"></i>บันทึกการกระทำ (Audit)</h4>
-        <span class="badge text-bg-secondary rounded-pill">เฉพาะผู้ดูแลระบบ</span>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button();
+            ?>
+            <span class="badge text-bg-secondary rounded-pill">เฉพาะผู้ดูแลระบบ</span>
+        </div>
     </div>
 
     <?php if ($auditLogPurged >= 0): ?>

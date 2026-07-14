@@ -224,15 +224,16 @@ function tnc_audit_purchase_order_created(int $poId, string $sourceAction): void
  *
  * @return array{subtotal: float, vat: float, gross: float, wht: float, net: float, withholding_type: string, vat_mode: string}
  */
-function tnc_po_compute_totals(float $taxableSum, int $vatEnabled, string $vatMode, string $withholdingType, float $exemptSum = 0.0): array
+function tnc_po_compute_totals(float $taxableSum, int $vatEnabled, string $vatMode, string $withholdingType, float $exemptSum = 0.0, bool $roundToBaht = false): array
 {
-    $split = tnc_purchase_vat_split_from_line_sums($taxableSum, $exemptSum, $vatEnabled === 1, $vatMode);
+    $split = tnc_purchase_vat_split_from_line_sums($taxableSum, $exemptSum, $vatEnabled === 1, $vatMode, $roundToBaht);
     $subtotal = $split['subtotal'];
     $vat = $split['vat'];
     $gross = $split['gross'];
     $whtType = ($withholdingType === 'wht3') ? 'wht3' : 'none';
-    $wht = $whtType === 'wht3' ? round($subtotal * 0.03, 2) : 0.0;
-    $net = round($gross - $wht, 2);
+    // WHT / สุทธิ ใช้สตางค์เสมอ (ไม่ปัดเต็มบาท)
+    $wht = $whtType === 'wht3' ? tnc_money_round2($subtotal * 0.03) : 0.0;
+    $net = tnc_money_round2($gross - $wht);
     $storedVatMode = $vatEnabled ? (in_array($vatMode, ['exclusive', 'inclusive'], true) ? $vatMode : 'exclusive') : 'exclusive';
 
     return [
@@ -247,6 +248,11 @@ function tnc_po_compute_totals(float $taxableSum, int $vatEnabled, string $vatMo
     ];
 }
 
+function tnc_purchase_round_to_baht_from_post(): bool
+{
+    return !empty($_POST['round_to_baht']);
+}
+
 function tnc_purchase_item_vat_exempt_from_post(int $key): int
 {
     $flags = $_POST['item_vat_exempt'] ?? [];
@@ -258,7 +264,7 @@ function tnc_purchase_item_vat_exempt_from_post(int $key): int
 }
 
 /** @return array{taxable: float, exempt: float, line_count: int} */
-function tnc_pr_post_purchase_line_vat_sums(): array
+function tnc_pr_post_purchase_line_vat_sums(bool $roundToBaht = false): array
 {
     $taxable = 0.0;
     $exempt = 0.0;
@@ -277,7 +283,7 @@ function tnc_pr_post_purchase_line_vat_sums(): array
         $lineCount++;
         $price = (float) ($_POST['item_price'][$key] ?? 0);
         $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
-        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw, $roundToBaht);
         if (tnc_purchase_item_vat_exempt_from_post((int) $key) === 1) {
             $exempt += $parts['line_total'];
         } else {
@@ -286,8 +292,8 @@ function tnc_pr_post_purchase_line_vat_sums(): array
     }
 
     return [
-        'taxable' => round($taxable, 2),
-        'exempt' => round($exempt, 2),
+        'taxable' => tnc_money_round_mode($taxable, $roundToBaht),
+        'exempt' => tnc_money_round_mode($exempt, $roundToBaht),
         'line_count' => $lineCount,
     ];
 }
@@ -297,9 +303,9 @@ function tnc_pr_post_purchase_line_vat_sums(): array
  *
  * @return array{discount_input: string, discount_type: string, discount_value: float, discount_amount: float, line_base: float, line_total: float}
  */
-function tnc_pr_parse_line_discount(float $qty, float $price, string $discountRaw): array
+function tnc_pr_parse_line_discount(float $qty, float $price, string $discountRaw, bool $roundToBaht = false): array
 {
-    $lineBase = round($qty * $price, 2);
+    $lineBase = tnc_money_mul2($qty, $price, $roundToBaht);
     $discountRaw = trim($discountRaw);
     $discountAmount = 0.0;
     $discountType = 'amount';
@@ -315,17 +321,17 @@ function tnc_pr_parse_line_discount(float $qty, float $price, string $discountRa
             } elseif ($discountValue > 100) {
                 $discountValue = 100.0;
             }
-            $discountAmount = round($lineBase * $discountValue / 100, 2);
+            $discountAmount = tnc_money_round_mode($lineBase * $discountValue / 100, $roundToBaht);
         } else {
             $discountType = 'amount';
             $discountValue = (float) str_replace([',', ' '], '', $discountRaw);
             if ($discountValue < 0) {
                 $discountValue = 0.0;
             }
-            $discountAmount = min($lineBase, round($discountValue, 2));
+            $discountAmount = min($lineBase, tnc_money_round_mode($discountValue, $roundToBaht));
         }
     }
-    $lineTotal = round($lineBase - $discountAmount, 2);
+    $lineTotal = tnc_money_round_mode($lineBase - $discountAmount, $roundToBaht);
 
     return [
         'discount_input' => mb_substr($discountRaw, 0, 20),
@@ -534,13 +540,13 @@ if ($action === 'save_pr') {
     $procurement_type = 'purchase';
 
     $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
-    $lineSums = tnc_pr_post_purchase_line_vat_sums();
+    $lineSums = tnc_pr_post_purchase_line_vat_sums(tnc_purchase_round_to_baht_from_post());
     $purchaseLineCount = $lineSums['line_count'];
     if ($purchaseLineCount <= 0) {
         tnc_action_redirect( app_path('pages/purchase/purchase-request-create.php') . '?error=no_items');
     }
     $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
-    $totalsPr = tnc_po_compute_totals($lineSums['taxable'], $vat_enabled, $vat_mode_post, 'none', $lineSums['exempt']);
+    $totalsPr = tnc_po_compute_totals($lineSums['taxable'], $vat_enabled, $vat_mode_post, 'none', $lineSums['exempt'], tnc_purchase_round_to_baht_from_post());
     $subtotal = $totalsPr['subtotal'];
     $vat_amount = $totalsPr['vat'];
     $total_amount = $totalsPr['gross'];
@@ -622,6 +628,7 @@ if ($action === 'save_pr') {
         'line_decided_by_user_id' => 0,
         'line_decision_source' => '',
         'vat_enabled' => $vat_enabled,
+        'round_to_baht' => tnc_purchase_round_to_baht_from_post() ? 1 : 0,
         'vat_mode' => $vat_mode_stored,
         'subtotal_amount' => $subtotal,
         'vat_amount' => $vat_amount,
@@ -651,7 +658,7 @@ if ($action === 'save_pr') {
         $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
         $price = (float) ($_POST['item_price'][$key] ?? 0);
         $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
-        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw, tnc_purchase_round_to_baht_from_post());
         $total = $parts['line_total'];
         Db::setRow('purchase_request_items', (string) $iid, [
             'id' => $iid,
@@ -793,13 +800,13 @@ if ($action === 'update_pr') {
     $procurement_type = 'purchase';
 
     $vat_enabled = !empty($_POST['vat_enabled']) ? 1 : 0;
-    $lineSums = tnc_pr_post_purchase_line_vat_sums();
+    $lineSums = tnc_pr_post_purchase_line_vat_sums(tnc_purchase_round_to_baht_from_post());
     $purchaseLineCount = $lineSums['line_count'];
     if ($purchaseLineCount <= 0) {
         tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=no_items');
     }
     $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
-    $totalsPr = tnc_po_compute_totals($lineSums['taxable'], $vat_enabled, $vat_mode_post, 'none', $lineSums['exempt']);
+    $totalsPr = tnc_po_compute_totals($lineSums['taxable'], $vat_enabled, $vat_mode_post, 'none', $lineSums['exempt'], tnc_purchase_round_to_baht_from_post());
     $subtotal = $totalsPr['subtotal'];
     $vat_amount = $totalsPr['vat'];
     $total_amount = $totalsPr['gross'];
@@ -874,6 +881,7 @@ if ($action === 'update_pr') {
         'cost_category_name' => $cost_category_name,
         'total_amount' => $total_amount,
         'vat_enabled' => $vat_enabled,
+        'round_to_baht' => tnc_purchase_round_to_baht_from_post() ? 1 : 0,
         'vat_mode' => $vat_mode_stored,
         'subtotal_amount' => $subtotal,
         'vat_amount' => $vat_amount,
@@ -904,7 +912,7 @@ if ($action === 'update_pr') {
         $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
         $price = (float) ($_POST['item_price'][$key] ?? 0);
         $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
-        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw, tnc_purchase_round_to_baht_from_post());
         $total = $parts['line_total'];
         Db::setRow('purchase_request_items', (string) $iid, [
             'id' => $iid,
@@ -1036,7 +1044,7 @@ if ($action === 'create_po_from_pr') {
         }
         $price = (float) ($_POST['item_price'][$key] ?? 0);
         $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
-        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw, tnc_purchase_round_to_baht_from_post());
         $purchaseLineCount++;
         $subtotal += $parts['line_total'];
         $poItemsToSave[] = [
@@ -1052,12 +1060,12 @@ if ($action === 'create_po_from_pr') {
             'vat_exempt' => tnc_purchase_item_vat_exempt_from_post((int) $key),
         ];
     }
-    $lineSums = tnc_pr_post_purchase_line_vat_sums();
+    $lineSums = tnc_pr_post_purchase_line_vat_sums(tnc_purchase_round_to_baht_from_post());
     $subtotal = round($lineSums['taxable'] + $lineSums['exempt'], 2);
     if ($purchaseLineCount <= 0 || $subtotal <= 0) {
         tnc_action_redirect($poCreateFromPrUrl . '&error=no_items');
     }
-    $totalsPr = tnc_po_compute_totals($lineSums['taxable'], $vat_en, $vat_mode_post, 'none', $lineSums['exempt']);
+    $totalsPr = tnc_po_compute_totals($lineSums['taxable'], $vat_en, $vat_mode_post, 'none', $lineSums['exempt'], tnc_purchase_round_to_baht_from_post());
     $sub_amt = $totalsPr['subtotal'];
     $vat_amt = $totalsPr['vat'];
     $total_amount = $totalsPr['gross'];
@@ -1172,6 +1180,7 @@ if ($action === 'create_po_from_pr') {
         'billing_status' => 'pending',
         'created_by' => $created_by,
         'vat_enabled' => $vat_en,
+        'round_to_baht' => tnc_purchase_round_to_baht_from_post() ? 1 : 0,
         'vat_mode' => $vat_mode_stored,
         'subtotal_amount' => $sub_amt,
         'vat_amount' => $vat_amt,
@@ -1231,7 +1240,7 @@ if ($action === 'create_po_direct') {
     }
 
 
-    $lineSums = tnc_pr_post_purchase_line_vat_sums();
+    $lineSums = tnc_pr_post_purchase_line_vat_sums(tnc_purchase_round_to_baht_from_post());
     if ($lineSums['line_count'] <= 0 || ($lineSums['taxable'] + $lineSums['exempt']) <= 0) {
         tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=no_items');
     }
@@ -1259,7 +1268,7 @@ if ($action === 'create_po_direct') {
         $wht_post = 'none';
     }
 
-    $totals = tnc_po_compute_totals($lineSums['taxable'], $vat_enabled, $vat_mode_post, $wht_post, $lineSums['exempt']);
+    $totals = tnc_po_compute_totals($lineSums['taxable'], $vat_enabled, $vat_mode_post, $wht_post, $lineSums['exempt'], tnc_purchase_round_to_baht_from_post());
     $vat_amt = $totals['vat'];
     $gross = $totals['gross'];
     $subtotal_db = $totals['subtotal'];
@@ -1429,6 +1438,7 @@ if ($action === 'create_po_direct') {
         'billing_status' => 'pending',
         'created_by' => $created_by,
         'vat_enabled' => $vat_enabled,
+        'round_to_baht' => tnc_purchase_round_to_baht_from_post() ? 1 : 0,
         'vat_mode' => $totals['vat_mode'],
         'subtotal_amount' => $subtotal_db,
         'vat_amount' => $vat_amt,
@@ -1455,7 +1465,7 @@ if ($action === 'create_po_direct') {
             $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
             $price = (float) $_POST['item_price'][$key];
             $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
-            $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+            $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw, tnc_purchase_round_to_baht_from_post());
             $lineTotal = $parts['line_total'];
             Db::setRow('purchase_order_items', (string) $iid, [
                 'id' => $iid,
@@ -1531,7 +1541,7 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         tnc_action_redirect($listUrl . '?error=po_paid');
     }
 
-    $lineSums = tnc_pr_post_purchase_line_vat_sums();
+    $lineSums = tnc_pr_post_purchase_line_vat_sums(tnc_purchase_round_to_baht_from_post());
     if ($lineSums['line_count'] <= 0 || ($lineSums['taxable'] + $lineSums['exempt']) <= 0) {
         tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=no_items');
     }
@@ -1550,7 +1560,7 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
             $vat_mode_post = in_array($vmPoPr, ['exclusive', 'inclusive'], true) ? $vmPoPr : 'exclusive';
         }
     }
-    $totals = tnc_po_compute_totals($lineSums['taxable'], $vat_enabled, $vat_mode_post, 'none', $lineSums['exempt']);
+    $totals = tnc_po_compute_totals($lineSums['taxable'], $vat_enabled, $vat_mode_post, 'none', $lineSums['exempt'], tnc_purchase_round_to_baht_from_post());
 
     $issue_date = trim((string) ($_POST['issue_date'] ?? ''));
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $issue_date)) {
@@ -1617,6 +1627,7 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         'subtotal_amount' => $totals['subtotal'],
         'vat_amount' => $totals['vat'],
         'vat_enabled' => $vat_enabled,
+        'round_to_baht' => tnc_purchase_round_to_baht_from_post() ? 1 : 0,
         'vat_mode' => $totals['vat_mode'],
         'withholding_type' => $totals['withholding_type'],
         'withholding_amount' => $totals['wht'],
@@ -1636,7 +1647,7 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         $unit = trim((string) ($_POST['item_unit'][$key] ?? ''));
         $price = (float) $_POST['item_price'][$key];
         $discRaw = trim((string) ($_POST['item_discount'][$key] ?? ''));
-        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw);
+        $parts = tnc_pr_parse_line_discount($qty, $price, $discRaw, tnc_purchase_round_to_baht_from_post());
         $lineTotal = $parts['line_total'];
         Db::setRow('purchase_order_items', (string) $iid, [
             'id' => $iid,

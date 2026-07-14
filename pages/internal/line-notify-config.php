@@ -152,7 +152,13 @@ foreach ($userRows as $u) {
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container py-4 line-shell">
-    <h4 class="fw-bold mb-3"><i class="bi bi-bell-fill me-2 text-success"></i>ตั้งค่า LINE แจ้งเตือน</h4>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h4 class="fw-bold mb-0"><i class="bi bi-bell-fill me-2 text-success"></i>ตั้งค่า LINE แจ้งเตือน</h4>
+        <?php
+        require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+        echo tnc_ui_back_previous_button();
+        ?>
+    </div>
 
     <?php
     $lineFlash = tnc_flash_from_query($_GET);

@@ -253,6 +253,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
 
                         <div class="tnc-mobile-sticky-cta d-lg-none">
                             <div class="tnc-mobile-sticky-inner">
+                                <script src="<?= htmlspecialchars(tnc_asset_href('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
                                 <script>
 (function () {
     const table = document.getElementById('pr_fix_prTable');
@@ -273,9 +274,17 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
     const addRowBtn = document.getElementById('pr_fix_add_row');
 
     function prFixLineAmountAfterDiscount(qty, price, discRaw) {
+        const money2 = (typeof tncPurchaseMoney2 === 'function')
+            ? tncPurchaseMoney2
+            : function (n) {
+                n = Number(n);
+                if (!Number.isFinite(n)) return 0;
+                const sign = n < 0 ? -1 : 1;
+                return sign * Math.round(Math.abs(n) * 100 + 1e-8) / 100;
+            };
         const q = parseFloat(String(qty || '').replace(/,/g, '')) || 0;
         const p = parseFloat(String(price || '').replace(/,/g, '')) || 0;
-        const base = Math.round(q * p * 100) / 100;
+        const base = money2(q * p);
         const dRaw = String(discRaw || '').trim();
         let discount = 0;
         if (dRaw !== '' && base > 0) {
@@ -284,14 +293,14 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                 let pct = parseFloat(pctMatch[1]) || 0;
                 if (pct < 0) pct = 0;
                 if (pct > 100) pct = 100;
-                discount = Math.round(base * pct / 100 * 100) / 100;
+                discount = money2(base * pct / 100);
             } else {
-                discount = Math.round((parseFloat(dRaw.replace(/,/g, '')) || 0) * 100) / 100;
+                discount = money2(parseFloat(dRaw.replace(/,/g, '')) || 0);
                 if (discount < 0) discount = 0;
                 if (discount > base) discount = base;
             }
         }
-        return Math.round((base - discount) * 100) / 100;
+        return money2(base - discount);
     }
 
     function prFixUpdateRowNumbers() {
@@ -321,7 +330,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
             }
             lineAmount += total;
         }
-        lineAmount = Math.round(lineAmount * 100) / 100;
+        lineAmount = (typeof tncPurchaseMoney2 === 'function' ? tncPurchaseMoney2(lineAmount) : Math.round(lineAmount * 100 + 1e-8) / 100);
         const split = tncPurchaseVatFromLineSum(lineAmount, vatOn, vatMode);
         const subtotal = split.subtotal;
         const vat = split.vat;

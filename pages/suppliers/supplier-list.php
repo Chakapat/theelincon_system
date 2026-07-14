@@ -20,18 +20,35 @@ $is_admin = user_is_admin_role();
 
 $suppliers = Db::tableRows('suppliers');
 Db::sortRows($suppliers, 'name', false);
+$supplierCount = count($suppliers);
+
+/**
+ * Format Thai tax ID as X-XXXX-XXXXX-XX-X when 13 digits.
+ */
+function tnc_supplier_format_tax_id(string $taxId): string
+{
+    $digits = preg_replace('/\D+/', '', $taxId) ?? '';
+    if (strlen($digits) !== 13) {
+        return $taxId;
+    }
+
+    return substr($digits, 0, 1)
+        . '-' . substr($digits, 1, 4)
+        . '-' . substr($digits, 5, 5)
+        . '-' . substr($digits, 10, 2)
+        . '-' . substr($digits, 12, 1);
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <?php tnc_shell_head([
         'title' => 'จัดการผู้ขาย (Suppliers)',
-        'sarabun_weights' => '400;600',
+        'extra_css' => ['assets/css/supplier-list.css'],
+        'sarabun_weights' => '400;600;700;800',
+        'sweetalert' => true,
     ]); ?>
-    <style>
-        /* canvas + cards: tailwind tnc-components */
-        .bank-logo-chip { width: 22px; height: 22px; object-fit: contain; border-radius: 4px; flex-shrink: 0; }
-    </style>
 </head>
 <body class="tnc-app-body tnc-layout-list">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -51,60 +68,118 @@ Db::sortRows($suppliers, 'name', false);
     <div class="tnc-page-head">
         <div>
             <p class="tnc-page-kicker">Organization</p>
-            <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-truck"></i></span>ระบบจัดการผู้ขาย</h1>
+            <h1 class="tnc-list-title">
+                <span class="tnc-list-title__icon me-2"><i class="bi bi-truck" aria-hidden="true"></i></span>
+                ระบบจัดการผู้ขาย
+                <?php if ($supplierCount > 0): ?>
+                    <span class="supplier-list-meta"><?= (int) $supplierCount ?> ราย</span>
+                <?php endif; ?>
+            </h1>
         </div>
-        <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-form.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange px-4 shadow-sm"><i class="bi bi-plus-lg me-2"></i> เพิ่มผู้ขายใหม่</a>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button();
+            ?>
+            <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-form.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange px-4 shadow-sm">
+                <i class="bi bi-plus-lg me-2" aria-hidden="true"></i>เพิ่มผู้ขายใหม่
+            </a>
+        </div>
     </div>
 
-    <div class="card main-card tnc-list-card p-4">
+    <div class="card main-card tnc-list-card supplier-list-shell">
         <div class="table-responsive tnc-mobile-table-wrap">
-            <table class="table table-hover align-middle tnc-mobile-table" id="supplierTable" style="width:100%">
-                <thead class="table-light">
+            <table class="table table-hover align-middle tnc-mobile-table mb-0" id="supplierTable" style="width:100%">
+                <thead>
                     <tr>
-                        <th>ชื่อบริษัท/ร้านค้า</th>
-                        <th>ผู้ติดต่อ</th>
-                        <th>บัญชีรับโอน</th>
-                        <th class="text-center">จัดการ</th>
+                        <th scope="col">ผู้ขาย</th>
+                        <th scope="col">เลขผู้เสียภาษี</th>
+                        <th scope="col">ที่อยู่บริษัท</th>
+                        <th scope="col">บัญชีรับโอน</th>
+                        <th scope="col" class="col-actions">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (count($suppliers) === 0): ?>
-                        <tr><td colspan="4" class="text-center py-4 text-muted">ยังไม่มีข้อมูลผู้ขายในระบบ</td></tr>
+                    <?php if ($supplierCount === 0): ?>
+                        <tr>
+                            <td colspan="5" class="sup-empty-state">
+                                <div class="sup-empty-state__icon" aria-hidden="true"><i class="bi bi-truck"></i></div>
+                                <p class="sup-empty-state__title">ยังไม่มีผู้ขายในระบบ</p>
+                                <p class="sup-empty-state__hint">เพิ่มผู้ขายเพื่อใช้เลือกในใบขอซื้อและใบสั่งซื้อ</p>
+                                <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-form.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange rounded-pill px-4">
+                                    <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>เพิ่มผู้ขายใหม่
+                                </a>
+                            </td>
+                        </tr>
                     <?php else: ?>
                     <?php foreach ($suppliers as $row): ?>
+                    <?php
+                        $rowName = trim((string) ($row['name'] ?? ''));
+                        $rowTaxId = trim((string) ($row['tax_id'] ?? ''));
+                        $rowAddress = trim((string) ($row['address'] ?? ''));
+                        $rowBank = trim((string) ($row['bank_name'] ?? ''));
+                        $rowAccNo = trim((string) ($row['bank_account_number'] ?? ''));
+                        $rowAccName = trim((string) ($row['bank_account_name'] ?? ''));
+                        $rowBankLogo = $rowBank !== '' ? tnc_bank_logo_url($rowBank) : '';
+                        $hasBank = $rowBank !== '' || $rowAccNo !== '' || $rowAccName !== '';
+                        $taxDisplay = $rowTaxId !== '' ? tnc_supplier_format_tax_id($rowTaxId) : '';
+                    ?>
                     <tr>
-                        <td class="fw-bold tnc-mobile-primary" data-label="ชื่อบริษัท/ร้านค้า"><?= htmlspecialchars($row['name']) ?></td>
-                        <td data-label="ผู้ติดต่อ"><?= htmlspecialchars($row['contact_person']) ?: '-' ?></td>
-                        <td class="small" data-label="บัญชีรับโอน">
-                            <?php
-                            $rowBank = trim((string) ($row['bank_name'] ?? ''));
-                            $rowAccNo = trim((string) ($row['bank_account_number'] ?? ''));
-                            $rowAccName = trim((string) ($row['bank_account_name'] ?? ''));
-                            if ($rowBank === '' && $rowAccNo === '' && $rowAccName === ''):
-                            ?>
-                                <span class="text-muted">—</span>
-                            <?php else:
-                                $rowBankLogo = $rowBank !== '' ? tnc_bank_logo_url($rowBank) : '';
-                            ?>
-                                <?php if ($rowBank !== '' || $rowBankLogo !== ''): ?>
-                                <div class="d-flex align-items-center gap-1">
-                                    <?php if ($rowBankLogo !== ''): ?><img src="<?= htmlspecialchars($rowBankLogo, ENT_QUOTES, 'UTF-8') ?>" alt="" class="bank-logo-chip"><?php endif; ?>
-                                    <span><?= htmlspecialchars($rowBank !== '' ? $rowBank : '—', ENT_QUOTES, 'UTF-8') ?></span>
-                                </div>
-                                <?php endif; ?>
-                                <?php if ($rowAccName !== ''): ?>
-                                <div class="text-muted"><?= htmlspecialchars($rowAccName, ENT_QUOTES, 'UTF-8') ?></div>
-                                <?php endif; ?>
-                                <?php if ($rowAccNo !== ''): ?>
-                                <div class="text-muted font-monospace"><?= htmlspecialchars($rowAccNo, ENT_QUOTES, 'UTF-8') ?></div>
-                                <?php endif; ?>
+                        <td class="tnc-mobile-primary fw-bold" data-label="ผู้ขาย">
+                            <div class="sup-name"><?= htmlspecialchars($rowName !== '' ? $rowName : '—', ENT_QUOTES, 'UTF-8') ?></div>
+                        </td>
+                        <td data-label="เลขประจำตัวผู้เสียภาษี">
+                            <?php if ($taxDisplay !== ''): ?>
+                                <span class="sup-tax" title="<?= htmlspecialchars($rowTaxId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($taxDisplay, ENT_QUOTES, 'UTF-8') ?></span>
+                            <?php else: ?>
+                                <span class="sup-tax is-empty">ยังไม่ระบุ</span>
                             <?php endif; ?>
                         </td>
-                        <td class="text-center tnc-mobile-actions" data-label="จัดการ">
-                            <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-form.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-warning me-1 tnc-icon-action" aria-label="แก้ไขผู้ขาย"><i class="bi bi-pencil" aria-hidden="true"></i></a>
-                            <?php if($is_admin): ?>
-                            <button type="button" onclick="deleteSup(<?= $row['id'] ?>)" class="btn btn-sm btn-outline-danger tnc-icon-action" aria-label="ลบผู้ขาย"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                        <td data-label="ที่อยู่บริษัท">
+                            <?php if ($rowAddress !== ''): ?>
+                                <div class="sup-address" title="<?= htmlspecialchars($rowAddress, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($rowAddress, ENT_QUOTES, 'UTF-8') ?></div>
+                            <?php else: ?>
+                                <span class="sup-empty">ยังไม่ระบุ</span>
                             <?php endif; ?>
+                        </td>
+                        <td data-label="บัญชีรับโอน">
+                            <?php if (!$hasBank): ?>
+                                <span class="sup-empty">ยังไม่ระบุ</span>
+                            <?php else: ?>
+                                <div class="sup-bank">
+                                    <?php if ($rowBank !== '' || $rowBankLogo !== ''): ?>
+                                    <div class="sup-bank__head">
+                                        <?php if ($rowBankLogo !== ''): ?>
+                                            <img src="<?= htmlspecialchars($rowBankLogo, ENT_QUOTES, 'UTF-8') ?>" alt="" class="bank-logo-chip">
+                                        <?php endif; ?>
+                                        <span><?= htmlspecialchars($rowBank !== '' ? $rowBank : 'ธนาคาร', ENT_QUOTES, 'UTF-8') ?></span>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if ($rowAccName !== ''): ?>
+                                        <div class="sup-bank__name"><?= htmlspecialchars($rowAccName, ENT_QUOTES, 'UTF-8') ?></div>
+                                    <?php endif; ?>
+                                    <?php if ($rowAccNo !== ''): ?>
+                                        <div class="sup-bank__acc"><?= htmlspecialchars($rowAccNo, ENT_QUOTES, 'UTF-8') ?></div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-end tnc-mobile-actions" data-label="จัดการ">
+                            <div class="sup-actions">
+                                <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-form.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['id'] ?>"
+                                   class="btn btn-sm btn-outline-warning tnc-icon-action"
+                                   aria-label="แก้ไขผู้ขาย <?= htmlspecialchars($rowName, ENT_QUOTES, 'UTF-8') ?>">
+                                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                                </a>
+                                <?php if ($is_admin): ?>
+                                <button type="button"
+                                        onclick="deleteSup(<?= (int) $row['id'] ?>)"
+                                        class="btn btn-sm btn-outline-danger tnc-icon-action"
+                                        aria-label="ลบผู้ขาย <?= htmlspecialchars($rowName, ENT_QUOTES, 'UTF-8') ?>">
+                                    <i class="bi bi-trash" aria-hidden="true"></i>
+                                </button>
+                                <?php endif; ?>
+                            </div>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -117,7 +192,6 @@ Db::sortRows($suppliers, 'name', false);
 
 <?php include dirname(__DIR__, 2) . '/includes/datatables_bundle.php'; ?>
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 const actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES) ?>;
 const csrfToken = <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
@@ -125,13 +199,13 @@ function deleteSup(id) {
     Swal.fire({
         icon: 'warning',
         title: 'ยืนยันการลบ',
-        html: 'ลบผู้ขายรายนี้ถาวร — กรุณาใส่<strong>รหัสผ่านของคุณ</strong>',
+        html: 'ลบผู้ขายรายนี้ถาวร กรุณาใส่<strong>รหัสผ่านของคุณ</strong>',
         input: 'password',
         inputPlaceholder: 'รหัสผ่าน',
         showCancelButton: true,
         confirmButtonText: 'ยืนยัน',
         cancelButtonText: 'ยกเลิก',
-        confirmButtonColor: '#d33',
+        confirmButtonColor: '#ea580c',
         focusCancel: true,
         preConfirm: function (pw) {
             if (!pw || !String(pw).trim()) {

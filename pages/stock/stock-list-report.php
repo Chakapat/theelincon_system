@@ -68,8 +68,15 @@ $printPages = $hasData ? tnc_stock_pivot_print_pages($sites, $products) : [];
             </h1>
         </div>
         <div class="stock-report-head-actions">
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button([
+                'no_print' => true,
+                'fallback' => app_path('pages/stock/stock-list.php'),
+            ]);
+            ?>
             <a href="<?= stock_report_h(app_path('pages/stock/stock-list.php')) ?>" class="btn btn-outline-secondary rounded-pill">
-                <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>กลับคลังสินค้า
+                <i class="bi bi-box-seam me-1" aria-hidden="true"></i>คลังสินค้า
             </a>
             <button type="button" class="btn btn-outline-orange rounded-pill" onclick="window.print()">
                 <i class="bi bi-printer me-1" aria-hidden="true"></i>พิมพ์รายงาน

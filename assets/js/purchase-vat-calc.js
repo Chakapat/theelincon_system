@@ -2,12 +2,47 @@
  * VAT 7% สำหรับ PR/PO จัดซื้อ
  * - รายการ: checkbox "คิด VAT" ติ๊กถูก = คิด VAT (default), ปิด = ไม่คิด VAT
  * - รวม/แยก VAT คิดเฉพาะรายการที่ติ๊กคิด VAT
+ * - ปัดเงิน: ค่าเริ่มต้น 2 ทศนิยม (ดูตำแหน่งที่ 3) — ถ้าติ๊ก #round_to_baht จะปัดเต็มบาท
  */
 (function (global) {
     'use strict';
 
+    /** ปัด 2 ทศนิยม half-up */
     function money2(n) {
-        return Math.round(n * 100) / 100;
+        n = Number(n);
+        if (!Number.isFinite(n)) {
+            return 0;
+        }
+        var sign = n < 0 ? -1 : 1;
+        var abs = Math.abs(n);
+        return sign * Math.round(abs * 100 + 1e-8) / 100;
+    }
+
+    /** ปัดใกล้จำนวนเต็มบาท */
+    function moneyBaht(n) {
+        n = Number(n);
+        if (!Number.isFinite(n)) {
+            return 0;
+        }
+        var sign = n < 0 ? -1 : 1;
+        var abs = Math.abs(n);
+        return sign * Math.round(abs + 1e-8);
+    }
+
+    function isRoundToBaht() {
+        var el = document.getElementById('round_to_baht');
+        if (!el) {
+            return false;
+        }
+        if (el.type === 'checkbox' || el.type === 'radio') {
+            return !!el.checked;
+        }
+        return String(el.value) === '1';
+    }
+
+    /** ปัดตามโหมดปัจจุบันบนฟอร์ม */
+    function moneyApply(n) {
+        return isRoundToBaht() ? moneyBaht(n) : money2(n);
     }
 
     function tncPurchaseVatFromLineSum(lineSum, vatOn, vatMode) {
@@ -15,9 +50,10 @@
     }
 
     function tncPurchaseVatFromLineSums(taxableSum, exemptSum, vatOn, vatMode) {
-        taxableSum = money2(parseFloat(taxableSum) || 0);
-        exemptSum = money2(parseFloat(exemptSum) || 0);
-        const lineSum = money2(taxableSum + exemptSum);
+        // ยอดบรรทัดอาจถูกปัดบาทมาแล้ว — คงไว้; ถอด VAT ใช้สตางค์เสมอ (แบบบิลปั๊ม)
+        taxableSum = moneyApply(parseFloat(taxableSum) || 0);
+        exemptSum = moneyApply(parseFloat(exemptSum) || 0);
+        const lineSum = moneyApply(taxableSum + exemptSum);
         vatMode = vatMode === 'inclusive' ? 'inclusive' : 'exclusive';
 
         if (!vatOn) {
@@ -38,13 +74,15 @@
 
         if (taxableSum > 0) {
             if (vatMode === 'inclusive') {
+                // รวม VAT: ยอดรวมเป็นหลัก → ถอดฐาน/VAT เป็นสตางค์
+                gross = lineSum;
                 subtotal = money2((taxableSum * 100) / 107);
-                gross = money2(subtotal * 1.07 + exemptSum);
                 vat = money2(gross - exemptSum - subtotal);
+                subtotal = money2(gross - exemptSum - vat);
             } else {
                 subtotal = taxableSum;
                 vat = money2(subtotal * 0.07);
-                gross = money2(subtotal * 1.07 + exemptSum);
+                gross = money2(subtotal + vat + exemptSum);
             }
         }
 
@@ -101,7 +139,7 @@
             if (applyEl && typeof tncPurchaseSyncVatApplyHidden === 'function') {
                 tncPurchaseSyncVatApplyHidden(applyEl);
             }
-            const total = money2(lineTotalFn(row));
+            const total = moneyApply(lineTotalFn(row));
             if (tncPurchaseLineIsVatExempt(row)) {
                 exemptSum += total;
             } else {
@@ -109,14 +147,17 @@
             }
         });
         return {
-            taxableSum: money2(taxableSum),
-            exemptSum: money2(exemptSum),
+            taxableSum: moneyApply(taxableSum),
+            exemptSum: moneyApply(exemptSum),
         };
     }
 
     global.tncPurchaseVatFromLineSum = tncPurchaseVatFromLineSum;
     global.tncPurchaseVatFromLineSums = tncPurchaseVatFromLineSums;
-    global.tncPurchaseMoney2 = money2;
+    global.tncPurchaseMoney2 = moneyApply;
+    global.tncPurchaseMoneySatang = money2;
+    global.tncPurchaseMoneyBaht = moneyBaht;
+    global.tncPurchaseRoundToBahtEnabled = isRoundToBaht;
     global.tncPurchaseLineIsVatExempt = tncPurchaseLineIsVatExempt;
     global.tncPurchaseSyncVatApplyHidden = tncPurchaseSyncVatApplyHidden;
     global.tncPurchaseSumLineVatBuckets = tncPurchaseSumLineVatBuckets;

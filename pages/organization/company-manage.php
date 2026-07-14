@@ -65,6 +65,12 @@ function company_type_label_th(string $type): string
             <p class="tnc-page-kicker">Organization</p>
             <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-building-add"></i></span>ข้อมูลบริษัท</h1>
         </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button();
+            ?>
+        </div>
     </div>
 
     <div class="row g-4 tnc-mobile-master">

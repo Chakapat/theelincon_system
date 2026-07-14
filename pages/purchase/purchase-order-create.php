@@ -51,6 +51,7 @@ $prFullyOrdered = !empty($prExceedSummary['fully_ordered']);
 
 $pr_number_display = trim((string) ($pr['pr_number'] ?? ('PR-' . $pr_id)));
 $pr_vat_enabled = (int) ($pr['vat_enabled'] ?? 0) === 1 ? 1 : 0;
+$pr_round_to_baht = (int) ($pr['round_to_baht'] ?? 0) === 1;
 $pr_vat_mode = trim((string) ($pr['vat_mode'] ?? 'exclusive'));
 if (!in_array($pr_vat_mode, ['exclusive', 'inclusive'], true)) {
     $pr_vat_mode = 'exclusive';
@@ -124,7 +125,9 @@ function tnc_po_create_pr_line_total(array $item): float
 {
     $qty = (float) ($item['quantity'] ?? 0);
     $price = (float) ($item['unit_price'] ?? 0);
-    $base = round($qty * $price, 2);
+    $base = function_exists('tnc_money_mul2')
+        ? tnc_money_mul2($qty, $price, false)
+        : (float) round($qty * $price, 2, PHP_ROUND_HALF_UP);
     $discRaw = tnc_po_create_pr_discount_label($item);
     $discount = 0.0;
     if ($discRaw !== '' && $base > 0) {
@@ -135,14 +138,22 @@ function tnc_po_create_pr_line_total(array $item): float
             } elseif ($pct > 100) {
                 $pct = 100.0;
             }
-            $discount = round($base * $pct / 100, 2);
+            $discount = function_exists('tnc_money_round_mode')
+                ? tnc_money_round_mode($base * $pct / 100, false)
+                : (float) round($base * $pct / 100, 2, PHP_ROUND_HALF_UP);
         } else {
-            $discount = min($base, round((float) str_replace([',', ' '], '', $discRaw), 2));
+            $discount = min($base, function_exists('tnc_money_round_mode')
+                ? tnc_money_round_mode((float) str_replace([',', ' '], '', $discRaw), false)
+                : (float) round((float) str_replace([',', ' '], '', $discRaw), 2, PHP_ROUND_HALF_UP));
         }
     } elseif ((float) ($item['discount_amount'] ?? 0) > 0) {
-        $discount = min($base, round((float) $item['discount_amount'], 2));
+        $discount = min($base, function_exists('tnc_money_round_mode')
+            ? tnc_money_round_mode((float) $item['discount_amount'], false)
+            : (float) round((float) $item['discount_amount'], 2, PHP_ROUND_HALF_UP));
     }
-    $computed = round($base - $discount, 2);
+    $computed = function_exists('tnc_money_round_mode')
+        ? tnc_money_round_mode($base - $discount, false)
+        : (float) round($base - $discount, 2, PHP_ROUND_HALF_UP);
     $storedTotal = (float) ($item['total'] ?? 0);
     if ($storedTotal > 0 && abs($storedTotal - $computed) <= 0.015) {
         return $storedTotal;
@@ -788,6 +799,10 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                             <input class="form-check-input" type="checkbox" role="switch" name="vat_enabled" id="vat_enabled" value="1" onchange="updatePoVatBasisUi(); calculateTotal()"<?= $pr_vat_enabled === 1 ? ' checked' : '' ?>>
                             <label class="form-check-label fw-semibold" for="vat_enabled">มี VAT 7%</label>
                         </div>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" role="switch" name="round_to_baht" id="round_to_baht" value="1" onchange="calculateTotal()"<?= $pr_round_to_baht ? ' checked' : '' ?>>
+                            <label class="form-check-label fw-semibold" for="round_to_baht">ปัดเต็มบาท</label>
+                        </div>
                         <input type="hidden" name="vat_mode" id="vat_mode" value="<?= htmlspecialchars($pr_vat_mode, ENT_QUOTES, 'UTF-8') ?>">
                         <div id="vat_basis_wrap" class="pt-2 border-top border-secondary border-opacity-25">
                             <div class="form-check mb-2">
@@ -1006,9 +1021,17 @@ function updateRowNumbers() {
     });
 }
 function poLineAmountAfterDiscount(qty, price, discRaw) {
+    const money2 = (typeof tncPurchaseMoney2 === 'function')
+        ? tncPurchaseMoney2
+        : function (n) {
+            n = Number(n);
+            if (!Number.isFinite(n)) return 0;
+            const sign = n < 0 ? -1 : 1;
+            return sign * Math.round(Math.abs(n) * 100 + 1e-8) / 100;
+        };
     const q = parseFloat(String(qty || '').replace(/,/g, '')) || 0;
     const p = parseFloat(String(price || '').replace(/,/g, '')) || 0;
-    const base = Math.round(q * p * 100) / 100;
+    const base = money2(q * p);
     const dRaw = String(discRaw || '').trim();
     let discount = 0;
     if (dRaw !== '' && base > 0) {
@@ -1017,12 +1040,12 @@ function poLineAmountAfterDiscount(qty, price, discRaw) {
             let pct = parseFloat(pctMatch[1]) || 0;
             if (pct < 0) pct = 0;
             if (pct > 100) pct = 100;
-            discount = Math.round(base * pct / 100 * 100) / 100;
+            discount = money2(base * pct / 100);
         } else {
-            discount = Math.min(base, Math.round((parseFloat(dRaw.replace(/,/g, '')) || 0) * 100) / 100);
+            discount = Math.min(base, money2(parseFloat(dRaw.replace(/,/g, '')) || 0));
         }
     }
-    return Math.round((base - discount) * 100) / 100;
+    return money2(base - discount);
 }
 function updatePoVatBasisUi() {
     const vatBasisWrap = document.getElementById('vat_basis_wrap');
@@ -1083,8 +1106,8 @@ function calculateTotal() {
             taxableSum += total;
         }
     }
-    taxableSum = Math.round(taxableSum * 100) / 100;
-    exemptSum = Math.round(exemptSum * 100) / 100;
+    taxableSum = (typeof tncPurchaseMoney2 === 'function' ? tncPurchaseMoney2(taxableSum) : Math.round(taxableSum * 100 + 1e-8) / 100);
+    exemptSum = (typeof tncPurchaseMoney2 === 'function' ? tncPurchaseMoney2(exemptSum) : Math.round(exemptSum * 100 + 1e-8) / 100);
     const splitFn = typeof tncPurchaseVatFromLineSums === 'function'
         ? tncPurchaseVatFromLineSums
         : function (t, e, v, m) { return tncPurchaseVatFromLineSum(t + e, v, m); };

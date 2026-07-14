@@ -3,6 +3,60 @@
 declare(strict_types=1);
 
 /**
+ * ปัดเงินเป็น 2 ทศนิยม แบบ half-up (ดูตำแหน่งที่ 3) — ค่าเริ่มต้นของ PR/PO
+ */
+if (!function_exists('tnc_money_round2')) {
+    function tnc_money_round2(float $amount): float
+    {
+        if (!is_finite($amount)) {
+            return 0.0;
+        }
+
+        return round($amount, 2, PHP_ROUND_HALF_UP);
+    }
+}
+
+/**
+ * ปัดเงินใกล้จำนวนเต็มบาท (half-up)
+ */
+if (!function_exists('tnc_money_round_baht')) {
+    function tnc_money_round_baht(float $amount): float
+    {
+        if (!is_finite($amount)) {
+            return 0.0;
+        }
+
+        return (float) round($amount, 0, PHP_ROUND_HALF_UP);
+    }
+}
+
+/**
+ * ปัดตามโหมด: เต็มบาท หรือ 2 ทศนิยม
+ */
+if (!function_exists('tnc_money_round_mode')) {
+    function tnc_money_round_mode(float $amount, bool $roundToBaht): float
+    {
+        return $roundToBaht ? tnc_money_round_baht($amount) : tnc_money_round2($amount);
+    }
+}
+
+/**
+ * คูณแล้วปัดตามโหมด (จำนวน × ราคา/หน่วย)
+ */
+if (!function_exists('tnc_money_mul2')) {
+    function tnc_money_mul2(float $a, float $b, bool $roundToBaht = false): float
+    {
+        if (function_exists('bcmul')) {
+            $product = bcmul(sprintf('%.12F', $a), sprintf('%.12F', $b), 12);
+
+            return tnc_money_round_mode((float) $product, $roundToBaht);
+        }
+
+        return tnc_money_round_mode($a * $b, $roundToBaht);
+    }
+}
+
+/**
  * รวมยอดจากคอลัมน์ total ของแต่ละแถว (หลังส่วนลด) — ไม่ใช้ qty × unit_price
  */
 if (!function_exists('tnc_purchase_po_items_line_sum')) {
@@ -16,7 +70,7 @@ if (!function_exists('tnc_purchase_po_items_line_sum')) {
             $sum += (float) ($item['total'] ?? 0);
         }
 
-        return round($sum, 2);
+        return tnc_money_round2($sum);
     }
 }
 
@@ -38,7 +92,9 @@ if (!function_exists('tnc_purchase_items_vat_sums')) {
             if (!is_array($item)) {
                 continue;
             }
-            $total = round((float) ($item['total'] ?? 0), 2);
+            $total = function_exists('tnc_money_round2')
+                ? tnc_money_round2((float) ($item['total'] ?? 0))
+                : round((float) ($item['total'] ?? 0), 2);
             if ((int) ($item['vat_exempt'] ?? 0) === 1) {
                 $exempt += $total;
             } else {
@@ -47,19 +103,31 @@ if (!function_exists('tnc_purchase_items_vat_sums')) {
         }
 
         return [
-            'taxable' => round($taxable, 2),
-            'exempt' => round($exempt, 2),
+            'taxable' => tnc_money_round2($taxable),
+            'exempt' => tnc_money_round2($exempt),
         ];
     }
 }
 
 if (!function_exists('tnc_purchase_vat_split_from_line_sums')) {
-    /** @return array{subtotal: float, vat: float, gross: float, net: float, line_sum: float, taxable_sum: float, exempt_sum: float} */
-    function tnc_purchase_vat_split_from_line_sums(float $taxableSum, float $exemptSum, bool $vatOn, string $vatMode): array
+    /**
+     * แยก VAT จากยอดรายการ
+     * - ปัดเต็มบาท: ใช้กับยอดบรรทัดที่ปัดบาทแล้วเท่านั้น ส่วนฐาน/VAT ยังปัด 2 ทศนิยม (แบบบิลปั๊ม รวม VAT)
+     * - รวม VAT: มูลค่า = round(ยอด×100/107, 2), VAT = ยอด − มูลค่า
+     *
+     * @return array{subtotal: float, vat: float, gross: float, net: float, line_sum: float, taxable_sum: float, exempt_sum: float}
+     */
+    function tnc_purchase_vat_split_from_line_sums(float $taxableSum, float $exemptSum, bool $vatOn, string $vatMode, bool $roundToBaht = false): array
     {
-        $taxableSum = round($taxableSum, 2);
-        $exemptSum = round($exemptSum, 2);
-        $lineSum = round($taxableSum + $exemptSum, 2);
+        // ยอดบรรทัดอาจถูกปัดบาทมาแล้ว — คงค่าไว้ แล้วคำนวณ VAT ด้วย 2 ทศนิยมเสมอ
+        if ($roundToBaht) {
+            $taxableSum = tnc_money_round_baht($taxableSum);
+            $exemptSum = tnc_money_round_baht($exemptSum);
+        } else {
+            $taxableSum = tnc_money_round2($taxableSum);
+            $exemptSum = tnc_money_round2($exemptSum);
+        }
+        $lineSum = tnc_money_round_mode($taxableSum + $exemptSum, $roundToBaht);
         $vatMode = in_array($vatMode, ['exclusive', 'inclusive'], true) ? $vatMode : 'exclusive';
 
         if (!$vatOn) {
@@ -79,13 +147,16 @@ if (!function_exists('tnc_purchase_vat_split_from_line_sums')) {
         $gross = $lineSum;
         if ($vatOn && $taxableSum > 0) {
             if ($vatMode === 'inclusive') {
-                $subtotal = round($taxableSum * 100 / 107, 2);
-                $gross = round($subtotal * 1.07 + $exemptSum, 2);
-                $vat = round($gross - $exemptSum - $subtotal, 2);
+                // แบบบิลปั๊ม: ยอดรวมเป็นหลัก → ถอดฐาน/VAT เป็นสตางค์
+                $gross = $lineSum;
+                $subtotal = tnc_money_round2($taxableSum * 100 / 107);
+                $vat = tnc_money_round2($gross - $exemptSum - $subtotal);
+                // กันเศษลอย: ปรับฐานให้ ฐาน+VAT = ยอดรวมเป๊ะ
+                $subtotal = tnc_money_round2($gross - $exemptSum - $vat);
             } else {
                 $subtotal = $taxableSum;
-                $vat = round($subtotal * 0.07, 2);
-                $gross = round($subtotal * 1.07 + $exemptSum, 2);
+                $vat = tnc_money_round2($subtotal * 0.07);
+                $gross = tnc_money_round2($subtotal + $vat + $exemptSum);
             }
         }
 
@@ -94,7 +165,7 @@ if (!function_exists('tnc_purchase_vat_split_from_line_sums')) {
             'vat' => $vat,
             'gross' => $gross,
             'net' => $gross,
-            'line_sum' => round($taxableSum + $exemptSum, 2),
+            'line_sum' => $lineSum,
             'taxable_sum' => $taxableSum,
             'exempt_sum' => $exemptSum,
         ];

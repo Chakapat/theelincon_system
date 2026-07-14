@@ -195,6 +195,10 @@ $periodFilterLabel = $searchDate !== ''
             <h1 class="tnc-list-title ledger-hero-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-speedometer2"></i></span>รายการบันทึกสดย่อย</h1>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button(['no_print' => true, 'class' => 'ledger-cta-btn']);
+            ?>
             <button type="button" class="btn ledger-cta-btn ledger-cta-secondary px-3" data-bs-toggle="modal" data-bs-target="#ledgerFilterModal">
                 <i class="bi bi-funnel me-1"></i>กรองรายการ<?php if ($searchDate !== ''): ?><span class="badge rounded-pill text-bg-warning ms-1">1</span><?php endif; ?>
             </button>

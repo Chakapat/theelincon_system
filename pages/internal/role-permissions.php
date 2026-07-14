@@ -243,6 +243,9 @@ $roleLabels = [
                 ตั้งค่าสิทธิ์ตามบทบาท
             </h1>
         </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <?= tnc_ui_back_previous_button() ?>
+        </div>
     </div>
 
     <?php

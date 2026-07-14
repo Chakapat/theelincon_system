@@ -57,10 +57,13 @@ if ($id > 0) {
     <div class="row justify-content-center">
         <div class="col-lg-8">
             
-            <div class="d-flex align-items-center mb-4">
-                <a href="<?= htmlspecialchars(app_path('pages/suppliers/supplier-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-circle me-3">
-                    <i class="bi bi-chevron-left"></i>
-                </a>
+            <div class="d-flex align-items-center mb-4 gap-2 flex-wrap">
+                <?php
+                require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+                echo tnc_ui_back_previous_button([
+                    'fallback' => app_path('pages/suppliers/supplier-list.php'),
+                ]);
+                ?>
                 <h2 class="fw-bold mb-0 text-dark"><?= $title ?></h2>
             </div>
 

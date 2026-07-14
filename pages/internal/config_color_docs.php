@@ -110,6 +110,12 @@ $updatedAt = trim((string) ($configRow['updated_at'] ?? ''));
             <p class="text-muted mb-0 small mt-1"><i class="bi bi-clock-history me-1"></i>อัปเดตล่าสุด: <?= htmlspecialchars($updatedAt, ENT_QUOTES, 'UTF-8') ?></p>
             <?php endif; ?>
         </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button();
+            ?>
+        </div>
     </div>
 
     <?php if ($configError === 'csrf'): ?>

@@ -70,7 +70,13 @@ $ah = htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 
 <div class="container pb-5" style="max-width: 40rem;">
-    <div class="card shadow-sm border-0 rounded-4 mt-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 mb-2">
+        <?php
+        require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+        echo tnc_ui_back_previous_button();
+        ?>
+    </div>
+    <div class="card shadow-sm border-0 rounded-4">
         <div class="card-body p-4 p-md-5">
             <h4 class="fw-bold mb-1"><i class="bi bi-person-gear me-2 text-warning"></i>แก้ไขข้อมูลส่วนตัว</h4>
 

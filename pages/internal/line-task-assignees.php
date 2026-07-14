@@ -71,6 +71,10 @@ $editRow = $editId > 0 ? line_task_assignee_by_id($editId) : null;
             <h1 class="h3 fw-bold mb-1">สร้างรายชื่อผู้รับงาน</h1>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button();
+            ?>
             <a href="<?= htmlspecialchars(app_path('pages/internal/line-task-create.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill px-3">
                 <i class="bi bi-clipboard-check me-1"></i>หน้าสั่งงาน
             </a>

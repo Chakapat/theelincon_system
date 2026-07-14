@@ -155,7 +155,13 @@ Db::sortRows($customer_data, 'name', false);
             <p class="tnc-page-kicker">Invoices</p>
             <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-receipt"></i></span>สร้างใบแจ้งหนี้</h1>
         </div>
-        <a href="<?= htmlspecialchars(app_path('index.php')) ?>" class="btn btn-back-home"><i class="bi bi-arrow-left-short"></i>กลับหน้าหลัก</a>
+        <?php
+        require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+        echo tnc_ui_back_previous_button([
+            'fallback' => app_path('pages/invoices/invoice.php'),
+            'class' => 'btn-back-home',
+        ]);
+        ?>
     </div>
 
     <form action="" method="POST" id="invoiceCreateForm">

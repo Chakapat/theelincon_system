@@ -250,6 +250,44 @@
     text-align: right;
 }
 .site-print-filter strong { color: #0f172a; font-weight: 700; }
+.site-print-kicker {
+    margin: 0 0 0.2rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #9a3412;
+    text-transform: none;
+}
+.site-print-site-page { margin: 0; }
+.site-print-table.site-print-site-detail thead th.col-cat,
+.site-print-table.site-print-site-detail tbody th.col-cat,
+.site-print-table.site-print-site-detail tbody td.col-cat,
+.site-print-table.site-print-site-detail tfoot th.col-cat {
+    text-align: left;
+}
+.site-print-table.site-print-site-detail .col-amt {
+    text-align: right;
+    width: 8.5rem;
+    white-space: nowrap;
+}
+.site-print-table .site-print-parent-row th {
+    background: #fff7ed;
+    font-weight: 800;
+    color: #0f172a;
+}
+.site-print-table .site-print-sub-row td.col-cat--sub {
+    padding-left: 1.35rem;
+    font-weight: 500;
+    color: #334155;
+}
+.site-print-table .site-print-sub-row td.col-amt {
+    font-weight: 600;
+}
+.site-print-empty-cell {
+    text-align: center;
+    color: #64748b;
+    padding: 1rem !important;
+}
 .site-print-table-wrap {
     width: 100%;
     overflow-x: auto;
@@ -345,7 +383,11 @@
 }
 
 @media print {
-    @page site-spending-report {
+    @page site-spending-summary {
+        size: A4 landscape;
+        margin: 12mm 14mm 14mm 14mm;
+    }
+    @page site-spending-detail {
         size: A4 landscape;
         margin: 12mm 14mm 14mm 14mm;
     }
@@ -359,9 +401,6 @@
         font-size: 9pt;
         color: #0f172a !important;
     }
-    body.site-spending-print-page {
-        page: site-spending-report;
-    }
     .no-print,
     nav,
     .navbar,
@@ -374,11 +413,34 @@
     }
     .site-print-sheet {
         display: block !important;
-        page: site-spending-report;
         box-sizing: border-box;
         width: 100%;
         max-width: 100%;
-        padding: 2mm 0 0 !important;
+        padding: 0 !important;
+    }
+    .site-print-summary-page {
+        page: site-spending-summary;
+        break-after: page;
+        page-break-after: always;
+        box-sizing: border-box;
+        width: 100%;
+        padding-top: 2mm;
+    }
+    .site-print-summary-page.is-last {
+        break-after: auto;
+        page-break-after: auto;
+    }
+    .site-print-site-page {
+        page: site-spending-detail;
+        break-after: page;
+        page-break-after: always;
+        box-sizing: border-box;
+        width: 100%;
+        padding-top: 1mm;
+    }
+    .site-print-site-page.is-last {
+        break-after: auto;
+        page-break-after: auto;
     }
     .site-print-header {
         flex-direction: row !important;
@@ -390,9 +452,18 @@
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
+    .site-print-kicker {
+        font-size: 8pt;
+        color: #9a3412 !important;
+        margin: 0 0 1mm;
+    }
     .site-print-title {
         font-size: 13pt;
         color: #0f172a !important;
+        margin: 0;
+    }
+    .site-print-site-page .site-print-title {
+        font-size: 14pt;
     }
     .site-print-period__label {
         font-size: 7.5pt;
@@ -416,6 +487,9 @@
         font-size: 8pt;
         page-break-inside: auto;
     }
+    .site-print-table.site-print-site-detail {
+        font-size: 9pt;
+    }
     .site-print-table thead {
         display: table-header-group;
     }
@@ -431,6 +505,8 @@
         font-size: 0;
     }
     .site-print-table tr.site-print-row,
+    .site-print-table tr.site-print-parent-row,
+    .site-print-table tr.site-print-sub-row,
     .site-print-table tfoot tr.site-print-grand-row {
         break-inside: avoid;
         page-break-inside: avoid;
@@ -451,6 +527,16 @@
         font-size: 8pt;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+    }
+    .site-print-table .site-print-parent-row th {
+        background: #fff7ed !important;
+        font-size: 9pt;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .site-print-table .site-print-sub-row td.col-cat--sub {
+        padding-left: 6mm;
+        font-size: 8.5pt;
     }
     .site-print-table tfoot .site-print-grand-row th,
     .site-print-table tfoot .site-print-grand-row td {

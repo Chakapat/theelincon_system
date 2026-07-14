@@ -355,6 +355,10 @@ $ignoredCountAll = count($ignoredPoList);
             <?php endif; ?>
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button(['no_print' => true]);
+            ?>
             <button type="button" class="btn btn-outline-dark rounded-pill px-3 shadow-sm no-print d-none" id="poBatchPrintBtn" title="เปิดหน้าพิมพ์หลายใบตามที่ติ๊ก" aria-hidden="true">
                 <i class="bi bi-printer me-1"></i>พิมพ์ที่เลือก
             </button>

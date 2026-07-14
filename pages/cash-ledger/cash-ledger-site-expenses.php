@@ -146,11 +146,15 @@ foreach ($siteRows as $siteRow) {
             <div class="text-muted small mt-1">สรุปจากรายการรายจ่ายของเดือนที่เลือก</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button(['no_print' => true]);
+            ?>
             <button type="button" class="btn btn-dark rounded-pill" onclick="window.print()">
                 <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
             </button>
             <a href="<?= htmlspecialchars(app_path('pages/cash-ledger/cash-ledger.php') . '?month=' . urlencode($month), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-orange rounded-pill">
-                <i class="bi bi-arrow-left me-1"></i>กลับหน้า Dashboard
+                <i class="bi bi-speedometer2 me-1"></i>Dashboard เงินสด
             </a>
         </div>
     </div>

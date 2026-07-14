@@ -147,22 +147,24 @@ if ($selectedSite !== null) {
                 <p class="tnc-page-kicker">Stock</p>
                 <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-geo-alt"></i></span>เลือกไซต์งาน</h1>
             </div>
-            <?php if ($canManage): ?>
-                <div class="d-flex flex-wrap gap-2">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <?php
+                require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+                echo tnc_ui_back_previous_button();
+                ?>
+                <?php if ($canManage): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/stock/stock-list-report.php')) ?>" class="btn btn-outline-dark rounded-pill">
                         <i class="bi bi-table me-1"></i>รายงานไซต์ × สินค้า
                     </a>
                     <a href="<?= htmlspecialchars(app_path('pages/stock/stock-product-form.php')) ?>" class="btn btn-outline-orange rounded-pill">
                         <i class="bi bi-box me-1"></i>เพิ่มประเภทสินค้า/วัสดุ
                     </a>
-                </div>
-            <?php else: ?>
-                <div class="d-flex flex-wrap gap-2">
+                <?php else: ?>
                     <a href="<?= htmlspecialchars(app_path('pages/stock/stock-list-report.php')) ?>" class="btn btn-outline-dark rounded-pill">
                         <i class="bi bi-table me-1"></i>รายงานไซต์ × สินค้า
                     </a>
-                </div>
-            <?php endif; ?>
+                <?php endif; ?>
+            </div>
         </div>
         <?php
         $stockHubFlash = tnc_flash_from_query($_GET);
@@ -203,8 +205,12 @@ if ($selectedSite !== null) {
             </div>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button(['no_print' => true]);
+            ?>
             <a href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php')) ?>" class="btn btn-outline-secondary rounded-pill">
-                <i class="bi bi-arrow-left me-1"></i>เปลี่ยนไซต์
+                <i class="bi bi-geo-alt me-1"></i>เปลี่ยนไซต์
             </a>
             <a href="<?= htmlspecialchars(app_path('pages/stock/stock-list-report.php')) ?>" class="btn btn-outline-dark rounded-pill">
                 <i class="bi bi-table me-1"></i>รายงานไซต์ × สินค้า

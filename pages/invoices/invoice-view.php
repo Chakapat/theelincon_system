@@ -385,9 +385,14 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
                     <i class="bi bi-x-circle me-1"></i>ยกเลิก Invoice
                 </button>
                 <?php endif; ?>
-                <a href="<?= htmlspecialchars(app_path('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="back">
-                    <i class="bi bi-arrow-left me-1"></i>หน้าหลัก
-                </a>
+                <?php
+                require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+                echo tnc_ui_back_previous_button([
+                    'fallback' => app_path('pages/invoices/invoice.php'),
+                    'class' => 'btn-sm px-3 js-tnc-doc-action',
+                    'attrs' => ['data-dock-primary' => 'back'],
+                ]);
+                ?>
                 <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action" data-dock-primary="print">
                     <i class="bi bi-printer me-1"></i>พิมพ์
                 </button>

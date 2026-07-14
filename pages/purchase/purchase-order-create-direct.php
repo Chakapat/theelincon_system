@@ -349,6 +349,10 @@ $items = [[
                                     <input class="form-check-input" type="checkbox" role="switch" name="vat_enabled" id="vat_enabled" value="1" onchange="updatePoVatBasisUi(); calculateTotal()"<?= $poVatEnabled === 1 ? ' checked' : '' ?>>
                                     <label class="form-check-label fw-semibold" for="vat_enabled">มี VAT 7%</label>
                                 </div>
+                                <div class="form-check form-switch mb-0 mt-2">
+                                    <input class="form-check-input" type="checkbox" role="switch" name="round_to_baht" id="round_to_baht" value="1" onchange="calculateTotal()">
+                                    <label class="form-check-label fw-semibold" for="round_to_baht">ปัดเต็มบาท</label>
+                                </div>
                             </div>
                             <div class="po-vat-dropdown-wrap">
                                 <div id="vat_mode_wrap" class="<?= $poVatEnabled === 1 ? '' : 'po-vat-select-hidden' ?>">
@@ -700,9 +704,17 @@ function updateRowNumbers() {
     });
 }
 function poLineAmountAfterDiscount(qty, price, discRaw) {
+    const money2 = (typeof tncPurchaseMoney2 === 'function')
+        ? tncPurchaseMoney2
+        : function (n) {
+            n = Number(n);
+            if (!Number.isFinite(n)) return 0;
+            const sign = n < 0 ? -1 : 1;
+            return sign * Math.round(Math.abs(n) * 100 + 1e-8) / 100;
+        };
     const q = parseFloat(String(qty || '').replace(/,/g, '')) || 0;
     const p = parseFloat(String(price || '').replace(/,/g, '')) || 0;
-    const base = Math.round(q * p * 100) / 100;
+    const base = money2(q * p);
     const dRaw = String(discRaw || '').trim();
     let discount = 0;
     if (dRaw !== '' && base > 0) {
@@ -710,12 +722,12 @@ function poLineAmountAfterDiscount(qty, price, discRaw) {
         if (pctMatch) {
             let pct = parseFloat(pctMatch[1]) || 0;
             if (pct < 0) pct = 0; if (pct > 100) pct = 100;
-            discount = Math.round(base * pct / 100 * 100) / 100;
+            discount = money2(base * pct / 100);
         } else {
-            discount = Math.min(base, Math.round((parseFloat(dRaw.replace(/,/g, '')) || 0) * 100) / 100);
+            discount = Math.min(base, money2(parseFloat(dRaw.replace(/,/g, '')) || 0));
         }
     }
-    return Math.round((base - discount) * 100) / 100;
+    return money2(base - discount);
 }
 function updatePoVatBasisUi() {
     const vatModeWrap = document.getElementById('vat_mode_wrap');
@@ -787,8 +799,8 @@ function calculateTotal() {
                 taxableSum += total;
             }
         }
-        taxableSum = Math.round(taxableSum * 100) / 100;
-        exemptSum = Math.round(exemptSum * 100) / 100;
+        taxableSum = (typeof tncPurchaseMoney2 === 'function' ? tncPurchaseMoney2(taxableSum) : Math.round(taxableSum * 100 + 1e-8) / 100);
+        exemptSum = (typeof tncPurchaseMoney2 === 'function' ? tncPurchaseMoney2(exemptSum) : Math.round(exemptSum * 100 + 1e-8) / 100);
     }
     const splitFn = typeof tncPurchaseVatFromLineSums === 'function'
         ? tncPurchaseVatFromLineSums

@@ -1,0 +1,289 @@
+/**
+ * Supplier list — scannable master-data table
+ */
+
+.supplier-list-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.65rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 50rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--tnc-copper-deep, #9a3412);
+  background: var(--tnc-orange-soft, #ffedd5);
+  border: 1px solid var(--tnc-orange-border, #fdba74);
+  vertical-align: middle;
+}
+
+.supplier-list-shell {
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+.supplier-list-shell .dataTables_wrapper {
+  padding: 0.85rem 1.1rem 1rem;
+}
+
+.supplier-list-shell .dataTables_wrapper .dataTables_filter input {
+  border-radius: 0.5rem;
+  border: 1px solid var(--tnc-border-input, #cbd5e1);
+  padding: 0.35rem 0.65rem;
+  min-width: 12rem;
+}
+
+.supplier-list-shell .dataTables_wrapper .dataTables_filter input:focus {
+  outline: 2px solid var(--tnc-orange, #ea580c);
+  outline-offset: 1px;
+  border-color: rgba(234, 88, 12, 0.55);
+}
+
+#supplierTable {
+  --sup-row-pad-y: 0.85rem;
+  --sup-row-pad-x: 1.1rem;
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+#supplierTable thead th {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--tnc-orange-border, #fdba74) !important;
+  padding: 0.75rem var(--sup-row-pad-x);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+#supplierTable thead th:first-child {
+  padding-left: 1.25rem;
+}
+
+#supplierTable thead th.col-actions {
+  text-align: right;
+  padding-right: 1.25rem;
+}
+
+#supplierTable tbody td {
+  padding: var(--sup-row-pad-y) var(--sup-row-pad-x);
+  border-bottom: 1px solid #eef2f7;
+  vertical-align: top;
+  color: var(--tnc-body-ink, #1f2937);
+}
+
+#supplierTable tbody td:first-child {
+  padding-left: 1.25rem;
+}
+
+#supplierTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+#supplierTable.table-hover > tbody > tr:hover > * {
+  --bs-table-bg-state: #fffaf5;
+  color: inherit;
+}
+
+#supplierTable tbody tr:hover .sup-name {
+  color: var(--tnc-copper-deep, #9a3412);
+}
+
+.sup-name {
+  font-weight: 800;
+  color: var(--tnc-ink, #0f172a);
+  line-height: 1.35;
+  transition: color 0.15s ease;
+}
+
+.sup-tax {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.28rem 0.55rem;
+  border-radius: 0.5rem;
+  font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: #0f172a;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.sup-tax.is-empty,
+.sup-empty {
+  color: var(--tnc-muted, #64748b);
+  font-weight: 500;
+  background: transparent;
+  border-color: transparent;
+  padding-left: 0;
+  font-family: inherit;
+}
+
+.sup-address {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  max-width: 22rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #334155;
+  white-space: pre-line;
+}
+
+.sup-bank {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 9.5rem;
+}
+
+.sup-bank__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.875rem;
+}
+
+.sup-bank__name {
+  color: #64748b;
+  font-size: 0.8125rem;
+}
+
+.sup-bank__acc {
+  font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: #334155;
+  letter-spacing: 0.02em;
+}
+
+.bank-logo-chip {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.sup-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.sup-actions .btn {
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.sup-actions .btn-outline-warning {
+  color: #c2410c;
+  border-color: #fdba74;
+}
+
+.sup-actions .btn-outline-warning:hover,
+.sup-actions .btn-outline-warning:focus-visible {
+  color: #fff;
+  background: #ea580c;
+  border-color: #ea580c;
+}
+
+.sup-actions .btn:focus-visible {
+  outline: 2px solid var(--tnc-orange, #ea580c);
+  outline-offset: 2px;
+}
+
+.sup-empty-state {
+  padding: 2.75rem 1.5rem !important;
+  text-align: center;
+}
+
+.sup-empty-state__icon {
+  width: 3.25rem;
+  height: 3.25rem;
+  margin: 0 auto 0.85rem;
+  border-radius: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  color: var(--tnc-orange, #ea580c);
+  background: var(--tnc-orange-soft, #ffedd5);
+  border: 1px solid var(--tnc-orange-border, #fdba74);
+}
+
+.sup-empty-state__title {
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 0.35rem;
+}
+
+.sup-empty-state__hint {
+  color: #64748b;
+  margin: 0 0 1rem;
+  font-size: 0.9375rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sup-name,
+  .sup-actions .btn {
+    transition: none;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .supplier-list-shell .dataTables_wrapper {
+    padding: 0.75rem 0.75rem 1rem;
+  }
+
+  #supplierTable thead th,
+  #supplierTable tbody td,
+  #supplierTable tbody td:first-child {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+
+  .sup-address {
+    max-width: none;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    text-align: left;
+  }
+
+  #supplierTable tbody td[data-label="ที่อยู่บริษัท"],
+  #supplierTable tbody td[data-label="เลขประจำตัวผู้เสียภาษี"],
+  #supplierTable tbody td[data-label="บัญชีรับโอน"] {
+    align-items: flex-start;
+  }
+
+  #supplierTable tbody td[data-label="ที่อยู่บริษัท"] > *,
+  #supplierTable tbody td[data-label="เลขประจำตัวผู้เสียภาษี"] > *,
+  #supplierTable tbody td[data-label="บัญชีรับโอน"] > * {
+    text-align: left;
+  }
+
+  .sup-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

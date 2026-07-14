@@ -242,11 +242,22 @@
     body.vat-printing-sales .vat-print-table--media.vat-print-table--sales col.col-amt { width: 14%; }
 
     body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-date { width: 7%; }
-    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-doc { width: 11%; }
-    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-name { width: 15%; }
-    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-site { width: 13%; }
+    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-doc { width: 10%; }
+    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-name { width: 28%; }
+    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-site { width: 11%; }
     body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-cat { width: 12%; }
-    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-amt { width: 14%; }
+    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-amt { width: 16%; }
+
+    body.vat-printing-purchase .vat-print-table--media thead th {
+        font-size: 7pt;
+        line-height: 1.25;
+        white-space: normal;
+    }
+
+    body.vat-printing-purchase .vat-print-title {
+        font-size: 12pt;
+        max-width: 210mm;
+    }
 
     .vat-print-table--media thead {
         display: table-header-group;

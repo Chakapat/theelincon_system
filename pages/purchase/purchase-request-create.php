@@ -71,6 +71,7 @@ if ($isEdit) {
 $editSiteId = $isEdit ? (int) ($editPr['site_id'] ?? 0) : (int) ($_GET['site_id'] ?? 0);
 $editDetails = $isEdit ? trim((string) ($editPr['details'] ?? '')) : '';
 $editVatOn = $isEdit && (int) ($editPr['vat_enabled'] ?? 0) === 1;
+$editRoundToBaht = $isEdit && (int) ($editPr['round_to_baht'] ?? 0) === 1;
 $editVatMode = $isEdit ? trim((string) ($editPr['vat_mode'] ?? 'exclusive')) : 'exclusive';
 if (!in_array($editVatMode, ['exclusive', 'inclusive'], true)) {
     $editVatMode = 'exclusive';
@@ -411,6 +412,10 @@ if ($hubSiteIdParam > 0 && !$isEdit) {
                                     <input class="form-check-input" type="checkbox" name="vat_enabled" id="vat_enabled" value="1" onchange="calculateTotal()"<?= $editVatOn ? ' checked' : '' ?>>
                                     <label class="form-check-label fw-semibold" for="vat_enabled">มี VAT 7%</label>
                                 </div>
+                                <div class="form-check form-switch mb-0 ms-md-3 mt-2 mt-md-0">
+                                    <input class="form-check-input" type="checkbox" name="round_to_baht" id="round_to_baht" value="1" onchange="calculateTotal()"<?= $editRoundToBaht ? ' checked' : '' ?>>
+                                    <label class="form-check-label fw-semibold" for="round_to_baht">ปัดเต็มบาท</label>
+                                </div>
                             </div>
                             <div class="pr-vat-dropdown-wrap">
                                 <div id="vat_mode_wrap" class="<?= $editVatOn ? '' : 'pr-vat-select-hidden' ?>">
@@ -538,9 +543,17 @@ function addRow() {
 }
 
 function prLineAmountAfterDiscount(qty, price, discRaw) {
+    const money2 = (typeof tncPurchaseMoney2 === 'function')
+        ? tncPurchaseMoney2
+        : function (n) {
+            n = Number(n);
+            if (!Number.isFinite(n)) return 0;
+            const sign = n < 0 ? -1 : 1;
+            return sign * Math.round(Math.abs(n) * 100 + 1e-8) / 100;
+        };
     const q = parseFloat(String(qty || '').replace(/,/g, '')) || 0;
     const p = parseFloat(String(price || '').replace(/,/g, '')) || 0;
-    const base = Math.round(q * p * 100) / 100;
+    const base = money2(q * p);
     const dRaw = String(discRaw || '').trim();
     let discount = 0;
     if (dRaw !== '' && base > 0) {
@@ -549,14 +562,14 @@ function prLineAmountAfterDiscount(qty, price, discRaw) {
             let pct = parseFloat(pctMatch[1]) || 0;
             if (pct < 0) pct = 0;
             if (pct > 100) pct = 100;
-            discount = Math.round(base * pct / 100 * 100) / 100;
+            discount = money2(base * pct / 100);
         } else {
-            discount = Math.round((parseFloat(dRaw.replace(/,/g, '')) || 0) * 100) / 100;
+            discount = money2(parseFloat(dRaw.replace(/,/g, '')) || 0);
             if (discount < 0) discount = 0;
             if (discount > base) discount = base;
         }
     }
-    return Math.round((base - discount) * 100) / 100;
+    return money2(base - discount);
 }
 
 // ฟังก์ชันลบแถว
@@ -616,8 +629,8 @@ function calculateTotal() {
         }
     }
 
-    taxableSum = Math.round(taxableSum * 100) / 100;
-    exemptSum = Math.round(exemptSum * 100) / 100;
+    taxableSum = (typeof tncPurchaseMoney2 === 'function' ? tncPurchaseMoney2(taxableSum) : Math.round(taxableSum * 100 + 1e-8) / 100);
+    exemptSum = (typeof tncPurchaseMoney2 === 'function' ? tncPurchaseMoney2(exemptSum) : Math.round(exemptSum * 100 + 1e-8) / 100);
     const splitFn = typeof tncPurchaseVatFromLineSums === 'function'
         ? tncPurchaseVatFromLineSums
         : function (t, e, v, m) { return tncPurchaseVatFromLineSum(t + e, v, m); };

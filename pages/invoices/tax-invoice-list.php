@@ -84,9 +84,15 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
             <p class="tnc-page-kicker">Invoices · Tax</p>
             <h1 class="tnc-list-title"><span class="tnc-list-title__icon me-2"><i class="bi bi-file-earmark-break-fill"></i></span>รายการใบกำกับภาษี</h1>
         </div>
-        <button type="button" class="btn btn-orange px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#tirCreateModal">
-            <i class="bi bi-plus-lg me-1"></i>สร้างใบกำกับภาษี
-        </button>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button();
+            ?>
+            <button type="button" class="btn btn-orange px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#tirCreateModal">
+                <i class="bi bi-plus-lg me-1"></i>สร้างใบกำกับภาษี
+            </button>
+        </div>
     </div>
 
     <div class="card index-table-card border-0 shadow-sm overflow-hidden mb-0 bg-white">

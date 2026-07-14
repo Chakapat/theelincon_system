@@ -614,9 +614,13 @@ if (!$inv) {
                 </div>
             </form>
             <div class="mt-4 pt-1">
-                <a href="<?= htmlspecialchars(app_path('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="tir-back-ghost">
-                    <i class="bi bi-arrow-left" aria-hidden="true"></i>กลับหน้าหลัก
-                </a>
+                <?php
+                require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+                echo tnc_ui_back_previous_button([
+                    'fallback' => app_path('pages/invoices/tax-invoice-list.php'),
+                    'class' => 'tir-back-ghost border-0 bg-transparent px-0',
+                ]);
+                ?>
             </div>
         </div>
     </div>

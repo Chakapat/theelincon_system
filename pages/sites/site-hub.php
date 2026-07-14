@@ -631,8 +631,12 @@ $renderHubMenuItems = static function (array $items): void {
             </div>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button(['fallback' => $pickerUrl]);
+            ?>
             <a href="<?= htmlspecialchars($pickerUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill">
-                <i class="bi bi-arrow-left me-1"></i>เปลี่ยนไซต์
+                <i class="bi bi-geo-alt me-1"></i>เปลี่ยนไซต์
             </a>
         </div>
     </div>

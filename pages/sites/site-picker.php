@@ -173,7 +173,13 @@ if (user_can('page.po')) {
     ?>
 
     <header class="site-picker-head">
-        <h1 class="site-picker-head__title">เลือกไซต์งาน</h1>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 w-100">
+            <h1 class="site-picker-head__title mb-0">เลือกไซต์งาน</h1>
+            <?php
+            require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
+            echo tnc_ui_back_previous_button();
+            ?>
+        </div>
     </header>
 
     <?php if ($pickerQuickLinks !== []): ?>
