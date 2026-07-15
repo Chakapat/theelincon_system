@@ -198,7 +198,10 @@ $items = [[
         <div class="alert alert-warning py-2 mb-3">ยังไม่มีไซต์งานในระบบ — กรุณา<a href="<?= htmlspecialchars(app_path('pages/sites/site-picker.php'), ENT_QUOTES, 'UTF-8') ?>">เพิ่มไซต์งาน</a>ก่อนออก PO</div>
     <?php endif; ?>
 
-    <form action="<?= htmlspecialchars($handlerUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1"<?= $isEmbed ? ' target="_top"' : '' ?>>
+    <?php
+    $poDirectDraftKey = 'u' . (int) ($_SESSION['user_id'] ?? 0) . ':po:direct' . ($siteLockedFromHub ? (':site' . (int) $prefillSiteId) : '');
+    ?>
+    <form action="<?= htmlspecialchars($handlerUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1" data-tnc-draft="1" data-tnc-draft-key="<?= htmlspecialchars($poDirectDraftKey, ENT_QUOTES, 'UTF-8') ?>" data-tnc-draft-table="#poTable"<?= $isEmbed ? ' target="_top"' : '' ?>>
         <?php csrf_field(); ?>
         <?php if ($isEmbed && $siteLockedFromHub): ?>
             <input type="hidden" name="embed" value="1">
@@ -434,6 +437,7 @@ $items = [[
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/site-category-select.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(tnc_asset_href('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(tnc_asset_href('assets/js/tnc-form-draft.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function () {
     const issueDateEl = document.getElementById('issue_date');

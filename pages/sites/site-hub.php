@@ -1469,8 +1469,8 @@ $renderHubMenuItems = static function (array $items): void {
                         <div class="small text-muted text-truncate"><?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?></div>
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
-                        <a href="#" id="hubEmbedActionFullLink" class="btn btn-sm btn-outline-secondary rounded-pill" target="_blank" rel="noopener">
-                            <i class="bi bi-box-arrow-up-right me-1"></i>เปิดหน้าเต็ม
+                        <a href="#" id="hubEmbedActionFullLink" class="btn btn-sm btn-outline-secondary rounded-pill" title="เปิดหน้าเต็ม">
+                            <i class="bi bi-arrows-fullscreen me-1"></i><span class="hub-embed-full-label">เปิดหน้าเต็ม</span>
                         </a>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
                     </div>

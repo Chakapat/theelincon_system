@@ -2,6 +2,8 @@
 body.tnc-embed-page {
     background: #fff !important;
     min-height: 100%;
+    /* No app bottom-nav inside iframe */
+    --tnc-mobile-bottom-nav-h: 0px;
 }
 body.tnc-embed-page .tnc-embed-hide,
 body.tnc-embed-page .navbar,
@@ -16,9 +18,10 @@ body.tnc-embed-page .container-lg {
     padding-bottom: 1.25rem !important;
     margin-bottom: 0 !important;
 }
+/* Modal already titles the work — drop duplicate page hero */
 body.tnc-embed-page .po-create-hero,
 body.tnc-embed-page .tnc-page-head {
-    margin-bottom: 1rem !important;
+    display: none !important;
 }
 body.tnc-embed-page .pr-summary-sticky,
 body.tnc-embed-page .po-summary-sticky {
@@ -26,4 +29,40 @@ body.tnc-embed-page .po-summary-sticky {
 }
 body.tnc-embed-page .tnc-embed-compact-actions .btn {
     white-space: nowrap;
+}
+/*
+ * One save control in embed: no fixed sticky bar (it stacks under confirm
+ * modals and fights the hub chrome). Always use the inline submit panel.
+ */
+body.tnc-embed-page .tnc-mobile-sticky-cta {
+    display: none !important;
+    position: static !important;
+}
+body.tnc-embed-page .po-submit-panel.d-none.d-lg-flex {
+    display: flex !important;
+    width: 100%;
+    justify-content: flex-end;
+    align-items: center;
+}
+body.tnc-embed-page .po-submit-panel.d-none.d-lg-block {
+    display: block !important;
+}
+body.tnc-embed-page .po-submit-panel--end {
+    margin-top: 0.75rem;
+    margin-bottom: 0.5rem !important;
+}
+body.tnc-embed-page .po-submit-panel .po-submit-btn {
+    width: auto;
+    max-width: 100%;
+}
+@media (max-width: 575.98px) {
+    body.tnc-embed-page .po-submit-panel--end {
+        justify-content: center !important;
+    }
+    body.tnc-embed-page .po-submit-panel .po-submit-btn {
+        width: 100%;
+        max-width: 22rem;
+        margin-left: auto;
+        margin-right: auto;
+    }
 }

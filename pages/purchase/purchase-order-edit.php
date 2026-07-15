@@ -230,7 +230,10 @@ if (true) {
 
 <div class="container container-lg py-4 py-md-5 mb-5 po-create-wrap">
     <?php include dirname(__DIR__, 2) . '/components/purchase-subnav.php'; ?>
-    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_po_direct&id=<?= (int) $poId ?>" method="POST" data-tnc-fullnav="1">
+    <?php
+    $poEditDraftKey = 'u' . (int) ($_SESSION['user_id'] ?? 0) . ':po:edit:' . (int) $poId;
+    ?>
+    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_po_direct&id=<?= (int) $poId ?>" method="POST" data-tnc-fullnav="1" data-tnc-draft="1" data-tnc-draft-key="<?= htmlspecialchars($poEditDraftKey, ENT_QUOTES, 'UTF-8') ?>" data-tnc-draft-table="#poTable">
         <input type="hidden" name="confirm_over_contract" id="confirm_over_contract" value="">
         <?php csrf_field(); ?>
 
@@ -543,6 +546,7 @@ if (true) {
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script src="<?= htmlspecialchars(app_path('assets/js/site-category-select.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(tnc_asset_href('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(tnc_asset_href('assets/js/tnc-form-draft.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function () {
     const searchInput = document.getElementById('supplier_search');

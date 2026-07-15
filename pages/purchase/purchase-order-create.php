@@ -558,7 +558,10 @@ $po_submit_disabled = $pr_prefill_items_display === [];
         </div>
     </div>
 
-    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1">
+    <?php
+    $poFromPrDraftKey = 'u' . (int) ($_SESSION['user_id'] ?? 0) . ':po:from_pr:' . (int) $pr_id;
+    ?>
+    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1" data-tnc-draft="1" data-tnc-draft-key="<?= htmlspecialchars($poFromPrDraftKey, ENT_QUOTES, 'UTF-8') ?>" data-tnc-draft-table="#poTable">
         <?php csrf_field(); ?>
         <input type="hidden" name="pr_id" value="<?= $pr_id ?>">
         <input type="hidden" name="site_id" value="<?= $prSiteId ?>">
@@ -855,6 +858,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="<?= htmlspecialchars(tnc_asset_href('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(tnc_asset_href('assets/js/tnc-form-draft.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function () {
     const issueDateEl = document.getElementById('issue_date');

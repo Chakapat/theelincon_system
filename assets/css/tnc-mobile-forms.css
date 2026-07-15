@@ -116,6 +116,11 @@
     }
 }
 
+/* Confirm / Bootstrap modals: hide sticky save so footer actions are not duplicated */
+body.modal-open .tnc-mobile-sticky-cta {
+    display: none !important;
+}
+
 @media print {
     .tnc-mobile-sticky-cta {
         display: none !important;

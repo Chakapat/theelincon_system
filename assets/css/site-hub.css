@@ -106,6 +106,18 @@ button.hub-action-tile {
     border-bottom: 1px solid #fed7aa;
     background: #fffaf5;
     gap: 0.5rem;
+    flex-wrap: nowrap;
+}
+.hub-embed-action-modal__header .btn {
+    white-space: nowrap;
+}
+@media (max-width: 575.98px) {
+    .hub-embed-action-modal__header #hubEmbedActionFullLink .hub-embed-full-label {
+        display: none;
+    }
+    .hub-embed-action-modal__header #hubEmbedActionFullLink .bi {
+        margin-right: 0 !important;
+    }
 }
 .hub-embed-action-modal__body {
     position: relative;

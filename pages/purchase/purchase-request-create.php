@@ -161,15 +161,21 @@ if (!is_int($embedCssVer) || $embedCssVer <= 0) {
         .pr-vat-toolbar {
             display: flex;
             flex-wrap: wrap;
-            align-items: center;
+            align-items: flex-start;
             gap: 0.45rem 0.85rem;
+        }
+        .pr-vat-switch-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
         }
         .pr-vat-switch-wrap .form-check { margin-bottom: 0; }
         .pr-vat-dropdown-wrap {
             position: relative;
             flex: 1 1 11rem;
             min-width: min(100%, 10.5rem);
-            max-width: 18rem;
+            max-width: 20rem;
         }
         #vat_mode_wrap.pr-vat-select-hidden {
             position: absolute;
@@ -186,8 +192,7 @@ if (!is_int($embedCssVer) || $embedCssVer <= 0) {
             .pr-vat-dropdown-wrap { max-width: none; }
         }
         .pr-create-wrap .po-submit-panel--end {
-            display: flex !important;
-            justify-content: flex-end !important;
+            justify-content: flex-end;
             align-items: center;
             width: 100%;
         }
@@ -195,9 +200,6 @@ if (!is_int($embedCssVer) || $embedCssVer <= 0) {
             margin-left: auto;
         }
         @media (max-width: 991.98px) {
-            .pr-create-wrap .po-submit-panel--end {
-                justify-content: center !important;
-            }
             .pr-create-wrap .po-submit-panel--end .po-submit-btn {
                 margin-left: 0;
                 width: 100%;
@@ -263,7 +265,13 @@ if (!is_int($embedCssVer) || $embedCssVer <= 0) {
             <i class="bi bi-check-circle me-1"></i>PR นี้อนุมัติแล้ว — แก้ไขและบันทึกได้ สถานะอนุมัติจะยังคงอยู่ (ยังออก PO ได้ตามเดิม)
         </div>
     <?php endif; ?>
-    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=<?= htmlspecialchars($prFormAction, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1"<?= $isEmbed ? ' target="_top"' : '' ?>>
+    <?php
+    $prDraftUserId = (int) ($_SESSION['user_id'] ?? 0);
+    $prDraftKey = $isEdit
+        ? ('u' . $prDraftUserId . ':pr:edit:' . (int) $editId)
+        : ('u' . $prDraftUserId . ':pr:create' . ($siteLockedFromHub ? (':site' . (int) $editSiteId) : ''));
+    ?>
+    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=<?= htmlspecialchars($prFormAction, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1" data-tnc-draft="1" data-tnc-draft-key="<?= htmlspecialchars($prDraftKey, ENT_QUOTES, 'UTF-8') ?>" data-tnc-draft-table="#prTable"<?= $isEmbed ? ' target="_top"' : '' ?>>
         <?php csrf_field(); ?>
         <input type="hidden" name="requested_by" value="<?= (int) $editRequestedBy ?>">
         <?php if ($isEdit): ?>
@@ -427,21 +435,22 @@ if (!is_int($embedCssVer) || $embedCssVer <= 0) {
 
             <div class="row g-4 mt-1" id="pr_summary_footer">
                 <div class="col-lg-7 order-2 order-lg-1">
-                    <div class="po-vat-panel">
+                    <div class="po-vat-panel mb-3">
+                        <label class="po-field-label d-block mb-2">ภาษีมูลค่าเพิ่ม</label>
                         <div class="pr-vat-toolbar">
                             <div class="pr-vat-switch-wrap">
                                 <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input" type="checkbox" name="vat_enabled" id="vat_enabled" value="1" onchange="calculateTotal()"<?= $editVatOn ? ' checked' : '' ?>>
+                                    <input class="form-check-input" type="checkbox" role="switch" name="vat_enabled" id="vat_enabled" value="1" onchange="calculateTotal()"<?= $editVatOn ? ' checked' : '' ?>>
                                     <label class="form-check-label fw-semibold" for="vat_enabled">มี VAT 7%</label>
                                 </div>
-                                <div class="form-check form-switch mb-0 ms-md-3 mt-2 mt-md-0">
-                                    <input class="form-check-input" type="checkbox" name="round_to_baht" id="round_to_baht" value="1" onchange="calculateTotal()"<?= $editRoundToBaht ? ' checked' : '' ?>>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" role="switch" name="round_to_baht" id="round_to_baht" value="1" onchange="calculateTotal()"<?= $editRoundToBaht ? ' checked' : '' ?>>
                                     <label class="form-check-label fw-semibold" for="round_to_baht">ปัดเต็มบาท</label>
                                 </div>
                             </div>
                             <div class="pr-vat-dropdown-wrap">
                                 <div id="vat_mode_wrap" class="<?= $editVatOn ? '' : 'pr-vat-select-hidden' ?>">
-                                    <select class="form-select form-select-sm" name="vat_mode" id="vat_mode" onchange="calculateTotal()">
+                                    <select class="form-select form-select-sm" name="vat_mode" id="vat_mode" onchange="calculateTotal()" aria-label="วิธีคิด VAT"<?= $editVatOn ? '' : ' disabled' ?>>
                                         <option value="exclusive"<?= $editVatMode === 'exclusive' ? ' selected' : '' ?>>แยก VAT (บวก 7% จากฐาน)</option>
                                         <option value="inclusive"<?= $editVatMode === 'inclusive' ? ' selected' : '' ?>>รวม VAT (ราคารวมภาษีแล้ว)</option>
                                     </select>
@@ -511,10 +520,10 @@ if (!is_int($embedCssVer) || $embedCssVer <= 0) {
                         <p class="small text-warning mb-0"><i class="bi bi-info-circle me-1"></i>ยังไม่ได้ตั้งค่า LINE ครบ — บันทึกได้แต่ส่ง LINE ไม่ได้จนกว่าจะตั้งค่าในหน้า LINE แจ้งเตือน</p>
                     <?php endif; ?>
                 </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">ยกเลิก</button>
-                    <button type="button" class="btn btn-pr-primary rounded-pill px-4 fw-semibold" id="btnPrSaveConfirm" data-tnc-loading-text="กำลังบันทึก…">
-                        <i class="bi bi-check2-circle me-1"></i><?= $isEdit ? 'ยืนยันบันทึกใบขอซื้อ' : 'ยืนยันสร้างใบขอซื้อ' ?>
+                <div class="modal-footer border-0 pt-0 flex-nowrap gap-2 justify-content-end">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-3 px-sm-4" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-orange rounded-pill px-3 px-sm-4 fw-semibold" id="btnPrSaveConfirm" data-tnc-loading-text="กำลังบันทึก…">
+                        <i class="bi bi-check2-circle me-1"></i><?= $isEdit ? 'ยืนยันบันทึก' : 'ยืนยันสร้าง' ?>
                     </button>
                 </div>
             </div>
@@ -528,6 +537,7 @@ if (!is_int($embedCssVer) || $embedCssVer <= 0) {
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="<?= htmlspecialchars(app_path('assets/js/site-category-select.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(tnc_asset_href('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(tnc_asset_href('assets/js/tnc-form-draft.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 function buildPrPurchaseRowHtml(rowCount, withDelete) {
     var deleteMobile = withDelete
@@ -696,7 +706,9 @@ function calculateTotal() {
     }
     const vatModeEl = document.getElementById('vat_mode');
     if (vatModeEl) {
+        vatModeEl.disabled = !vatOn;
         vatModeEl.tabIndex = vatOn ? 0 : -1;
+        vatModeEl.setAttribute('aria-hidden', vatOn ? 'false' : 'true');
     }
 
     const submitGrandEl = document.getElementById('pr_submit_grand_total');

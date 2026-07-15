@@ -140,9 +140,21 @@
         grid-row: 4;
     }
 
-    /* แถว 4: ยอดรวม (เต็มความกว้าง) */
+    /* แถว 4: VAT | ยอดรวม */
+    .po-line-table .po-cell-vat-exempt {
+        grid-column: 1;
+        grid-row: 5;
+        align-items: flex-start;
+    }
+
+    .po-line-table .po-cell-vat-exempt .form-check-input {
+        margin-top: 0.15rem;
+        width: 1.15rem;
+        height: 1.15rem;
+    }
+
     .po-line-table .po-cell-total {
-        grid-column: 1 / -1;
+        grid-column: 2;
         grid-row: 5;
         text-align: end;
     }
