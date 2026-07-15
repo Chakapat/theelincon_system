@@ -180,7 +180,8 @@
 
 
     body.purchase-module .tnc-po-print-page--slip .po-payment-slip-print-wrap,
-    body.purchase-module .tnc-po-print-page--quotation .po-payment-slip-print-wrap {
+    body.purchase-module .tnc-po-print-page--quotation .po-payment-slip-print-wrap,
+    body.purchase-module .tnc-po-print-page--quotation .po-quotation-attach-print-wrap {
         page-break-before: auto !important;
         break-before: auto !important;
     }

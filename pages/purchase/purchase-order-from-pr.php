@@ -153,7 +153,7 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                     <?php if ($requestType === 'purchase' && $prUpdated): ?>
                         <div class="alert alert-success py-2 border-0" data-tnc-audio="update"><i class="bi bi-check-circle-fill me-1"></i>อัปเดตใบขอซื้อ (PR) แล้ว — ตรวจสอบยอดด้านล่างแล้วดำเนินการสร้าง PO ต่อได้</div>
                     <?php endif; ?>
-                    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" data-tnc-fullnav="1">
+                    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=create_po_from_pr" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1">
                         <input type="hidden" name="confirm_over_contract" id="confirm_over_contract" value="">
                         <?php csrf_field(); ?>
                         <input type="hidden" name="pr_id" value="<?= $pr['id'] ?>">
@@ -187,10 +187,24 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
                             <textarea name="po_note" id="po_note" class="form-control" rows="2" maxlength="500"></textarea>
                         </div>
 
+                        <?php
+                        $prQuotationPathFromPr = trim((string) ($pr['quotation_attachment_path'] ?? ''));
+                        $prQuotationNameFromPr = trim((string) ($pr['quotation_attachment_name'] ?? ''));
+                        ?>
                         <div class="mb-4">
-                            <div class="form-check mb-2">
+                            <label class="po-field-label" for="quotation_file">แนบใบเสนอราคา <span class="text-muted fw-normal">(ไม่บังคับ)</span></label>
+                            <?php if ($prQuotationPathFromPr !== ''): ?>
+                                <div class="small mb-2 text-secondary">
+                                    PR นี้มีไฟล์:
+                                    <a href="<?= htmlspecialchars(app_path($prQuotationPathFromPr), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= htmlspecialchars($prQuotationNameFromPr !== '' ? $prQuotationNameFromPr : 'เปิดไฟล์', ENT_QUOTES, 'UTF-8') ?></a>
+                                    — จะคัดลอกไปยัง PO หากไม่แนบใหม่
+                                </div>
+                            <?php endif; ?>
+                            <input type="file" name="quotation_file" id="quotation_file" class="form-control" accept=".pdf,image/*,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff">
+                            <div class="form-text">รองรับ PDF หรือรูปภาพ</div>
+                            <div class="form-check mt-3 mb-2">
                                 <input class="form-check-input" type="checkbox" value="1" id="has_qt" name="has_qt">
-                                <label class="form-check-label fw-semibold" for="has_qt">มีข้อมูลใบเสนอราคา</label>
+                                <label class="form-check-label fw-semibold" for="has_qt">ระบุเลขที่ / วันที่ใบเสนอราคาเพิ่มเติม</label>
                             </div>
                             <div class="rounded-3 border bg-white p-3 p-md-4 mt-2 d-none" id="qt_panel">
                                 <div class="mb-3">
@@ -423,6 +437,23 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
     } else {
         prFixInitTotals();
     }
+})();
+</script>
+<script>
+(function () {
+    const hasQt = document.getElementById('has_qt');
+    const panel = document.getElementById('qt_panel');
+    if (!hasQt || !panel) return;
+    const fields = panel.querySelectorAll('input, textarea, select');
+    function sync() {
+        const on = !!hasQt.checked;
+        panel.classList.toggle('d-none', !on);
+        fields.forEach(function (el) {
+            el.disabled = !on;
+        });
+    }
+    hasQt.addEventListener('change', sync);
+    sync();
 })();
 </script>
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>

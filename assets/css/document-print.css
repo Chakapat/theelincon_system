@@ -77,6 +77,188 @@
     text-wrap: pretty;
 }
 
+/* ปุ่มเปิดดูใบเสนอราคาบนหัวเอกสาร (หน้าจอ) */
+.tnc-doc-qt-block {
+    margin-top: 0.35rem;
+}
+
+.tnc-doc-qt-open {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.28rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none !important;
+    color: #047857 !important;
+    background: #ecfdf5;
+    border: 1px solid #6ee7b7;
+    box-shadow: 0 1px 2px rgba(16, 185, 129, 0.12);
+}
+
+.tnc-doc-qt-open:hover {
+    background: #d1fae5;
+    border-color: #34d399;
+    color: #065f46 !important;
+}
+
+.tnc-doc-qt-print-only {
+    display: none;
+}
+
+@media print {
+    .tnc-doc-qt-open {
+        display: none !important;
+    }
+    .tnc-doc-qt-print-only {
+        display: block !important;
+    }
+}
+
+/* ใบเสนอราคาแนบ — แผ่นเอกสาร A4 บนหน้าจอ (PO/PR view) */
+@media screen {
+    .po-quotation-attach-print-wrap.po-quotation-doc {
+        max-width: 210mm;
+        margin: 0 auto 1.5rem;
+        scroll-margin-top: 5.5rem;
+    }
+
+    .invoice-box.po-quotation-doc-sheet {
+        width: 210mm;
+        max-width: 100%;
+        min-height: 297mm;
+        height: auto;
+        margin: 0 auto;
+        background: #fff;
+        padding: 0;
+        position: relative;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        border-top: 6px solid #059669;
+    }
+
+    .po-quotation-doc-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 0.75rem 1.25rem;
+        padding: 0.85rem 1.1rem 0.75rem;
+        border-bottom: 1px solid #e2e8f0;
+        background: linear-gradient(180deg, #f0fdf4 0%, #fff 100%);
+        flex: 0 0 auto;
+    }
+
+    .po-quotation-doc-kicker {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 0.15rem;
+    }
+
+    .po-quotation-doc-title {
+        margin: 0;
+        font-size: 1.55rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: #047857;
+        line-height: 1.15;
+    }
+
+    .po-quotation-doc-subtitle {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #334155;
+        margin-top: 0.15rem;
+    }
+
+    .po-quotation-doc-header__file {
+        text-align: right;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .po-quotation-doc-file-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #94a3b8;
+    }
+
+    .po-quotation-doc-file-name {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #475569;
+        max-width: 16rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .po-quotation-doc-body {
+        flex: 1 1 auto;
+        min-height: calc(297mm - 5.5rem);
+        display: flex;
+        flex-direction: column;
+        background: #f8fafc;
+    }
+
+    .po-quotation-doc-body .po-quotation-pdf-iframe {
+        flex: 1 1 auto;
+        width: 100%;
+        min-height: calc(297mm - 5.5rem);
+        height: calc(297mm - 5.5rem);
+        border: 0 !important;
+        background: #fff;
+        display: block;
+    }
+
+    .po-quotation-doc-body .po-quotation-attach-img-wrap {
+        flex: 1 1 auto;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 0.75rem;
+        min-height: calc(297mm - 5.5rem);
+        background: #fff;
+    }
+
+    .po-quotation-doc-body .po-quotation-attach-img {
+        max-width: 100%;
+        max-height: calc(297mm - 7rem);
+        width: auto;
+        height: auto;
+        object-fit: contain;
+    }
+
+    @media (max-width: 575.98px) {
+        .invoice-box.po-quotation-doc-sheet {
+            width: 100%;
+            min-height: 70vh;
+        }
+        .po-quotation-doc-body,
+        .po-quotation-doc-body .po-quotation-pdf-iframe,
+        .po-quotation-doc-body .po-quotation-attach-img-wrap {
+            min-height: 70vh;
+            height: 70vh;
+        }
+        .po-quotation-doc-header__file {
+            text-align: left;
+        }
+        .po-quotation-doc-file-name {
+            max-width: 100%;
+            white-space: normal;
+        }
+    }
+}
+
 .doc-company-tax-id {
     white-space: nowrap;
 }
@@ -1801,6 +1983,100 @@
         background: #fff !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+    }
+
+    /* หน้าพิมพ์แนบใบเสนอราคา — แผ่นเอกสารแยกจากใบ PO */
+    .po-quotation-attach-print-wrap {
+        page-break-before: always;
+        break-before: page;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        width: 100%;
+        max-width: 210mm;
+        margin: 0 auto;
+        background: #fff;
+        overflow: hidden;
+    }
+
+    .po-quotation-attach-print-wrap.po-quotation-attach-print-wrap--first {
+        page-break-before: auto;
+        break-before: auto;
+    }
+
+    .invoice-box.po-quotation-doc-sheet {
+        width: 210mm !important;
+        max-width: 210mm !important;
+        min-height: 297mm !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        border-top: none !important;
+        overflow: hidden !important;
+    }
+
+    .po-quotation-doc-header {
+        display: none !important;
+    }
+
+    .po-quotation-doc-header-print {
+        display: block !important;
+        padding: 8mm 10mm 3mm;
+        border-bottom: 1px solid #cbd5e1;
+    }
+
+    .po-quotation-attach-kicker {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #64748b;
+    }
+
+    .po-quotation-attach-title {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.25;
+    }
+
+    .po-quotation-attach-file {
+        font-size: 0.78rem;
+        color: #475569;
+        margin-top: 1mm;
+    }
+
+    .po-quotation-doc-body {
+        min-height: 260mm !important;
+        height: 260mm !important;
+        background: #fff !important;
+    }
+
+    .po-quotation-doc-body .po-quotation-pdf-iframe {
+        min-height: 260mm !important;
+        height: 260mm !important;
+        width: 100% !important;
+        border: none !important;
+        background: #fff !important;
+        display: block !important;
+    }
+
+    .po-quotation-doc-body .po-quotation-attach-img-wrap {
+        min-height: 260mm !important;
+        display: flex !important;
+        align-items: flex-start !important;
+        justify-content: center !important;
+        padding: 6mm !important;
+        background: #fff !important;
+    }
+
+    .po-quotation-doc-body .po-quotation-attach-img {
+        max-width: 100% !important;
+        max-height: 250mm !important;
+        width: auto !important;
+        height: auto !important;
+        object-fit: contain !important;
+        border: none !important;
     }
 
     .po-slip-a4-page img.po-payment-slip-img,

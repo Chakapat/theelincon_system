@@ -70,6 +70,8 @@ if ($isEdit) {
 }
 $editSiteId = $isEdit ? (int) ($editPr['site_id'] ?? 0) : (int) ($_GET['site_id'] ?? 0);
 $editDetails = $isEdit ? trim((string) ($editPr['details'] ?? '')) : '';
+$editQuotationPath = $isEdit ? trim((string) ($editPr['quotation_attachment_path'] ?? '')) : '';
+$editQuotationName = $isEdit ? trim((string) ($editPr['quotation_attachment_name'] ?? '')) : '';
 $editVatOn = $isEdit && (int) ($editPr['vat_enabled'] ?? 0) === 1;
 $editRoundToBaht = $isEdit && (int) ($editPr['round_to_baht'] ?? 0) === 1;
 $editVatMode = $isEdit ? trim((string) ($editPr['vat_mode'] ?? 'exclusive')) : 'exclusive';
@@ -336,6 +338,20 @@ if (!is_int($embedCssVer) || $embedCssVer <= 0) {
                 <div class="col-12">
                     <label class="po-field-label" id="details_label" for="details_textarea">รายละเอียด/วัตถุประสงค์</label>
                     <textarea name="details" id="details_textarea" class="form-control" rows="2" placeholder=""><?= htmlspecialchars($editDetails, ENT_QUOTES, 'UTF-8') ?></textarea>
+                </div>
+                <div class="col-12">
+                    <label class="po-field-label" for="quotation_file">แนบใบเสนอราคา <span class="text-muted fw-normal">(ไม่บังคับ)</span></label>
+                    <?php if ($editQuotationPath !== ''): ?>
+                        <div class="small mb-2">
+                            ไฟล์ปัจจุบัน:
+                            <a href="<?= htmlspecialchars(app_path($editQuotationPath), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">
+                                <?= htmlspecialchars($editQuotationName !== '' ? $editQuotationName : 'เปิดไฟล์', ENT_QUOTES, 'UTF-8') ?>
+                            </a>
+                            <span class="text-muted">— เลือกไฟล์ใหม่ด้านล่างหากต้องการแทนที่</span>
+                        </div>
+                    <?php endif; ?>
+                    <input type="file" name="quotation_file" id="quotation_file" class="form-control" accept=".pdf,image/*,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff">
+                    <div class="form-text">รองรับ PDF หรือรูปภาพ — เปิดดูได้จากหน้ารายละเอียด PR</div>
                 </div>
             </div>
         </div>

@@ -80,6 +80,8 @@ $poRoundToBahtStored = $vatLockedFromPr
     : ((int) ($po['round_to_baht'] ?? 0) === 1);
 $poNoteVal = trim((string) ($po['po_note'] ?? ''));
 $quotationNoteVal = trim((string) ($po['quotation_note'] ?? ''));
+$quotationAttachPath = trim((string) ($po['quotation_attachment_path'] ?? ''));
+$quotationAttachName = trim((string) ($po['quotation_attachment_name'] ?? ''));
 $linkedPrNumber = $vatLockedFromPr ? trim((string) ($linkedPr['pr_number'] ?? ('PR-' . $poPrId))) : '';
 
 $issueDateVal = trim((string) ($po['issue_date'] ?? ''));
@@ -233,7 +235,7 @@ if (true) {
     <?php
     $poEditDraftKey = 'u' . (int) ($_SESSION['user_id'] ?? 0) . ':po:edit:' . (int) $poId;
     ?>
-    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_po_direct&id=<?= (int) $poId ?>" method="POST" data-tnc-fullnav="1" data-tnc-draft="1" data-tnc-draft-key="<?= htmlspecialchars($poEditDraftKey, ENT_QUOTES, 'UTF-8') ?>" data-tnc-draft-table="#poTable">
+    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_po_direct&id=<?= (int) $poId ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1" data-tnc-draft="1" data-tnc-draft-key="<?= htmlspecialchars($poEditDraftKey, ENT_QUOTES, 'UTF-8') ?>" data-tnc-draft-table="#poTable">
         <input type="hidden" name="confirm_over_contract" id="confirm_over_contract" value="">
         <?php csrf_field(); ?>
 
@@ -251,6 +253,12 @@ if (true) {
         <?php endif; ?>
         <?php if ($errorCode === 'site_budget_cat_exceeded'): ?>
             <div class="alert alert-danger py-2 mb-3">งบหมวดไม่พอ — ไม่สามารถบันทึก PO ได้ (เกินวงเงินหมวดที่กำหนด)</div>
+        <?php endif; ?>
+        <?php if ($errorCode === 'quotation_upload_failed'): ?>
+            <div class="alert alert-danger py-2 mb-3">อัปโหลดไฟล์ใบเสนอราคาไม่สำเร็จ กรุณาลองใหม่</div>
+        <?php endif; ?>
+        <?php if ($errorCode === 'quotation_upload_type'): ?>
+            <div class="alert alert-danger py-2 mb-3">ไฟล์ใบเสนอราคาต้องเป็น PDF หรือรูปภาพ</div>
         <?php endif; ?>
 
         <header class="po-create-hero p-4 p-md-4 mb-4">
@@ -525,7 +533,21 @@ if (true) {
                     <label class="po-field-label" for="quotation_note">หมายเหตุ / เงื่อนไข (QT)</label>
                     <textarea name="quotation_note" id="quotation_note" class="form-control" rows="3" maxlength="500" placeholder="เงื่อนไขจากใบเสนอราคา (ถ้ามี)"><?= htmlspecialchars($quotationNoteVal, ENT_QUOTES, 'UTF-8') ?></textarea>
                 </div>
-                            </div>
+                <div class="col-12">
+                    <label class="po-field-label" for="quotation_file">แนบใบเสนอราคา <span class="text-muted fw-normal">(ไม่บังคับ)</span></label>
+                    <?php if ($quotationAttachPath !== ''): ?>
+                        <div class="small mb-2">
+                            ไฟล์ปัจจุบัน:
+                            <a href="<?= htmlspecialchars(app_path($quotationAttachPath), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">
+                                <?= htmlspecialchars($quotationAttachName !== '' ? $quotationAttachName : 'เปิดไฟล์', ENT_QUOTES, 'UTF-8') ?>
+                            </a>
+                            <span class="text-muted">— เลือกไฟล์ใหม่ด้านล่างหากต้องการแทนที่</span>
+                        </div>
+                    <?php endif; ?>
+                    <input type="file" name="quotation_file" id="quotation_file" class="form-control" accept=".pdf,image/*,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff">
+                    <div class="form-text">รองรับ PDF หรือรูปภาพ — เปิดดูได้จากหน้ารายละเอียด PO</div>
+                </div>
+            </div>
         </div>
 
         <div class="tnc-mobile-sticky-cta d-lg-none">

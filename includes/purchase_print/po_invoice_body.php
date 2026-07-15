@@ -84,23 +84,16 @@ if ($isMultiPageDoc): ?>
         <div class="col-6 text-end">
             <div class="invoice-title">PURCHASE ORDER</div>
             <div class="fw-bold text-muted small"><?= htmlspecialchars($poDocDateSubtitle, ENT_QUOTES, 'UTF-8'); ?></div>
-            <?php $quotationNo = trim((string) ($data['quotation_number'] ?? '')); ?>
-            <?php $quotationAttach = trim((string) ($data['quotation_attachment_path'] ?? '')); ?>
-            <?php if ($quotationNo !== ''): ?>
-                <div class="small text-muted">อ้างอิงใบเสนอราคา: <?= htmlspecialchars($quotationNo, ENT_QUOTES, 'UTF-8'); ?></div>
-            <?php endif; ?>
-            <?php if ($quotationAttach !== ''): ?>
-                <?php
-                $attachLabel = trim((string) ($data['quotation_attachment_name'] ?? ''));
-                if ($attachLabel === '') {
-                    $attachLabel = 'เปิดไฟล์';
-                }
-                ?>
-                <div class="small text-muted">ไฟล์ใบเสนอราคา:
-                    <a href="<?= htmlspecialchars(app_path($quotationAttach), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="no-print"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></a>
-                    <span class="d-none d-print-inline"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></span>
-                </div>
-            <?php endif; ?>
+            <?php
+            if (!function_exists('tnc_purchase_quotation_info')) {
+                require_once dirname(__DIR__) . '/purchase_quotation_attachment.php';
+            }
+            $poQtInfoHeader = tnc_purchase_quotation_info($data, !empty($data['quotation_attachment_from_pr']));
+            echo tnc_purchase_quotation_doc_header_html(
+                $poQtInfoHeader,
+                trim((string) ($data['quotation_number'] ?? ''))
+            );
+            ?>
             <?php if ($referencePrNumber !== ''): ?>
                 <div class="small text-muted">อ้างถึงใบขอซื้อ : <?= htmlspecialchars($referencePrNumber, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php endif; ?>

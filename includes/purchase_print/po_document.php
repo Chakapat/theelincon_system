@@ -167,6 +167,15 @@ function tnc_purchase_po_print_prepare(int $id): ?array
     $data['s_tax'] = $sup['tax_id'] ?? '';
     $data['contact_person'] = $sup['contact_person'] ?? '';
     $data['pr_number'] = is_array($pr) ? (string) ($pr['pr_number'] ?? '') : '';
+
+    if (!function_exists('tnc_purchase_quotation_info_for_po')) {
+        require_once dirname(__DIR__) . '/purchase_quotation_attachment.php';
+    }
+    $poQuotationInfo = tnc_purchase_quotation_info_for_po($po, is_array($pr) ? $pr : null);
+    $po = tnc_purchase_quotation_apply_to_row($po, $poQuotationInfo);
+    $data = tnc_purchase_quotation_apply_to_row($data, $poQuotationInfo);
+    $data['quotation_number'] = trim((string) ($po['quotation_number'] ?? ($data['quotation_number'] ?? '')));
+
     $orderType = trim((string) ($data['order_type'] ?? 'purchase'));
     if ($orderType !== 'purchase') {
         $orderType = 'purchase';
@@ -314,6 +323,7 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         'issueDate' => $issueDate,
         'isPoCancelled' => $isPoCancelled,
         'poDocTitle' => $poDocTitle,
+        'poQuotationInfo' => $poQuotationInfo,
     ];
 }
 
@@ -380,11 +390,9 @@ function tnc_purchase_po_quotation_attachment_print_render(array $po, bool $page
     }
     $po_quotation_attach_url = tnc_po_public_absolute_url(app_path($rel));
     $name = trim((string) ($po['quotation_attachment_name'] ?? ''));
-    $po_quotation_attach_caption = 'ไฟล์แนบใบเสนอราคา';
-    if ($name !== '') {
-        $po_quotation_attach_caption .= ' — ' . $name;
-    }
+    $po_quotation_attach_caption = $name !== '' ? $name : basename($rel);
     $po_quotation_attach_is_pdf = $isPdf;
+    $po_quotation_from_pr = !empty($po['quotation_attachment_from_pr']);
     $po_slip_page_break_before = $pageBreakBefore;
     include __DIR__ . '/po_quotation_attachment_print.php';
 }

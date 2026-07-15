@@ -74,13 +74,17 @@ if ($isMultiPageDoc): ?>
             <div class="col-6 text-end">
                 <div class="invoice-title">PURCHASE REQUISITION</div>
                 <div class="fw-bold text-muted small"><?= htmlspecialchars($prDocDateSubtitle, ENT_QUOTES, 'UTF-8') ?></div>
-                <?php if ($quotationAttach !== ''): ?>
-                    <?php $attachLabel = $quotationName !== '' ? $quotationName : 'เปิดไฟล์'; ?>
-                    <div class="small text-muted">ไฟล์ใบเสนอราคา:
-                        <a href="<?= htmlspecialchars(app_path($quotationAttach), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="no-print"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></a>
-                        <span class="d-none d-print-inline"><?= htmlspecialchars($attachLabel, ENT_QUOTES, 'UTF-8') ?></span>
-                    </div>
-                <?php endif; ?>
+                <?php
+                if (!function_exists('tnc_purchase_quotation_info')) {
+                    require_once dirname(__DIR__) . '/purchase_quotation_attachment.php';
+                }
+                echo tnc_purchase_quotation_doc_header_html(
+                    tnc_purchase_quotation_info([
+                        'quotation_attachment_path' => $quotationAttach,
+                        'quotation_attachment_name' => $quotationName,
+                    ])
+                );
+                ?>
             </div>
         </div>
 

@@ -2264,6 +2264,13 @@ $renderHubMenuItems = static function (array $items): void {
         });
         html += '</tbody></table></div>';
 
+        if (payload.quotation && payload.quotation.url) {
+            html += '<div class="mb-3">';
+            html += '<a class="btn btn-outline-success btn-sm rounded-pill" href="' + escHtml(payload.quotation.url) + '" target="_blank" rel="noopener">';
+            html += '<i class="bi bi-file-earmark-text me-1"></i>' + escHtml(payload.quotation.name || 'ดูใบเสนอราคา');
+            html += '</a></div>';
+        }
+
         html += '<h6 class="hub-cat-ref-modal__section-title"><i class="bi bi-list-ul me-1 text-warning"></i>รายการสินค้า / บริการ · ' + items.length + ' รายการ</h6>';
         html += '<div class="table-responsive mb-3">';
         html += '<table class="table table-sm table-hover align-middle mb-0 hub-cat-ref-modal__table">';

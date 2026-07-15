@@ -138,6 +138,18 @@ if (!function_exists('tnc_purchase_doc_modal_payload')) {
             if ($detailsText !== '') {
                 $meta[] = ['label' => 'หมายเหตุ', 'value' => $detailsText];
             }
+            if (!function_exists('tnc_purchase_quotation_info')) {
+                require_once dirname(__DIR__) . '/purchase_quotation_attachment.php';
+            }
+            $prQtInfo = tnc_purchase_quotation_info($pr);
+            $quotationPayload = null;
+            if (!empty($prQtInfo['has'])) {
+                $meta[] = ['label' => 'ใบเสนอราคา', 'value' => ($prQtInfo['name'] !== '' ? $prQtInfo['name'] : 'มีไฟล์แนบ') . ' — เปิดจากปุ่มด้านล่างหรือหน้ารายละเอียด'];
+                $quotationPayload = [
+                    'url' => (string) $prQtInfo['url'],
+                    'name' => (string) ($prQtInfo['name'] !== '' ? $prQtInfo['name'] : 'เปิดไฟล์ใบเสนอราคา'),
+                ];
+            }
 
             $totals = [
                 ['label' => 'ยอดก่อน VAT', 'value' => round((float) ($vatPrint['line_amount'] ?? ($ctx['ps'] ?? 0)), 2)],
@@ -173,6 +185,7 @@ if (!function_exists('tnc_purchase_doc_modal_payload')) {
                 'can_delete' => $canDelete,
                 'delete_action' => 'delete_pr',
                 'delete_type' => '',
+                'quotation' => $quotationPayload,
             ];
         }
 
@@ -223,6 +236,24 @@ if (!function_exists('tnc_purchase_doc_modal_payload')) {
         $qtNote = trim((string) ($ctx['poNoteQt'] ?? ''));
         if ($qtNote !== '') {
             $meta[] = ['label' => 'หมายเหตุใบเสนอราคา', 'value' => $qtNote];
+        }
+        if (!function_exists('tnc_purchase_quotation_info')) {
+            require_once dirname(__DIR__) . '/purchase_quotation_attachment.php';
+        }
+        $poQtInfo = is_array($ctx['poQuotationInfo'] ?? null)
+            ? $ctx['poQuotationInfo']
+            : tnc_purchase_quotation_info($po, !empty($po['quotation_attachment_from_pr']));
+        $quotationPayload = null;
+        if (!empty($poQtInfo['has'])) {
+            $qtLabel = (string) (($poQtInfo['name'] ?? '') !== '' ? $poQtInfo['name'] : 'มีไฟล์แนบ');
+            if (!empty($poQtInfo['from_pr'])) {
+                $qtLabel .= ' (จาก PR)';
+            }
+            $meta[] = ['label' => 'ใบเสนอราคา', 'value' => $qtLabel . ' — เปิดจากปุ่มด้านล่างหรือหน้ารายละเอียด'];
+            $quotationPayload = [
+                'url' => (string) ($poQtInfo['url'] ?? ''),
+                'name' => (string) (($poQtInfo['name'] ?? '') !== '' ? $poQtInfo['name'] : 'เปิดไฟล์ใบเสนอราคา'),
+            ];
         }
 
         $totals = [
@@ -280,6 +311,7 @@ if (!function_exists('tnc_purchase_doc_modal_payload')) {
             'delete_action' => 'delete',
             'delete_type' => 'purchase_order',
             'delete_blocked_reason' => $paidLocked ? 'ใบสั่งซื้อที่จ่ายแล้วไม่สามารถลบได้' : '',
+            'quotation' => $quotationPayload,
         ];
     }
 }

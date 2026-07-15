@@ -36,7 +36,7 @@ $quotRelPrint = trim((string) ($po['quotation_attachment_path'] ?? ''));
 $quotExtPrint = $quotRelPrint !== '' ? strtolower(pathinfo($quotRelPrint, PATHINFO_EXTENSION)) : '';
 $quotPrintableExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'pdf'];
 $hasQuotationAttachPrint = $quotRelPrint !== '' && in_array($quotExtPrint, $quotPrintableExts, true);
-$hasFollowPagesPrint = $hasPaymentSlipPrint || $hasQuotationAttachPrint;
+$hasFollowPagesPrint = $hasPaymentSlipPrint;
 
 $poPrIdForPrint = (int) ($po['pr_id'] ?? 0);
 $prCtxForPo = $poPrIdForPrint > 0 ? tnc_purchase_pr_print_prepare($poPrIdForPrint) : null;
@@ -64,10 +64,11 @@ if ($poEmbed) {
     $printIncludeQuotation = false;
 } elseif ($poInteractiveView) {
     // หน้าดูเอกสาร: โหลดทุกส่วนที่มีไว้พิมพ์ในหน้าเดิม (สลับโหมดด้วย body class แบบ VAT report)
+    // ใบเสนอราคาไม่ฝังในเอกสาร — เปิดผ่านปุ่ม «แสดงใบเสนอราคา»
     $printIncludePr = $hasPrForPrint;
     $printIncludePo = true;
     $printIncludeSlip = $hasPaymentSlipPrint;
-    $printIncludeQuotation = $hasQuotationAttachPrint;
+    $printIncludeQuotation = false;
 } else {
     $printIncludePr = ($poPrintMode === 'all' && $hasPrForPrint);
     $printIncludePo = in_array($poPrintMode, ['po', 'both', 'all'], true);
@@ -222,10 +223,150 @@ $supplierInvoiceDateViewDisplay = $supplierInvoiceDateYmd !== '' ? tnc_po_ymd_to
             padding: 0.75rem 0.75rem 2.5rem;
         }
 
-        /* หน้าจอ: ซ่อน PR ที่โหลดไว้สำหรับโหมดพิมพ์ all */
+        /* หน้าจอ: ซ่อน PR ที่โหลดไว้สำหรับพิมพ์ — ใบเสนอราคาแสดงเป็นเอกสาร A4 */
         @media screen {
             body.tnc-doc-po-view:not(.po-doc-embed):not(.po-doc-autoprint) .tnc-po-print-page--pr {
                 display: none !important;
+            }
+        }
+
+        /* ใบเสนอราคา (PDF/รูป) — แผ่นเอกสาร A4 แบบเดียวกับใบสั่งซื้อ */
+        .po-quotation-attach-print-wrap.po-quotation-doc {
+            max-width: 210mm;
+            margin: 0 auto 1.5rem;
+            scroll-margin-top: 5.5rem;
+        }
+
+        .invoice-box.po-quotation-doc-sheet {
+            width: 210mm;
+            max-width: 100%;
+            min-height: 297mm;
+            height: auto;
+            margin: 0 auto;
+            background: #fff;
+            padding: 0;
+            position: relative;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            border-top: 6px solid #059669;
+        }
+
+        .po-quotation-doc-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 0.75rem 1.25rem;
+            padding: 0.85rem 1.1rem 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: linear-gradient(180deg, #f0fdf4 0%, #fff 100%);
+            flex: 0 0 auto;
+        }
+
+        .po-quotation-doc-kicker {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 0.15rem;
+        }
+
+        .po-quotation-doc-title {
+            margin: 0;
+            font-size: 1.55rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: #047857;
+            line-height: 1.15;
+        }
+
+        .po-quotation-doc-subtitle {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #334155;
+            margin-top: 0.15rem;
+        }
+
+        .po-quotation-doc-header__file {
+            text-align: right;
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        .po-quotation-doc-file-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #94a3b8;
+        }
+
+        .po-quotation-doc-file-name {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #475569;
+            max-width: 16rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .po-quotation-doc-body {
+            flex: 1 1 auto;
+            min-height: calc(297mm - 5.5rem);
+            display: flex;
+            flex-direction: column;
+            background: #f8fafc;
+        }
+
+        .po-quotation-doc-body .po-quotation-pdf-iframe {
+            flex: 1 1 auto;
+            width: 100%;
+            min-height: calc(297mm - 5.5rem);
+            height: calc(297mm - 5.5rem);
+            border: 0 !important;
+            background: #fff;
+            display: block;
+        }
+
+        .po-quotation-doc-body .po-quotation-attach-img-wrap {
+            flex: 1 1 auto;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 0.75rem;
+            min-height: calc(297mm - 5.5rem);
+            background: #fff;
+        }
+
+        .po-quotation-doc-body .po-quotation-attach-img {
+            max-width: 100%;
+            max-height: calc(297mm - 7rem);
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+
+        @media (max-width: 575.98px) {
+            .invoice-box.po-quotation-doc-sheet {
+                width: 100%;
+                min-height: 70vh;
+            }
+            .po-quotation-doc-body,
+            .po-quotation-doc-body .po-quotation-pdf-iframe,
+            .po-quotation-doc-body .po-quotation-attach-img-wrap {
+                min-height: 70vh;
+                height: 70vh;
+            }
+            .po-quotation-doc-header__file {
+                text-align: left;
+            }
+            .po-quotation-doc-file-name {
+                max-width: 100%;
+                white-space: normal;
             }
         }
 
@@ -539,7 +680,7 @@ $supplierInvoiceDateViewDisplay = $supplierInvoiceDateYmd !== '' ? tnc_po_ymd_to
             body.po-printing-po .tnc-po-print-page:not(.tnc-po-print-page--po),
             body.po-printing-slip .tnc-po-print-page:not(.tnc-po-print-page--slip),
             body.po-printing-both .tnc-po-print-page--pr,
-            body.tnc-doc-po-view:not(.po-doc-autoprint):not(.po-printing-all):not(.po-printing-po):not(.po-printing-slip) .tnc-po-print-page--pr {
+            body.tnc-doc-po-view:not(.po-doc-autoprint):not(.po-printing-all):not(.po-printing-po):not(.po-printing-slip):not(.po-printing-both) .tnc-po-print-page--pr {
                 display: none !important;
             }
 
@@ -700,6 +841,26 @@ $hasAlerts = $poViewFlash !== null
                         <i class="bi bi-journal-text" aria-hidden="true"></i>เลขที่บิล <?= htmlspecialchars($supplierInvoiceNoView, ENT_QUOTES, 'UTF-8') ?>
                     </span>
                 <?php endif; ?>
+                <?php
+                $poQtToolbar = is_array($poQuotationInfo ?? null) ? $poQuotationInfo : null;
+                if ($poQtToolbar === null && function_exists('tnc_purchase_quotation_info')) {
+                    $poQtToolbar = tnc_purchase_quotation_info($po, !empty($po['quotation_attachment_from_pr']));
+                }
+                if (is_array($poQtToolbar) && !empty($poQtToolbar['has'])):
+                    $poQtUrl = (string) ($poQtToolbar['url'] ?? '');
+                    $poQtName = (string) ($poQtToolbar['name'] ?? '');
+                    $poQtFromPr = !empty($poQtToolbar['from_pr']);
+                ?>
+                    <a
+                        href="<?= htmlspecialchars($poQtUrl, ENT_QUOTES, 'UTF-8') ?>"
+                        target="_blank"
+                        rel="noopener"
+                        class="btn btn-outline-success btn-sm rounded-pill px-3 js-tnc-doc-action"
+                        title="<?= htmlspecialchars($poQtName !== '' ? $poQtName : 'เปิดไฟล์ใบเสนอราคา', ENT_QUOTES, 'UTF-8') ?>"
+                    >
+                        <i class="bi bi-file-earmark-pdf me-1"></i>แสดงใบเสนอราคา<?= $poQtFromPr ? ' (PR)' : '' ?>
+                    </a>
+                <?php endif; ?>
                 <?php if (user_can('po.update') && !$poPaidLocksActions): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-edit.php') . '?id=' . (int) $id, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-orange btn-sm rounded-pill px-3 shadow-sm js-tnc-doc-action" data-dock-primary="edit">
                         <i class="bi bi-pencil-square me-1"></i>แก้ไข
@@ -831,7 +992,7 @@ $hasAlerts = $poViewFlash !== null
                         <button type="button" class="btn btn-outline-secondary w-100 h-100 py-3 text-start js-po-print-choice border-2 rounded-3" data-print-mode="po">
                             <i class="bi bi-file-earmark-text d-block mb-2 fs-4 text-secondary"></i>
                             <span class="fw-bold d-block">1. เฉพาะใบสั่งซื้อ</span>
-                            <span class="small text-muted">ไม่รวมสลิปและแนบ QT</span>
+                            <span class="small text-muted">ไม่รวมสลิป</span>
                         </button>
                     </div>
                     <div class="col-12 col-md-6 col-xl-3">
@@ -845,14 +1006,14 @@ $hasAlerts = $poViewFlash !== null
                         <button type="button" class="btn btn-success w-100 h-100 py-3 text-start js-po-print-choice border-0 rounded-3 shadow-sm" data-print-mode="both">
                             <i class="bi bi-files d-block mb-2 fs-4"></i>
                             <span class="fw-bold d-block">3. ใบสั่งซื้อ + สลิป</span>
-                            <span class="small" style="opacity:0.95">รวมแนบใบเสนอราคา (ถ้ามี)</span>
+                            <span class="small" style="opacity:0.95">ตามที่มีในระบบ</span>
                         </button>
                     </div>
                     <div class="col-12 col-md-6 col-xl-3">
                         <button type="button" class="btn btn-outline-orange w-100 h-100 py-3 text-start js-po-print-choice border-2 rounded-3" data-print-mode="all"<?= $hasPrForPrint ? '' : ' disabled title="ไม่มีใบขอซื้อ (PR) อ้างอิงจาก PO นี้"' ?>>
                             <i class="bi bi-collection d-block mb-2 fs-4"></i>
                             <span class="fw-bold d-block">4. พิมพ์ทุกอย่าง</span>
-                            <span class="small text-muted">PR + ใบสั่งซื้อ + สลิป + แนบ QT (ตามที่มี)</span>
+                            <span class="small text-muted">PR + ใบสั่งซื้อ + สลิป (ตามที่มี)</span>
                         </button>
                     </div>
                 </div>

@@ -7,6 +7,7 @@ require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/tnc_action_response.php';
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
 require_once __DIR__ . '/../includes/purchase_po_payment_slips.php';
+require_once __DIR__ . '/../includes/purchase_quotation_attachment.php';
 require_once __DIR__ . '/../includes/line_pr_approval.php';
 require_once __DIR__ . '/../includes/purchase_print/vat_print_summary.php';
 require_once __DIR__ . '/../includes/site_cost_categories.php';
@@ -589,47 +590,16 @@ if ($action === 'save_pr') {
     $quoteAttachmentMime = '';
     $quoteAttachmentSize = 0;
 
-    $wantQuotationUpload = !empty($_POST['quotation_attach']);
-    if ($wantQuotationUpload && !empty($_FILES['quotation_file']) && (int) ($_FILES['quotation_file']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-        $f = $_FILES['quotation_file'];
-        $err = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
-        if ($err !== UPLOAD_ERR_OK) {
-            $prCreateRedirect('error=upload_failed');
-        }
-
-        $tmp = (string) ($f['tmp_name'] ?? '');
-        if ($tmp === '' || !is_uploaded_file($tmp)) {
-            $prCreateRedirect('error=upload_failed');
-        }
-
-        $originalName = trim((string) ($f['name'] ?? 'quotation'));
-        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-        $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
-        if (!in_array($ext, $allowedExt, true)) {
-            $prCreateRedirect('error=upload_type');
-        }
-
-        $dirAbs = ROOT_PATH . '/uploads/pr-quotations/' . $pr_id;
-        if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
-            $prCreateRedirect('error=upload_failed');
-        }
-
-        $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
-        $safeBase = trim((string) $safeBase, '._-');
-        if ($safeBase === '') {
-            $safeBase = 'quotation';
-        }
-        $storedName = $safeBase . '_' . date('Ymd_His') . '.' . $ext;
-        $destAbs = $dirAbs . '/' . $storedName;
-        if (!@move_uploaded_file($tmp, $destAbs)) {
-            $prCreateRedirect('error=upload_failed');
-        }
-
-        $quoteAttachmentPath = 'uploads/pr-quotations/' . $pr_id . '/' . $storedName;
-        $quoteAttachmentUrl = app_path($quoteAttachmentPath);
-        $quoteAttachmentName = $originalName;
-        $quoteAttachmentMime = (string) ($f['type'] ?? '');
-        $quoteAttachmentSize = (int) ($f['size'] ?? 0);
+    $quotUpload = tnc_purchase_quotation_upload('pr-quotations', $pr_id, $_FILES['quotation_file'] ?? []);
+    if (is_array($quotUpload) && empty($quotUpload['ok'])) {
+        $prCreateRedirect('error=' . (string) ($quotUpload['error'] ?? 'upload_failed'));
+    }
+    if (is_array($quotUpload) && !empty($quotUpload['ok'])) {
+        $quoteAttachmentPath = (string) $quotUpload['path'];
+        $quoteAttachmentUrl = (string) $quotUpload['url'];
+        $quoteAttachmentName = (string) $quotUpload['name'];
+        $quoteAttachmentMime = (string) $quotUpload['mime'];
+        $quoteAttachmentSize = (int) $quotUpload['size'];
     }
 
     $vat_mode_stored = 'exclusive';
@@ -851,47 +821,16 @@ if ($action === 'update_pr') {
     $quoteAttachmentMime = trim((string) ($existing['quotation_attachment_mime'] ?? ''));
     $quoteAttachmentSize = (int) ($existing['quotation_attachment_size'] ?? 0);
 
-    $wantQuotationUpload = !empty($_POST['quotation_attach']);
-    if ($wantQuotationUpload && !empty($_FILES['quotation_file']) && (int) ($_FILES['quotation_file']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-        $f = $_FILES['quotation_file'];
-        $err = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
-        if ($err !== UPLOAD_ERR_OK) {
-            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=upload_failed');
-        }
-
-        $tmp = (string) ($f['tmp_name'] ?? '');
-        if ($tmp === '' || !is_uploaded_file($tmp)) {
-            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=upload_failed');
-        }
-
-        $originalName = trim((string) ($f['name'] ?? 'quotation'));
-        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-        $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
-        if (!in_array($ext, $allowedExt, true)) {
-            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=upload_type');
-        }
-
-        $dirAbs = ROOT_PATH . '/uploads/pr-quotations/' . $pr_id;
-        if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
-            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=upload_failed');
-        }
-
-        $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
-        $safeBase = trim((string) $safeBase, '._-');
-        if ($safeBase === '') {
-            $safeBase = 'quotation';
-        }
-        $storedName = $safeBase . '_' . date('Ymd_His') . '.' . $ext;
-        $destAbs = $dirAbs . '/' . $storedName;
-        if (!@move_uploaded_file($tmp, $destAbs)) {
-            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=upload_failed');
-        }
-
-        $quoteAttachmentPath = 'uploads/pr-quotations/' . $pr_id . '/' . $storedName;
-        $quoteAttachmentUrl = app_path($quoteAttachmentPath);
-        $quoteAttachmentName = $originalName;
-        $quoteAttachmentMime = (string) ($f['type'] ?? '');
-        $quoteAttachmentSize = (int) ($f['size'] ?? 0);
+    $quotUpload = tnc_purchase_quotation_upload('pr-quotations', $pr_id, $_FILES['quotation_file'] ?? []);
+    if (is_array($quotUpload) && empty($quotUpload['ok'])) {
+        tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?id=' . $pr_id . '&error=' . (string) ($quotUpload['error'] ?? 'upload_failed'));
+    }
+    if (is_array($quotUpload) && !empty($quotUpload['ok'])) {
+        $quoteAttachmentPath = (string) $quotUpload['path'];
+        $quoteAttachmentUrl = (string) $quotUpload['url'];
+        $quoteAttachmentName = (string) $quotUpload['name'];
+        $quoteAttachmentMime = (string) $quotUpload['mime'];
+        $quoteAttachmentSize = (int) $quotUpload['size'];
     }
 
     $vat_mode_stored = 'exclusive';
@@ -1128,13 +1067,12 @@ if ($action === 'create_po_from_pr') {
 
     $poExceedsPr = tnc_pr_new_po_would_exceed($pr_id, $poItemsToSave, (float) $total_amount);
 
-    $hasQt = !empty($_POST['has_qt']);
-    $quotation_number = $hasQt ? mb_substr(trim((string) ($_POST['quotation_number'] ?? '')), 0, 120) : '';
-    $quotation_date = $hasQt ? trim((string) ($_POST['quotation_date'] ?? '')) : '';
+    $quotation_number = mb_substr(trim((string) ($_POST['quotation_number'] ?? '')), 0, 120);
+    $quotation_date = trim((string) ($_POST['quotation_date'] ?? ''));
     if ($quotation_date !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $quotation_date)) {
         $quotation_date = '';
     }
-    $quotation_note = $hasQt ? mb_substr(trim((string) ($_POST['quotation_note'] ?? '')), 0, 500) : '';
+    $quotation_note = mb_substr(trim((string) ($_POST['quotation_note'] ?? '')), 0, 500);
     $po_note = mb_substr(trim((string) ($_POST['po_note'] ?? '')), 0, 500);
 
     $issue_date = trim((string) ($_POST['issue_date'] ?? date('Y-m-d')));
@@ -1193,6 +1131,48 @@ if ($action === 'create_po_from_pr') {
     );
 
     $po_id = Db::nextNumericId('purchase_orders', 'id');
+    $quoteAttachmentPath = '';
+    $quoteAttachmentUrl = '';
+    $quoteAttachmentName = '';
+    $quoteAttachmentMime = '';
+    $quoteAttachmentSize = 0;
+
+    $quotUpload = tnc_purchase_quotation_upload('po-quotations', $po_id, $_FILES['quotation_file'] ?? []);
+    if (is_array($quotUpload) && empty($quotUpload['ok'])) {
+        $errCode = (string) ($quotUpload['error'] ?? 'upload_failed');
+        if ($errCode === 'upload_type') {
+            $errCode = 'quotation_upload_type';
+        } elseif ($errCode === 'upload_failed') {
+            $errCode = 'quotation_upload_failed';
+        }
+        tnc_action_redirect($poCreateFromPrUrl . '&error=' . $errCode);
+    }
+    if (is_array($quotUpload) && !empty($quotUpload['ok'])) {
+        $quoteAttachmentPath = (string) $quotUpload['path'];
+        $quoteAttachmentUrl = (string) $quotUpload['url'];
+        $quoteAttachmentName = (string) $quotUpload['name'];
+        $quoteAttachmentMime = (string) $quotUpload['mime'];
+        $quoteAttachmentSize = (int) $quotUpload['size'];
+    } else {
+        $prQuotePath = trim((string) ($pr_row['quotation_attachment_path'] ?? ''));
+        if ($prQuotePath !== '') {
+            $copied = tnc_purchase_quotation_copy_from_path(
+                $prQuotePath,
+                'po-quotations',
+                $po_id,
+                trim((string) ($pr_row['quotation_attachment_name'] ?? '')),
+                trim((string) ($pr_row['quotation_attachment_mime'] ?? ''))
+            );
+            if (is_array($copied) && !empty($copied['ok'])) {
+                $quoteAttachmentPath = (string) $copied['path'];
+                $quoteAttachmentUrl = (string) $copied['url'];
+                $quoteAttachmentName = (string) $copied['name'];
+                $quoteAttachmentMime = (string) $copied['mime'];
+                $quoteAttachmentSize = (int) $copied['size'];
+            }
+        }
+    }
+
     $optionalExtras = tnc_po_optional_create_extras(
         $po_id,
         $po_number,
@@ -1214,6 +1194,11 @@ if ($action === 'create_po_from_pr') {
         'quotation_date' => $quotation_date,
         'quotation_note' => $quotation_note,
         'po_note' => $po_note,
+        'quotation_attachment_path' => $quoteAttachmentPath,
+        'quotation_attachment_url' => $quoteAttachmentUrl,
+        'quotation_attachment_name' => $quoteAttachmentName,
+        'quotation_attachment_mime' => $quoteAttachmentMime,
+        'quotation_attachment_size' => $quoteAttachmentSize,
         'total_amount' => $total_amount,
         'status' => 'ordered',
         'payment_status' => 'unpaid',
@@ -1407,18 +1392,7 @@ if ($action === 'create_po_direct') {
         }
     }
 
-    $hasQuotation = !empty($_POST['has_quotation']);
-    $quotFilePending = !empty($_FILES['quotation_file']) && (int) ($_FILES['quotation_file']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
-    $quotation_number = '';
-    if ($hasQuotation) {
-        $quotation_number = mb_substr(trim((string) ($_POST['quotation_number'] ?? '')), 0, 120);
-        if ($quotation_number === '' && !$quotFilePending) {
-            $poDirectErrorRedirect('error=quotation_required');
-        }
-        if ($quotFilePending && (int) ($_FILES['quotation_file']['error'] ?? 0) !== UPLOAD_ERR_OK) {
-            $poDirectErrorRedirect('error=quotation_upload_failed');
-        }
-    }
+    $quotation_number = mb_substr(trim((string) ($_POST['quotation_number'] ?? '')), 0, 120);
     $quotation_note = mb_substr(trim((string) ($_POST['quotation_note'] ?? '')), 0, 500);
     $po_note_direct = mb_substr(trim((string) ($_POST['po_note'] ?? '')), 0, 500);
     $seedAmount = $totals['net'];
@@ -1427,39 +1401,26 @@ if ($action === 'create_po_direct') {
     $po_id = Db::nextNumericId('purchase_orders', 'id');
 
     $quoteAttachmentPath = '';
+    $quoteAttachmentUrl = '';
     $quoteAttachmentName = '';
     $quoteAttachmentMime = '';
     $quoteAttachmentSize = 0;
-    if ($hasQuotation && $quotFilePending) {
-        $f = $_FILES['quotation_file'];
-        $tmp = (string) ($f['tmp_name'] ?? '');
-        if ($tmp === '' || !is_uploaded_file($tmp)) {
-            $poDirectErrorRedirect('error=quotation_upload_failed');
+    $quotUpload = tnc_purchase_quotation_upload('po-quotations', $po_id, $_FILES['quotation_file'] ?? []);
+    if (is_array($quotUpload) && empty($quotUpload['ok'])) {
+        $errCode = (string) ($quotUpload['error'] ?? 'upload_failed');
+        if ($errCode === 'upload_type') {
+            $errCode = 'quotation_upload_type';
+        } elseif ($errCode === 'upload_failed') {
+            $errCode = 'quotation_upload_failed';
         }
-        $originalName = trim((string) ($f['name'] ?? 'quotation'));
-        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-        $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
-        if (!in_array($ext, $allowedExt, true)) {
-            $poDirectErrorRedirect('error=quotation_upload_type');
-        }
-        $dirAbs = ROOT_PATH . '/uploads/po-quotations/' . $po_id;
-        if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
-            $poDirectErrorRedirect('error=quotation_upload_failed');
-        }
-        $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
-        $safeBase = trim((string) $safeBase, '._-');
-        if ($safeBase === '') {
-            $safeBase = 'quotation';
-        }
-        $storedName = $safeBase . '_' . date('Ymd_His') . '.' . $ext;
-        $destAbs = $dirAbs . '/' . $storedName;
-        if (!@move_uploaded_file($tmp, $destAbs)) {
-            $poDirectErrorRedirect('error=quotation_upload_failed');
-        }
-        $quoteAttachmentPath = 'uploads/po-quotations/' . $po_id . '/' . $storedName;
-        $quoteAttachmentName = $originalName;
-        $quoteAttachmentMime = (string) ($f['type'] ?? '');
-        $quoteAttachmentSize = (int) ($f['size'] ?? 0);
+        $poDirectErrorRedirect('error=' . $errCode);
+    }
+    if (is_array($quotUpload) && !empty($quotUpload['ok'])) {
+        $quoteAttachmentPath = (string) $quotUpload['path'];
+        $quoteAttachmentUrl = (string) $quotUpload['url'];
+        $quoteAttachmentName = (string) $quotUpload['name'];
+        $quoteAttachmentMime = (string) $quotUpload['mime'];
+        $quoteAttachmentSize = (int) $quotUpload['size'];
     }
 
     if ($isStandalonePurchasePo) {
@@ -1488,6 +1449,7 @@ if ($action === 'create_po_direct') {
         'quotation_note' => $quotation_note,
         'po_note' => $po_note_direct,
         'quotation_attachment_path' => $quoteAttachmentPath,
+        'quotation_attachment_url' => $quoteAttachmentUrl,
         'quotation_attachment_name' => $quoteAttachmentName,
         'quotation_attachment_mime' => $quoteAttachmentMime,
         'quotation_attachment_size' => $quoteAttachmentSize,
@@ -1674,6 +1636,29 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         $editUrl . '?id=' . $po_id
     );
 
+    $quoteAttachmentPath = trim((string) ($existing['quotation_attachment_path'] ?? ''));
+    $quoteAttachmentUrl = trim((string) ($existing['quotation_attachment_url'] ?? ''));
+    $quoteAttachmentName = trim((string) ($existing['quotation_attachment_name'] ?? ''));
+    $quoteAttachmentMime = trim((string) ($existing['quotation_attachment_mime'] ?? ''));
+    $quoteAttachmentSize = (int) ($existing['quotation_attachment_size'] ?? 0);
+    $quotUpload = tnc_purchase_quotation_upload('po-quotations', $po_id, $_FILES['quotation_file'] ?? []);
+    if (is_array($quotUpload) && empty($quotUpload['ok'])) {
+        $errCode = (string) ($quotUpload['error'] ?? 'upload_failed');
+        if ($errCode === 'upload_type') {
+            $errCode = 'quotation_upload_type';
+        } elseif ($errCode === 'upload_failed') {
+            $errCode = 'quotation_upload_failed';
+        }
+        tnc_action_redirect($editUrl . '?id=' . $po_id . '&error=' . $errCode);
+    }
+    if (is_array($quotUpload) && !empty($quotUpload['ok'])) {
+        $quoteAttachmentPath = (string) $quotUpload['path'];
+        $quoteAttachmentUrl = (string) $quotUpload['url'];
+        $quoteAttachmentName = (string) $quotUpload['name'];
+        $quoteAttachmentMime = (string) $quotUpload['mime'];
+        $quoteAttachmentSize = (int) $quotUpload['size'];
+    }
+
     $beforeSnap = $existing;
     Db::setRow('purchase_orders', $pk, array_merge($existing, [
         'issue_date' => $issue_date,
@@ -1685,6 +1670,11 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         'quotation_number' => mb_substr(trim((string) ($existing['quotation_number'] ?? '')), 0, 120),
         'quotation_note' => mb_substr(trim((string) ($_POST['quotation_note'] ?? ($existing['quotation_note'] ?? ''))), 0, 500),
         'po_note' => mb_substr(trim((string) ($_POST['po_note'] ?? ($existing['po_note'] ?? ''))), 0, 500),
+        'quotation_attachment_path' => $quoteAttachmentPath,
+        'quotation_attachment_url' => $quoteAttachmentUrl,
+        'quotation_attachment_name' => $quoteAttachmentName,
+        'quotation_attachment_mime' => $quoteAttachmentMime,
+        'quotation_attachment_size' => $quoteAttachmentSize,
         'total_amount' => $totals['net'],
         'gross_amount' => $totals['gross'],
         'subtotal_amount' => $totals['subtotal'],

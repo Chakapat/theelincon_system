@@ -460,6 +460,22 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                 <span class="badge rounded-pill px-3 py-2 <?= htmlspecialchars($prApprovalBadgeClass, ENT_QUOTES, 'UTF-8') ?>">
                     <?= htmlspecialchars($prApprovalLabel, ENT_QUOTES, 'UTF-8') ?>
                 </span>
+                <?php
+                $prQtPathToolbar = trim((string) ($quotationAttach ?? ($pr['quotation_attachment_path'] ?? '')));
+                $prQtNameToolbar = trim((string) ($quotationName ?? ($pr['quotation_attachment_name'] ?? '')));
+                if ($prQtPathToolbar !== ''):
+                    $prQtUrlToolbar = app_path($prQtPathToolbar);
+                ?>
+                    <a
+                        href="<?= htmlspecialchars($prQtUrlToolbar, ENT_QUOTES, 'UTF-8') ?>"
+                        target="_blank"
+                        rel="noopener"
+                        class="btn js-tnc-doc-action btn-outline-success btn-sm rounded-pill px-3"
+                        title="<?= htmlspecialchars($prQtNameToolbar !== '' ? $prQtNameToolbar : 'เปิดไฟล์ใบเสนอราคา', ENT_QUOTES, 'UTF-8') ?>"
+                    >
+                        <i class="bi bi-file-earmark-pdf me-1"></i>แสดงใบเสนอราคา
+                    </a>
+                <?php endif; ?>
                 <?php if ($prCanSendLineAdmin || $prCanWebDecide): ?>
                     <?php if ($prCanSendLineAdmin): ?>
                         <button type="button" class="btn js-tnc-doc-action btn-outline-success btn-sm rounded-pill px-3" id="btnPrSendLine" title="ส่งขออนุมัติไปกลุ่ม LINE">

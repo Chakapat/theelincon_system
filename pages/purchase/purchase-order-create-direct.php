@@ -188,6 +188,8 @@ $items = [[
                 'site_budget_exceeded' => 'งบไซต์ไม่พอ — ไม่สามารถออก PO ได้ (เกินวงเงินรวมของไซต์)',
                 'site_budget_cat_exceeded' => 'งบหมวดไม่พอ — ไม่สามารถออก PO ได้ (เกินวงเงินหมวดที่กำหนด)',
                 'upload_failed', 'upload_type' => 'อัปโหลดสลิปไม่สำเร็จ — ใช้ไฟล์รูปหรือ PDF',
+                'quotation_upload_failed' => 'อัปโหลดไฟล์ใบเสนอราคาไม่สำเร็จ กรุณาลองใหม่',
+                'quotation_upload_type' => 'ไฟล์ใบเสนอราคาต้องเป็น PDF หรือรูปภาพ (JPG, PNG, WEBP, GIF ฯลฯ)',
                 default => 'บันทึกใบสั่งซื้อไม่สำเร็จ กรุณาตรวจสอบข้อมูลและลองใหม่',
             };
             ?>
@@ -310,6 +312,11 @@ $items = [[
         <div class="card card-soft p-4 p-md-4 mb-4">
             <label class="po-field-label" for="po_note">หมายเหตุใบสั่งซื้อ</label>
             <textarea name="po_note" id="po_note" class="form-control" rows="2" maxlength="500" placeholder="หมายเหตุ (ถ้ามี)"></textarea>
+            <div class="mt-3 pt-3 border-top">
+                <label class="po-field-label" for="quotation_file">แนบใบเสนอราคา <span class="text-muted fw-normal">(ไม่บังคับ)</span></label>
+                <input type="file" name="quotation_file" id="quotation_file" class="form-control" accept=".pdf,image/*,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff">
+                <div class="form-text">รองรับ PDF หรือรูปภาพ — เปิดดูได้จากหน้ารายละเอียด PO</div>
+            </div>
         </div>
         <div class="card card-soft p-4 p-md-4 mb-4">
             <div class="po-section-head">

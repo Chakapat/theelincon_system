@@ -522,6 +522,8 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                 'site_budget_cat_exceeded' => 'งบหมวดไม่พอ — ไม่สามารถออก PO ได้ (เกินวงเงินหมวดที่กำหนด)',
                 'invalid_pr_number' => 'เลข PR ไม่ถูกต้อง — ไม่สามารถออก PO ที่เลขท้ายตรงกันได้',
                 'po_number_conflict' => 'เลข PO ที่ตรงกับ PR ถูกใช้ไปแล้ว — ติดต่อผู้ดูแลระบบ',
+                'quotation_upload_failed' => 'อัปโหลดไฟล์ใบเสนอราคาไม่สำเร็จ กรุณาลองใหม่',
+                'quotation_upload_type' => 'ไฟล์ใบเสนอราคาต้องเป็น PDF หรือรูปภาพ (JPG, PNG, WEBP, GIF ฯลฯ)',
                 default => 'บันทึกใบสั่งซื้อไม่สำเร็จ กรุณาตรวจสอบข้อมูลและลองใหม่',
             };
             ?>
@@ -716,6 +718,22 @@ $po_submit_disabled = $pr_prefill_items_display === [];
             <label class="po-field-label po-field-label--thai" for="po_note">หมายเหตุใบสั่งซื้อ</label>
             <div class="form-text text-muted mb-2">เลือกผู้ขายแล้ว ระบบจะถามว่าต้องการใส่ข้อมูลบัญชีโอนลงหมายเหตุหรือไม่ (ถ้ามีในระบบ)</div>
             <textarea name="po_note" id="po_note" class="form-control" rows="2" maxlength="500" placeholder="หมายเหตุ (ถ้ามี)"></textarea>
+            <?php
+            $prQuotationPath = trim((string) ($pr['quotation_attachment_path'] ?? ''));
+            $prQuotationName = trim((string) ($pr['quotation_attachment_name'] ?? ''));
+            ?>
+            <div class="mt-3 pt-3 border-top">
+                <label class="po-field-label po-field-label--thai" for="quotation_file">แนบใบเสนอราคา <span class="text-muted fw-normal">(ไม่บังคับ)</span></label>
+                <?php if ($prQuotationPath !== ''): ?>
+                    <div class="small mb-2 text-secondary">
+                        PR นี้มีไฟล์:
+                        <a href="<?= htmlspecialchars(app_path($prQuotationPath), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= htmlspecialchars($prQuotationName !== '' ? $prQuotationName : 'เปิดไฟล์', ENT_QUOTES, 'UTF-8') ?></a>
+                        — ระบบจะคัดลอกไปยัง PO อัตโนมัติ หากไม่แนบไฟล์ใหม่
+                    </div>
+                <?php endif; ?>
+                <input type="file" name="quotation_file" id="quotation_file" class="form-control" accept=".pdf,image/*,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff">
+                <div class="form-text">รองรับ PDF หรือรูปภาพ — เปิดดูได้จากหน้ารายละเอียด PO</div>
+            </div>
         </div>
 
         <div class="card card-soft p-0 mb-4 overflow-hidden">
