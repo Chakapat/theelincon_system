@@ -427,6 +427,21 @@ if ($action === 'get_data') {
         if ($row !== null) {
             $row['logo_url'] = tnc_party_logo_public_url((string) ($row['logo'] ?? ''));
         }
+    } elseif ($type === 'purchase_request' || $type === 'purchase_order') {
+        if (!user_can('page.site.hub') && !user_can($type === 'purchase_request' ? 'page.pr' : 'page.po')) {
+            http_response_code(403);
+            echo json_encode(['error' => 'forbidden'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        require_once dirname(__DIR__) . '/includes/purchase_doc_modal.php';
+        $payload = tnc_purchase_doc_modal_payload($type === 'purchase_request' ? 'pr' : 'po', $id);
+        if ($payload === null) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'error' => 'not_found'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+        exit;
     } else {
         http_response_code(400);
         echo json_encode(['error' => 'bad_type'], JSON_UNESCAPED_UNICODE);
@@ -504,16 +519,32 @@ if ($action === 'delete_supplier') {
 // --- PR ---
 if ($action === 'save_pr') {
     tnc_require_can('pr.create', 'ไม่มีสิทธิ์สร้าง PR');
+    $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+    $returnSiteId = (int) ($_POST['return_site_id'] ?? 0);
+    $embedMode = !empty($_POST['embed']) || $returnTo === 'site_hub';
+    $prCreateRedirect = static function (string $qs = '') use ($returnTo, $returnSiteId, $embedMode): void {
+        $base = app_path('pages/purchase/purchase-request-create.php');
+        $parts = [];
+        if ($embedMode && $returnSiteId > 0) {
+            $parts[] = 'site_id=' . $returnSiteId;
+            $parts[] = 'embed=1';
+        }
+        $qs = ltrim($qs, '?&');
+        if ($qs !== '') {
+            $parts[] = $qs;
+        }
+        tnc_action_redirect($base . ($parts !== [] ? '?' . implode('&', $parts) : ''));
+    };
     $sitesForPr = Db::tableRows('sites');
     $site_id = (int) ($_POST['site_id'] ?? 0);
     if (count($sitesForPr) > 0 && $site_id <= 0) {
-        tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?error=need_site');
+        $prCreateRedirect('error=need_site');
     }
     $site_name_saved = '';
     if ($site_id > 0) {
         $siteRow = Db::row('sites', (string) $site_id);
         if ($siteRow === null) {
-            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?error=need_site');
+            $prCreateRedirect('error=need_site');
         }
         $site_name_saved = trim((string) ($siteRow['name'] ?? ''));
     }
@@ -523,7 +554,7 @@ if ($action === 'save_pr') {
     $cost_category_name = '';
     if (count($sitesForPr) > 0) {
         if ($cost_category_id <= 0 || !tnc_site_category_is_valid_selection_for_site($cost_category_id, $site_id)) {
-            tnc_action_redirect(app_path('pages/purchase/purchase-request-create.php') . '?error=need_cost_category');
+            $prCreateRedirect('error=need_cost_category');
         }
         $cost_category_name = tnc_site_category_display_name($cost_category_id);
     } elseif ($cost_category_id > 0 && tnc_site_category_is_valid_selection_for_site($cost_category_id, $site_id)) {
@@ -543,7 +574,7 @@ if ($action === 'save_pr') {
     $lineSums = tnc_pr_post_purchase_line_vat_sums(tnc_purchase_round_to_baht_from_post());
     $purchaseLineCount = $lineSums['line_count'];
     if ($purchaseLineCount <= 0) {
-        tnc_action_redirect( app_path('pages/purchase/purchase-request-create.php') . '?error=no_items');
+        $prCreateRedirect('error=no_items');
     }
     $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
     $totalsPr = tnc_po_compute_totals($lineSums['taxable'], $vat_enabled, $vat_mode_post, 'none', $lineSums['exempt'], tnc_purchase_round_to_baht_from_post());
@@ -563,24 +594,24 @@ if ($action === 'save_pr') {
         $f = $_FILES['quotation_file'];
         $err = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
         if ($err !== UPLOAD_ERR_OK) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-request-create.php') . '?error=upload_failed');
+            $prCreateRedirect('error=upload_failed');
         }
 
         $tmp = (string) ($f['tmp_name'] ?? '');
         if ($tmp === '' || !is_uploaded_file($tmp)) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-request-create.php') . '?error=upload_failed');
+            $prCreateRedirect('error=upload_failed');
         }
 
         $originalName = trim((string) ($f['name'] ?? 'quotation'));
         $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
         $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
         if (!in_array($ext, $allowedExt, true)) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-request-create.php') . '?error=upload_type');
+            $prCreateRedirect('error=upload_type');
         }
 
         $dirAbs = ROOT_PATH . '/uploads/pr-quotations/' . $pr_id;
         if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-request-create.php') . '?error=upload_failed');
+            $prCreateRedirect('error=upload_failed');
         }
 
         $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
@@ -591,7 +622,7 @@ if ($action === 'save_pr') {
         $storedName = $safeBase . '_' . date('Ymd_His') . '.' . $ext;
         $destAbs = $dirAbs . '/' . $storedName;
         if (!@move_uploaded_file($tmp, $destAbs)) {
-            tnc_action_redirect( app_path('pages/purchase/purchase-request-create.php') . '?error=upload_failed');
+            $prCreateRedirect('error=upload_failed');
         }
 
         $quoteAttachmentPath = 'uploads/pr-quotations/' . $pr_id . '/' . $storedName;
@@ -704,6 +735,9 @@ if ($action === 'save_pr') {
         } else {
             $viewUrl .= '&line_notify=' . rawurlencode((string) ($lineSend['error'] ?? 'failed'));
         }
+    }
+    if ($returnTo === 'site_hub' && $returnSiteId > 0) {
+        tnc_action_redirect(app_path('pages/sites/site-hub.php') . '?site_id=' . $returnSiteId . '&pr_created=1');
     }
     tnc_action_redirect($viewUrl);
 }
@@ -989,6 +1023,12 @@ if ($action === 'delete_pr') {
         'before' => $prSnap,
         'nested' => $nestedDel,
     ]);
+    $redirectTo = trim((string) ($_POST['redirect_to'] ?? ''));
+    $hubBase = app_path('pages/sites/site-hub.php');
+    if ($redirectTo !== '' && str_starts_with($redirectTo, $hubBase)) {
+        $sep = str_contains($redirectTo, '?') ? '&' : '?';
+        tnc_action_redirect($redirectTo . $sep . 'doc_deleted=1');
+    }
     tnc_action_redirect( app_path('pages/purchase/purchase-request-list.php') . '?deleted=1');
 }
 
@@ -1227,22 +1267,37 @@ if ($action === 'create_po_direct') {
     $created_by = (int) $_SESSION['user_id'];
     $po_number = Purchase::generateDirectPONumber();
     $poCreateDirectUrl = app_path('pages/purchase/purchase-order-create-direct.php');
+    $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+    $returnSiteId = (int) ($_POST['return_site_id'] ?? 0);
+    $embedMode = !empty($_POST['embed']) || $returnTo === 'site_hub';
+    $poDirectErrorRedirect = static function (string $qs) use ($poCreateDirectUrl, $pr_id_link, $embedMode, $returnSiteId): void {
+        $qs = ltrim($qs, '?&');
+        if ($pr_id_link > 0) {
+            tnc_action_redirect(app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id_link . ($qs !== '' ? '&' . $qs : ''));
+        }
+        $parts = [];
+        if ($embedMode && $returnSiteId > 0) {
+            $parts[] = 'site_id=' . $returnSiteId;
+            $parts[] = 'embed=1';
+        }
+        if ($qs !== '') {
+            $parts[] = $qs;
+        }
+        tnc_action_redirect($poCreateDirectUrl . ($parts !== [] ? '?' . implode('&', $parts) : ''));
+    };
     $formFallbackUrl = $pr_id_link > 0
         ? app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id_link
         : $poCreateDirectUrl;
     $formFbSep = str_contains($formFallbackUrl, '?') ? '&' : '?';
 
     if ($supplier_id <= 0) {
-        $supErrUrl = $pr_id_link > 0
-            ? app_path('pages/purchase/purchase-order-create.php') . '?pr_id=' . $pr_id_link . '&error=supplier'
-            : $poCreateDirectUrl . '?error=supplier';
-        tnc_action_redirect($supErrUrl);
+        $poDirectErrorRedirect('error=supplier');
     }
 
 
     $lineSums = tnc_pr_post_purchase_line_vat_sums(tnc_purchase_round_to_baht_from_post());
     if ($lineSums['line_count'] <= 0 || ($lineSums['taxable'] + $lineSums['exempt']) <= 0) {
-        tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=no_items');
+        $poDirectErrorRedirect('error=no_items');
     }
 
     $vat_mode_post = trim((string) ($_POST['vat_mode'] ?? 'exclusive'));
@@ -1288,7 +1343,7 @@ if ($action === 'create_po_direct') {
             $paymentMethodPre = 'transfer';
         }
         if ($paymentMethodPre === 'cash' && trim((string) ($_POST['payment_cash_paid_by'] ?? '')) === '') {
-            tnc_action_redirect($poCreateDirectUrl . '?error=cash_paid_by_required');
+            $poDirectErrorRedirect('error=cash_paid_by_required');
         }
     }
     $poSiteId = 0;
@@ -1299,19 +1354,19 @@ if ($action === 'create_po_direct') {
         $sitesForPo = Db::tableRows('sites');
         $poSiteId = (int) ($_POST['site_id'] ?? 0);
         if (count($sitesForPo) > 0 && $poSiteId <= 0) {
-            tnc_action_redirect($poCreateDirectUrl . '?error=need_site');
+            $poDirectErrorRedirect('error=need_site');
         }
         if ($poSiteId > 0) {
             $siteRowPoDirect = Db::row('sites', (string) $poSiteId);
             if ($siteRowPoDirect === null) {
-                tnc_action_redirect($poCreateDirectUrl . '?error=need_site');
+                $poDirectErrorRedirect('error=need_site');
             }
             $poSiteName = trim((string) ($siteRowPoDirect['name'] ?? ''));
         }
         $poCostCategoryId = (int) ($_POST['cost_category_id'] ?? 0);
         if (count($sitesForPo) > 0) {
             if ($poCostCategoryId <= 0 || !tnc_site_category_is_valid_selection_for_site($poCostCategoryId, $poSiteId)) {
-                tnc_action_redirect($poCreateDirectUrl . '?error=need_cost_category');
+                $poDirectErrorRedirect('error=need_cost_category');
             }
             $poCostCategoryName = tnc_site_category_display_name($poCostCategoryId);
         } elseif ($poCostCategoryId > 0 && tnc_site_category_is_valid_selection_for_site($poCostCategoryId, $poSiteId)) {
@@ -1334,7 +1389,7 @@ if ($action === 'create_po_direct') {
             $standaloneInvoiceDate = sprintf('%04d-%02d-%02d', (int) $invDm[3], (int) $invDm[2], (int) $invDm[1]);
         }
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $standaloneInvoiceDate) !== 1) {
-            tnc_action_redirect($poCreateDirectUrl . '?error=billing_required');
+            $poDirectErrorRedirect('error=billing_required');
         }
         $postedBillTotal = trim((string) ($_POST['billed_total_amount'] ?? ''));
         $postedBillVat = trim((string) ($_POST['billed_vat_amount'] ?? ''));
@@ -1358,10 +1413,10 @@ if ($action === 'create_po_direct') {
     if ($hasQuotation) {
         $quotation_number = mb_substr(trim((string) ($_POST['quotation_number'] ?? '')), 0, 120);
         if ($quotation_number === '' && !$quotFilePending) {
-            tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=quotation_required');
+            $poDirectErrorRedirect('error=quotation_required');
         }
         if ($quotFilePending && (int) ($_FILES['quotation_file']['error'] ?? 0) !== UPLOAD_ERR_OK) {
-            tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=quotation_upload_failed');
+            $poDirectErrorRedirect('error=quotation_upload_failed');
         }
     }
     $quotation_note = mb_substr(trim((string) ($_POST['quotation_note'] ?? '')), 0, 500);
@@ -1379,17 +1434,17 @@ if ($action === 'create_po_direct') {
         $f = $_FILES['quotation_file'];
         $tmp = (string) ($f['tmp_name'] ?? '');
         if ($tmp === '' || !is_uploaded_file($tmp)) {
-            tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=quotation_upload_failed');
+            $poDirectErrorRedirect('error=quotation_upload_failed');
         }
         $originalName = trim((string) ($f['name'] ?? 'quotation'));
         $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
         $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
         if (!in_array($ext, $allowedExt, true)) {
-            tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=quotation_upload_type');
+            $poDirectErrorRedirect('error=quotation_upload_type');
         }
         $dirAbs = ROOT_PATH . '/uploads/po-quotations/' . $po_id;
         if (!is_dir($dirAbs) && !@mkdir($dirAbs, 0775, true) && !is_dir($dirAbs)) {
-            tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=quotation_upload_failed');
+            $poDirectErrorRedirect('error=quotation_upload_failed');
         }
         $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
         $safeBase = trim((string) $safeBase, '._-');
@@ -1399,7 +1454,7 @@ if ($action === 'create_po_direct') {
         $storedName = $safeBase . '_' . date('Ymd_His') . '.' . $ext;
         $destAbs = $dirAbs . '/' . $storedName;
         if (!@move_uploaded_file($tmp, $destAbs)) {
-            tnc_action_redirect($formFallbackUrl . $formFbSep . 'error=quotation_upload_failed');
+            $poDirectErrorRedirect('error=quotation_upload_failed');
         }
         $quoteAttachmentPath = 'uploads/po-quotations/' . $po_id . '/' . $storedName;
         $quoteAttachmentName = $originalName;
@@ -1408,12 +1463,16 @@ if ($action === 'create_po_direct') {
     }
 
     if ($isStandalonePurchasePo) {
+        $budgetRedirectUrl = $poCreateDirectUrl;
+        if ($embedMode && $returnSiteId > 0) {
+            $budgetRedirectUrl .= '?site_id=' . $returnSiteId . '&embed=1';
+        }
         tnc_site_budget_abort_if_invalid(
             $poSiteId,
             $poCostCategoryId,
             (float) $totals['net'],
             null,
-            $poCreateDirectUrl
+            $budgetRedirectUrl
         );
     }
 
@@ -1503,9 +1562,13 @@ if ($action === 'create_po_direct') {
     }
     tnc_audit_purchase_order_created($po_id, 'create_po_direct');
     if ($isStandalonePurchasePo) {
-        $doneUrl = app_path('pages/purchase/purchase-order-list.php')
-            . '?success=1&po_number=' . rawurlencode($po_number)
-            . ($standalonePoExtrasSaved ? '&payment_saved=1' : '');
+        if ($returnTo === 'site_hub' && $returnSiteId > 0) {
+            $doneUrl = app_path('pages/sites/site-hub.php') . '?site_id=' . $returnSiteId . '&po_created=1';
+        } else {
+            $doneUrl = app_path('pages/purchase/purchase-order-list.php')
+                . '?success=1&po_number=' . rawurlencode($po_number)
+                . ($standalonePoExtrasSaved ? '&payment_saved=1' : '');
+        }
         if (tnc_ajax_form_requested()) {
             header('Content-Type: application/json; charset=UTF-8');
             echo json_encode([
@@ -1884,17 +1947,31 @@ if (($action === 'ignore_incomplete_po' || $action === 'unignore_incomplete_po')
 if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     tnc_require_can('po.update', 'ไม่มีสิทธิ์จัดการ PO');
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
+    $poReturnRedirect = static function (string $qs) use ($listUrl): void {
+        $qs = ltrim($qs, '?&');
+        $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+        $returnSiteId = (int) ($_POST['return_site_id'] ?? 0);
+        $returnCatId = (int) ($_POST['return_cat_id'] ?? 0);
+        if ($returnTo === 'site_hub' && $returnSiteId > 0) {
+            $url = app_path('pages/sites/site-hub.php') . '?site_id=' . $returnSiteId;
+            if ($returnCatId > 0) {
+                $url .= '&open_docs_cat=' . $returnCatId;
+            }
+            tnc_action_redirect($url . ($qs !== '' ? '&' . $qs : ''));
+        }
+        tnc_action_redirect($listUrl . ($qs !== '' ? '?' . $qs : ''));
+    };
     $po_id = (int) ($_POST['po_id'] ?? 0);
     $payment_status = strtolower(trim((string) ($_POST['payment_status'] ?? '')));
     if ($po_id <= 0 || $payment_status !== 'paid') {
-        tnc_action_redirect( $listUrl . '?error=invalid');
+        $poReturnRedirect('error=invalid');
     }
     $po = Db::row('purchase_orders', (string) $po_id);
     if ($po === null) {
-        tnc_action_redirect( $listUrl . '?error=invalid');
+        $poReturnRedirect('error=invalid');
     }
     if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
-        tnc_action_redirect($listUrl . '?error=po_cancelled');
+        $poReturnRedirect('error=po_cancelled');
     }
     $payment_method = strtolower(trim((string) ($_POST['payment_method'] ?? 'transfer')));
     if (!in_array($payment_method, ['cash', 'transfer'], true)) {
@@ -1904,7 +1981,7 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
     if ($payment_method === 'cash') {
         $payment_cash_paid_by = mb_substr($payment_cash_paid_by, 0, 255);
         if ($payment_cash_paid_by === '') {
-            tnc_action_redirect($listUrl . '?error=cash_paid_by_required');
+            $poReturnRedirect('error=cash_paid_by_required');
         }
     } else {
         $payment_cash_paid_by = '';
@@ -1917,7 +1994,7 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
         }
     }
     if ($newSlipPaths === [] && $payment_method !== 'cash') {
-        tnc_action_redirect($listUrl . '?error=payment_slip_required');
+        $poReturnRedirect('error=payment_slip_required');
     }
     if ($newSlipPaths === [] && $payment_method === 'cash') {
         $poBeforePay = Db::row('purchase_orders', (string) $po_id);
@@ -1944,9 +2021,9 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
             if ($paidTs !== '' && preg_match('/^(\d{4}-\d{2})/', $paidTs, $mm) === 1) {
                 $billMonth = $mm[1];
             }
-            tnc_action_redirect($listUrl . '?payment_saved=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
+            $poReturnRedirect('payment_saved=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
         }
-        tnc_action_redirect($listUrl . '?payment_saved=1&print_po_id=' . $po_id);
+        $poReturnRedirect('payment_saved=1&print_po_id=' . $po_id);
     }
     $poBeforePay = Db::row('purchase_orders', (string) $po_id);
     $existingPaths = $poBeforePay !== null ? tnc_po_payment_slip_paths($poBeforePay) : [];
@@ -1980,9 +2057,9 @@ if ($action === 'update_po_payment_status' && ($_SERVER['REQUEST_METHOD'] ?? '')
         if ($paidTs !== '' && preg_match('/^(\d{4}-\d{2})/', $paidTs, $mm) === 1) {
             $billMonth = $mm[1];
         }
-        tnc_action_redirect($listUrl . '?payment_saved=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
+        $poReturnRedirect('payment_saved=1&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id);
     }
-    tnc_action_redirect($listUrl . '?payment_saved=1&print_po_id=' . $po_id);
+    $poReturnRedirect('payment_saved=1&print_po_id=' . $po_id);
 }
 
 /** บันทึกเลขที่บิลซื้อย้อนหลังจาก PO + สร้างรายการใน /bills */
@@ -1991,47 +2068,60 @@ if ($action === 'receive_po_bill' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POS
     $listUrl = app_path('pages/purchase/purchase-order-list.php');
     $po_id = (int) ($_POST['po_id'] ?? 0);
     $return_to = trim((string) ($_POST['return_to'] ?? 'list'));
+    $returnSiteId = (int) ($_POST['return_site_id'] ?? 0);
+    $returnCatId = (int) ($_POST['return_cat_id'] ?? 0);
+    $billReturnRedirect = static function (string $qs, ?string $viewFallback = null) use ($listUrl, $return_to, $returnSiteId, $returnCatId, $po_id): void {
+        $qs = ltrim($qs, '?&');
+        if ($return_to === 'site_hub' && $returnSiteId > 0) {
+            $url = app_path('pages/sites/site-hub.php') . '?site_id=' . $returnSiteId;
+            if ($returnCatId > 0) {
+                $url .= '&open_docs_cat=' . $returnCatId;
+            }
+            tnc_action_redirect($url . ($qs !== '' ? '&' . $qs : ''));
+        }
+        if ($return_to === 'view' && $viewFallback !== null) {
+            tnc_action_redirect($viewFallback);
+        }
+        tnc_action_redirect($listUrl . ($qs !== '' ? '?' . $qs : ''));
+    };
 
     if ($po_id <= 0) {
-        tnc_action_redirect($listUrl . '?error=invalid');
+        $billReturnRedirect('error=invalid');
     }
 
     $poPk = Db::pkForLogicalId('purchase_orders', $po_id);
     $po = Db::row('purchase_orders', $poPk);
     if ($po === null) {
-        tnc_action_redirect($listUrl . '?error=invalid');
+        $billReturnRedirect('error=invalid');
     }
     if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
-        tnc_action_redirect($listUrl . '?error=po_cancelled');
+        $billReturnRedirect('error=po_cancelled');
     }
 
     $supplierInvoiceNo = mb_substr(trim((string) ($_POST['supplier_invoice_no'] ?? '')), 0, 120);
     $supplierInvoiceDate = trim((string) ($_POST['supplier_invoice_date'] ?? ''));
     if ($supplierInvoiceNo === '' || preg_match('/^\d{4}-\d{2}-\d{2}$/', $supplierInvoiceDate) !== 1) {
-        $errUrl = $listUrl . '?error=billing_required';
-        if ($return_to === 'view') {
-            $errUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id . '&error=billing_required';
-        }
-        tnc_action_redirect($errUrl);
+        $billReturnRedirect(
+            'error=billing_required',
+            app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id . '&error=billing_required'
+        );
     }
 
     $postedTotal = trim((string) ($_POST['billed_total_amount'] ?? ''));
     $postedVat = trim((string) ($_POST['billed_vat_amount'] ?? ''));
     if ($postedTotal === '' || $postedVat === '') {
-        $errUrl = $listUrl . '?error=billing_amount_invalid';
-        if ($return_to === 'view') {
-            $errUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id . '&error=billing_amount_invalid';
-        }
-        tnc_action_redirect($errUrl);
+        $billReturnRedirect(
+            'error=billing_amount_invalid',
+            app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id . '&error=billing_amount_invalid'
+        );
     }
     $billedTotalAmount = (float) str_replace([',', ' '], '', $postedTotal);
     $billedVatAmount = (float) str_replace([',', ' '], '', $postedVat);
     if (!is_finite($billedTotalAmount) || !is_finite($billedVatAmount) || $billedTotalAmount < 0 || $billedVatAmount < 0) {
-        $errUrl = $listUrl . '?error=billing_amount_invalid';
-        if ($return_to === 'view') {
-            $errUrl = app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id . '&error=billing_amount_invalid';
-        }
-        tnc_action_redirect($errUrl);
+        $billReturnRedirect(
+            'error=billing_amount_invalid',
+            app_path('pages/purchase/purchase-order-view.php') . '?id=' . $po_id . '&error=billing_amount_invalid'
+        );
     }
 
     $supplierId = (int) ($po['supplier_id'] ?? 0);
@@ -2117,15 +2207,15 @@ if ($action === 'receive_po_bill' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POS
         }
         tnc_action_redirect($url);
     }
-    $listRedirect = $listUrl . '?billing_saved=1';
+    $listQs = 'billing_saved=1';
     if ($autoBillId !== null && $autoBillId > 0) {
         $billMonth = date('Y-m');
         if (preg_match('/^(\d{4}-\d{2})/', $supplierInvoiceDate, $mm) === 1) {
             $billMonth = $mm[1];
         }
-        $listRedirect .= '&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id;
+        $listQs .= '&auto_bill=1&bill_month=' . rawurlencode($billMonth) . '&bill_id=' . (int) $autoBillId . '&print_po_id=' . $po_id;
     }
-    tnc_action_redirect($listRedirect);
+    $billReturnRedirect($listQs);
 }
 
 /** เพิ่มไฟล์หลักฐานการจ่าย (หลายไฟล์) สำหรับ PO ที่จ่ายแล้ว */
@@ -2710,6 +2800,12 @@ if ($action === 'delete' && $id > 0) {
                 'linked_bills' => $linkedBillDeleted['bills'],
             ],
         ]);
+        $redirectTo = trim((string) ($_POST['redirect_to'] ?? ''));
+        $hubBase = app_path('pages/sites/site-hub.php');
+        if ($redirectTo !== '' && str_starts_with($redirectTo, $hubBase)) {
+            $sep = str_contains($redirectTo, '?') ? '&' : '?';
+            tnc_action_redirect($redirectTo . $sep . 'doc_deleted=1');
+        }
         tnc_action_redirect( app_path('pages/purchase/purchase-order-list.php') . '?deleted=1');
     } elseif ($type === 'project_purchase_bill') {
         $billPk = Db::pkForLogicalId('purchase_bills', $id);

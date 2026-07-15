@@ -426,14 +426,32 @@ function tnc_purchase_po_has_payment_proof(array $po): bool
 /** PO สมบูรณ์ในรายการ = หลักฐานชำระครบ + มีเลขที่ใบกำกับ (ไม่นับใบที่ยกเลิก) */
 function tnc_purchase_po_is_doc_complete(array $po): bool
 {
-    if (($po['status'] ?? '') === 'cancelled') {
-        return false;
-    }
-    if (trim((string) ($po['supplier_invoice_no'] ?? '')) === '') {
+    if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
         return false;
     }
 
-    return tnc_purchase_po_has_payment_proof($po);
+    return tnc_purchase_po_missing_reasons($po) === [];
+}
+
+/**
+ * เหตุผลที่ PO ยังไม่สมบูรณ์ (ว่าง = สมบูรณ์หรือยกเลิก)
+ *
+ * @return list<string>
+ */
+function tnc_purchase_po_missing_reasons(array $po): array
+{
+    if (strtolower(trim((string) ($po['status'] ?? ''))) === 'cancelled') {
+        return [];
+    }
+    $out = [];
+    if (!tnc_purchase_po_has_payment_proof($po)) {
+        $out[] = 'ขาดหลักฐานการชำระ';
+    }
+    if (trim((string) ($po['supplier_invoice_no'] ?? '')) === '') {
+        $out[] = 'ขาดเลขที่ใบกำกับ';
+    }
+
+    return $out;
 }
 
 /** แปลงวันที่จาก DB/ฟอร์ม → Y-m-d (รองรับ d/m/Y และ Y-m-d) */

@@ -22,6 +22,9 @@ if (!function_exists('tnc_site_budget_po_amount')) {
 }
 
 if (!function_exists('tnc_site_budget_is_committed')) {
+    /**
+     * นับเป็นรายจ่าย/หักงบเมื่อ PO สมบูรณ์เท่านั้น (มีหลักฐานชำระ + เลขที่ใบกำกับ)
+     */
     function tnc_site_budget_is_committed(array $po): bool
     {
         $status = strtolower(trim((string) ($po['status'] ?? '')));
@@ -32,8 +35,14 @@ if (!function_exists('tnc_site_budget_is_committed')) {
         if ($orderType !== 'purchase') {
             return false;
         }
+        if ((int) ($po['site_id'] ?? 0) <= 0) {
+            return false;
+        }
+        if (!function_exists('tnc_purchase_po_is_doc_complete')) {
+            require_once __DIR__ . '/purchase_po_payment_slips.php';
+        }
 
-        return (int) ($po['site_id'] ?? 0) > 0;
+        return tnc_purchase_po_is_doc_complete($po);
     }
 }
 

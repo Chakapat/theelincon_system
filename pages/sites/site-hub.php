@@ -51,6 +51,8 @@ $pickerUrl = app_path('pages/sites/site-picker.php');
 $siteName = trim((string) ($site['name'] ?? ''));
 $canEditBudget = user_can('site.manage');
 $canDeleteSite = user_is_admin_only_role();
+$canFixIncompletePo = user_can('po.update');
+$openDocsCatId = isset($_GET['open_docs_cat']) ? (int) $_GET['open_docs_cat'] : 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_budget'])) {
     if (!$canEditBudget) {
@@ -514,6 +516,8 @@ if (user_can('pr.create')) {
         'meta' => 'Purchase Request',
         'tone' => 'primary',
         'url' => app_path('pages/purchase/purchase-request-create.php') . '?' . $qSite,
+        'modal' => 'hubPrCreate',
+        'embed_url' => app_path('pages/purchase/purchase-request-create.php') . '?' . $qSite . '&embed=1',
     ];
 }
 if (user_can('po.create')) {
@@ -523,6 +527,8 @@ if (user_can('po.create')) {
         'meta' => 'Purchase Order',
         'tone' => 'success',
         'url' => app_path('pages/purchase/purchase-order-create-direct.php') . '?' . $qSite,
+        'embed_url' => app_path('pages/purchase/purchase-order-create-direct.php') . '?' . $qSite . '&embed=1',
+        'modal' => 'hubPoCreate',
         'disabled' => !empty($summary['exhausted']) && empty($summary['unlimited']),
         'disabled_meta' => 'งบไซต์เต็มแล้ว',
     ];
@@ -534,6 +540,8 @@ if (user_can('page.stock')) {
         'meta' => 'คลังสินค้าไซต์',
         'tone' => 'amber',
         'url' => app_path('pages/stock/stock-list.php') . '?' . $qSite,
+        'embed_url' => app_path('pages/stock/stock-list.php') . '?' . $qSite . '&embed=1',
+        'modal' => 'hubStockList',
     ];
 }
 if (user_can('page.pr')) {
@@ -572,6 +580,12 @@ $renderHubMenuItems = static function (array $items): void {
         $title = htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8');
         $meta = htmlspecialchars((string) ($item['meta'] ?? ''), ENT_QUOTES, 'UTF-8');
         $disabledMeta = htmlspecialchars((string) ($item['disabled_meta'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $modalId = trim((string) ($item['modal'] ?? ''));
+        $fullUrl = (string) ($item['url'] ?? '#');
+        $embedUrl = trim((string) ($item['embed_url'] ?? ''));
+        if ($embedUrl === '') {
+            $embedUrl = $fullUrl . (str_contains($fullUrl, '?') ? '&' : '?') . 'embed=1';
+        }
         ?>
         <div class="col-12 col-md-6 col-lg-4 d-flex">
             <?php if (!empty($item['disabled'])): ?>
@@ -583,8 +597,23 @@ $renderHubMenuItems = static function (array $items): void {
                     </span>
                     <span class="hub-action-tile__lock" aria-hidden="true"><i class="bi bi-lock-fill"></i></span>
                 </div>
+            <?php elseif ($modalId !== ''): ?>
+                <button type="button"
+                        class="hub-action-tile <?= $toneClass ?> w-100 text-start js-hub-embed-open"
+                        data-embed-title="<?= $title ?>"
+                        data-embed-url="<?= htmlspecialchars($embedUrl, ENT_QUOTES, 'UTF-8') ?>"
+                        data-full-url="<?= htmlspecialchars($fullUrl, ENT_QUOTES, 'UTF-8') ?>">
+                    <span class="hub-action-tile__icon" aria-hidden="true"><i class="bi <?= $icon ?>"></i></span>
+                    <span class="hub-action-tile__body">
+                        <span class="hub-action-tile__title"><?= $title ?></span>
+                        <?php if ($meta !== ''): ?>
+                            <span class="hub-action-tile__meta"><?= $meta ?></span>
+                        <?php endif; ?>
+                    </span>
+                    <span class="hub-action-tile__chevron" aria-hidden="true"><i class="bi bi-arrows-fullscreen"></i></span>
+                </button>
             <?php else: ?>
-                <a href="<?= htmlspecialchars((string) $item['url'], ENT_QUOTES, 'UTF-8') ?>" class="hub-action-tile <?= $toneClass ?> w-100">
+                <a href="<?= htmlspecialchars($fullUrl, ENT_QUOTES, 'UTF-8') ?>" class="hub-action-tile <?= $toneClass ?> w-100">
                     <span class="hub-action-tile__icon" aria-hidden="true"><i class="bi <?= $icon ?>"></i></span>
                     <span class="hub-action-tile__body">
                         <span class="hub-action-tile__title"><?= $title ?></span>
@@ -611,7 +640,9 @@ $renderHubMenuItems = static function (array $items): void {
         'include_ops_ui' => false,
         'sarabun_weights' => '400;600;700',
     ]);
-    ?>
+    if ($canFixIncompletePo): ?>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <?php endif; ?>
 </head>
 <body class="tnc-app-body tnc-layout-list">
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
@@ -638,9 +669,6 @@ $renderHubMenuItems = static function (array $items): void {
             require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
             echo tnc_ui_back_previous_button(['fallback' => $pickerUrl]);
             ?>
-            <a href="<?= htmlspecialchars($pickerUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill">
-                <i class="bi bi-geo-alt me-1"></i>เปลี่ยนไซต์
-            </a>
         </div>
     </div>
 
@@ -663,6 +691,15 @@ $renderHubMenuItems = static function (array $items): void {
             'message' => 'เปลี่ยนหมวดในเอกสารแล้ว PR ' . number_format($remapPrs) . ' · PO ' . number_format($remapPos),
             'audio' => 'update',
         ];
+    }
+    if ($hubFlash === null && !empty($_GET['doc_deleted'])) {
+        $hubFlash = ['type' => 'success', 'message' => 'ลบเอกสารแล้ว', 'audio' => 'update'];
+    }
+    if ($hubFlash === null && !empty($_GET['pr_created'])) {
+        $hubFlash = ['type' => 'success', 'message' => 'สร้างใบขอซื้อเรียบร้อยแล้ว', 'audio' => 'create'];
+    }
+    if ($hubFlash === null && !empty($_GET['po_created'])) {
+        $hubFlash = ['type' => 'success', 'message' => 'สร้างใบสั่งซื้อเรียบร้อยแล้ว', 'audio' => 'create'];
     }
     if ($hubFlash === null && !empty($_GET['cat_remap_partial'])) {
         $remapPrs = max(0, (int) ($_GET['prs'] ?? 0));
@@ -1197,6 +1234,36 @@ $renderHubMenuItems = static function (array $items): void {
             </div>
         </div>
     </div>
+
+    <div class="modal fade hub-cat-ref-modal hub-doc-detail-modal" id="hubDocDetailModal" tabindex="-1" aria-labelledby="hubDocDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header hub-cat-ref-modal__header">
+                    <h5 class="modal-title" id="hubDocDetailModalLabel">
+                        <i class="bi bi-file-earmark-text text-warning me-2"></i>
+                        <span id="hubDocDetailModalTitle">รายละเอียดเอกสาร</span>
+                        <span class="hub-cat-ref-modal__name ms-1" id="hubDocDetailModalNumber"></span>
+                        <span class="badge rounded-pill ms-2 align-middle d-none" id="hubDocDetailModalBadge"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                </div>
+                <div class="modal-body" id="hubDocDetailModalBody">
+                    <p class="text-muted mb-0">กำลังโหลด…</p>
+                </div>
+                <div class="modal-footer justify-content-end gap-2">
+                    <a href="#" class="btn btn-outline-secondary rounded-pill px-3 disabled" id="hubDocDetailFullBtn" aria-disabled="true" tabindex="-1">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>เปิดเต็มรูปแบบ
+                    </a>
+                    <button type="button" class="btn btn-orange rounded-pill px-3" id="hubDocDetailEditBtn" disabled>
+                        <i class="bi bi-pencil-square me-1"></i>แก้ไข
+                    </button>
+                    <button type="button" class="btn btn-outline-danger rounded-pill px-3" id="hubDocDetailDeleteBtn" disabled>
+                        <i class="bi bi-trash3 me-1"></i>ลบเอกสาร
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <?php endif; ?>
 
     <?php if ($canEditBudget && $catRefBlock !== null): ?>
@@ -1223,7 +1290,7 @@ $renderHubMenuItems = static function (array $items): void {
                                 <thead class="table-light">
                                     <tr>
                                         <th>เลขที่</th>
-                                        <th>แหล่งที่ซื้อ</th>
+                                        <th>ชื่อผู้ขายสินค้า/บริการ</th>
                                         <th class="text-end">ยอดสุทธิ</th>
                                     </tr>
                                 </thead>
@@ -1254,12 +1321,17 @@ $renderHubMenuItems = static function (array $items): void {
                                 <thead class="table-light">
                                     <tr>
                                         <th>เลขที่</th>
-                                        <th>แหล่งที่ซื้อ</th>
+                                        <th>ชื่อผู้ขายสินค้า/บริการ</th>
                                         <th class="text-end">ยอดสุทธิ</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($catRefBlock['pos'] as $refPo): ?>
+                                    <?php
+                                    $refPoIncomplete = !empty($refPo['incomplete']);
+                                    $refPoReasons = is_array($refPo['missing_reasons'] ?? null) ? $refPo['missing_reasons'] : [];
+                                    $refPoAmtClass = $refPoIncomplete ? ' text-danger fw-bold' : '';
+                                    ?>
                                     <tr>
                                         <td>
                                             <a href="<?= htmlspecialchars((string) ($refPo['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="fw-semibold text-decoration-none" target="_blank" rel="noopener">
@@ -1267,8 +1339,15 @@ $renderHubMenuItems = static function (array $items): void {
                                                 <i class="bi bi-box-arrow-up-right ms-1 small opacity-50"></i>
                                             </a>
                                         </td>
-                                        <td><?= htmlspecialchars((string) ($refPo['source'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td class="text-end"><?= number_format((float) ($refPo['net_amount'] ?? $refPo['amount'] ?? 0), 2) ?></td>
+                                        <td class="<?= $refPoIncomplete ? 'hub-cat-doc-source--incomplete' : '' ?>">
+                                            <?= htmlspecialchars((string) ($refPo['source'] ?? '—'), ENT_QUOTES, 'UTF-8') ?>
+                                            <?php if ($refPoReasons !== []): ?>
+                                                <?php foreach ($refPoReasons as $refReason): ?>
+                                                    <span class="text-warning fw-semibold"> · <?= htmlspecialchars((string) $refReason, ENT_QUOTES, 'UTF-8') ?></span>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-end<?= $refPoAmtClass ?>"><?= number_format((float) ($refPo['net_amount'] ?? $refPo['amount'] ?? 0), 2) ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -1285,11 +1364,128 @@ $renderHubMenuItems = static function (array $items): void {
     </div>
     <?php endif; ?>
 
+    <?php if ($canFixIncompletePo): ?>
+    <div class="modal fade" id="hubReceiveBillModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-fullscreen-md-down">
+            <div class="modal-content">
+                <form action="<?= htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-8') ?>?action=receive_po_bill" method="POST" id="hubReceiveBillForm">
+                    <?php csrf_field(); ?>
+                    <input type="hidden" name="return_to" value="site_hub">
+                    <input type="hidden" name="return_site_id" value="<?= (int) $siteId ?>">
+                    <input type="hidden" name="return_cat_id" id="hubReceiveBillReturnCatId" value="">
+                    <input type="hidden" name="po_id" id="hubReceiveBillPoId" value="">
+                    <div class="modal-header">
+                        <h5 class="modal-title">บันทึกเลขที่บิลซื้อ</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="small text-muted mb-2">PO: <span id="hubReceiveBillPoNumber">-</span></div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="hubReceiveBillInvoiceNo">เลขที่ใบกำกับภาษี/บิลซื้อ <span class="text-danger">*</span></label>
+                            <input type="text" name="supplier_invoice_no" id="hubReceiveBillInvoiceNo" class="form-control" maxlength="120" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="hubReceiveBillInvoiceDate">วันที่บนใบกำกับภาษี/บิลซื้อ <span class="text-danger">*</span></label>
+                            <input type="text" name="supplier_invoice_date" id="hubReceiveBillInvoiceDate" class="form-control" placeholder="วัน/เดือน/ปี เช่น 29/05/2026" autocomplete="off" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="hubReceiveBillTotalAmount">ยอดเงินรวม (บาท)</label>
+                            <input type="number" name="billed_total_amount" id="hubReceiveBillTotalAmount" class="form-control" step="0.01" min="0" required>
+                        </div>
+                        <div class="mb-1">
+                            <label class="form-label fw-semibold" for="hubReceiveBillVatAmount">ยอด VAT 7% (บาท)</label>
+                            <input type="number" name="billed_vat_amount" id="hubReceiveBillVatAmount" class="form-control" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">ยกเลิก</button>
+                        <button type="submit" class="btn btn-warning rounded-pill">บันทึกบิลซื้อ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="hubMarkPaidModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-fullscreen-md-down">
+            <div class="modal-content">
+                <form action="<?= htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-8') ?>?action=update_po_payment_status" method="POST" enctype="multipart/form-data" id="hubMarkPaidForm">
+                    <?php csrf_field(); ?>
+                    <input type="hidden" name="return_to" value="site_hub">
+                    <input type="hidden" name="return_site_id" value="<?= (int) $siteId ?>">
+                    <input type="hidden" name="return_cat_id" id="hubMarkPaidReturnCatId" value="">
+                    <input type="hidden" name="po_id" id="hubMarkPaidPoId" value="">
+                    <input type="hidden" name="payment_status" value="paid">
+                    <div class="modal-header">
+                        <h5 class="modal-title">แนบหลักฐานการจ่ายเงิน</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-2 small text-muted">PO: <span id="hubMarkPaidPoNumber">-</span></div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold d-block">ช่องทางชำระ</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="payment_method" id="hubPayMethodTransfer" value="transfer" checked>
+                                <label class="form-check-label" for="hubPayMethodTransfer">โอนเงิน / ช่องทางอื่น <span class="text-muted small">(แนบหลักฐาน)</span></label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="payment_method" id="hubPayMethodCash" value="cash">
+                                <label class="form-check-label" for="hubPayMethodCash">เงินสด</label>
+                            </div>
+                        </div>
+                        <div class="mb-3 d-none" id="hubMarkPaidCashWrap">
+                            <label class="form-label fw-semibold" for="hubMarkPaidCashBy">จ่ายโดย <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="payment_cash_paid_by" id="hubMarkPaidCashBy" maxlength="255" placeholder="เช่น ชื่อผู้รับเงิน / แผนก">
+                            <div class="form-text">บังคับเมื่อเลือกเงินสด</div>
+                        </div>
+                        <label class="form-label fw-semibold" for="hubMarkPaidFile" id="hubMarkPaidFileLabel">ไฟล์หลักฐาน <span class="text-danger" id="hubMarkPaidFileReq">*</span></label>
+                        <input type="file" name="payment_slips[]" id="hubMarkPaidFile" class="form-control" accept="image/*,.pdf" multiple required>
+                        <div class="form-text">เลือกได้หลายไฟล์ (รูปหรือ PDF)</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">ยกเลิก</button>
+                        <button type="submit" class="btn btn-warning rounded-pill">บันทึก</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <?php if ($menuActions !== []): ?>
     <div class="hub-card p-4 mb-4">
         <h2 class="hub-menu-section-title"><i class="bi bi-lightning-charge me-2" style="color: var(--hub-copper);"></i>ทำรายการ</h2>
         <div class="row hub-action-grid">
             <?php $renderHubMenuItems($menuActions); ?>
+        </div>
+    </div>
+
+    <div class="modal fade hub-embed-action-modal" id="hubEmbedActionModal" tabindex="-1" aria-labelledby="hubEmbedActionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-centered">
+            <div class="modal-content hub-embed-action-modal__content">
+                <div class="modal-header hub-embed-action-modal__header">
+                    <div class="min-w-0 flex-grow-1">
+                        <h5 class="modal-title text-truncate mb-0" id="hubEmbedActionModalLabel">ทำรายการ</h5>
+                        <div class="small text-muted text-truncate"><?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?></div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
+                        <a href="#" id="hubEmbedActionFullLink" class="btn btn-sm btn-outline-secondary rounded-pill" target="_blank" rel="noopener">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>เปิดหน้าเต็ม
+                        </a>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                    </div>
+                </div>
+                <div class="modal-body p-0 hub-embed-action-modal__body">
+                    <div class="hub-embed-action-modal__loading" id="hubEmbedActionLoading" aria-hidden="false">
+                        <div class="spinner-border text-warning" role="status" aria-hidden="true"></div>
+                        <span class="ms-2 text-muted">กำลังโหลด…</span>
+                    </div>
+                    <iframe id="hubEmbedActionFrame"
+                            class="hub-embed-action-modal__frame"
+                            title="ทำรายการ"
+                            src="about:blank"></iframe>
+                </div>
+            </div>
         </div>
     </div>
     <?php endif; ?>
@@ -1402,6 +1598,68 @@ $renderHubMenuItems = static function (array $items): void {
     <?php endif; ?>
 </div>
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
+<?php if ($menuActions !== []): ?>
+<script>
+(function () {
+    var modalEl = document.getElementById('hubEmbedActionModal');
+    if (!modalEl || !window.bootstrap) {
+        return;
+    }
+    var titleEl = document.getElementById('hubEmbedActionModalLabel');
+    var frameEl = document.getElementById('hubEmbedActionFrame');
+    var fullLinkEl = document.getElementById('hubEmbedActionFullLink');
+    var loadingEl = document.getElementById('hubEmbedActionLoading');
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+    function setLoading(on) {
+        if (!loadingEl) {
+            return;
+        }
+        loadingEl.classList.toggle('is-hidden', !on);
+        loadingEl.setAttribute('aria-hidden', on ? 'false' : 'true');
+    }
+
+    function openEmbed(title, embedUrl, fullUrl) {
+        if (titleEl) {
+            titleEl.textContent = title || 'ทำรายการ';
+        }
+        if (fullLinkEl) {
+            fullLinkEl.href = fullUrl || '#';
+            fullLinkEl.classList.toggle('d-none', !fullUrl);
+        }
+        setLoading(true);
+        if (frameEl) {
+            frameEl.onload = function () {
+                setLoading(false);
+            };
+            frameEl.src = embedUrl || 'about:blank';
+        }
+        modal.show();
+    }
+
+    document.querySelectorAll('.js-hub-embed-open').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            openEmbed(
+                btn.getAttribute('data-embed-title') || 'ทำรายการ',
+                btn.getAttribute('data-embed-url') || '',
+                btn.getAttribute('data-full-url') || ''
+            );
+        });
+    });
+
+    modalEl.addEventListener('hidden.bs.modal', function () {
+        setLoading(false);
+        if (frameEl) {
+            frameEl.onload = null;
+            frameEl.src = 'about:blank';
+        }
+    });
+}());
+</script>
+<?php endif; ?>
+<?php if ($canFixIncompletePo): ?>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<?php endif; ?>
 <?php if ($canDeleteSite): ?>
 <script>
 (function () {
@@ -1798,6 +2056,28 @@ $renderHubMenuItems = static function (array $items): void {
     var docsModalEl = document.getElementById('hubCatDocsModal');
     var docsNameEl = document.getElementById('hubCatDocsModalName');
     var docsBodyEl = document.getElementById('hubCatDocsModalBody');
+    var currentDocsCatId = '';
+    var canFixIncompletePo = <?= $canFixIncompletePo ? 'true' : 'false' ?>;
+    var openDocsCatId = <?= (int) $openDocsCatId ?>;
+    var catNameById = {};
+    document.querySelectorAll('.hub-cat-docs-open').forEach(function (btn) {
+        var cid = String(btn.getAttribute('data-cat-id') || '');
+        if (cid) {
+            catNameById[cid] = btn.getAttribute('data-cat-name') || '';
+        }
+    });
+    var detailModalEl = document.getElementById('hubDocDetailModal');
+    var detailTitleEl = document.getElementById('hubDocDetailModalTitle');
+    var detailNumberEl = document.getElementById('hubDocDetailModalNumber');
+    var detailBadgeEl = document.getElementById('hubDocDetailModalBadge');
+    var detailBodyEl = document.getElementById('hubDocDetailModalBody');
+    var detailEditBtn = document.getElementById('hubDocDetailEditBtn');
+    var detailDeleteBtn = document.getElementById('hubDocDetailDeleteBtn');
+    var detailFullBtn = document.getElementById('hubDocDetailFullBtn');
+    var actionHandlerUrl = <?= json_encode(app_path('actions/action-handler.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var csrfToken = <?= json_encode(function_exists('csrf_token') ? csrf_token() : '', JSON_UNESCAPED_UNICODE) ?>;
+    var hubReturnUrl = <?= json_encode($hubUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var currentDetail = null;
 
     function escHtml(value) {
         return String(value || '')
@@ -1823,17 +2103,44 @@ $renderHubMenuItems = static function (array $items): void {
     function buildDocRows(docs, type) {
         var rows = '';
         var list = docs || [];
-        var badgeClass = type === 'pr' ? 'hub-cat-doc-badge--pr' : 'hub-cat-doc-badge--po';
-        var badgeLabel = type === 'pr' ? 'PR' : 'PO';
         list.forEach(function (doc) {
             var cancelled = isCancelled(doc.status);
+            var incomplete = type === 'po' && !cancelled && !!doc.incomplete;
             var rowClass = cancelled ? 'hub-cat-doc-cancelled' : '';
-            var linkClass = 'fw-semibold text-decoration-none' + (cancelled ? ' text-danger' : '');
+            var linkClass = 'hub-cat-doc-open fw-semibold text-decoration-none' + (cancelled ? ' text-danger' : '');
+            var docId = parseInt(doc.id || 0, 10) || 0;
+            var sourceHtml = escHtml(doc.source || '—');
+            var sourceCellClass = 'hub-cat-doc-source';
+            if (incomplete) {
+                sourceCellClass += ' hub-cat-doc-source--incomplete';
+                var reasons = Array.isArray(doc.missing_reasons) ? doc.missing_reasons : [];
+                reasons.forEach(function (reason) {
+                    var reasonText = String(reason || '');
+                    var fixKind = '';
+                    if (reasonText.indexOf('หลักฐาน') !== -1 || reasonText.indexOf('ชำระ') !== -1) {
+                        fixKind = 'payment';
+                    } else if (reasonText.indexOf('ใบกำกับ') !== -1) {
+                        fixKind = 'invoice';
+                    }
+                    if (canFixIncompletePo && fixKind) {
+                        sourceHtml += ' · <button type="button" class="hub-cat-doc-missing js-hub-fix-incomplete"'
+                            + ' data-fix-kind="' + fixKind + '"'
+                            + ' data-po-id="' + docId + '"'
+                            + ' data-po-number="' + escHtml(doc.number || '') + '"'
+                            + ' data-po-total="' + escHtml(String(Number(doc.net_amount || doc.amount || 0).toFixed(2))) + '"'
+                            + ' data-po-vat="' + escHtml(String(Number(doc.vat_amount || 0).toFixed(2))) + '"'
+                            + ' data-po-issue-date="' + escHtml(doc.issue_date_ymd || '') + '"'
+                            + '>' + escHtml(reasonText) + '</button>';
+                    } else {
+                        sourceHtml += ' · <span class="hub-cat-doc-missing" style="cursor:default;">' + escHtml(reasonText) + '</span>';
+                    }
+                });
+            }
+            var amountClass = incomplete ? 'text-end hub-cat-doc-incomplete-amt' : 'text-end fw-semibold';
             rows += '<tr class="' + rowClass + '">';
-            rows += '<td><span class="hub-cat-doc-badge ' + badgeClass + '">' + badgeLabel + '</span></td>';
-            rows += '<td><a href="' + escHtml(doc.url || '#') + '" class="' + linkClass + '" target="_blank" rel="noopener">' + escHtml(doc.number || '') + '</a></td>';
-            rows += '<td class="hub-cat-doc-source" title="' + escHtml(doc.source || '—') + '">' + escHtml(doc.source || '—') + '</td>';
-            rows += '<td class="text-end fw-semibold">' + formatMoney(doc.net_amount || doc.amount || 0) + '</td>';
+            rows += '<td><button type="button" class="' + linkClass + '" data-doc-type="' + type + '" data-doc-id="' + docId + '" title="ดูรายละเอียด">' + escHtml(doc.number || '') + '</button></td>';
+            rows += '<td class="' + sourceCellClass + '" title="' + escHtml(doc.source || '—') + '">' + sourceHtml + '</td>';
+            rows += '<td class="' + amountClass + '">' + formatMoney(doc.net_amount || doc.amount || 0) + '</td>';
             rows += '</tr>';
         });
         return rows;
@@ -1843,6 +2150,7 @@ $renderHubMenuItems = static function (array $items): void {
         if (!docsBodyEl) {
             return;
         }
+        currentDocsCatId = String(catId || '');
         var docs = docsMap[catId] || docsMap[String(catId)] || { prs: [], pos: [], total: 0 };
         if (docsNameEl) {
             docsNameEl.textContent = catName || '';
@@ -1858,17 +2166,323 @@ $renderHubMenuItems = static function (array $items): void {
             html += '<div class="mb-4">';
             html += '<h6 class="hub-cat-ref-modal__section-title"><i class="bi bi-cart-check me-1 text-warning"></i>ใบขอซื้อ (PR) · ' + prs.length + ' รายการ</h6>';
             html += '<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0 hub-cat-ref-modal__table">';
-            html += '<thead class="table-light"><tr><th style="width:3.5rem;">ประเภท</th><th>เลขที่</th><th>แหล่งที่ซื้อ</th><th class="text-end">ยอดสุทธิ</th></tr></thead>';
+            html += '<thead class="table-light"><tr><th>เลขที่เอกสาร</th><th>ชื่อผู้ขายสินค้า/บริการ</th><th class="text-end">ยอดสุทธิ</th></tr></thead>';
             html += '<tbody>' + buildDocRows(prs, 'pr') + '</tbody></table></div></div>';
         }
         if (pos.length > 0) {
             html += '<div class="mb-0">';
             html += '<h6 class="hub-cat-ref-modal__section-title"><i class="bi bi-receipt me-1 text-success"></i>ใบสั่งซื้อ (PO) · ' + pos.length + ' รายการ</h6>';
             html += '<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0 hub-cat-ref-modal__table">';
-            html += '<thead class="table-light"><tr><th style="width:3.5rem;">ประเภท</th><th>เลขที่</th><th>แหล่งที่ซื้อ</th><th class="text-end">ยอดสุทธิ</th></tr></thead>';
+            html += '<thead class="table-light"><tr><th>เลขที่เอกสาร</th><th>ชื่อผู้ขายสินค้า/บริการ</th><th class="text-end">ยอดสุทธิ</th></tr></thead>';
             html += '<tbody>' + buildDocRows(pos, 'po') + '</tbody></table></div></div>';
         }
         docsBodyEl.innerHTML = html;
+    }
+
+    function setDetailActions(payload) {
+        currentDetail = payload || null;
+        if (detailFullBtn) {
+            if (payload && payload.view_url) {
+                detailFullBtn.href = String(payload.view_url);
+                detailFullBtn.classList.remove('disabled');
+                detailFullBtn.removeAttribute('aria-disabled');
+                detailFullBtn.removeAttribute('tabindex');
+                detailFullBtn.title = 'เปิดหน้าเอกสารแบบเต็มรูปแบบ';
+            } else {
+                detailFullBtn.href = '#';
+                detailFullBtn.classList.add('disabled');
+                detailFullBtn.setAttribute('aria-disabled', 'true');
+                detailFullBtn.setAttribute('tabindex', '-1');
+                detailFullBtn.title = 'ไม่พบลิงก์เอกสาร';
+            }
+        }
+        if (detailEditBtn) {
+            if (payload && payload.can_edit && payload.edit_url) {
+                detailEditBtn.disabled = false;
+                detailEditBtn.classList.remove('disabled');
+                detailEditBtn.title = 'แก้ไขเอกสาร';
+            } else {
+                detailEditBtn.disabled = true;
+                detailEditBtn.classList.add('disabled');
+                detailEditBtn.title = 'ไม่มีสิทธิ์แก้ไข หรือเอกสารถูกล็อก';
+            }
+        }
+        if (detailDeleteBtn) {
+            if (payload && payload.can_delete) {
+                detailDeleteBtn.disabled = false;
+                detailDeleteBtn.classList.remove('disabled');
+                detailDeleteBtn.title = 'ลบเอกสาร (ต้องใส่รหัสผ่าน)';
+            } else {
+                detailDeleteBtn.disabled = true;
+                detailDeleteBtn.classList.add('disabled');
+                detailDeleteBtn.title = (payload && payload.delete_blocked_reason)
+                    ? String(payload.delete_blocked_reason)
+                    : 'ไม่มีสิทธิ์ลบเอกสาร';
+            }
+        }
+    }
+
+    function renderDetailPayload(payload) {
+        if (!detailBodyEl) {
+            return;
+        }
+        if (!payload || !payload.ok) {
+            detailBodyEl.innerHTML = '<p class="text-danger mb-0">ไม่พบข้อมูลเอกสาร</p>';
+            setDetailActions(null);
+            return;
+        }
+        if (detailTitleEl) {
+            detailTitleEl.textContent = payload.title || 'รายละเอียดเอกสาร';
+        }
+        if (detailNumberEl) {
+            detailNumberEl.textContent = payload.number || '';
+        }
+        if (detailBadgeEl) {
+            var label = String(payload.status_label || '');
+            if (label) {
+                detailBadgeEl.textContent = label;
+                detailBadgeEl.className = 'badge rounded-pill ms-2 align-middle ' + escHtml(payload.status_badge || 'text-bg-secondary');
+                detailBadgeEl.classList.remove('d-none');
+            } else {
+                detailBadgeEl.classList.add('d-none');
+            }
+        }
+
+        var meta = Array.isArray(payload.meta) ? payload.meta : [];
+        var items = Array.isArray(payload.items) ? payload.items : [];
+        var totals = Array.isArray(payload.totals) ? payload.totals : [];
+        var html = '';
+
+        html += '<div class="table-responsive mb-3">';
+        html += '<table class="table table-sm align-middle mb-0 hub-cat-ref-modal__table hub-doc-detail-meta">';
+        html += '<tbody>';
+        meta.forEach(function (row) {
+            html += '<tr>';
+            html += '<th scope="row" class="hub-doc-detail-meta__label">' + escHtml(row.label || '') + '</th>';
+            html += '<td class="hub-doc-detail-meta__value">' + escHtml(row.value || '—') + '</td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+
+        html += '<h6 class="hub-cat-ref-modal__section-title"><i class="bi bi-list-ul me-1 text-warning"></i>รายการสินค้า / บริการ · ' + items.length + ' รายการ</h6>';
+        html += '<div class="table-responsive mb-3">';
+        html += '<table class="table table-sm table-hover align-middle mb-0 hub-cat-ref-modal__table">';
+        html += '<thead class="table-light"><tr>';
+        html += '<th class="text-start">รายละเอียด</th>';
+        html += '<th class="text-center" style="width:5.5rem;">จำนวน</th>';
+        html += '<th class="text-center" style="width:4.5rem;">หน่วย</th>';
+        html += '<th class="text-end" style="width:7rem;">ราคา/หน่วย</th>';
+        html += '<th class="text-end" style="width:6rem;">ส่วนลด</th>';
+        html += '<th class="text-end" style="width:7rem;">ยอดรวม</th>';
+        html += '</tr></thead><tbody>';
+        if (items.length === 0) {
+            html += '<tr><td colspan="6" class="text-center text-muted py-3">ไม่พบรายการสินค้า / บริการ</td></tr>';
+        } else {
+            items.forEach(function (item) {
+                var desc = escHtml(item.description || '');
+                if (item.vat_exempt) {
+                    desc += ' <span class="text-muted small">(ไม่คิด VAT)</span>';
+                }
+                html += '<tr>';
+                html += '<td class="text-start fw-semibold">' + desc + '</td>';
+                html += '<td class="text-center">' + formatMoney(item.quantity || 0) + '</td>';
+                html += '<td class="text-center text-muted">' + escHtml(item.unit || '—') + '</td>';
+                html += '<td class="text-end">' + formatMoney(item.unit_price || 0) + '</td>';
+                html += '<td class="text-end text-muted">' + escHtml(item.discount || '—') + '</td>';
+                html += '<td class="text-end fw-semibold">' + formatMoney(item.total || 0) + '</td>';
+                html += '</tr>';
+            });
+        }
+        html += '</tbody></table></div>';
+
+        if (totals.length > 0) {
+            html += '<div class="table-responsive">';
+            html += '<table class="table table-sm align-middle mb-0 hub-cat-ref-modal__table hub-doc-detail-totals">';
+            html += '<tbody>';
+            totals.forEach(function (row) {
+                var rowClass = row.emphasis ? ' hub-doc-detail-totals__emphasis' : '';
+                html += '<tr class="' + rowClass + '">';
+                html += '<th scope="row" class="text-end">' + escHtml(row.label || '') + '</th>';
+                html += '<td class="text-end fw-semibold" style="width:9rem;">' + formatMoney(row.value || 0) + '</td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table></div>';
+        }
+
+        detailBodyEl.innerHTML = html;
+        setDetailActions(payload);
+    }
+
+    function openDocDetail(type, id) {
+        if (!detailModalEl || !window.bootstrap || !id) {
+            return;
+        }
+        currentDetail = null;
+        if (detailTitleEl) {
+            detailTitleEl.textContent = type === 'pr' ? 'ใบขอซื้อ (PR)' : 'ใบสั่งซื้อ (PO)';
+        }
+        if (detailNumberEl) {
+            detailNumberEl.textContent = '';
+        }
+        if (detailBadgeEl) {
+            detailBadgeEl.classList.add('d-none');
+        }
+        if (detailBodyEl) {
+            detailBodyEl.innerHTML = '<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>กำลังโหลดรายละเอียด…</p>';
+        }
+        setDetailActions(null);
+        window.bootstrap.Modal.getOrCreateInstance(detailModalEl).show();
+
+        var apiType = type === 'pr' ? 'purchase_request' : 'purchase_order';
+        var url = actionHandlerUrl
+            + '?action=get_data&type=' + encodeURIComponent(apiType)
+            + '&id=' + encodeURIComponent(String(id))
+            + '&_csrf=' + encodeURIComponent(csrfToken);
+
+        fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(function (res) {
+                return res.json().then(function (data) {
+                    return { ok: res.ok, data: data };
+                });
+            })
+            .then(function (result) {
+                if (!result.ok || !result.data || result.data.ok === false) {
+                    renderDetailPayload(null);
+                    return;
+                }
+                renderDetailPayload(result.data);
+            })
+            .catch(function () {
+                if (detailBodyEl) {
+                    detailBodyEl.innerHTML = '<p class="text-danger mb-0">โหลดรายละเอียดไม่สำเร็จ กรุณาลองใหม่</p>';
+                }
+                setDetailActions(null);
+            });
+    }
+
+    function submitDocDelete(password) {
+        if (!currentDetail || !currentDetail.can_delete) {
+            return;
+        }
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = actionHandlerUrl;
+        form.style.display = 'none';
+        var pairs = [
+            ['action', String(currentDetail.delete_action || '')],
+            ['id', String(currentDetail.id || '')],
+            ['_csrf', csrfToken],
+            ['confirm_password', password],
+            ['redirect_to', hubReturnUrl]
+        ];
+        if (currentDetail.delete_type) {
+            pairs.push(['type', String(currentDetail.delete_type)]);
+        }
+        pairs.forEach(function (pair) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = pair[0];
+            inp.value = pair[1];
+            form.appendChild(inp);
+        });
+        document.body.appendChild(form);
+        if (window.TncLoadingOverlay && typeof window.TncLoadingOverlay.show === 'function') {
+            window.TncLoadingOverlay.show();
+        }
+        form.submit();
+    }
+
+    function confirmDocDelete() {
+        if (!currentDetail || !currentDetail.can_delete) {
+            return;
+        }
+        if (typeof Swal === 'undefined') {
+            var pw = window.prompt('กรุณาใส่รหัสผ่านเพื่อยืนยันการลบ');
+            if (pw && String(pw).trim()) {
+                submitDocDelete(String(pw).trim());
+            }
+            return;
+        }
+        Swal.fire({
+            title: 'ยืนยันลบเอกสาร?',
+            html: 'จะลบ <strong>' + escHtml(currentDetail.number || 'เอกสารนี้') + '</strong> ถาวร<br>กรุณาใส่<strong>รหัสผ่านของคุณ</strong>',
+            icon: 'warning',
+            input: 'password',
+            inputPlaceholder: 'รหัสผ่าน',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#adb5bd',
+            confirmButtonText: 'ยืนยัน ลบเอกสาร',
+            cancelButtonText: 'ยกเลิก',
+            reverseButtons: true,
+            focusCancel: true,
+            didOpen: function () {
+                if (typeof window.tncSwalAttachPasswordReveal === 'function') {
+                    window.tncSwalAttachPasswordReveal();
+                }
+            },
+            preConfirm: function (pw) {
+                if (!pw || !String(pw).trim()) {
+                    Swal.showValidationMessage('กรุณากรอกรหัสผ่าน');
+                    return false;
+                }
+                return String(pw);
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed || !result.value) {
+                return;
+            }
+            submitDocDelete(result.value);
+        });
+    }
+
+    if (docsBodyEl) {
+        docsBodyEl.addEventListener('click', function (ev) {
+            var btn = ev.target.closest('.hub-cat-doc-open');
+            if (!btn) {
+                return;
+            }
+            ev.preventDefault();
+            var type = btn.getAttribute('data-doc-type') || '';
+            var id = parseInt(btn.getAttribute('data-doc-id') || '0', 10) || 0;
+            if ((type === 'pr' || type === 'po') && id > 0) {
+                openDocDetail(type, id);
+            }
+        });
+    }
+
+    if (detailEditBtn) {
+        detailEditBtn.addEventListener('click', function () {
+            if (!currentDetail || !currentDetail.can_edit || !currentDetail.edit_url) {
+                return;
+            }
+            window.location.href = currentDetail.edit_url;
+        });
+    }
+
+    if (detailDeleteBtn) {
+        detailDeleteBtn.addEventListener('click', function () {
+            confirmDocDelete();
+        });
+    }
+
+    if (detailModalEl) {
+        detailModalEl.addEventListener('show.bs.modal', function () {
+            var openCount = document.querySelectorAll('.modal.show').length;
+            detailModalEl.style.zIndex = String(1055 + openCount * 20);
+            setTimeout(function () {
+                var backs = document.querySelectorAll('.modal-backdrop');
+                if (backs.length > 1) {
+                    backs[backs.length - 1].style.zIndex = String(1050 + openCount * 20);
+                }
+            }, 10);
+        });
+        detailModalEl.addEventListener('hidden.bs.modal', function () {
+            currentDetail = null;
+            if (docsModalEl && docsModalEl.classList.contains('show')) {
+                document.body.classList.add('modal-open');
+            }
+        });
     }
 
     document.querySelectorAll('.hub-cat-docs-open').forEach(function (btn) {
@@ -1881,8 +2495,233 @@ $renderHubMenuItems = static function (array $items): void {
             }
         });
     });
+
+    if (docsBodyEl) {
+        docsBodyEl.addEventListener('click', function (e) {
+            var fixBtn = e.target.closest('.js-hub-fix-incomplete');
+            if (!fixBtn || !canFixIncompletePo) {
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            var kind = fixBtn.getAttribute('data-fix-kind') || '';
+            var payload = {
+                poId: fixBtn.getAttribute('data-po-id') || '',
+                poNumber: fixBtn.getAttribute('data-po-number') || '-',
+                total: fixBtn.getAttribute('data-po-total') || '0.00',
+                vat: fixBtn.getAttribute('data-po-vat') || '0.00',
+                issueDate: fixBtn.getAttribute('data-po-issue-date') || '',
+                catId: currentDocsCatId,
+            };
+            if (kind === 'payment' && typeof window.tncHubOpenMarkPaidModal === 'function') {
+                window.tncHubOpenMarkPaidModal(payload);
+            } else if (kind === 'invoice' && typeof window.tncHubOpenReceiveBillModal === 'function') {
+                window.tncHubOpenReceiveBillModal(payload);
+            }
+        });
+    }
+
+    if (openDocsCatId > 0) {
+        var autoName = String(openDocsCatId);
+        var autoNameName = catNameById[autoName] || '';
+        if (!autoNameName) {
+            var matchBtn = document.querySelector('.hub-cat-docs-open[data-cat-id="' + autoName + '"]');
+            if (matchBtn) {
+                autoNameName = matchBtn.getAttribute('data-cat-name') || '';
+            }
+        }
+        renderDocsModal(autoName, autoNameName);
+        if (docsModalEl && window.bootstrap) {
+            window.bootstrap.Modal.getOrCreateInstance(docsModalEl).show();
+        }
+    }
 }());
 </script>
+<?php if ($canFixIncompletePo): ?>
+<script>
+(function () {
+    function stackModal(el) {
+        if (!el) return;
+        el.addEventListener('show.bs.modal', function () {
+            var openCount = document.querySelectorAll('.modal.show').length;
+            el.style.zIndex = String(1065 + openCount * 20);
+            setTimeout(function () {
+                var backs = document.querySelectorAll('.modal-backdrop');
+                if (backs.length > 0) {
+                    backs[backs.length - 1].style.zIndex = String(1060 + openCount * 20);
+                }
+            }, 10);
+        });
+        el.addEventListener('hidden.bs.modal', function () {
+            var docsModalEl = document.getElementById('hubCatDocsModal');
+            if (docsModalEl && docsModalEl.classList.contains('show')) {
+                document.body.classList.add('modal-open');
+            }
+        });
+    }
+
+    function fetchPoRow(poId) {
+        var url = <?= json_encode(app_path('actions/live-datasets.php'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
+            + '?dataset=po_action_row&po_id=' + encodeURIComponent(String(poId || ''));
+        return fetch(url, { credentials: 'same-origin' })
+            .then(function (r) {
+                if (!r.ok) throw new Error('fetch_failed');
+                return r.json();
+            })
+            .then(function (d) {
+                if (!d || !d.ok || !d.row) throw new Error('bad_payload');
+                return d.row;
+            });
+    }
+
+    function ymdToDmy(ymd) {
+        var m = String(ymd || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+        return m ? (m[3] + '/' + m[2] + '/' + m[1]) : '';
+    }
+
+    var receiveEl = document.getElementById('hubReceiveBillModal');
+    if (receiveEl && window.bootstrap) {
+        stackModal(receiveEl);
+        var receiveModal = bootstrap.Modal.getOrCreateInstance(receiveEl);
+        var poIdInput = document.getElementById('hubReceiveBillPoId');
+        var poNoEl = document.getElementById('hubReceiveBillPoNumber');
+        var totalEl = document.getElementById('hubReceiveBillTotalAmount');
+        var vatEl = document.getElementById('hubReceiveBillVatAmount');
+        var invNoEl = document.getElementById('hubReceiveBillInvoiceNo');
+        var invDateEl = document.getElementById('hubReceiveBillInvoiceDate');
+        var returnCatEl = document.getElementById('hubReceiveBillReturnCatId');
+        var formEl = document.getElementById('hubReceiveBillForm');
+        var receiveBillDateFp = null;
+        if (invDateEl && typeof flatpickr === 'function') {
+            receiveBillDateFp = flatpickr(invDateEl, { dateFormat: 'd/m/Y', allowInput: true });
+        }
+
+        function normalizeInvoiceDateForSubmit() {
+            var raw = (invDateEl.value || '').trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return true;
+            var m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (!m) return false;
+            var dd = Number(m[1]);
+            var mm = Number(m[2]);
+            var yyyy = Number(m[3]);
+            var d = new Date(yyyy, mm - 1, dd);
+            if (d.getFullYear() !== yyyy || d.getMonth() !== (mm - 1) || d.getDate() !== dd) return false;
+            invDateEl.value = yyyy + '-' + String(mm).padStart(2, '0') + '-' + String(dd).padStart(2, '0');
+            return true;
+        }
+
+        window.tncHubOpenReceiveBillModal = function (data) {
+            var poId = data.poId || '';
+            if (returnCatEl) returnCatEl.value = data.catId || '';
+            fetchPoRow(poId)
+                .then(function (row) {
+                    if (row.status === 'cancelled') {
+                        alert('ใบสั่งซื้อนี้ถูกยกเลิกแล้ว');
+                        window.location.reload();
+                        return;
+                    }
+                    poIdInput.value = String(row.id || poId);
+                    poNoEl.textContent = row.po_number || data.poNumber || '-';
+                    totalEl.value = Number(row.billed_total_amount ?? row.total_amount ?? data.total ?? 0).toFixed(2);
+                    vatEl.value = Number(row.billed_vat_amount ?? row.vat_amount ?? data.vat ?? 0).toFixed(2);
+                    invNoEl.value = row.supplier_invoice_no || '';
+                    var issueDmy = ymdToDmy(row.issue_date || data.issueDate || '');
+                    if (receiveBillDateFp) {
+                        if (issueDmy) receiveBillDateFp.setDate(issueDmy, true, 'd/m/Y');
+                        else receiveBillDateFp.clear();
+                    } else {
+                        invDateEl.value = issueDmy;
+                    }
+                    receiveModal.show();
+                })
+                .catch(function () {
+                    poIdInput.value = String(poId);
+                    poNoEl.textContent = data.poNumber || '-';
+                    totalEl.value = Number(data.total || 0).toFixed(2);
+                    vatEl.value = Number(data.vat || 0).toFixed(2);
+                    invNoEl.value = '';
+                    var issueDmy = ymdToDmy(data.issueDate || '');
+                    if (receiveBillDateFp) {
+                        if (issueDmy) receiveBillDateFp.setDate(issueDmy, true, 'd/m/Y');
+                        else receiveBillDateFp.clear();
+                    } else {
+                        invDateEl.value = issueDmy;
+                    }
+                    receiveModal.show();
+                });
+        };
+
+        formEl?.addEventListener('submit', function (e) {
+            var totalVal = parseFloat(String(totalEl.value || ''));
+            var vatVal = parseFloat(String(vatEl.value || ''));
+            if (!Number.isFinite(totalVal) || !Number.isFinite(vatVal) || totalVal < 0 || vatVal < 0) {
+                e.preventDefault();
+                alert('ยอดเงินรวมและยอด VAT ต้องไม่เป็นค่าว่างหรือติดลบ');
+                return;
+            }
+            if (!normalizeInvoiceDateForSubmit()) {
+                e.preventDefault();
+                alert('กรุณากรอกวันที่บนใบกำกับภาษี/บิลซื้อเป็น วัน/เดือน/ปี เช่น 29/05/2026');
+                invDateEl.focus();
+            }
+        });
+    }
+
+    var markPaidEl = document.getElementById('hubMarkPaidModal');
+    if (markPaidEl && window.bootstrap) {
+        stackModal(markPaidEl);
+        var markPaidModal = bootstrap.Modal.getOrCreateInstance(markPaidEl);
+        var markPoId = document.getElementById('hubMarkPaidPoId');
+        var markPoNo = document.getElementById('hubMarkPaidPoNumber');
+        var markFile = document.getElementById('hubMarkPaidFile');
+        var markFileReq = document.getElementById('hubMarkPaidFileReq');
+        var payTransfer = document.getElementById('hubPayMethodTransfer');
+        var payCash = document.getElementById('hubPayMethodCash');
+        var cashWrap = document.getElementById('hubMarkPaidCashWrap');
+        var cashBy = document.getElementById('hubMarkPaidCashBy');
+        var markReturnCat = document.getElementById('hubMarkPaidReturnCatId');
+        var markForm = document.getElementById('hubMarkPaidForm');
+
+        function syncMarkPaidCashUi() {
+            var isCash = !!(payCash && payCash.checked);
+            if (cashWrap) cashWrap.classList.toggle('d-none', !isCash);
+            if (cashBy) cashBy.required = isCash;
+            if (markFile) markFile.required = !isCash;
+            if (markFileReq) markFileReq.classList.toggle('d-none', isCash);
+            if (!isCash && cashBy) cashBy.value = '';
+        }
+        payTransfer?.addEventListener('change', syncMarkPaidCashUi);
+        payCash?.addEventListener('change', syncMarkPaidCashUi);
+
+        window.tncHubOpenMarkPaidModal = function (data) {
+            if (markReturnCat) markReturnCat.value = data.catId || '';
+            markPoId.value = String(data.poId || '');
+            markPoNo.textContent = data.poNumber || '-';
+            if (payTransfer) payTransfer.checked = true;
+            if (markFile) markFile.value = '';
+            syncMarkPaidCashUi();
+            markPaidModal.show();
+        };
+
+        markForm?.addEventListener('submit', function (e) {
+            var isCash = !!(payCash && payCash.checked);
+            if (isCash) {
+                if (!cashBy || !(cashBy.value || '').trim()) {
+                    e.preventDefault();
+                    alert('กรุณาระบุผู้จ่ายเมื่อเลือกเงินสด');
+                    cashBy?.focus();
+                }
+                return;
+            }
+            if (!markFile || !markFile.files || markFile.files.length === 0) {
+                e.preventDefault();
+                alert('กรุณาแนบไฟล์หลักฐานอย่างน้อย 1 ไฟล์');
+            }
+        });
+    }
+})();
+</script>
+<?php endif; ?>
 <?php endif; ?>
 <?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>

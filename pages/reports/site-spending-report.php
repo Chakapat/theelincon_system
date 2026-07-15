@@ -244,7 +244,7 @@ foreach (Db::tableRows('purchase_requests') as $pr) {
 }
 
 /**
- * คืนค่า [siteId, siteLabel] โดยลำดับ: site_id ของเอกสาร -> site ของ PR -> ไม่ระบุ
+ * คืนค่า [key, siteLabel, siteId] โดยลำดับ: site_id ของเอกสาร -> site ของ PR -> ไม่ระบุ
  */
 $resolveSite = static function (array $row) use ($siteNameById, $prById): array {
     $siteId = (int) ($row['site_id'] ?? 0);
@@ -266,15 +266,16 @@ $resolveSite = static function (array $row) use ($siteNameById, $prById): array 
     }
     $key = $siteId > 0 ? ('id:' . $siteId) : ('name:' . mb_strtolower($siteName));
 
-    return [$key, $siteName];
+    return [$key, $siteName, $siteId];
 };
 
 // ---------- รวมยอดต่อไซต์ ----------
 $sites = [];
-$ensureSite = static function (string $key, string $label) use (&$sites): void {
+$ensureSite = static function (string $key, string $label, int $siteId = 0) use (&$sites): void {
     if (!isset($sites[$key])) {
         $sites[$key] = [
             'label' => $label,
+            'site_id' => $siteId,
             'pr_count' => 0,
             'pr_total' => 0.0,
             'po_count' => 0,
@@ -353,8 +354,8 @@ foreach (Db::tableRows('purchase_orders') as $po) {
     if ($paidDate === '' || $paidDate < $fromDate || $paidDate > $toDate) {
         continue;
     }
-    [$key, $label] = $resolveSite($po);
-    $ensureSite($key, $label);
+    [$key, $label, $siteId] = $resolveSite($po);
+    $ensureSite($key, $label, $siteId);
 
     $orderTotal = round((float) (tnc_purchase_report_amounts_from_po($po, $poItems)['net'] ?? 0), 2);
     if ($orderTotal <= 0.0) {
@@ -809,9 +810,19 @@ $autoPrint = ($_GET['print'] ?? '') === '1';
                         </tr>
                     <?php else: ?>
                         <?php foreach ($sites as $s): ?>
+                            <?php
+                            $rowSiteId = (int) ($s['site_id'] ?? 0);
+                            $rowSiteLabel = (string) ($s['label'] ?? '');
+                            ?>
                             <tr class="site-row">
                                 <th scope="row" class="col-site">
-                                    <span class="site-name"><?= h($s['label']) ?></span>
+                                    <?php if ($rowSiteId > 0): ?>
+                                        <a class="site-name site-name--link" href="<?= h(app_path('pages/sites/site-hub.php?site_id=' . $rowSiteId)) ?>" title="เปิด Site Hub">
+                                            <?= h($rowSiteLabel) ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="site-name"><?= h($rowSiteLabel) ?></span>
+                                    <?php endif; ?>
                                 </th>
                                 <?php foreach ($pivotColumns as $col): ?>
                                     <?php $amt = $siteCatAmount($s, $col['key']); ?>

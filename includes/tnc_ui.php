@@ -40,9 +40,9 @@ if (!function_exists('tnc_ui_back_previous_button')) {
      */
     function tnc_ui_back_previous_button(array $options = []): string
     {
-        $label = trim((string) ($options['label'] ?? 'กลับหน้าก่อนหน้า'));
+        $label = trim((string) ($options['label'] ?? 'ย้อนกลับ'));
         if ($label === '') {
-            $label = 'กลับหน้าก่อนหน้า';
+            $label = 'ย้อนกลับ';
         }
         $fallback = trim((string) ($options['fallback'] ?? ''));
         $extraClass = trim((string) ($options['class'] ?? ''));
@@ -126,7 +126,7 @@ if (!function_exists('tnc_ui_page_head')) {
         if ($backPrevious) {
             $actionBits[] = tnc_ui_back_previous_button([
                 'fallback' => (string) ($options['back_fallback'] ?? ''),
-                'label' => (string) ($options['back_label'] ?? 'กลับหน้าก่อนหน้า'),
+                'label' => (string) ($options['back_label'] ?? 'ย้อนกลับ'),
                 'no_print' => true,
             ]);
         }
@@ -191,7 +191,7 @@ if (!function_exists('tnc_ui_purchase_page_head')) {
         if ($backPrevious) {
             $actionBits[] = tnc_ui_back_previous_button([
                 'fallback' => (string) ($options['back_fallback'] ?? ''),
-                'label' => (string) ($options['back_label'] ?? 'กลับหน้าก่อนหน้า'),
+                'label' => (string) ($options['back_label'] ?? 'ย้อนกลับ'),
                 'no_print' => true,
             ]);
         }

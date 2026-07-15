@@ -696,6 +696,17 @@ if (!function_exists('tnc_site_category_format_po_reference')) {
             $netAmount = round((float) ($row['payable_amount'] ?? ($row['gross_amount'] ?? 0)), 2);
         }
         $source = tnc_site_category_document_source($row, 'po');
+        if (!function_exists('tnc_purchase_po_missing_reasons')) {
+            require_once __DIR__ . '/purchase_po_payment_slips.php';
+        }
+        $missingReasons = tnc_purchase_po_missing_reasons($row);
+        $issueDateYmd = '';
+        if (function_exists('tnc_po_issue_date_ymd')) {
+            $issueDateYmd = tnc_po_issue_date_ymd($row);
+        } else {
+            $issueDateYmd = trim((string) ($row['issue_date'] ?? $row['supplier_invoice_date'] ?? ''));
+        }
+        $vatAmount = round((float) ($row['vat_amount'] ?? 0), 2);
 
         return [
             'id' => $id,
@@ -706,8 +717,14 @@ if (!function_exists('tnc_site_category_format_po_reference')) {
             'date' => tnc_site_category_format_doc_date($row),
             'amount' => $netAmount,
             'net_amount' => $netAmount,
+            'vat_amount' => $vatAmount,
             'source' => $source,
             'order_type' => $orderType,
+            'incomplete' => $missingReasons !== [],
+            'missing_reasons' => $missingReasons,
+            'need_payment' => in_array('ขาดหลักฐานการชำระ', $missingReasons, true),
+            'need_invoice' => in_array('ขาดเลขที่ใบกำกับ', $missingReasons, true),
+            'issue_date_ymd' => $issueDateYmd,
         ];
     }
 }

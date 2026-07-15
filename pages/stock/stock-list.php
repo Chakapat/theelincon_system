@@ -18,10 +18,15 @@ if (!isset($_SESSION['user_id'])) {
 
 $canManage = user_is_finance_role();
 $siteId = isset($_GET['site_id']) ? (int) $_GET['site_id'] : 0;
+$isEmbed = (string) ($_GET['embed'] ?? '') === '1' && $siteId > 0;
 $dateFrom = trim((string) ($_GET['date_from'] ?? ''));
 $dateTo = trim((string) ($_GET['date_to'] ?? ''));
 $personQuery = trim((string) ($_GET['person'] ?? ''));
 $productCodeQuery = trim((string) ($_GET['product_code'] ?? ''));
+$embedCssVer = @filemtime(dirname(__DIR__, 2) . '/assets/css/tnc-embed-page.css');
+if (!is_int($embedCssVer) || $embedCssVer <= 0) {
+    $embedCssVer = time();
+}
 
 $sites = Db::tableRows('sites');
 usort($sites, static function (array $a, array $b): int {
@@ -133,12 +138,17 @@ if ($selectedSite !== null) {
         'extra_css' => ['assets/css/stock-list.css'],
         'sarabun_weights' => '400;600;700;800',
     ]); ?>
+    <?php if ($isEmbed): ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-embed-page.css') . '?v=' . $embedCssVer, ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
 </head>
-<body class="tnc-app-body tnc-layout-list">
+<body class="tnc-app-body tnc-layout-list<?= $isEmbed ? ' tnc-embed-page' : '' ?>">
 
+<?php if (!$isEmbed): ?>
 <div class="no-print">
     <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
 </div>
+<?php endif; ?>
 
 <div class="container py-4 pb-5">
     <?php if ($selectedSite === null): ?>
@@ -204,7 +214,8 @@ if ($selectedSite !== null) {
                 ไซต์: <span class="fw-semibold"><?= htmlspecialchars((string) ($selectedSite['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
             </div>
         </div>
-        <div class="d-flex flex-wrap gap-2">
+        <div class="d-flex flex-wrap gap-2 tnc-embed-compact-actions">
+            <?php if (!$isEmbed): ?>
             <?php
             require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
             echo tnc_ui_back_previous_button(['no_print' => true]);
@@ -212,20 +223,21 @@ if ($selectedSite !== null) {
             <a href="<?= htmlspecialchars(app_path('pages/stock/stock-list.php')) ?>" class="btn btn-outline-secondary rounded-pill">
                 <i class="bi bi-geo-alt me-1"></i>เปลี่ยนไซต์
             </a>
-            <a href="<?= htmlspecialchars(app_path('pages/stock/stock-list-report.php')) ?>" class="btn btn-outline-dark rounded-pill">
+            <?php endif; ?>
+            <a href="<?= htmlspecialchars(app_path('pages/stock/stock-list-report.php')) ?>" class="btn btn-outline-dark rounded-pill"<?= $isEmbed ? ' target="_blank" rel="noopener"' : '' ?>>
                 <i class="bi bi-table me-1"></i>รายงานไซต์ × สินค้า
             </a>
             <button type="button" class="btn btn-outline-dark rounded-pill" onclick="window.print()">
                 <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
             </button>
             <?php if ($canManage): ?>
-                <a href="<?= htmlspecialchars(app_path('pages/stock/stock-product-form.php')) ?>?site_id=<?= $siteId ?>" class="btn btn-outline-orange rounded-pill">
+                <a href="<?= htmlspecialchars(app_path('pages/stock/stock-product-form.php')) ?>?site_id=<?= $siteId ?>" class="btn btn-outline-orange rounded-pill"<?= $isEmbed ? ' target="_blank" rel="noopener"' : '' ?>>
                     <i class="bi bi-box me-1"></i>เพิ่มอุปกรณ์
                 </a>
-                <a href="<?= htmlspecialchars(app_path('pages/stock/stock-adjust.php')) ?>?site_id=<?= $siteId ?>" class="btn btn-orange fw-bold rounded-pill">
+                <a href="<?= htmlspecialchars(app_path('pages/stock/stock-adjust.php')) ?>?site_id=<?= $siteId ?>" class="btn btn-orange fw-bold rounded-pill"<?= $isEmbed ? ' target="_blank" rel="noopener"' : '' ?>>
                     <i class="bi bi-plus-lg me-1"></i>บันทึกรายการ
                 </a>
-                <a href="<?= htmlspecialchars(app_path('pages/stock/stock-adjust.php')) ?>?site_id=<?= $siteId ?>&amp;mode=transfer" class="btn btn-outline-orange rounded-pill">
+                <a href="<?= htmlspecialchars(app_path('pages/stock/stock-adjust.php')) ?>?site_id=<?= $siteId ?>&amp;mode=transfer" class="btn btn-outline-orange rounded-pill"<?= $isEmbed ? ' target="_blank" rel="noopener"' : '' ?>>
                     <i class="bi bi-arrow-left-right me-1"></i>โอนไซต์
                 </a>
             <?php endif; ?>
@@ -276,6 +288,9 @@ if ($selectedSite !== null) {
 
     <form id="stockFilterForm" method="get" action="<?= htmlspecialchars(app_path('pages/stock/stock-list.php')) ?>" class="stock-card p-3 mb-3 bg-white no-print">
         <input type="hidden" name="site_id" value="<?= $siteId ?>">
+        <?php if ($isEmbed): ?>
+        <input type="hidden" name="embed" value="1">
+        <?php endif; ?>
         <div class="row g-2 align-items-end">
             <div class="col-12 col-md-2">
                 <label class="form-label small fw-semibold mb-1" for="stockFilterDateFrom">วันที่เริ่ม</label>
@@ -327,7 +342,7 @@ if ($selectedSite !== null) {
                         <tr><td colspan="<?= $canManage ? '9' : '8' ?>" class="text-center text-muted py-5">
                             <div>ไม่พบรายการตามตัวกรอง</div>
                             <?php if ($canManage): ?>
-                                <p class="stock-empty-hint small mb-0 mt-2">ลองปรับตัวกรอง หรือ <a href="<?= htmlspecialchars(app_path('pages/stock/stock-adjust.php')) ?>?site_id=<?= $siteId ?>">บันทึกรายการใหม่</a></p>
+                                <p class="stock-empty-hint small mb-0 mt-2">ลองปรับตัวกรอง หรือ <a href="<?= htmlspecialchars(app_path('pages/stock/stock-adjust.php')) ?>?site_id=<?= $siteId ?>"<?= $isEmbed ? ' target="_blank" rel="noopener"' : '' ?>>บันทึกรายการใหม่</a></p>
                             <?php else: ?>
                                 <p class="stock-empty-hint small mb-0 mt-2">ลองปรับช่วงวันที่หรือคำค้นหา</p>
                             <?php endif; ?>

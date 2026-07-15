@@ -99,6 +99,7 @@ $editLinkedPoViewUrl = $editPrHasLinkedPo
 $siteLockedFromHub = false;
 $lockedSiteHubUrl = '';
 $hubSiteIdParam = !$isEdit ? (int) ($_GET['site_id'] ?? 0) : 0;
+$isEmbed = !$isEdit && (string) ($_GET['embed'] ?? '') === '1';
 if ($hubSiteIdParam > 0 && !$isEdit) {
     foreach ($sites as $siteRowCheck) {
         if ((int) ($siteRowCheck['id'] ?? 0) === $hubSiteIdParam) {
@@ -108,6 +109,13 @@ if ($hubSiteIdParam > 0 && !$isEdit) {
             break;
         }
     }
+}
+if ($isEmbed && !$siteLockedFromHub) {
+    $isEmbed = false;
+}
+$embedCssVer = @filemtime(dirname(__DIR__, 2) . '/assets/css/tnc-embed-page.css');
+if (!is_int($embedCssVer) || $embedCssVer <= 0) {
+    $embedCssVer = time();
 }
 ?>
 
@@ -204,13 +212,20 @@ if ($hubSiteIdParam > 0 && !$isEdit) {
     }
     ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-line-table-mobile.css') . '?v=' . $poLineMobileVer, ENT_QUOTES, 'UTF-8') ?>">
+    <?php if ($isEmbed): ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-embed-page.css') . '?v=' . $embedCssVer, ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
 </head>
-<body class="purchase-module tnc-app-body tnc-layout-form">
+<body class="purchase-module tnc-app-body tnc-layout-form<?= $isEmbed ? ' tnc-embed-page' : '' ?>">
 
+<?php if (!$isEmbed): ?>
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
+<?php endif; ?>
 
 <div class="container container-lg py-4 py-md-5 mb-5 pr-create-wrap" id="pr_page_root">
+    <?php if (!$isEmbed): ?>
     <?php include dirname(__DIR__, 2) . '/components/purchase-subnav.php'; ?>
+    <?php endif; ?>
     <?php if (!empty($_GET['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <?php
@@ -248,11 +263,16 @@ if ($hubSiteIdParam > 0 && !$isEdit) {
             <i class="bi bi-check-circle me-1"></i>PR นี้อนุมัติแล้ว — แก้ไขและบันทึกได้ สถานะอนุมัติจะยังคงอยู่ (ยังออก PO ได้ตามเดิม)
         </div>
     <?php endif; ?>
-    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=<?= htmlspecialchars($prFormAction, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1">
+    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=<?= htmlspecialchars($prFormAction, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1"<?= $isEmbed ? ' target="_top"' : '' ?>>
         <?php csrf_field(); ?>
         <input type="hidden" name="requested_by" value="<?= (int) $editRequestedBy ?>">
         <?php if ($isEdit): ?>
             <input type="hidden" name="pr_id" value="<?= (int) $editId ?>">
+        <?php endif; ?>
+        <?php if ($isEmbed && $siteLockedFromHub): ?>
+            <input type="hidden" name="embed" value="1">
+            <input type="hidden" name="return_to" value="site_hub">
+            <input type="hidden" name="return_site_id" value="<?= (int) $hubSiteIdParam ?>">
         <?php endif; ?>
         <input type="hidden" name="send_line_after_save" id="send_line_after_save" value="0">
         <header class="po-create-hero p-4 p-md-4 mb-4">
@@ -263,9 +283,11 @@ if ($hubSiteIdParam > 0 && !$isEdit) {
                         <span id="pr_page_title_text"><?= $isEdit ? 'แก้ไขใบขอซื้อ (PR)' : 'สร้างใบขอซื้อ (PR)' ?></span>
                     </h1>
                 </div>
+                <?php if (!$isEmbed): ?>
                 <div class="col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-list.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับรายการ PR</a>
                 </div>
+                <?php endif; ?>
             </div>
         </header>
 
@@ -293,7 +315,7 @@ if ($hubSiteIdParam > 0 && !$isEdit) {
                     </select>
                     <?php if ($siteLockedFromHub): ?>
                         <input type="hidden" name="site_id" value="<?= $editSiteId ?>">
-                        <div class="form-text"><i class="bi bi-lock-fill me-1"></i>ล็อกจาก Site Hub — <a href="<?= htmlspecialchars($lockedSiteHubUrl, ENT_QUOTES, 'UTF-8') ?>">กลับเมนูไซต์</a></div>
+                        <div class="form-text"><i class="bi bi-lock-fill me-1"></i>ล็อกจาก Site Hub<?php if (!$isEmbed): ?> — <a href="<?= htmlspecialchars($lockedSiteHubUrl, ENT_QUOTES, 'UTF-8') ?>">กลับเมนูไซต์</a><?php endif; ?></div>
                     <?php endif; ?>
                 </div>
                 <?php endif; ?>

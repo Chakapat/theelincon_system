@@ -63,6 +63,7 @@ $siteCategoryMap = tnc_site_categories_map_by_site();
 $prefillSiteId = isset($_GET['site_id']) ? (int) $_GET['site_id'] : 0;
 $siteLockedFromHub = false;
 $lockedSiteHubUrl = '';
+$isEmbed = (string) ($_GET['embed'] ?? '') === '1';
 if ($prefillSiteId > 0) {
     foreach ($sites as $siteRowCheck) {
         if ((int) ($siteRowCheck['id'] ?? 0) === $prefillSiteId) {
@@ -74,6 +75,13 @@ if ($prefillSiteId > 0) {
     if (!$siteLockedFromHub) {
         $prefillSiteId = 0;
     }
+}
+if ($isEmbed && !$siteLockedFromHub) {
+    $isEmbed = false;
+}
+$embedCssVer = @filemtime(dirname(__DIR__, 2) . '/assets/css/tnc-embed-page.css');
+if (!is_int($embedCssVer) || $embedCssVer <= 0) {
+    $embedCssVer = time();
 }
 $issueDateDisplay = date('d/m/Y');
 $poVatEnabled = 0;
@@ -152,13 +160,20 @@ $items = [[
     }
     ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-line-table-mobile.css') . '?v=' . $poLineMobileVer, ENT_QUOTES, 'UTF-8') ?>">
+    <?php if ($isEmbed): ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-embed-page.css') . '?v=' . $embedCssVer, ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
 </head>
-<body class="purchase-module tnc-app-body tnc-layout-form">
+<body class="purchase-module tnc-app-body tnc-layout-form<?= $isEmbed ? ' tnc-embed-page' : '' ?>">
 
+<?php if (!$isEmbed): ?>
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
+<?php endif; ?>
 
 <div class="container container-lg py-4 py-md-5 mb-5 po-create-wrap">
+    <?php if (!$isEmbed): ?>
     <?php include dirname(__DIR__, 2) . '/components/purchase-subnav.php'; ?>
+    <?php endif; ?>
     <?php if ($errorCode !== ''): ?>
         <div class="alert alert-danger py-2 mb-3">
             <?php
@@ -183,8 +198,13 @@ $items = [[
         <div class="alert alert-warning py-2 mb-3">ยังไม่มีไซต์งานในระบบ — กรุณา<a href="<?= htmlspecialchars(app_path('pages/sites/site-picker.php'), ENT_QUOTES, 'UTF-8') ?>">เพิ่มไซต์งาน</a>ก่อนออก PO</div>
     <?php endif; ?>
 
-    <form action="<?= htmlspecialchars($handlerUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1">
+    <form action="<?= htmlspecialchars($handlerUrl, ENT_QUOTES, 'UTF-8') ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1"<?= $isEmbed ? ' target="_top"' : '' ?>>
         <?php csrf_field(); ?>
+        <?php if ($isEmbed && $siteLockedFromHub): ?>
+            <input type="hidden" name="embed" value="1">
+            <input type="hidden" name="return_to" value="site_hub">
+            <input type="hidden" name="return_site_id" value="<?= (int) $prefillSiteId ?>">
+        <?php endif; ?>
 
         <header class="po-create-hero p-4 p-md-4 mb-4">
             <div class="row align-items-center g-3">
@@ -192,9 +212,11 @@ $items = [[
                     <p class="purchase-page-kicker mb-1">Purchase Module</p>
                     <h1 class="h3 mb-1 fw-bold">ออกใบสั่งซื้อโดยตรง</h1>
                 </div>
+                <?php if (!$isEmbed): ?>
                 <div class="col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
                     <a href="<?= htmlspecialchars($poListUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับรายการ PO</a>
                 </div>
+                <?php endif; ?>
             </div>
         </header>
 
@@ -243,7 +265,7 @@ $items = [[
                     </select>
                     <?php if ($siteLockedFromHub): ?>
                         <input type="hidden" name="site_id" value="<?= $prefillSiteId ?>">
-                        <div class="form-text"><i class="bi bi-lock-fill me-1"></i>ล็อกจาก Site Hub — <a href="<?= htmlspecialchars($lockedSiteHubUrl, ENT_QUOTES, 'UTF-8') ?>">กลับเมนูไซต์</a></div>
+                        <div class="form-text"><i class="bi bi-lock-fill me-1"></i>ล็อกจาก Site Hub<?php if (!$isEmbed): ?> — <a href="<?= htmlspecialchars($lockedSiteHubUrl, ENT_QUOTES, 'UTF-8') ?>">กลับเมนูไซต์</a><?php endif; ?></div>
                     <?php endif; ?>
                 </div>
                 <div class="col-md-6">

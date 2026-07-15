@@ -168,17 +168,7 @@ $poMirrorChecksum = hash('sha256', json_encode(tnc_site_budget_purchase_orders_c
 
 // ---- PO ไม่สมบูรณ์: ยังไม่มีหลักฐานชำระ หรือ ยังไม่มีเลขที่ใบกำกับ (ไม่นับใบที่ยกเลิก) ----
 $poMissingReasons = static function (array $r): array {
-    if (($r['status'] ?? '') === 'cancelled') {
-        return [];
-    }
-    $out = [];
-    if (!tnc_purchase_po_has_payment_proof($r)) {
-        $out[] = 'ขาดการชำระ';
-    }
-    if (trim((string) ($r['supplier_invoice_no'] ?? '')) === '') {
-        $out[] = 'ขาดเลขที่ใบกำกับ';
-    }
-    return $out;
+    return tnc_purchase_po_missing_reasons($r);
 };
 $poIncompleteItemLabel = static function (array $ip): string {
     $id = (int) ($ip['id'] ?? 0);
@@ -205,7 +195,7 @@ foreach ($po_rows as $r) {
         'vat_amount' => (float) ($r['vat_amount'] ?? 0),
         'supplier' => trim((string) ($r['supplier_name'] ?? '')),
         'reasons' => $reasons,
-        'need_payment' => in_array('ขาดการชำระ', $reasons, true),
+        'need_payment' => in_array('ขาดหลักฐานการชำระ', $reasons, true),
         'need_invoice' => in_array('ขาดเลขที่ใบกำกับ', $reasons, true),
     ];
     if (!empty($r['incomplete_ignored'])) {

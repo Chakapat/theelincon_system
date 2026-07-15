@@ -178,6 +178,16 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.spend-pivot-table a.site-name--link {
+    color: var(--tnc-orange-dark, #9a3412);
+    text-decoration: none;
+}
+.spend-pivot-table a.site-name--link:hover,
+.spend-pivot-table a.site-name--link:focus-visible {
+    color: var(--tnc-orange, #ea580c);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
 .spend-pivot-table tbody tr.site-row:hover td,
 .spend-pivot-table tbody tr.site-row:hover th {
     background: var(--tnc-orange-soft, #ffedd5);
