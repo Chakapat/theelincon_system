@@ -110,7 +110,7 @@ function tnc_role_permission_menu_tree(): array
                         'pages/purchase/purchase-request-view.php',
                         'pages/purchase/purchase-request.php',
                     ],
-                    'actions' => ['pr.create', 'pr.update', 'pr.delete', 'pr.approve', 'pr.send_line'],
+                    'actions' => ['pr.create', 'pr.update', 'pr.delete', 'pr.cancel', 'pr.approve', 'pr.send_line'],
                 ],
                 'page.po' => [
                     'label' => 'ใบสั่งซื้อ / จ่าย (PO)',

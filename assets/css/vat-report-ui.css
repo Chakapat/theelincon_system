@@ -11,7 +11,7 @@
     table-layout: fixed;
 }
 .vat-print-table--purchase {
-    min-width: 820px;
+    min-width: 780px;
 }
 .vat-print-table--sales {
     min-width: 560px;
@@ -41,13 +41,30 @@
 .vat-print-table--sales col.col-doc { width: 18%; }
 .vat-print-table--sales col.col-name { width: 28%; }
 .vat-print-table--sales col.col-amt { width: 14%; }
-.vat-print-table--purchase col.col-date { width: 8%; }
-.vat-print-table--purchase col.col-doc { width: 11%; }
-.vat-print-table--purchase col.col-name { width: 28%; }
-.vat-print-table--purchase col.col-site { width: 12%; }
-.vat-print-table--purchase col.col-cat { width: 14%; }
-.vat-print-table--purchase col.col-amt { width: 13.5%; }
+.vat-print-table--purchase col.col-date { width: 21%; }
+.vat-print-table--purchase col.col-doc { width: 14%; }
+.vat-print-table--purchase col.col-name { width: 27%; }
+.vat-print-table--purchase col.col-tax { width: 9.5rem; }
+.vat-print-table--purchase col.col-amt { width: 12.5%; }
 .vat-print-table col.col-amt { width: 15%; }
+.vat-print-table td.col-meta {
+    font-size: 0.78rem;
+    line-height: 1.35;
+    text-align: left;
+}
+.vat-print-table--purchase th.col-date {
+    text-align: left;
+}
+.vat-print-table th.col-tax {
+    white-space: normal;
+    line-height: 1.25;
+}
+.vat-print-table td.col-tax {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    width: 9.5rem;
+    min-width: 9.5rem;
+}
 .vat-print-table td.text-end,
 .vat-print-table th.text-end { font-variant-numeric: tabular-nums; }
 .vat-doc-link { font-weight: 600; text-decoration: none; color: var(--tnc-orange, #ea580c); }

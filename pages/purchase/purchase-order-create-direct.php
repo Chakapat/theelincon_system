@@ -30,11 +30,21 @@ $po_number = Purchase::generateDirectPONumber();
 $supplierRows = Db::tableRows('suppliers');
 Db::sortRows($supplierRows, 'name', false);
 
+/** @var array<string, array{name: string, tax_id: string, address: string}> $supplierInfoMap */
+$supplierInfoMap = [];
 /** @var array<string, array{name: string, bank: string, account_name: string, account_number: string, bank_logo: string, note_text: string}> $supplierPaymentMap */
 $supplierPaymentMap = [];
 foreach ($supplierRows as $supplierRow) {
     $sid = (int) ($supplierRow['id'] ?? 0);
-    if ($sid <= 0 || !tnc_supplier_has_payment_info($supplierRow)) {
+    if ($sid <= 0) {
+        continue;
+    }
+    $supplierInfoMap[(string) $sid] = [
+        'name' => trim((string) ($supplierRow['name'] ?? '')),
+        'tax_id' => trim((string) ($supplierRow['tax_id'] ?? '')),
+        'address' => trim((string) ($supplierRow['address'] ?? '')),
+    ];
+    if (!tnc_supplier_has_payment_info($supplierRow)) {
         continue;
     }
     $bankName = trim((string) ($supplierRow['bank_name'] ?? ''));
@@ -227,18 +237,20 @@ $items = [[
 
         <div class="card card-soft p-4 p-md-4 mb-4 po-meta-card">
             <div class="row g-3 g-md-4">
-                <div class="col-md-6 col-lg-3">
+                <div class="col-md-6">
                     <label class="po-field-label" for="po_number_display">เลขที่ใบสั่งซื้อ (อัตโนมัติ)</label>
                     <input type="text" id="po_number_display" class="form-control po-po-number bg-light text-tnc-orange fw-bold" value="<?= htmlspecialchars($po_number, ENT_QUOTES, 'UTF-8') ?>" readonly>
                 </div>
-                <div class="col-md-6 col-lg-3">
+                <div class="col-md-6">
                     <label class="po-field-label" for="issue_date">วันที่ออกใบสั่งซื้อ / วันที่ใบกำกับ <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text bg-white text-tnc-orange"><i class="bi bi-calendar3"></i></span>
                         <input type="text" name="issue_date" id="issue_date" class="form-control" value="<?= htmlspecialchars($issueDateDisplay, ENT_QUOTES, 'UTF-8') ?>" required autocomplete="off" placeholder="วัน/เดือน/ปี">
                     </div>
                 </div>
-                <div class="col-md-6 col-lg-3">
+            </div>
+            <div class="row g-3 g-md-4 mt-0">
+                <div class="col-md-4">
                     <label class="po-field-label" for="supplier_search">ผู้ขาย / แหล่งซื้อ <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text bg-white text-secondary"><i class="bi bi-shop"></i></span>
@@ -251,14 +263,22 @@ $items = [[
                     </datalist>
                     <input type="hidden" name="supplier_id" id="supplier_id" value="">
                 </div>
-                <div class="col-md-6 col-lg-3">
+                <div class="col-md-3">
+                    <label class="po-field-label" for="supplier_tax_display">เลขที่ภาษี</label>
+                    <input type="text" id="supplier_tax_display" class="form-control bg-light" value="" readonly placeholder="" autocomplete="off">
+                </div>
+                <div class="col-md-5">
+                    <label class="po-field-label" for="supplier_address_display">ที่อยู่</label>
+                    <input type="text" id="supplier_address_display" class="form-control bg-light" value="" readonly placeholder="" autocomplete="off">
+                </div>
+            </div>
+            <div class="row g-3 g-md-4 mt-0">
+                <div class="col-md-4">
                     <label class="po-field-label" for="supplier_invoice_no">เลขที่บิล / ใบกำกับภาษี</label>
                     <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" class="form-control" maxlength="120">
                 </div>
-            </div>
-            <?php if (count($sites) > 0): ?>
-            <div class="row g-3 g-md-4 mt-1 pt-3 border-top border-light">
-                <div class="col-md-6<?= $siteLockedFromHub ? ' site-field-locked' : '' ?>">
+                <?php if (count($sites) > 0): ?>
+                <div class="col-md-4<?= $siteLockedFromHub ? ' site-field-locked' : '' ?>">
                     <label class="po-field-label" for="site_id">ไซต์งาน / โครงการ <span class="text-danger">*</span></label>
                     <select id="site_id" class="form-select"<?= $siteLockedFromHub ? ' disabled' : ' name="site_id" required' ?>>
                         <option value="" disabled<?= $prefillSiteId <= 0 ? ' selected' : '' ?>>— เลือกไซต์งาน —</option>
@@ -273,14 +293,14 @@ $items = [[
                         <div class="form-text"><i class="bi bi-lock-fill me-1"></i>ล็อกจาก Site Hub<?php if (!$isEmbed): ?> — <a href="<?= htmlspecialchars($lockedSiteHubUrl, ENT_QUOTES, 'UTF-8') ?>">กลับเมนูไซต์</a><?php endif; ?></div>
                     <?php endif; ?>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="po-field-label" for="cost_category_id">หมวดค่าใช้จ่าย <span class="text-danger">*</span></label>
                     <select name="cost_category_id" id="cost_category_id" class="form-select" required disabled>
                         <option value="" disabled selected>— เลือกไซต์ก่อน —</option>
                     </select>
                 </div>
+                <?php endif; ?>
             </div>
-            <?php endif; ?>
         </div>
 
         <div class="card card-soft p-4 p-md-4 mb-4">
@@ -570,6 +590,7 @@ $items = [[
     populateCategories();
 })();
 
+const SUPPLIER_INFO_MAP = <?= json_encode($supplierInfoMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const SUPPLIER_PAYMENT_MAP = <?= json_encode($supplierPaymentMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
 (function () {
@@ -577,6 +598,8 @@ const SUPPLIER_PAYMENT_MAP = <?= json_encode($supplierPaymentMap, JSON_UNESCAPED
     const supplierIdInput = document.getElementById('supplier_id');
     const poNoteEl = document.getElementById('po_note');
     const datalist = document.getElementById('supplier_list');
+    const taxDisplay = document.getElementById('supplier_tax_display');
+    const addressDisplay = document.getElementById('supplier_address_display');
     if (!searchInput || !supplierIdInput || !datalist) {
         return;
     }
@@ -584,10 +607,22 @@ const SUPPLIER_PAYMENT_MAP = <?= json_encode($supplierPaymentMap, JSON_UNESCAPED
     let lastPromptedSupplierId = '';
     let autoInsertedNote = '';
 
+    function updateSupplierInfo(supplierId) {
+        const info = supplierId ? (SUPPLIER_INFO_MAP[supplierId] || null) : null;
+        if (taxDisplay) {
+            taxDisplay.value = info && info.tax_id ? info.tax_id : '';
+        }
+        if (addressDisplay) {
+            const addr = info && info.address ? String(info.address).replace(/\s+/g, ' ').trim() : '';
+            addressDisplay.value = addr;
+        }
+    }
+
     function syncSupplierId() {
         const typed = (searchInput.value || '').trim();
         if (typed === '') {
             supplierIdInput.value = '';
+            updateSupplierInfo('');
             return '';
         }
         let matchedId = '';
@@ -598,6 +633,7 @@ const SUPPLIER_PAYMENT_MAP = <?= json_encode($supplierPaymentMap, JSON_UNESCAPED
             }
         });
         supplierIdInput.value = matchedId;
+        updateSupplierInfo(matchedId);
         return matchedId;
     }
 

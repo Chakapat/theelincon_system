@@ -27,6 +27,7 @@ function tnc_role_action_permission_definitions(): array
         'pr.create' => ['label' => 'สร้าง PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'บันทึกใบขอซื้อใหม่', 'kind' => 'action'],
         'pr.update' => ['label' => 'แก้ไข PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'แก้ไข PR (รวมที่มี PO แล้ว — PO ไม่อัปเดตตามอัตโนมัติ)', 'kind' => 'action'],
         'pr.delete' => ['label' => 'ลบ PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'ลบใบขอซื้อ (ต้องยืนยันรหัสผ่าน)', 'kind' => 'action'],
+        'pr.cancel' => ['label' => 'ยกเลิก PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'เปลี่ยนสถานะเป็นยกเลิก', 'kind' => 'action'],
         'pr.approve' => ['label' => 'อนุมัติ / ไม่อนุมัติ PR', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'กดอนุมัติบนเว็บ', 'kind' => 'action'],
         'pr.send_line' => ['label' => 'ส่ง PR ขออนุมัติ LINE', 'group' => 'ใบขอซื้อ (PR)', 'hint' => 'ส่งคำขออนุมัติไปกลุ่ม LINE', 'kind' => 'action'],
         'po.create' => ['label' => 'สร้าง PO', 'group' => 'ใบสั่งซื้อ (PO)', 'hint' => 'ออก PO จาก PR หรือสร้างตรง', 'kind' => 'action'],
@@ -134,6 +135,7 @@ function tnc_role_permission_defaults(): array
 
     $user = array_merge($allTrue, $userPagesOn, [
         'pr.delete' => false,
+        'pr.cancel' => false,
         'pr.approve' => false,
         'pr.send_line' => false,
         'po.create' => false,

@@ -241,7 +241,8 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
             box-sizing: border-box;
         }
         .po-cancelled-watermark,
-        .pr-cancelled-watermark {
+        .pr-cancelled-watermark,
+        .pr-approval-watermark {
             position: absolute;
             left: 50%;
             top: 50%;
@@ -254,7 +255,19 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
             z-index: 60;
             letter-spacing: 0.18em;
             user-select: none;
+        }
+
+        .po-cancelled-watermark,
+        .pr-cancelled-watermark {
             text-transform: uppercase;
+        }
+
+        .pr-approval-watermark--approved {
+            color: rgba(22, 163, 74, 0.38);
+        }
+
+        .pr-approval-watermark--rejected {
+            color: rgba(220, 38, 38, 0.38);
         }
         @media (max-width: 575.98px) {
             .invoice-box { width: 100%; min-height: 0; height: auto; padding: 1rem; box-shadow: none; overflow: visible; display: block; }

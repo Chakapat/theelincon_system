@@ -51,8 +51,18 @@ if ($isMultiPageDoc): ?>
     $pageIndicatorLabel = tnc_doc_page_indicator_label($pageNum, $totalDocPages);
     ?>
 <div class="<?= $sheetClass ?>">
-    <?php if (!empty($isPoCancelled)): ?>
+    <?php if (!empty($isPrCancelled)): ?>
+    <div class="pr-cancelled-watermark" aria-hidden="true">ยกเลิกใบขอซื้อ</div>
+    <?php elseif (!empty($isPoCancelled)): ?>
     <div class="pr-cancelled-watermark" aria-hidden="true">CANCELLED</div>
+    <?php elseif (isset($prApprovalStatus) && in_array($prApprovalStatus, ['approved', 'ready', 'rejected'], true)):
+        $prApprovalWmClass = ($prApprovalStatus === 'rejected') ? 'rejected' : 'approved';
+        $prApprovalWmLabel = trim((string) ($prApprovalLabel ?? ''));
+        if ($prApprovalWmLabel === '') {
+            $prApprovalWmLabel = ($prApprovalWmClass === 'rejected') ? 'ไม่อนุมัติ' : 'อนุมัติแล้ว';
+        }
+        ?>
+    <div class="pr-approval-watermark pr-approval-watermark--<?= htmlspecialchars($prApprovalWmClass, ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"><?= htmlspecialchars($prApprovalWmLabel, ENT_QUOTES, 'UTF-8') ?></div>
     <?php endif; ?>
     <div class="pr-doc-main">
         <div class="pr-doc-content">

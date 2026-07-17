@@ -26,7 +26,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // POST-only actions: prevent direct GET access to write endpoints.
-if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'receive_po_bill' || $action === 'add_po_payment_slips' || $action === 'remove_po_payment_slip' || $action === 'replace_po_payment_slip' || $action === 'update_po_direct' || $action === 'cancel_purchase_order' || $action === 'cancel_invoice' || $action === 'cancel_tax_invoice' || $action === 'ignore_incomplete_po' || $action === 'unignore_incomplete_po' || $action === 'update_my_profile' || $action === 'send_pr_line_approval' || $action === 'pr_web_decision')
+if (($action === 'create_po_direct' || $action === 'create_po_from_pr' || $action === 'update_po_payment_status' || $action === 'receive_po_bill' || $action === 'add_po_payment_slips' || $action === 'remove_po_payment_slip' || $action === 'replace_po_payment_slip' || $action === 'update_po_direct' || $action === 'cancel_purchase_order' || $action === 'cancel_purchase_request' || $action === 'cancel_invoice' || $action === 'cancel_tax_invoice' || $action === 'ignore_incomplete_po' || $action === 'unignore_incomplete_po' || $action === 'update_my_profile' || $action === 'send_pr_line_approval' || $action === 'pr_web_decision')
     && strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
     $fallback = match ($action) {
         'create_po_direct' => app_path('pages/purchase/purchase-order-create-direct.php'),
@@ -971,6 +971,65 @@ if ($action === 'delete_pr') {
     tnc_action_redirect( app_path('pages/purchase/purchase-request-list.php') . '?deleted=1');
 }
 
+// --- ยกเลิกใบขอซื้อ (สถานะ cancelled) ---
+if ($action === 'cancel_purchase_request' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    tnc_require_can('pr.cancel', 'ไม่มีสิทธิ์ยกเลิก PR');
+    $listUrl = app_path('pages/purchase/purchase-request-list.php');
+    $viewUrl = app_path('pages/purchase/purchase-request-view.php');
+    $pr_id = (int) ($_POST['pr_id'] ?? 0);
+    if ($pr_id <= 0) {
+        tnc_action_redirect($listUrl . '?error=invalid_pr');
+    }
+    $pk = Db::pkForLogicalId('purchase_requests', $pr_id);
+    $existing = Db::row('purchase_requests', $pk);
+    if ($existing === null) {
+        $existing = Db::rowByIdField('purchase_requests', $pr_id);
+        if ($existing === null) {
+            tnc_action_redirect($listUrl . '?error=invalid_pr');
+        }
+        $pk = Db::pkForLogicalId('purchase_requests', $pr_id);
+    }
+    if (line_pr_is_cancelled($existing)) {
+        $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+        if ($returnTo === 'view') {
+            tnc_action_redirect($viewUrl . '?id=' . $pr_id . '&error=already_cancelled');
+        }
+        tnc_action_redirect($listUrl . '?error=already_cancelled');
+    }
+
+    require_once dirname(__DIR__) . '/includes/pr_po_split.php';
+    $activePos = function_exists('tnc_pr_collect_active_purchase_orders')
+        ? tnc_pr_collect_active_purchase_orders($pr_id)
+        : [];
+    if ($activePos !== []) {
+        $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+        if ($returnTo === 'view') {
+            tnc_action_redirect($viewUrl . '?id=' . $pr_id . '&error=pr_has_active_po');
+        }
+        tnc_action_redirect($listUrl . '?error=pr_has_active_po');
+    }
+
+    $beforeSnap = $existing;
+    Db::mergeRow('purchase_requests', $pk, [
+        'status' => 'cancelled',
+        'cancelled_at' => date('Y-m-d H:i:s'),
+        'cancelled_by' => (int) ($_SESSION['user_id'] ?? 0),
+    ]);
+    $afterSnap = Db::row('purchase_requests', $pk);
+    $prNo = $afterSnap !== null ? trim((string) ($afterSnap['pr_number'] ?? '')) : '';
+    tnc_audit_log('update', 'purchase_request', (string) $pr_id, $prNo !== '' ? $prNo : ('#' . $pr_id), [
+        'source' => 'action-handler',
+        'action' => 'cancel_purchase_request',
+        'before' => $beforeSnap,
+        'after' => $afterSnap,
+    ]);
+    $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+    if ($returnTo === 'view') {
+        tnc_action_redirect($viewUrl . '?id=' . $pr_id . '&cancelled=1');
+    }
+    tnc_action_redirect($listUrl . '?cancelled=1');
+}
+
 // --- PO from PR ---
 if ($action === 'create_po_from_pr') {
     tnc_require_can('po.create', 'ไม่มีสิทธิ์สร้าง PO');
@@ -992,7 +1051,11 @@ if ($action === 'create_po_from_pr') {
     }
     if (!line_pr_is_approved_for_po($pr_row)) {
         $st = line_pr_normalize_status($pr_row);
-        $err = $st === 'rejected' ? 'pr_rejected' : 'pr_not_approved';
+        $err = match ($st) {
+            'rejected' => 'pr_rejected',
+            'cancelled' => 'pr_cancelled',
+            default => 'pr_not_approved',
+        };
         tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=' . $err);
     }
 

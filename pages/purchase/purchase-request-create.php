@@ -44,6 +44,10 @@ if ($editId > 0) {
     $poForPr = Db::findFirst('purchase_orders', static function (array $r) use ($editId): bool {
         return isset($r['pr_id']) && (int) $r['pr_id'] === $editId;
     });
+    if (line_pr_is_cancelled($editPr)) {
+        header('Location: ' . app_path('pages/purchase/purchase-request-view.php') . '?id=' . $editId . '&error=pr_cancelled');
+        exit();
+    }
     if (!line_pr_user_can_edit($editPr)) {
         header('Location: ' . app_path('pages/purchase/purchase-request-view.php') . '?id=' . $editId . '&error=pr_approved_locked');
         exit();

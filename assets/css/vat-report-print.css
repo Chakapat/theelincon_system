@@ -67,6 +67,13 @@
     text-align: center;
 }
 
+.vat-print-table--media td.col-meta,
+.vat-print-table--media th.col-date.col-meta,
+.vat-print-table--purchase th.col-date {
+    white-space: normal;
+    text-align: left;
+}
+
 .vat-print-table--media td.col-doc {
     font-weight: 600;
 }
@@ -241,12 +248,11 @@
     body.vat-printing-sales .vat-print-table--media.vat-print-table--sales col.col-name { width: 29%; }
     body.vat-printing-sales .vat-print-table--media.vat-print-table--sales col.col-amt { width: 14%; }
 
-    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-date { width: 7%; }
-    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-doc { width: 10%; }
+    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-date { width: 20%; }
+    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-doc { width: 13%; }
     body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-name { width: 28%; }
-    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-site { width: 11%; }
-    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-cat { width: 12%; }
-    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-amt { width: 16%; }
+    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-tax { width: 11%; }
+    body.vat-printing-purchase .vat-print-table--media.vat-print-table--purchase col.col-amt { width: 14%; }
 
     body.vat-printing-purchase .vat-print-table--media thead th {
         font-size: 7pt;
@@ -263,8 +269,14 @@
         display: table-header-group;
     }
 
+    /* table-row-group = แสดงรวมครั้งเดียวท้ายรายการ (ไม่ซ้ำทุกหน้าแบบ table-footer-group) */
     .vat-print-table--media tfoot {
-        display: table-footer-group;
+        display: table-row-group;
+    }
+
+    .vat-print-table--media tfoot .vat-print-total-row {
+        page-break-inside: avoid;
+        break-inside: avoid;
     }
 
     .vat-print-table--media tr {
@@ -291,9 +303,28 @@
 
     .vat-print-table--media td.col-date,
     .vat-print-table--media td.col-name,
-    .vat-print-table--media td.col-site,
-    .vat-print-table--media td.col-cat {
+    .vat-print-table--media td.col-tax {
         font-size: 7.5pt;
+    }
+
+    .vat-print-table--media td.col-meta {
+        font-size: 7pt;
+        line-height: 1.35;
+        white-space: normal;
+    }
+
+    .vat-print-table--media th.col-tax {
+        white-space: normal;
+        line-height: 1.2;
+        font-size: 6.5pt;
+    }
+
+    .vat-print-table--media td.col-tax {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        min-width: 9rem;
+        padding-left: 1.2mm !important;
+        padding-right: 1.2mm !important;
     }
 
     .vat-print-table--media .num {

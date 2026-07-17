@@ -16,11 +16,19 @@ function line_pr_is_approved_for_po(array $pr): bool
     return $st === 'approved' || $st === 'ready';
 }
 
+function line_pr_is_cancelled(array $pr): bool
+{
+    return line_pr_normalize_status($pr) === 'cancelled';
+}
+
 function line_pr_normalize_status(array $pr): string
 {
     $st = strtolower(trim((string) ($pr['status'] ?? '')));
-    if (in_array($st, ['pending', 'approved', 'rejected'], true)) {
+    if (in_array($st, ['pending', 'approved', 'rejected', 'cancelled'], true)) {
         return $st;
+    }
+    if ($st === 'canceled') {
+        return 'cancelled';
     }
     if ($st === 'ready') {
         return 'ready';
@@ -35,6 +43,7 @@ function line_pr_status_label_th(string $status): string
         'pending' => 'รออนุมัติ',
         'approved', 'ready' => 'อนุมัติแล้ว',
         'rejected' => 'ไม่อนุมัติ',
+        'cancelled' => 'ยกเลิกแล้ว',
         default => 'รออนุมัติ',
     };
 }
@@ -45,16 +54,20 @@ function line_pr_status_badge_class(string $status): string
         'pending' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
         'approved', 'ready' => 'bg-success-subtle text-success-emphasis border border-success-subtle',
         'rejected' => 'bg-danger-subtle text-danger-emphasis border border-danger-subtle',
+        'cancelled' => 'bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle',
         default => 'bg-secondary-subtle text-secondary-emphasis border',
     };
 }
 
 /**
- * แก้ไข PR ได้เมื่อมี pr.update หรือ pr.create (มี PO แล้วก็แก้ได้)
+ * แก้ไข PR ได้เมื่อมี pr.update หรือ pr.create — ยกเลิกแล้วแก้ไม่ได้
  * PR อนุมัติแล้ว — บันทึกแล้วคงสถานะอนุมัติ (ดู line_pr_status_fields_for_update)
  */
 function line_pr_user_can_edit(array $pr): bool
 {
+    if (line_pr_is_cancelled($pr)) {
+        return false;
+    }
     if (function_exists('user_can') && user_can('pr.update')) {
         return true;
     }
@@ -66,7 +79,7 @@ function line_pr_user_can_edit(array $pr): bool
 }
 
 /**
- * ฟิลด์สถานะ PR หลัง update — อนุมัติแล้วคงสถานะเดิม, อื่น ๆ กลับ pending
+ * ฟิลด์สถานะ PR หลัง update — อนุมัติ/ยกเลิกแล้วคงสถานะเดิม, อื่น ๆ กลับ pending
  *
  * @return array<string, mixed>
  */
@@ -74,15 +87,17 @@ function line_pr_status_fields_for_update(array $existing): array
 {
     $st = line_pr_normalize_status($existing);
     $token = trim((string) ($existing['line_approval_token'] ?? ''));
-    if (in_array($st, ['approved', 'ready'], true)) {
+    if (in_array($st, ['approved', 'ready', 'cancelled'], true)) {
         return [
-            'status' => trim((string) ($existing['status'] ?? 'approved')),
+            'status' => trim((string) ($existing['status'] ?? $st)),
             'line_approval_token' => $token,
             'line_decision' => (string) ($existing['line_decision'] ?? ''),
             'line_decided_at' => (string) ($existing['line_decided_at'] ?? ''),
             'line_decided_by_line_user_id' => (string) ($existing['line_decided_by_line_user_id'] ?? ''),
             'line_decided_by_user_id' => (int) ($existing['line_decided_by_user_id'] ?? 0),
             'line_decision_source' => (string) ($existing['line_decision_source'] ?? ''),
+            'cancelled_at' => (string) ($existing['cancelled_at'] ?? ''),
+            'cancelled_by' => (int) ($existing['cancelled_by'] ?? 0),
         ];
     }
 
@@ -94,6 +109,8 @@ function line_pr_status_fields_for_update(array $existing): array
         'line_decided_by_line_user_id' => '',
         'line_decided_by_user_id' => 0,
         'line_decision_source' => '',
+        'cancelled_at' => '',
+        'cancelled_by' => 0,
     ];
 }
 

@@ -12,6 +12,7 @@
     var $mov = $('#stockMovementsTable');
     if ($mov.length && $mov.find('tbody tr.stock-row').length) {
         $mov.DataTable($.extend(true, {}, dtDefaults, {
+            // Sort by data-order (Y-m-d H:i:s) on column 0 — display is d/m/Y which sorts wrongly as text.
             order: [[0, 'desc']],
             pageLength: 25,
             language: thLang,

@@ -115,7 +115,8 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         require_once dirname(__DIR__) . '/line_pr_approval.php';
     }
     $prApprovalStatus = line_pr_normalize_status($pr);
-    $prIsApprovedForPo = line_pr_is_approved_for_po($pr);
+    $prIsCancelled = line_pr_is_cancelled($pr);
+    $prIsApprovedForPo = !$prIsCancelled && line_pr_is_approved_for_po($pr);
     $prApprovalLabel = line_pr_status_label_th($prApprovalStatus);
     $prApprovalBadgeClass = line_pr_status_badge_class($prApprovalStatus);
 
@@ -164,6 +165,7 @@ function tnc_purchase_pr_print_prepare(int $pr_id): ?array
         'pr_has_remaining_for_po' => $pr_has_remaining_for_po,
         'poStatus' => $poStatus,
         'isPoCancelled' => $isPoCancelled,
+        'isPrCancelled' => $prIsCancelled,
         'poShortcutUrl' => $poShortcutUrl,
         'prDocTitle' => $prDocTitle,
         'prApprovalStatus' => $prApprovalStatus,

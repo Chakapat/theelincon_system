@@ -26,6 +26,8 @@ extract($prCtx, EXTR_OVERWRITE);
 $prCanSendLineAdmin = user_can('pr.send_line') && in_array($prApprovalStatus, ['pending', 'rejected'], true);
 $prCanWebDecide = user_can('pr.approve') && $prApprovalStatus === 'pending';
 $prCanEdit = line_pr_user_can_edit($pr);
+$prIsCancelled = !empty($isPrCancelled) || line_pr_is_cancelled($pr);
+$prCanCancel = user_can('pr.cancel') && !$prIsCancelled && $linked_pos === [];
 $prHandlerUrl = app_path('actions/action-handler.php');
 
 $prToolbarPoNumber = '';
@@ -289,7 +291,8 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
         .sig-space { height: 72px; }
         .sig-box { border-top: 1px solid #333; padding-top: 10px; font-size: 13px; font-weight: 600; }
 
-        .pr-cancelled-watermark {
+        .pr-cancelled-watermark,
+        .pr-approval-watermark {
             position: absolute;
             left: 50%;
             top: 48%;
@@ -302,6 +305,14 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
             z-index: 50;
             letter-spacing: 0.12em;
             user-select: none;
+        }
+
+        .pr-approval-watermark--approved {
+            color: rgba(22, 163, 74, 0.42);
+        }
+
+        .pr-approval-watermark--rejected {
+            color: rgba(220, 38, 38, 0.42);
         }
 
         @media print {
@@ -502,6 +513,10 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                         <i class="bi bi-file-earmark-plus me-1"></i>สร้าง PO เพิ่ม<?= $prPoExceedsAmount || empty($pr_has_remaining_for_po) ? ' (เกินยอด)' : '' ?>
                     </a>
                     <?php endif; ?>
+                <?php elseif ($prIsCancelled): ?>
+                    <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="ใบขอซื้อถูกยกเลิกแล้ว">
+                        <i class="bi bi-x-circle me-1"></i>ยกเลิกแล้ว
+                    </span>
                 <?php elseif (!empty($prIsApprovedForPo) && user_can('po.create')): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-create.php'), ENT_QUOTES, 'UTF-8') ?>?pr_id=<?= (int) $pr['id'] ?>" class="btn js-tnc-doc-action btn-orange btn-sm rounded-pill px-3" title="คีย์ลัด: Ctrl+Shift+G">
                         <i class="bi bi-file-earmark-plus me-1"></i>สร้างใบสั่งซื้อ
@@ -514,6 +529,14 @@ $prToolbarDisplayId = $prToolbarPoNumber !== '' ? $prToolbarPoNumber : $prDocTit
                     <span class="btn btn-secondary btn-sm rounded-pill px-3 disabled" tabindex="-1" title="รออนุมัติก่อนออก PO">
                         <i class="bi bi-lock me-1"></i>รออนุมัติ
                     </span>
+                <?php endif; ?>
+                <?php if ($prCanCancel): ?>
+                    <form method="post" action="<?= htmlspecialchars($prHandlerUrl, ENT_QUOTES, 'UTF-8') ?>?action=cancel_purchase_request" class="d-inline js-tnc-doc-action" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบขอซื้อนี้? สถานะจะเปลี่ยนเป็น ยกเลิก และจะแสดงประทับบนใบพิมพ์');">
+                        <?php csrf_field(); ?>
+                        <input type="hidden" name="pr_id" value="<?= (int) $pr['id'] ?>">
+                        <input type="hidden" name="return_to" value="view">
+                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3"><i class="bi bi-x-circle me-1"></i>ยกเลิก PR</button>
+                    </form>
                 <?php endif; ?>
                 <?php if ($prCanEdit): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $pr['id'] ?>" class="btn js-tnc-doc-action btn-outline-warning btn-sm rounded-pill px-3" data-dock-primary="edit" title="แก้ไขใบขอซื้อ">

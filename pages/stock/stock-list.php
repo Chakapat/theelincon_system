@@ -43,6 +43,7 @@ $selectedSite = $siteById[$siteId] ?? null;
 
 $products = [];
 $balances = [];
+$qtyInByProduct = [];
 $movements = [];
 $totalIn = 0.0;
 $totalOut = 0.0;
@@ -59,13 +60,17 @@ if ($selectedSite !== null) {
         if ($pid <= 0 || !isset($products[$pid])) {
             continue;
         }
+
+        $qty = (float) ($m['qty'] ?? 0);
+        $balances[$pid] = ($balances[$pid] ?? 0.0) + $qty;
+        if ($qty > 0) {
+            $qtyInByProduct[$pid] = ($qtyInByProduct[$pid] ?? 0.0) + $qty;
+        }
+
         $productCode = trim((string) ($products[$pid]['code'] ?? ''));
         if ($productCodeQuery !== '' && mb_stripos($productCode, $productCodeQuery, 0, 'UTF-8') === false) {
             continue;
         }
-
-        $qty = (float) ($m['qty'] ?? 0);
-        $balances[$pid] = ($balances[$pid] ?? 0.0) + $qty;
 
         $createdAt = (string) ($m['created_at'] ?? '');
         $ymd = strlen($createdAt) >= 10 ? substr($createdAt, 0, 10) : '';
@@ -120,10 +125,12 @@ if ($selectedSite !== null) {
     }
 
     foreach ($products as $pid => $p) {
+        $pid = (int) $pid;
         $balanceRows[] = [
             'name' => (string) ($p['name'] ?? ''),
             'code' => (string) ($p['code'] ?? ''),
             'unit' => (string) ($p['unit'] ?? 'ชิ้น'),
+            'qty_in' => (float) ($qtyInByProduct[$pid] ?? 0.0),
             'qty' => (float) ($balances[$pid] ?? 0.0),
         ];
     }
@@ -355,7 +362,14 @@ if ($selectedSite !== null) {
                             data-product-code="<?= htmlspecialchars((string) $m['product_code'], ENT_QUOTES, 'UTF-8') ?>"
                             data-person-name="<?= htmlspecialchars((string) $m['person_label'], ENT_QUOTES, 'UTF-8') ?>"
                         >
-                            <td class="ps-3 small text-nowrap tnc-mobile-primary" data-label="วันที่"><?= htmlspecialchars(date('d/m/Y', strtotime((string) $m['created_at']))) ?></td>
+                            <?php
+                            $createdRaw = (string) $m['created_at'];
+                            $dateOrder = strlen($createdRaw) >= 10 ? substr($createdRaw, 0, 10) : $createdRaw;
+                            if (strlen($createdRaw) >= 19) {
+                                $dateOrder = substr($createdRaw, 0, 19);
+                            }
+                            ?>
+                            <td class="ps-3 small text-nowrap tnc-mobile-primary" data-label="วันที่" data-order="<?= htmlspecialchars($dateOrder, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(date('d/m/Y', strtotime($createdRaw))) ?></td>
                             <td class="small fw-semibold" data-label="ชื่อคน"><?= htmlspecialchars((string) $m['person_label'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td data-label="อุปกรณ์">
                                 <div class="fw-semibold"><?= htmlspecialchars((string) $m['product_name']) ?></div>
@@ -376,7 +390,11 @@ if ($selectedSite !== null) {
                                 ?>
                             </td>
                             <td data-label="ประเภท">
-                                <?php if ((string) $m['movement_type'] === 'out'): ?>
+                                <?php if (!empty($m['is_transfer']) && (string) $m['movement_type'] === 'out'): ?>
+                                    <span class="badge bg-danger-subtle text-danger-emphasis border stock-txn-badge">โอนออก</span>
+                                <?php elseif (!empty($m['is_transfer'])): ?>
+                                    <span class="badge bg-success-subtle text-success-emphasis border stock-txn-badge">โอนเข้า</span>
+                                <?php elseif ((string) $m['movement_type'] === 'out'): ?>
                                     <span class="badge bg-danger-subtle text-danger-emphasis border stock-txn-badge">นำออก</span>
                                 <?php else: ?>
                                     <span class="badge bg-success-subtle text-success-emphasis border stock-txn-badge">นำเข้า</span>
@@ -398,7 +416,7 @@ if ($selectedSite !== null) {
                             <?php if ($canManage): ?>
                                 <td class="text-end pe-3 text-nowrap tnc-mobile-actions stock-row-actions" data-label="จัดการ">
                                     <?php if (!empty($m['is_transfer'])): ?>
-                                        <span class="small text-muted me-1">โอนไซต์</span>
+                                        <span class="small text-muted me-1"><?= (string) $m['movement_type'] === 'out' ? 'โอนออก' : 'โอนเข้า' ?></span>
                                     <?php else: ?>
                                         <button
                                             type="button"
@@ -433,23 +451,31 @@ if ($selectedSite !== null) {
     <div class="stock-card bg-white print-balance-only no-print">
         <div class="table-responsive tnc-mobile-table-wrap">
             <table class="table table-sm align-middle mb-0 w-100 tnc-mobile-table" id="stockBalanceTable" style="width:100%">
-                <caption class="visually-hidden">ยอดคงเหลือสต็อกของไซต์ <?= htmlspecialchars((string) ($selectedSite['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></caption>
+                <caption class="visually-hidden">ยอดรับเข้าสะสมและคงเหลือสต็อกของไซต์ <?= htmlspecialchars((string) ($selectedSite['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></caption>
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">รหัส</th>
                         <th>อุปกรณ์</th>
                         <th>หน่วย</th>
+                        <th class="text-end">รับเข้าสะสม</th>
                         <th class="text-end pe-3">คงเหลือ</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($balanceRows as $r): ?>
+                        <?php
+                        $qtyIn = (float) ($r['qty_in'] ?? 0);
+                        $qtyBal = (float) ($r['qty'] ?? 0);
+                        ?>
                         <tr>
                             <td class="ps-3 small text-muted tnc-mobile-primary" data-label="รหัส"><?= htmlspecialchars((string) $r['code']) ?></td>
                             <td data-label="อุปกรณ์"><?= htmlspecialchars((string) $r['name']) ?></td>
                             <td class="small text-muted" data-label="หน่วย"><?= htmlspecialchars((string) $r['unit']) ?></td>
-                            <td class="text-end pe-3 fw-semibold tnc-mobile-amount <?= (float) $r['qty'] < 0 ? 'text-danger' : '' ?>" data-label="คงเหลือ">
-                                <?= number_format((float) $r['qty'], 0) ?>
+                            <td class="text-end text-success fw-semibold tnc-mobile-amount" data-label="รับเข้าสะสม">
+                                <?= number_format($qtyIn, 0) ?>
+                            </td>
+                            <td class="text-end pe-3 fw-semibold tnc-mobile-amount <?= $qtyBal < 0 ? 'text-danger' : '' ?>" data-label="คงเหลือ">
+                                <?= number_format($qtyBal, 0) ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>

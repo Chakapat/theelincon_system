@@ -8,6 +8,7 @@ session_start();
 require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/tnc_action_response.php';
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
+require_once __DIR__ . '/../includes/stock_site_data.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('HTTP/1.1 401 Unauthorized');
@@ -124,12 +125,10 @@ function stock_create_site_transfer(
     $transferRef = bin2hex(random_bytes(8));
     $createdAt = stock_combine_datetime($txnDate);
     $personEsc = mb_substr($personName, 0, 120, 'UTF-8');
+    $outNote = $noteEsc !== '' ? $noteEsc : 'โอนไปยัง ' . ($toName !== '' ? $toName : 'ไซต์ #' . $toSite);
+    $inNote = $noteEsc !== '' ? $noteEsc : 'รับจาก ' . ($fromName !== '' ? $fromName : 'ไซต์ #' . $fromSite);
 
-    $outId = Db::nextNumericId('stock_movements', 'id');
-    $inId = $outId + 1;
-    while (Db::row('stock_movements', (string) $inId) !== null) {
-        ++$inId;
-    }
+    [$outId, $inId] = tnc_stock_allocate_transfer_ids();
 
     Db::setRow('stock_movements', (string) $outId, [
         'id' => $outId,
@@ -138,7 +137,7 @@ function stock_create_site_transfer(
         'person_name' => $personEsc,
         'qty' => -$qtyAbs,
         'movement_type' => 'out',
-        'note' => $noteEsc !== '' ? $noteEsc : 'โอนไปยัง ' . ($toName !== '' ? $toName : 'ไซต์ #' . $toSite),
+        'note' => $outNote,
         'transfer_ref' => $transferRef,
         'counter_site_id' => $toSite,
         'counter_site_name' => $toName,
@@ -153,13 +152,36 @@ function stock_create_site_transfer(
         'person_name' => $personEsc,
         'qty' => $qtyAbs,
         'movement_type' => 'in',
-        'note' => $noteEsc !== '' ? $noteEsc : 'รับจาก ' . ($fromName !== '' ? $fromName : 'ไซต์ #' . $fromSite),
+        'note' => $inNote,
         'transfer_ref' => $transferRef,
         'source_site_id' => $fromSite,
         'source_site_name' => $fromName,
         'created_by' => $createdBy,
         'created_at' => $createdAt,
     ]);
+
+    // If inbound write did not stick, recreate once with a fresh id.
+    $inRow = Db::row('stock_movements', (string) $inId) ?? Db::rowByIdField('stock_movements', $inId);
+    if ($inRow === null || (int) ($inRow['site_id'] ?? 0) !== $toSiteId) {
+        $inId = tnc_stock_next_movement_id();
+        Db::setRow('stock_movements', (string) $inId, [
+            'id' => $inId,
+            'site_id' => $toSiteId,
+            'product_id' => $productId,
+            'person_name' => $personEsc,
+            'qty' => $qtyAbs,
+            'movement_type' => 'in',
+            'note' => $inNote,
+            'transfer_ref' => $transferRef,
+            'source_site_id' => $fromSite,
+            'source_site_name' => $fromName,
+            'created_by' => $createdBy,
+            'created_at' => $createdAt,
+        ]);
+    }
+
+    // Final safety net: recreate inbound from the outbound row if still missing.
+    tnc_stock_ensure_inbound_transfer_legs($toSite);
 
     return [
         'out_id' => $outId,

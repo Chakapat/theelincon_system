@@ -36,7 +36,11 @@ if ($pr === null) {
 }
 if (!line_pr_is_approved_for_po($pr)) {
     $st = line_pr_normalize_status($pr);
-    $err = $st === 'rejected' ? 'pr_rejected' : 'pr_not_approved';
+    $err = match ($st) {
+        'rejected' => 'pr_rejected',
+        'cancelled' => 'pr_cancelled',
+        default => 'pr_not_approved',
+    };
     header('Location: ' . app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&error=' . $err);
     exit();
 }

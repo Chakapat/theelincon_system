@@ -196,17 +196,34 @@ function tnc_vat_resolve_supplier_tax_id(array $row, array $supplierById = []): 
     return '';
 }
 
-/** แสดงชื่อผู้ขาย · เลขผู้เสียภาษี (หรือข้อความเมื่อไม่พบเลข) */
-function tnc_vat_purchase_seller_display(string $supplierName, string $taxId): string
+/** แสดงชื่อผู้ขายอย่างเดียว (เลขผู้เสียภาษีแยกคอลัมน์) */
+function tnc_vat_purchase_seller_display(string $supplierName, string $taxId = ''): string
 {
     $supplierName = trim($supplierName);
-    $taxId = trim($taxId);
-    $taxPart = $taxId !== '' ? $taxId : 'ไม่พบเลขผู้เสียภาษี';
-    if ($supplierName === '') {
-        return '— · ' . $taxPart;
-    }
 
-    return $supplierName . ' · ' . $taxPart;
+    return $supplierName !== '' ? $supplierName : '—';
+}
+
+/** คอลัมน์ # ภาษีซื้อ: วันที่ · ไซต์ · หมวดย่อย */
+function tnc_vat_purchase_meta_display(string $dateLabel, string $siteName, string $subCategoryName): string
+{
+    $dateLabel = trim($dateLabel);
+    $siteName = trim($siteName);
+    $subCategoryName = trim($subCategoryName);
+
+    return ($dateLabel !== '' ? $dateLabel : '—')
+        . ' · '
+        . ($siteName !== '' ? $siteName : '—')
+        . ' · '
+        . ($subCategoryName !== '' ? $subCategoryName : '—');
+}
+
+/** ข้อความเลขผู้เสียภาษีในตารางภาษีซื้อ */
+function tnc_vat_purchase_tax_display(string $taxId): string
+{
+    $taxId = trim($taxId);
+
+    return $taxId !== '' ? $taxId : 'ไม่พบเลขผู้เสียภาษี';
 }
 
 /**
@@ -327,11 +344,13 @@ function tnc_vat_render_table_html(
         : 'จำนวนเงินภาษีมูลค่าเพิ่ม';
     $purchaseDocLabel = ($forPrint && !$isSales) ? 'เลขใบกำกับ' : 'เลขที่บิล/ใบกำกับภาษี';
     $purchaseNameLabel = 'ชื่อผู้ขายสินค้า/บริการ';
+    $purchaseTaxLabel = 'เลขผู้เสียภาษี';
+    $purchaseMetaLabel = '#';
     $salesDocLabel = $forPrint ? 'เลขใบกำกับ' : 'เลขที่ใบกำกับภาษี';
     $salesNameLabel = $forPrint ? 'ลูกค้า' : 'ชื่อลูกค้า';
     $salesDateLabel = $forPrint ? 'วันที่' : 'วันที่เอกสาร';
-    $metaColspan = $isSales ? 3 : 5;
-    $emptyColspan = $isSales ? 6 : ($showNet ? 8 : 7);
+    $metaColspan = $isSales ? 3 : 4;
+    $emptyColspan = $isSales ? 6 : 6;
     $formatDocDate = static function (string $raw) use ($forPrint): string {
         $raw = trim($raw);
         if ($raw === '') {
@@ -352,8 +371,7 @@ function tnc_vat_render_table_html(
                 <col class="col-doc">
                 <col class="col-name">
                 <?php if (!$isSales): ?>
-                    <col class="col-site">
-                    <col class="col-cat">
+                    <col class="col-tax">
                 <?php endif; ?>
                 <col class="col-amt col-amt-base">
                 <col class="col-amt col-amt-vat">
@@ -368,11 +386,10 @@ function tnc_vat_render_table_html(
                     <th scope="col" class="col-doc"><?= h($salesDocLabel) ?></th>
                     <th scope="col" class="col-name"><?= h($salesNameLabel) ?></th>
                 <?php else: ?>
-                    <th scope="col" class="col-date">วันที่บิล</th>
+                    <th scope="col" class="col-date"><?= h($purchaseMetaLabel) ?></th>
                     <th scope="col" class="col-doc"><?= h($purchaseDocLabel) ?></th>
                     <th scope="col" class="col-name"><?= h($purchaseNameLabel) ?></th>
-                    <th scope="col" class="col-site">ไซต์</th>
-                    <th scope="col" class="col-cat">หมวด</th>
+                    <th scope="col" class="col-tax"><?= h($purchaseTaxLabel) ?></th>
                 <?php endif; ?>
                 <th scope="col" class="text-end col-amt"><?= h($baseLabel) ?></th>
                 <th scope="col" class="text-end col-amt"><?= h($vatLabel) ?></th>
@@ -388,19 +405,27 @@ function tnc_vat_render_table_html(
                 <?php foreach ($rows as $rowIndex => $row): ?>
                     <?php
                     $docNo = (string) ($isSales ? ($row['invoice_no'] ?? '') : ($row['bill_no'] ?? ''));
+                    $docDateFormatted = $formatDocDate((string) ($row['doc_date'] ?? ''));
                     if ($isSales) {
                         $nameCol = (string) ($row['customer_name'] ?? '');
+                        $metaCol = $docDateFormatted;
+                        $taxCol = '';
                     } else {
-                        $nameCol = tnc_vat_purchase_seller_display(
-                            (string) ($row['supplier_name'] ?? ''),
-                            (string) ($row['supplier_tax_id'] ?? '')
+                        $nameCol = tnc_vat_purchase_seller_display((string) ($row['supplier_name'] ?? ''));
+                        $subCat = trim((string) ($row['sub_category_name'] ?? ''));
+                        if ($subCat === '') {
+                            $subCat = trim((string) ($row['category_name'] ?? ''));
+                        }
+                        $metaCol = tnc_vat_purchase_meta_display(
+                            $docDateFormatted,
+                            (string) ($row['site_name'] ?? ''),
+                            $subCat
                         );
+                        $taxCol = tnc_vat_purchase_tax_display((string) ($row['supplier_tax_id'] ?? ''));
                     }
-                    $siteCol = trim((string) ($row['site_name'] ?? ''));
-                    $catCol = trim((string) ($row['category_name'] ?? ''));
                     $docLabel = $isSales ? $salesDocLabel : $purchaseDocLabel;
                     $nameLabel = $isSales ? $salesNameLabel : $purchaseNameLabel;
-                    $dateLabel = $isSales ? $salesDateLabel : 'วันที่บิล';
+                    $dateLabel = $isSales ? $salesDateLabel : $purchaseMetaLabel;
                     $rowClasses = [];
                     if (!$isSales && !empty($row['is_duplicate_bill'])) {
                         $rowClasses[] = 'vat-row-duplicate';
@@ -411,12 +436,11 @@ function tnc_vat_render_table_html(
                     $rowClassAttr = $rowClasses !== [] ? ' class="' . h(implode(' ', $rowClasses)) . '"' : '';
                     ?>
                     <tr<?= $rowClassAttr ?>>
-                        <td class="col-date" data-label="<?= h($dateLabel) ?>"><?= h($formatDocDate((string) ($row['doc_date'] ?? ''))) ?></td>
+                        <td class="col-date<?= !$isSales ? ' col-meta' : '' ?>" data-label="<?= h($dateLabel) ?>"><?= h($metaCol) ?></td>
                         <td class="col-doc<?= !$forPrint ? ' tnc-mobile-primary' : '' ?><?= !$isSales && !empty($row['is_duplicate_bill']) ? ' vat-duplicate-doc' : '' ?>" data-label="<?= h($docLabel) ?>"><?= $withDocLinks ? tnc_vat_render_doc_no($docNo, (string) ($row['link_url'] ?? '')) : h($docNo !== '' ? $docNo : '—') ?></td>
                         <td class="col-name" data-label="<?= h($nameLabel) ?>"><?= h($nameCol !== '' ? $nameCol : '—') ?></td>
                         <?php if (!$isSales): ?>
-                            <td class="col-site" data-label="ไซต์"><?= h($siteCol !== '' ? $siteCol : '—') ?></td>
-                            <td class="col-cat" data-label="หมวด"><?= h($catCol !== '' ? $catCol : '—') ?></td>
+                            <td class="col-tax" data-label="<?= h($purchaseTaxLabel) ?>"><?= h($taxCol) ?></td>
                         <?php endif; ?>
                         <td class="text-end col-amt num" data-label="<?= h($baseLabel) ?>"><?= number_format((float) ($row['base'] ?? 0), 2) ?></td>
                         <td class="text-end col-amt num" data-label="<?= h($vatLabel) ?>"><?= number_format((float) ($row['vat'] ?? 0), 2) ?></td>

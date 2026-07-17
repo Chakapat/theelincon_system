@@ -1063,7 +1063,8 @@
     margin-right: 0;
 }
 
-.pr-purchase-requisition-doc .pr-cancelled-watermark {
+.pr-purchase-requisition-doc .pr-cancelled-watermark,
+.pr-purchase-requisition-doc .pr-approval-watermark {
     position: absolute;
     left: 50%;
     top: 50%;
@@ -1076,7 +1077,18 @@
     pointer-events: none;
     z-index: 60;
     user-select: none;
+}
+
+.pr-purchase-requisition-doc .pr-cancelled-watermark {
     text-transform: uppercase;
+}
+
+.pr-purchase-requisition-doc .pr-approval-watermark--approved {
+    color: rgba(22, 163, 74, 0.38);
+}
+
+.pr-purchase-requisition-doc .pr-approval-watermark--rejected {
+    color: rgba(220, 38, 38, 0.38);
 }
 
 .pr-bundle-inline {
@@ -2097,8 +2109,14 @@
         color: var(--doc-po-deep, #c2410c) !important;
     }
 
-    .po-cancelled-watermark {
+    .po-cancelled-watermark,
+    .pr-cancelled-watermark,
+    .pr-approval-watermark--rejected {
         color: rgba(185, 28, 28, 0.5) !important;
+    }
+
+    .pr-approval-watermark--approved {
+        color: rgba(21, 128, 61, 0.5) !important;
     }
 
     /* รายการ PR บนหน้า list */

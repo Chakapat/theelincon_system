@@ -180,6 +180,8 @@ if (!function_exists('tnc_purchase_pr_list_flash')) {
             $message = match ($error) {
                 'invalid_pr' => 'ไม่พบรหัสใบขอซื้อที่ถูกต้อง',
                 'pr_has_po' => 'ใบขอซื้อนี้มีใบสั่งซื้อ (PO) แล้ว ไม่สามารถแก้ไขได้',
+                'pr_has_active_po' => 'ใบขอซื้อนี้ยังมี PO ที่ยังไม่ยกเลิก — ต้องยกเลิก PO ก่อน',
+                'already_cancelled' => 'ใบขอซื้อนี้ยกเลิกไปแล้ว',
                 'pr_approved_locked' => 'ไม่มีสิทธิ์แก้ไข PR นี้',
                 'delete_pr_failed' => 'ไม่สามารถลบใบขอซื้อได้ กรุณาลองใหม่หรือติดต่อผู้ดูแลระบบ',
                 default => 'เกิดข้อผิดพลาด (' . $error . ')',
@@ -212,6 +214,10 @@ if (!function_exists('tnc_purchase_pr_list_flash')) {
 
         if (!empty($get['deleted'])) {
             return ['type' => 'success', 'message' => 'ลบใบขอซื้อเรียบร้อยแล้ว', 'audio' => 'delete'];
+        }
+
+        if (!empty($get['cancelled'])) {
+            return ['type' => 'success', 'message' => 'ยกเลิกใบขอซื้อเรียบร้อยแล้ว', 'audio' => 'delete'];
         }
 
         return null;
@@ -257,11 +263,36 @@ if (!function_exists('tnc_purchase_pr_view_flash')) {
             ];
         }
 
+        if (!empty($get['error']) && (string) $get['error'] === 'pr_cancelled') {
+            return [
+                'type' => 'danger',
+                'message' => 'ใบขอซื้อถูกยกเลิกแล้ว — ไม่สามารถออก PO ได้',
+            ];
+        }
+
+        if (!empty($get['error']) && (string) $get['error'] === 'already_cancelled') {
+            return [
+                'type' => 'warning',
+                'message' => 'ใบขอซื้อนี้ยกเลิกไปแล้ว',
+            ];
+        }
+
+        if (!empty($get['error']) && (string) $get['error'] === 'pr_has_active_po') {
+            return [
+                'type' => 'warning',
+                'message' => 'ยังมี PO ที่ยังไม่ยกเลิก — ต้องยกเลิก PO ก่อนจึงยกเลิก PR ได้',
+            ];
+        }
+
         if (!empty($get['error']) && (string) $get['error'] === 'pr_approved_locked') {
             return [
                 'type' => 'warning',
                 'message' => 'ไม่มีสิทธิ์แก้ไข PR นี้',
             ];
+        }
+
+        if (!empty($get['cancelled'])) {
+            return ['type' => 'success', 'message' => 'ยกเลิกใบขอซื้อเรียบร้อยแล้ว', 'audio' => 'delete'];
         }
 
         if (!empty($get['created'])) {

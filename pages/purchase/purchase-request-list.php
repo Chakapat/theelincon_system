@@ -37,7 +37,25 @@ foreach ($pr_rows as &$row) {
     $row['creator_lname'] = $cb['lname'] ?? '';
 }
 unset($row);
-Db::sortRows($pr_rows, 'created_at', true);
+usort($pr_rows, static function (array $a, array $b): int {
+    $na = trim((string) ($a['pr_number'] ?? ''));
+    $nb = trim((string) ($b['pr_number'] ?? ''));
+    if ($na === '' && $nb === '') {
+        return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
+    }
+    if ($na === '') {
+        return 1;
+    }
+    if ($nb === '') {
+        return -1;
+    }
+    $cmp = strcmp($nb, $na);
+    if ($cmp !== 0) {
+        return $cmp;
+    }
+
+    return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
+});
 
 if ($filterSiteId > 0) {
     $pr_rows = array_values(array_filter($pr_rows, static function (array $row) use ($filterSiteId): bool {
@@ -48,6 +66,8 @@ if ($filterSiteId > 0) {
 $pr_ids_with_po = [];
 /** PR id => true when linked PO status is cancelled (lowercase in DB) */
 $pr_ids_po_cancelled = [];
+/** PR id => true when at least one active (non-cancelled) PO exists */
+$pr_ids_with_active_po = [];
 /** PR id => sum of active PO amounts */
 $pr_po_amount_sum = [];
 foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
@@ -58,6 +78,7 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
         if ($poSt === 'cancelled') {
             $pr_ids_po_cancelled[$pRid] = true;
         } else {
+            $pr_ids_with_active_po[$pRid] = true;
             $amt = (float) ($poRow['total_amount'] ?? 0);
             if ($amt <= 0.0001) {
                 $amt = (float) ($poRow['gross_amount'] ?? 0);
@@ -205,7 +226,9 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
                         <?php
                             $rowPrId = (int) ($row['id'] ?? 0);
                             $prHasPo = $rowPrId > 0 && !empty($pr_ids_with_po[$rowPrId]);
+                            $prHasActivePo = $rowPrId > 0 && !empty($pr_ids_with_active_po[$rowPrId]);
                             $prPoCancelled = $rowPrId > 0 && !empty($pr_ids_po_cancelled[$rowPrId]);
+                            $prIsCancelledRow = line_pr_is_cancelled($row);
                             $prTotalAmt = (float) ($row['total_amount'] ?? 0);
                             if ($prTotalAmt <= 0.0001) {
                                 $prTotalAmt = (float) ($row['gross_amount'] ?? 0);
@@ -215,26 +238,31 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
                             $createdRaw = trim((string) ($row['created_at'] ?? ''));
                             $createdTs = $createdRaw !== '' ? strtotime($createdRaw) : false;
                             $prDateDisplay = $createdTs !== false ? date('d/m/Y', $createdTs) : '—';
-                            $prDateOrder = $createdTs !== false ? date('Y-m-d', $createdTs) : '0000-00-00';
+                            $prNoSort = trim((string) ($row['pr_number'] ?? ''));
+                            $prOrderAttr = $prNoSort !== ''
+                                ? $prNoSort
+                                : ('zzzz-' . str_pad((string) max(0, $rowPrId), 10, '0', STR_PAD_LEFT));
                         ?>
                         <tr>
                             <td class="text-center align-middle no-print">
                                 <input type="checkbox" class="form-check-input m-0 js-pr-print-cb" value="<?= $rowPrId ?>" aria-label="เลือกพิมพ์ <?= htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                             </td>
-                            <td data-order="<?= htmlspecialchars($prDateOrder, ENT_QUOTES, 'UTF-8') ?>" data-label="เลขที่ PR" class="tnc-mobile-primary">
-                                <div class="fw-bold <?= $prPoCancelled ? 'text-danger' : 'text-tnc-orange' ?>">
+                            <td data-order="<?= htmlspecialchars($prOrderAttr, ENT_QUOTES, 'UTF-8') ?>" data-label="เลขที่ PR" class="tnc-mobile-primary">
+                                <div class="fw-bold <?= ($prPoCancelled || $prIsCancelledRow) ? 'text-danger' : 'text-tnc-orange' ?>">
                                     <span class="d-inline-flex align-items-center gap-2 flex-wrap">
                                         <?php
                                         $prNoDisp = htmlspecialchars((string) ($row['pr_number'] ?? ''), ENT_QUOTES, 'UTF-8');
                                         $prViewHref = htmlspecialchars(app_path('pages/purchase/purchase-request-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . (int) $row['id'];
-                                        $prLinkClass = $prPoCancelled ? 'text-danger' : 'text-tnc-orange';
+                                        $prLinkClass = ($prPoCancelled || $prIsCancelledRow) ? 'text-danger' : 'text-tnc-orange';
                                         echo '<a href="' . $prViewHref . '" class="' . $prLinkClass . ' text-decoration-none" title="ดูรายละเอียด">' . $prNoDisp . '</a>';
-                                        if ($prPoCancelled) {
-                                            echo '<span class="pr-po-status-dot pr-po-status-dot--po-cancelled" role="img" aria-label="PO ยกเลิกแล้ว" title="PO ยกเลิกแล้ว"></span>';
-                                        } elseif ($prHasPo) {
-                                            echo '<span class="pr-po-status-dot pr-po-status-dot--has-po" role="img" aria-label="ออก PO แล้ว" title="ออก PO แล้ว"></span>';
-                                        } else {
-                                            echo '<span class="pr-po-status-dot pr-po-status-dot--no-po" role="img" aria-label="ยังไม่ออก PO" title="ยังไม่ออก PO"></span>';
+                                        if (!$prIsCancelledRow) {
+                                            if ($prPoCancelled) {
+                                                echo '<span class="pr-po-status-dot pr-po-status-dot--po-cancelled" role="img" aria-label="PO ยกเลิกแล้ว" title="PO ยกเลิกแล้ว"></span>';
+                                            } elseif ($prHasPo) {
+                                                echo '<span class="pr-po-status-dot pr-po-status-dot--has-po" role="img" aria-label="ออก PO แล้ว" title="ออก PO แล้ว"></span>';
+                                            } else {
+                                                echo '<span class="pr-po-status-dot pr-po-status-dot--no-po" role="img" aria-label="ยังไม่ออก PO" title="ยังไม่ออก PO"></span>';
+                                            }
                                         }
                                         if ($prPoExceeds) {
                                             echo '<span class="badge rounded-pill po-exceeds-pr-badge" title="ออก PO รวมเกินยอด PR">เกินยอด</span>';
@@ -273,7 +301,8 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
                                 <div class="btn-group shadow-sm rounded">
                                     <?php
                                     $prCanEdit = line_pr_user_can_edit($row);
-                                    $prEditLockTitle = 'ไม่มีสิทธิ์แก้ไข PR';
+                                    $prCanCancelRow = user_can('pr.cancel') && !$prIsCancelledRow && !$prHasActivePo;
+                                    $prEditLockTitle = $prIsCancelledRow ? 'ใบขอซื้อถูกยกเลิกแล้ว' : 'ไม่มีสิทธิ์แก้ไข PR';
                                     ?>
                                     <?php if ($prCanEdit): ?>
                                         <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-request-create.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['id'] ?>" class="btn btn-sm btn-white text-warning border" title="แก้ไขใบขอซื้อ">
@@ -283,6 +312,16 @@ foreach (tnc_site_budget_purchase_orders_cached() as $poRow) {
                                         <span class="btn btn-sm btn-white text-secondary border disabled opacity-75" style="cursor: not-allowed;" title="<?= htmlspecialchars($prEditLockTitle, ENT_QUOTES, 'UTF-8') ?>">
                                             <i class="bi bi-pencil-fill"></i>
                                         </span>
+                                    <?php endif; ?>
+
+                                    <?php if ($prCanCancelRow): ?>
+                                        <form method="post" action="<?= htmlspecialchars(app_path('actions/action-handler.php'), ENT_QUOTES, 'UTF-8') ?>?action=cancel_purchase_request" class="d-inline" data-tnc-fullnav="1" onsubmit="return confirm('ยืนยันยกเลิกใบขอซื้อนี้?');">
+                                            <?php csrf_field(); ?>
+                                            <input type="hidden" name="pr_id" value="<?= (int) $row['id'] ?>">
+                                            <button type="submit" class="btn btn-sm btn-white text-danger border" title="ยกเลิกใบขอซื้อ">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                        </form>
                                     <?php endif; ?>
 
                                     <?php if (user_can('pr.delete')): ?>
