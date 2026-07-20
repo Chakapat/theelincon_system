@@ -7,8 +7,8 @@ declare(strict_types=1);
  *   - site_id = 0  : หมวดกลาง ใช้ได้ทุกไซต์
  *   - site_id > 0  : หมวดเฉพาะไซต์นั้น
  * ตาราง: site_cost_categories { id, site_id, name, sort_order, active, budget_percent?, parent_id? }
- *   - parent_id = 0  : หมวดหลัก (กำหนด % งบได้)
- *   - parent_id > 0  : หมวดย่อย (เลือกบน PR/PO — ใช้งบร่วมกับหมวดหลัก)
+ *   - parent_id = 0  : หมวดหลัก (budget_percent = % ของงบไซต์)
+ *   - parent_id > 0  : หมวดย่อย (budget_percent = % ของงบหมวดหลัก — เลือกบน PR/PO)
  */
 
 use Theelincon\Rtdb\Db;
@@ -459,6 +459,50 @@ if (!function_exists('tnc_site_category_percent_would_exceed')) {
     }
 }
 
+if (!function_exists('tnc_site_category_sub_percent_sum')) {
+    /** รวม budget_percent ของหมวดย่อยใต้หมวดหลัก (เฉพาะหมวดของไซต์นั้น) */
+    function tnc_site_category_sub_percent_sum(int $parentId, int $siteId, ?int $excludeCategoryId = null): float
+    {
+        if ($parentId <= 0 || $siteId <= 0) {
+            return 0.0;
+        }
+        $sum = 0.0;
+        foreach (tnc_site_category_child_ids($parentId) as $childId) {
+            if ($excludeCategoryId !== null && $excludeCategoryId > 0 && $childId === $excludeCategoryId) {
+                continue;
+            }
+            $row = Db::rowByIdField('site_cost_categories', $childId);
+            if (!is_array($row) || (int) ($row['active'] ?? 1) !== 1) {
+                continue;
+            }
+            if ((int) ($row['site_id'] ?? 0) !== $siteId) {
+                continue;
+            }
+            if (!array_key_exists('budget_percent', $row) || $row['budget_percent'] === '' || $row['budget_percent'] === null) {
+                continue;
+            }
+            $pct = round((float) $row['budget_percent'], 2);
+            if ($pct > 0.0) {
+                $sum += $pct;
+            }
+        }
+
+        return round($sum, 2);
+    }
+}
+
+if (!function_exists('tnc_site_category_sub_percent_would_exceed')) {
+    function tnc_site_category_sub_percent_would_exceed(int $parentId, int $siteId, ?float $newPercent, ?int $excludeCategoryId = null): bool
+    {
+        if ($parentId <= 0 || $siteId <= 0 || $newPercent === null || $newPercent <= 0.0) {
+            return false;
+        }
+        $sum = tnc_site_category_sub_percent_sum($parentId, $siteId, $excludeCategoryId);
+
+        return round($sum + $newPercent, 2) > 100.0 + 0.0001;
+    }
+}
+
 if (!function_exists('tnc_site_category_save')) {
     /**
      * สร้าง/แก้ไขหมวด คืนค่า id
@@ -474,7 +518,6 @@ if (!function_exists('tnc_site_category_save')) {
         $name = mb_substr($name, 0, 150);
         $parentId = max(0, $parentId);
         if ($parentId > 0) {
-            $budgetPercent = null;
             $parentRow = Db::rowByIdField('site_cost_categories', $parentId);
             if (!is_array($parentRow) || (int) ($parentRow['parent_id'] ?? 0) !== 0) {
                 return ['error' => 'invalid_parent'];
@@ -490,11 +533,14 @@ if (!function_exists('tnc_site_category_save')) {
             }
         }
         $pctStored = null;
-        if ($parentId === 0 && $budgetPercent !== null) {
+        if ($budgetPercent !== null) {
             $pctStored = round(max(0.0, min(100.0, $budgetPercent)), 2);
         }
         if ($siteId > 0 && $parentId === 0 && $pctStored !== null && $pctStored > 0.0 && tnc_site_category_percent_would_exceed($siteId, $pctStored, $id > 0 ? $id : null)) {
             return ['error' => 'percent_sum_exceeded'];
+        }
+        if ($siteId > 0 && $parentId > 0 && $pctStored !== null && $pctStored > 0.0 && tnc_site_category_sub_percent_would_exceed($parentId, $siteId, $pctStored, $id > 0 ? $id : null)) {
+            return ['error' => 'sub_percent_sum_exceeded'];
         }
         $pctField = $pctStored !== null ? $pctStored : '';
         if ($id > 0) {
@@ -510,9 +556,7 @@ if (!function_exists('tnc_site_category_save')) {
                     'sort_order' => $sortOrder,
                     'parent_id' => $parentId,
                 ];
-                if ($parentId === 0) {
-                    $merge['budget_percent'] = $pctField;
-                }
+                $merge['budget_percent'] = $pctField;
                 Db::setRow('site_cost_categories', $pk, array_merge($cur, $merge));
 
                 return $id;
@@ -526,7 +570,7 @@ if (!function_exists('tnc_site_category_save')) {
             'name' => $name,
             'sort_order' => $sortOrder,
             'active' => 1,
-            'budget_percent' => $parentId === 0 ? $pctField : '',
+            'budget_percent' => $pctField,
         ]);
 
         return $nid;

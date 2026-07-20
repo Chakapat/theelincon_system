@@ -161,4 +161,62 @@
     global.tncPurchaseLineIsVatExempt = tncPurchaseLineIsVatExempt;
     global.tncPurchaseSyncVatApplyHidden = tncPurchaseSyncVatApplyHidden;
     global.tncPurchaseSumLineVatBuckets = tncPurchaseSumLineVatBuckets;
+
+    /** Retention: บาท หรือ % ของฐานก่อน VAT (subtotal) */
+    function tncPurchaseParseRetention(raw, subtotal) {
+        raw = String(raw || '').trim().replace(/,/g, '').replace(/\s/g, '');
+        if (!raw || raw === '0') {
+            return { type: 'none', amount: 0 };
+        }
+        if (raw.indexOf('%') !== -1) {
+            var pct = parseFloat(raw.replace('%', ''));
+            if (!isFinite(pct) || pct <= 0) {
+                return { type: 'none', amount: 0 };
+            }
+            pct = Math.min(100, pct);
+            return { type: 'percent', amount: money2(Math.max(0, Number(subtotal) || 0) * pct / 100) };
+        }
+        var fixed = money2(parseFloat(raw));
+        if (!isFinite(fixed) || fixed <= 0) {
+            return { type: 'none', amount: 0 };
+        }
+        return { type: 'fixed', amount: fixed };
+    }
+
+    function tncPurchaseApplyRetentionToTotals(gross, subtotal, retentionRaw) {
+        var parsed = tncPurchaseParseRetention(retentionRaw, subtotal);
+        var retentionAmt = parsed.amount || 0;
+        var net = money2((Number(gross) || 0) - retentionAmt);
+        if (net < 0) {
+            net = 0;
+        }
+        return { retention: parsed, retentionAmount: retentionAmt, net: net };
+    }
+
+    global.tncPurchaseParseRetention = tncPurchaseParseRetention;
+    global.tncPurchaseApplyRetentionToTotals = tncPurchaseApplyRetentionToTotals;
+
+    function tncPurchaseRetentionLabelDefault() {
+        return 'หักประกันผลงาน Retention';
+    }
+
+    function tncPurchaseSyncRetentionLabel() {
+        var labelEl = document.getElementById('retention_label');
+        var summaryEl = document.getElementById('retention_summary_label');
+        if (!summaryEl) {
+            return;
+        }
+        var text = labelEl ? String(labelEl.value || '').trim() : '';
+        summaryEl.textContent = text || tncPurchaseRetentionLabelDefault();
+    }
+
+    global.tncPurchaseRetentionLabelDefault = tncPurchaseRetentionLabelDefault;
+    global.tncPurchaseSyncRetentionLabel = tncPurchaseSyncRetentionLabel;
+
+    function tncPurchaseVatModeLabel(vatMode, withColon) {
+        var text = vatMode === 'inclusive' ? 'รวมภาษีมูลค่าเพิ่ม' : 'แยกภาษีมูลค่าเพิ่ม';
+        return withColon ? text + ':' : text;
+    }
+
+    global.tncPurchaseVatModeLabel = tncPurchaseVatModeLabel;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -842,3 +842,128 @@ body.pr-doc-view-page {
         transition: none;
     }
 }
+
+/* PO — ปรับยอด + สรุปยอด (ฟอร์มสร้าง/แก้ไข) */
+.purchase-module .summary-box__title {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 0.65rem;
+}
+
+.purchase-module .po-adjustments-panel {
+    border: 1px solid var(--tnc-orange-border, #fdba74);
+    border-radius: 0.75rem;
+    padding: 0.9rem 1rem;
+    background: linear-gradient(180deg, #fff 0%, var(--tnc-orange-soft, #ffedd5) 120%);
+}
+
+.purchase-module .po-adjustments-panel__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.65rem;
+}
+
+.purchase-module .po-adjustments-panel__title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 0.15rem;
+}
+
+.purchase-module .po-adjustments-panel__hint,
+.purchase-module .po-adjustments-panel__foot {
+    font-size: 0.78rem;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.purchase-module .po-adjustments-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.purchase-module .po-adjustment-row {
+    display: grid;
+    grid-template-columns: 4.75rem minmax(0, 1fr) 6rem 2.1rem;
+    gap: 0.35rem;
+    align-items: center;
+}
+
+.purchase-module .po-adjustment-row--head {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.1rem;
+    padding: 0 0.05rem;
+}
+
+.purchase-module .po-adjustment-row--head span:last-child {
+    visibility: hidden;
+}
+
+.purchase-module .po-adj-sign {
+    font-size: 0.78rem;
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+}
+
+.purchase-module .po-adj-remove {
+    padding: 0.2rem 0.35rem;
+    line-height: 1;
+}
+
+.purchase-module .po-adjustments-summary {
+    border-top: 1px dashed rgba(234, 88, 12, 0.22);
+    margin-top: 0.45rem;
+    padding-top: 0.45rem;
+}
+
+.purchase-module .po-adjustments-summary:empty {
+    display: none;
+    border: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.purchase-module .po-adjustments-summary .summary-line {
+    margin-bottom: 0.35rem;
+}
+
+.purchase-module .summary-box .summary-grand {
+    margin-top: 0.55rem;
+    padding-top: 0.65rem;
+}
+
+@media (max-width: 575.98px) {
+    .purchase-module .po-adjustment-row--head {
+        display: none;
+    }
+
+    .purchase-module .po-adjustment-row {
+        grid-template-columns: 4.25rem minmax(0, 1fr) 2.1rem;
+        grid-template-areas:
+            "sign label remove"
+            "input input input";
+        gap: 0.35rem 0.4rem;
+        padding: 0.55rem 0.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.55rem;
+        background: #fff;
+    }
+
+    .purchase-module .po-adj-sign { grid-area: sign; }
+    .purchase-module .po-adj-label { grid-area: label; }
+    .purchase-module .po-adj-input { grid-area: input; }
+    .purchase-module .po-adj-remove { grid-area: remove; align-self: start; }
+
+    .purchase-module .po-adjustments-panel__add {
+        flex-shrink: 0;
+    }
+}

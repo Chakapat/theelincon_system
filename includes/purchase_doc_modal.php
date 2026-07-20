@@ -166,6 +166,11 @@ if (!function_exists('tnc_purchase_doc_modal_payload')) {
                 'emphasis' => true,
             ];
 
+            $prEditUrl = $canEdit
+                ? (app_path('pages/purchase/purchase-request-create.php') . '?id=' . $id)
+                : '';
+            $prSiteId = (int) ($pr['site_id'] ?? 0);
+
             return [
                 'ok' => true,
                 'type' => 'pr',
@@ -177,8 +182,9 @@ if (!function_exists('tnc_purchase_doc_modal_payload')) {
                 'meta' => $meta,
                 'items' => $items,
                 'totals' => $totals,
-                'edit_url' => $canEdit
-                    ? (app_path('pages/purchase/purchase-request-create.php') . '?id=' . $id)
+                'edit_url' => $prEditUrl,
+                'embed_url' => $prEditUrl !== ''
+                    ? ($prEditUrl . '&embed=1' . ($prSiteId > 0 ? '&site_id=' . $prSiteId : ''))
                     : '',
                 'view_url' => app_path('pages/purchase/purchase-request-view.php') . '?id=' . $id,
                 'can_edit' => $canEdit,
@@ -267,7 +273,7 @@ if (!function_exists('tnc_purchase_doc_modal_payload')) {
         }
         if (!empty($ctx['hasDeductionsPrint'])) {
             $totals[] = [
-                'label' => 'ยอดรวมก่อนหัก',
+                'label' => 'ยอดรวมภาษี',
                 'value' => round((float) ($ctx['po_gross_amount'] ?? ($vatPrint['net_amount'] ?? 0)), 2),
             ];
         }
@@ -277,9 +283,21 @@ if (!function_exists('tnc_purchase_doc_modal_payload')) {
                 'value' => round((float) ($ctx['withholdingAmount'] ?? 0), 2),
             ];
         }
-        if (!empty($ctx['hasRetentionPrint'])) {
+        $poAdjustmentsModal = is_array($ctx['poAdjustments'] ?? null) ? $ctx['poAdjustments'] : [];
+        if (!empty($ctx['hasAdjustmentsPrint']) && $poAdjustmentsModal !== []) {
+            foreach ($poAdjustmentsModal as $poAdj) {
+                if (!is_array($poAdj) || (float) ($poAdj['amount'] ?? 0) <= 0.0) {
+                    continue;
+                }
+                $totals[] = [
+                    'label' => (string) ($poAdj['label'] ?? tnc_po_retention_label_default()),
+                    'value' => round((float) ($poAdj['amount'] ?? 0), 2),
+                    'sign' => (($poAdj['sign'] ?? 'subtract') === 'add') ? 'add' : 'subtract',
+                ];
+            }
+        } elseif (!empty($ctx['hasRetentionPrint'])) {
             $totals[] = [
-                'label' => 'เงินประกันผลงาน',
+                'label' => (string) ($ctx['retentionLabel'] ?? tnc_po_retention_label_default()),
                 'value' => round((float) ($ctx['retentionAmount'] ?? 0), 2),
             ];
         }
@@ -288,6 +306,11 @@ if (!function_exists('tnc_purchase_doc_modal_payload')) {
             'value' => round((float) ($ctx['poPayableAmount'] ?? ($vatPrint['net_amount'] ?? ($ctx['po_grand_total'] ?? 0))), 2),
             'emphasis' => true,
         ];
+
+        $poEditUrl = $canEdit
+            ? (app_path('pages/purchase/purchase-order-edit.php') . '?id=' . $id)
+            : '';
+        $poSiteId = (int) ($po['site_id'] ?? 0);
 
         return [
             'ok' => true,
@@ -302,8 +325,9 @@ if (!function_exists('tnc_purchase_doc_modal_payload')) {
             'meta' => $meta,
             'items' => $items,
             'totals' => $totals,
-            'edit_url' => $canEdit
-                ? (app_path('pages/purchase/purchase-order-edit.php') . '?id=' . $id)
+            'edit_url' => $poEditUrl,
+            'embed_url' => $poEditUrl !== ''
+                ? ($poEditUrl . '&embed=1' . ($poSiteId > 0 ? '&site_id=' . $poSiteId : ''))
                 : '',
             'view_url' => app_path('pages/purchase/purchase-order-view.php') . '?id=' . $id,
             'can_edit' => $canEdit,

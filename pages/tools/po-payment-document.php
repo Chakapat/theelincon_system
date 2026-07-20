@@ -12,6 +12,8 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.php';
+
 $id = (int) ($_GET['id'] ?? 0);
 $docType = trim((string) ($_GET['doc'] ?? 'voucher')); // voucher|receipt
 $docType = in_array($docType, ['voucher', 'receipt'], true) ? $docType : 'voucher';
@@ -36,7 +38,7 @@ Db::sortRows($items, 'id', false);
 $subtotal = (float) ($po['subtotal_amount'] ?? 0);
 $vat = (float) ($po['vat_amount'] ?? 0);
 $wht = (float) ($po['withholding_amount'] ?? 0);
-$ret = (float) ($po['retention_amount'] ?? 0);
+$poAdjustments = tnc_po_adjustments_from_row($po);
 $total = (float) ($po['payable_amount'] ?? ($po['total_amount'] ?? 0));
 
 $issueDate = trim((string) ($po['issue_date'] ?? $po['created_at'] ?? date('Y-m-d')));
@@ -137,7 +139,18 @@ if (!in_array($paymentMethod, ['cash', 'transfer', 'cheque'], true)) {
         <div class="d-flex justify-content-between"><span>ยอดรวม</span><strong><?= number_format($subtotal, 2) ?></strong></div>
         <div class="d-flex justify-content-between"><span>VAT</span><strong><?= number_format($vat, 2) ?></strong></div>
         <?php if ($wht > 0): ?><div class="d-flex justify-content-between text-danger"><span>หัก ณ ที่จ่าย</span><strong>-<?= number_format($wht, 2) ?></strong></div><?php endif; ?>
-        <?php if ($ret > 0): ?><div class="d-flex justify-content-between text-danger"><span>หักประกันผลงาน</span><strong>-<?= number_format($ret, 2) ?></strong></div><?php endif; ?>
+        <?php foreach ($poAdjustments as $poAdj): ?>
+        <?php
+        if (!is_array($poAdj) || (float) ($poAdj['amount'] ?? 0) <= 0.0) {
+            continue;
+        }
+        $adjSign = (($poAdj['sign'] ?? 'subtract') === 'add') ? 'add' : 'subtract';
+        ?>
+        <div class="d-flex justify-content-between <?= $adjSign === 'add' ? 'text-success' : 'text-danger' ?>">
+            <span><?= htmlspecialchars((string) ($poAdj['label'] ?? tnc_po_retention_label_default()), ENT_QUOTES, 'UTF-8') ?></span>
+            <strong><?= $adjSign === 'add' ? '+' : '-' ?><?= number_format((float) ($poAdj['amount'] ?? 0), 2) ?></strong>
+        </div>
+        <?php endforeach; ?>
         <hr class="my-2">
         <div class="d-flex justify-content-between align-items-center fs-5 pt-1">
             <span><strong>ยอดสุทธิ</strong></span>

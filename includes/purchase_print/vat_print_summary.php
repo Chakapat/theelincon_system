@@ -16,6 +16,321 @@ if (!function_exists('tnc_money_round2')) {
     }
 }
 
+if (!function_exists('tnc_po_parse_retention')) {
+    /**
+     * แปลงค่า Retention จากฟอร์ม — บาท หรือ % ของฐานก่อน VAT (subtotal)
+     *
+     * @return array{retention_type: string, retention_value: string|float, retention_amount: float}
+     */
+    function tnc_po_parse_retention(string $raw, float $subtotal): array
+    {
+        $none = ['retention_type' => 'none', 'retention_value' => '', 'retention_amount' => 0.0];
+        $raw = trim(str_replace([',', ' '], '', $raw));
+        if ($raw === '' || $raw === '0') {
+            return $none;
+        }
+        if (str_contains($raw, '%')) {
+            $pct = (float) str_replace('%', '', $raw);
+            if ($pct <= 0.0) {
+                return $none;
+            }
+            $pct = min(100.0, $pct);
+            $amount = tnc_money_round2(max(0.0, $subtotal) * ($pct / 100.0));
+            if ($amount <= 0.0) {
+                return $none;
+            }
+
+            return [
+                'retention_type' => 'percent',
+                'retention_value' => round($pct, 2),
+                'retention_amount' => $amount,
+            ];
+        }
+        $fixed = tnc_money_round2((float) $raw);
+        if ($fixed <= 0.0) {
+            return $none;
+        }
+
+        return [
+            'retention_type' => 'fixed',
+            'retention_value' => $fixed,
+            'retention_amount' => $fixed,
+        ];
+    }
+}
+
+if (!function_exists('tnc_po_retention_input_display')) {
+    /** ค่าในช่อง retention_input สำหรับแก้ไข PO */
+    function tnc_po_retention_input_display(array $po): string
+    {
+        $type = trim((string) ($po['retention_type'] ?? 'none'));
+        if ($type === 'percent') {
+            $val = $po['retention_value'] ?? '';
+            if ($val !== '' && $val !== null) {
+                $pct = rtrim(rtrim(number_format((float) $val, 2, '.', ''), '0'), '.');
+
+                return $pct . '%';
+            }
+        } elseif ($type === 'fixed') {
+            $amt = (float) ($po['retention_amount'] ?? 0);
+            if ($amt > 0.0) {
+                return rtrim(rtrim(number_format($amt, 2, '.', ''), '0'), '.');
+            }
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('tnc_po_retention_label_default')) {
+    function tnc_po_retention_label_default(): string
+    {
+        return 'หักประกันผลงาน Retention';
+    }
+}
+
+if (!function_exists('tnc_po_retention_label_normalize')) {
+    function tnc_po_retention_label_normalize(?string $raw): string
+    {
+        $raw = trim((string) $raw);
+        if ($raw === '') {
+            return tnc_po_retention_label_default();
+        }
+
+        return mb_substr($raw, 0, 120);
+    }
+}
+
+if (!function_exists('tnc_po_retention_label_display')) {
+    function tnc_po_retention_label_display(array $row): string
+    {
+        $stored = trim((string) ($row['retention_label'] ?? ''));
+        if ($stored !== '') {
+            return $stored;
+        }
+
+        return tnc_po_retention_label_default();
+    }
+}
+
+if (!function_exists('tnc_po_retention_label_from_post')) {
+    function tnc_po_retention_label_from_post(): string
+    {
+        return tnc_po_retention_label_normalize($_POST['retention_label'] ?? null);
+    }
+}
+
+if (!function_exists('tnc_po_retention_db_fields')) {
+    /** @param array<string,mixed> $totals จาก tnc_po_compute_totals */
+    function tnc_po_retention_db_fields(array $totals): array
+    {
+        return [
+            'retention_type' => (string) ($totals['retention_type'] ?? 'none'),
+            'retention_value' => $totals['retention_value'] ?? '',
+            'retention_amount' => (float) ($totals['retention_amount'] ?? 0),
+            'payable_amount' => (float) ($totals['payable_amount'] ?? ($totals['net'] ?? 0)),
+        ];
+    }
+}
+
+if (!function_exists('tnc_po_retention_save_fields')) {
+    /** @deprecated ใช้ tnc_po_adjustment_save_fields */
+    function tnc_po_retention_save_fields(array $totals): array
+    {
+        return tnc_po_adjustment_save_fields($totals);
+    }
+}
+
+if (!function_exists('tnc_po_parse_adjustment_lines')) {
+    /**
+     * @param list<array{label?:string,input?:string,sign?:string}> $lines
+     * @return list<array{label:string,input:string,sign:string,value_type:string,value:string|float,amount:float}>
+     */
+    function tnc_po_parse_adjustment_lines(array $lines, float $subtotal): array
+    {
+        $out = [];
+        foreach ($lines as $line) {
+            if (!is_array($line)) {
+                continue;
+            }
+            $inputRaw = trim(str_replace(',', '', (string) ($line['input'] ?? '')));
+            if ($inputRaw === '' || $inputRaw === '0') {
+                continue;
+            }
+            $sign = (($line['sign'] ?? 'subtract') === 'add') ? 'add' : 'subtract';
+            $labelRaw = trim((string) ($line['label'] ?? ''));
+            $label = $labelRaw !== '' ? tnc_po_retention_label_normalize($labelRaw) : tnc_po_retention_label_default();
+            $parsed = tnc_po_parse_retention($inputRaw, $subtotal);
+            $amount = (float) ($parsed['retention_amount'] ?? 0);
+            if ($amount <= 0.0) {
+                continue;
+            }
+            $out[] = [
+                'label' => $label,
+                'input' => trim((string) ($line['input'] ?? '')),
+                'sign' => $sign,
+                'value_type' => (string) ($parsed['retention_type'] ?? 'fixed'),
+                'value' => $parsed['retention_value'] ?? '',
+                'amount' => $amount,
+            ];
+        }
+
+        return $out;
+    }
+}
+
+if (!function_exists('tnc_po_adjustment_delta')) {
+    function tnc_po_adjustment_delta(array $adjustments): float
+    {
+        $delta = 0.0;
+        foreach ($adjustments as $adj) {
+            if (!is_array($adj)) {
+                continue;
+            }
+            $amount = (float) ($adj['amount'] ?? 0);
+            if ($amount <= 0.0) {
+                continue;
+            }
+            $delta += (($adj['sign'] ?? 'subtract') === 'add') ? $amount : -$amount;
+        }
+
+        return tnc_money_round2($delta);
+    }
+}
+
+if (!function_exists('tnc_po_adjustment_lines_from_post')) {
+    /** @return list<array{label:string,input:string,sign:string}> */
+    function tnc_po_adjustment_lines_from_post(): array
+    {
+        $labels = $_POST['adjustment_label'] ?? null;
+        if (is_array($labels)) {
+            $lines = [];
+            $inputs = is_array($_POST['adjustment_input'] ?? null) ? $_POST['adjustment_input'] : [];
+            $signs = is_array($_POST['adjustment_sign'] ?? null) ? $_POST['adjustment_sign'] : [];
+            foreach ($labels as $idx => $label) {
+                $lines[] = [
+                    'label' => trim((string) $label),
+                    'input' => trim((string) ($inputs[$idx] ?? '')),
+                    'sign' => (($signs[$idx] ?? 'subtract') === 'add') ? 'add' : 'subtract',
+                ];
+            }
+
+            return $lines;
+        }
+        $legacyInput = trim(str_replace(',', '', (string) ($_POST['retention_input'] ?? '')));
+        if ($legacyInput === '' || $legacyInput === '0') {
+            return [];
+        }
+
+        return [[
+            'label' => tnc_po_retention_label_from_post(),
+            'input' => trim((string) ($_POST['retention_input'] ?? '')),
+            'sign' => 'subtract',
+        ]];
+    }
+}
+
+if (!function_exists('tnc_po_adjustment_lines_from_row')) {
+    /** @return list<array{label:string,input:string,sign:string}> */
+    function tnc_po_adjustment_lines_from_row(array $row): array
+    {
+        $stored = $row['po_adjustments'] ?? null;
+        if (is_array($stored) && $stored !== []) {
+            $lines = [];
+            foreach ($stored as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $input = trim((string) ($item['input'] ?? ''));
+                if ($input === '' && ($item['value_type'] ?? '') === 'percent') {
+                    $val = $item['value'] ?? '';
+                    if ($val !== '' && $val !== null) {
+                        $input = rtrim(rtrim(number_format((float) $val, 2, '.', ''), '0'), '.') . '%';
+                    }
+                } elseif ($input === '' && (float) ($item['amount'] ?? 0) > 0.0) {
+                    $input = rtrim(rtrim(number_format((float) ($item['amount'] ?? 0), 2, '.', ''), '0'), '.');
+                }
+                $lines[] = [
+                    'label' => trim((string) ($item['label'] ?? '')),
+                    'input' => $input,
+                    'sign' => (($item['sign'] ?? 'subtract') === 'add') ? 'add' : 'subtract',
+                ];
+            }
+            if ($lines !== []) {
+                return $lines;
+            }
+        }
+        $legacyInput = tnc_po_retention_input_display($row);
+        if ($legacyInput === '') {
+            return [];
+        }
+
+        return [[
+            'label' => tnc_po_retention_label_display($row),
+            'input' => $legacyInput,
+            'sign' => 'subtract',
+        ]];
+    }
+}
+
+if (!function_exists('tnc_po_adjustments_from_row')) {
+    /** @return list<array{label:string,input:string,sign:string,value_type:string,value:string|float,amount:float}> */
+    function tnc_po_adjustments_from_row(array $row, ?float $subtotal = null): array
+    {
+        if ($subtotal === null) {
+            $subtotal = (float) ($row['subtotal_amount'] ?? 0);
+            if ($subtotal <= 0.0) {
+                $gross = (float) ($row['gross_amount'] ?? ($row['total_amount'] ?? 0));
+                $vat = (float) ($row['vat_amount'] ?? 0);
+                $subtotal = tnc_money_round2(max(0.0, $gross - $vat));
+            }
+        }
+
+        return tnc_po_parse_adjustment_lines(tnc_po_adjustment_lines_from_row($row), $subtotal);
+    }
+}
+
+if (!function_exists('tnc_po_legacy_retention_fields')) {
+    /** @param list<array<string,mixed>> $adjustments */
+    function tnc_po_legacy_retention_fields(array $adjustments): array
+    {
+        foreach ($adjustments as $adj) {
+            if (!is_array($adj) || (($adj['sign'] ?? 'subtract') !== 'subtract')) {
+                continue;
+            }
+            if ((float) ($adj['amount'] ?? 0) <= 0.0) {
+                continue;
+            }
+
+            return [
+                'retention_type' => (string) ($adj['value_type'] ?? 'fixed'),
+                'retention_value' => $adj['value'] ?? '',
+                'retention_amount' => (float) ($adj['amount'] ?? 0),
+                'retention_label' => (string) ($adj['label'] ?? tnc_po_retention_label_default()),
+            ];
+        }
+
+        return [
+            'retention_type' => 'none',
+            'retention_value' => '',
+            'retention_amount' => 0.0,
+            'retention_label' => '',
+        ];
+    }
+}
+
+if (!function_exists('tnc_po_adjustment_save_fields')) {
+    function tnc_po_adjustment_save_fields(array $totals): array
+    {
+        $adjustments = is_array($totals['po_adjustments'] ?? null) ? $totals['po_adjustments'] : [];
+
+        return array_merge([
+            'po_adjustments' => $adjustments,
+            'payable_amount' => (float) ($totals['payable_amount'] ?? ($totals['net'] ?? 0)),
+        ], tnc_po_legacy_retention_fields($adjustments));
+    }
+}
+
 /**
  * ปัดเงินใกล้จำนวนเต็มบาท (half-up)
  */
@@ -392,9 +707,30 @@ if (!function_exists('tnc_purchase_po_resolved_totals')) {
 if (!function_exists('tnc_purchase_vat_mode_label')) {
     function tnc_purchase_vat_mode_label(string $vatMode, bool $suffixColon = false): string
     {
-        $text = $vatMode === 'inclusive' ? 'รวม VAT' : 'แยก VAT';
+        $text = $vatMode === 'inclusive' ? 'รวมภาษีมูลค่าเพิ่ม' : 'แยกภาษีมูลค่าเพิ่ม';
 
         return $suffixColon ? $text . ':' : $text;
+    }
+}
+
+if (!function_exists('tnc_purchase_vat_label_for_print')) {
+    /** ป้าย VAT บนเอกสารพิมพ์ — ใช้โหมดปัจจุบัน และแปลงป้ายเก่าที่อาจค้างในข้อมูล */
+    function tnc_purchase_vat_label_for_print(?string $vatMode = null, ?string $storedLabel = null): string
+    {
+        $stored = trim((string) $storedLabel);
+        $withColon = str_ends_with($stored, ':');
+        if ($stored === 'แยก VAT' || $stored === 'แยก VAT:') {
+            return tnc_purchase_vat_mode_label('exclusive', $withColon);
+        }
+        if ($stored === 'รวม VAT' || $stored === 'รวม VAT:') {
+            return tnc_purchase_vat_mode_label('inclusive', $withColon);
+        }
+
+        $mode = in_array((string) $vatMode, ['inclusive', 'exclusive'], true)
+            ? (string) $vatMode
+            : 'exclusive';
+
+        return tnc_purchase_vat_mode_label($mode);
     }
 }
 

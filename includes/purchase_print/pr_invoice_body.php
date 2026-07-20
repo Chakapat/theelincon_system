@@ -190,7 +190,12 @@ if ($isMultiPageDoc): ?>
                     </div>
                     <?php if ($vatOn && (float) ($vatPrint['vat_amount'] ?? 0) > 0): ?>
                     <div class="summary-item pr-vat-line vat-print-line">
-                        <span><?= htmlspecialchars((string) ($vatPrint['vat_label'] ?? 'แยก VAT'), ENT_QUOTES, 'UTF-8') ?></span>
+                        <span><?= htmlspecialchars(tnc_purchase_vat_label_for_print(
+                            in_array((string) ($vatMode ?? ''), ['inclusive', 'exclusive'], true)
+                                ? (string) $vatMode
+                                : (string) ($vatPrint['vat_mode'] ?? 'exclusive'),
+                            (string) ($vatPrint['vat_label'] ?? '')
+                        ), ENT_QUOTES, 'UTF-8') ?></span>
                         <span><?= number_format((float) $vatPrint['vat_amount'], 2) ?></span>
                     </div>
                     <?php endif; ?>

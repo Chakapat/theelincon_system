@@ -211,6 +211,7 @@ if (isset($pr['subtotal_amount']) && $pr['subtotal_amount'] !== null && $pr['sub
 if (!function_exists('tnc_purchase_vat_print_summary')) {
     require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.php';
 }
+require_once dirname(__DIR__, 2) . '/includes/purchase_po_adjustments_ui.php';
 $prVatPrintCreate = tnc_purchase_vat_print_summary($pr_vat_enabled === 1, $pr_vat_mode, $pr_sub_amt, $pr_vat_amt, $pr_grand);
 
 $prSiteId = (int) ($pr['site_id'] ?? 0);
@@ -832,20 +833,24 @@ $po_submit_disabled = $pr_prefill_items_display === [];
                         <div id="vat_basis_wrap" class="pt-2 border-top border-secondary border-opacity-25">
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="radio" name="vat_basis" id="vat_basis_inclusive" value="inclusive" onchange="calculateTotal()"<?= $pr_vat_mode === 'inclusive' ? ' checked' : '' ?>>
-                                <label class="form-check-label" for="vat_basis_inclusive">รวม VAT <span class="text-muted small">(รวมภาษีมูลค่าเพิ่มในราคารวม)</span></label>
+                                <label class="form-check-label" for="vat_basis_inclusive">รวมภาษีมูลค่าเพิ่ม <span class="text-muted small">(รวมภาษีมูลค่าเพิ่มในราคารวม)</span></label>
                             </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="vat_basis" id="vat_basis_exclusive" value="exclusive" onchange="calculateTotal()"<?= $pr_vat_mode !== 'inclusive' ? ' checked' : '' ?>>
-                                <label class="form-check-label" for="vat_basis_exclusive">แยก VAT <span class="text-muted small">(บวกภาษีมูลค่าเพิ่มแยกจากราคารวม)</span></label>
+                                <label class="form-check-label" for="vat_basis_exclusive">แยกภาษีมูลค่าเพิ่ม <span class="text-muted small">(บวกภาษีมูลค่าเพิ่มแยกจากราคารวม)</span></label>
                             </div>
                         </div>
                     </div>
+                    <?php tnc_po_render_adjustments_panel(tnc_po_adjustments_editor_seed(null)); ?>
                 </div>
                 <div class="col-lg-5 order-1 order-lg-2">
                     <div class="summary-box po-summary-sticky">
+                        <div class="summary-box__title">สรุปยอด</div>
                         <div class="summary-line small text-muted"><span class="summary-label" id="subtotal_label">ยอดรายการ</span><strong class="summary-value text-end"><span id="subtotal_display"><?= number_format((float) $prVatPrintCreate['line_amount'], 2) ?></span> บาท</strong></div>
                         <div class="summary-line small text-muted d-none" id="vat_exempt_row"><span class="summary-label">ไม่คิด VAT</span><strong class="summary-value text-end"><span id="vat_exempt_display">0.00</span> บาท</strong></div>
                         <div class="summary-line small" id="vat_row" style="<?= $pr_vat_enabled ? 'display:grid' : 'display:none' ?>;"><span class="summary-label" id="vat_label"><?= $pr_vat_enabled ? htmlspecialchars((string) $prVatPrintCreate['vat_label'], ENT_QUOTES, 'UTF-8') : 'ภาษีมูลค่าเพิ่ม' ?></span><strong class="summary-value"><span id="vat_display"><?= number_format((float) $prVatPrintCreate['vat_amount'], 2) ?></span> บาท</strong></div>
+                        <div class="summary-line small text-muted" id="gross_row"><span class="summary-label" id="gross_label">ยอดรวมภาษี</span><strong class="summary-value text-end"><span id="gross_display"><?= number_format((float) $prVatPrintCreate['net_amount'], 2) ?></span> บาท</strong></div>
+                        <?php tnc_po_render_adjustments_summary_slot(); ?>
                         <div class="summary-line summary-grand fw-bold"><span class="summary-label">ยอดสุทธิ</span><span class="summary-value text-tnc-orange"><span id="grand_total"><?= number_format((float) $prVatPrintCreate['net_amount'], 2) ?></span> บาท</span></div>
                     </div>
                 </div>
@@ -880,6 +885,7 @@ $po_submit_disabled = $pr_prefill_items_display === [];
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="<?= htmlspecialchars(tnc_asset_href('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(tnc_asset_href('assets/js/po-adjustments.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(tnc_asset_href('assets/js/tnc-form-draft.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function () {
@@ -1141,6 +1147,13 @@ function calculateTotal() {
     const subtotal = split.subtotal;
     const vat = split.vat;
     const gross = split.gross;
+    const adjResult = (typeof tncPurchaseApplyAdjustmentsToTotals === 'function')
+        ? tncPurchaseApplyAdjustmentsToTotals(gross, subtotal)
+        : { net: gross, items: [] };
+    const netTotal = adjResult.net;
+    if (typeof tncPurchaseRenderAdjustmentsSummary === 'function') {
+        tncPurchaseRenderAdjustmentsSummary(adjResult.items || []);
+    }
     const subtotalLabelEl = document.getElementById('subtotal_label');
     if (subtotalLabelEl) {
         subtotalLabelEl.textContent = vatOn && exemptSum > 0 ? 'ยอดรายการ (คิด VAT)' : 'ยอดรายการ';
@@ -1161,7 +1174,9 @@ function calculateTotal() {
     }
     const vatLabelEl = document.getElementById('vat_label');
     if (vatLabelEl) {
-        vatLabelEl.textContent = vatOn ? (vatMode === 'inclusive' ? 'รวม VAT' : 'แยก VAT') : 'ภาษีมูลค่าเพิ่ม';
+        vatLabelEl.textContent = vatOn
+            ? (typeof tncPurchaseVatModeLabel === 'function' ? tncPurchaseVatModeLabel(vatMode) : (vatMode === 'inclusive' ? 'รวมภาษีมูลค่าเพิ่ม' : 'แยกภาษีมูลค่าเพิ่ม'))
+            : 'ภาษีมูลค่าเพิ่ม';
     }
     const vatRow = document.getElementById('vat_row');
     const vatDisplay = document.getElementById('vat_display');
@@ -1173,13 +1188,21 @@ function calculateTotal() {
     } else if (vatRow) {
         vatRow.style.display = 'none';
     }
+    const grossDisplayEl = document.getElementById('gross_display');
+    if (grossDisplayEl) {
+        grossDisplayEl.innerText = gross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
     const grandTotalEl = document.getElementById('grand_total');
     if (grandTotalEl) {
-        grandTotalEl.innerText = gross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        grandTotalEl.innerText = netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    const stickyGrandEl = document.getElementById('grand_total_sticky');
+    if (stickyGrandEl) {
+        stickyGrandEl.innerText = netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     const billedTotalEl = document.getElementById('billed_total_amount');
     const billedVatEl = document.getElementById('billed_vat_amount');
-    if (billedTotalEl) billedTotalEl.value = gross.toFixed(2);
+    if (billedTotalEl) billedTotalEl.value = netTotal.toFixed(2);
     if (billedVatEl) billedVatEl.value = vat.toFixed(2);
     updatePoVatBasisUi();
     if (typeof updatePoOverPrBanner === 'function') {

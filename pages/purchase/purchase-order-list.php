@@ -259,8 +259,29 @@ $ignoredCountAll = count($ignoredPoList);
             outline-offset: 2px;
         }
         .po-incomplete-icon { width: 42px; height: 42px; border-radius: 50%; background: #fff3cd; color: #d97706; font-size: 1.3rem; }
-        #incompletePoModal .ipo-item { border: 1px solid var(--tnc-border); border-radius: 0.65rem; }
+        #incompletePoModal .ipo-item {
+            border: 1px solid var(--tnc-border);
+            border-radius: 0.65rem;
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 0.75rem;
+        }
         #incompletePoModal .ipo-item + .ipo-item { margin-top: .6rem; }
+        #incompletePoModal .ipo-item__main {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+        }
+        #incompletePoModal .ipo-item__actions {
+            flex: 0 0 auto;
+            flex-shrink: 0;
+            margin-left: auto;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
         .po-empty-state { padding: 2.5rem 1rem; }
         .po-empty-state i { font-size: 2rem; color: var(--tnc-muted); opacity: 0.65; }
         .dropdown-menu .dropdown-item { font-size: 0.92rem; }
@@ -606,9 +627,9 @@ $ignoredCountAll = count($ignoredPoList);
                         $ipSupplier = htmlspecialchars($ip['supplier'] !== '' ? $ip['supplier'] : '—', ENT_QUOTES, 'UTF-8');
                         $ipViewHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . $ipId;
                         ?>
-                        <div class="ipo-item p-3 d-flex flex-wrap align-items-center gap-2" data-ipo-id="<?= $ipId ?>">
-                            <div class="flex-grow-1 min-w-0">
-                                <div class="fw-bold">
+                        <div class="ipo-item p-3" data-ipo-id="<?= $ipId ?>">
+                            <div class="ipo-item__main">
+                                <div class="fw-bold text-truncate">
                                     <a href="<?= $ipViewHref ?>" class="text-decoration-none text-warning-emphasis"><?= $ipLabelHtml ?></a>
                                 </div>
                                 <div class="small text-muted text-truncate"><?= $ipSupplier ?></div>
@@ -618,7 +639,7 @@ $ignoredCountAll = count($ignoredPoList);
                                     <?php endforeach; ?>
                                 </div>
                             </div>
-                            <div class="d-flex flex-wrap gap-2 flex-shrink-0">
+                            <div class="ipo-item__actions">
                                 <?php if ($ip['need_payment']): ?>
                                     <button type="button" class="btn btn-sm btn-warning rounded-pill px-3 js-fix-paid" data-po-id="<?= $ipId ?>" data-po-number="<?= htmlspecialchars((string) ($ip['po_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                                         <i class="bi bi-cash-coin me-1"></i>แนบสลิป
@@ -657,14 +678,18 @@ $ignoredCountAll = count($ignoredPoList);
                                 $ipLabelHtml = htmlspecialchars($poIncompleteItemLabel($ip), ENT_QUOTES, 'UTF-8');
                                 $ipViewHref = htmlspecialchars(app_path('pages/purchase/purchase-order-view.php'), ENT_QUOTES, 'UTF-8') . '?id=' . $ipId;
                                 ?>
-                                <div class="ipo-item p-2 px-3 d-flex flex-wrap align-items-center gap-2 bg-light" data-ipo-id="<?= $ipId ?>">
-                                    <div class="flex-grow-1 min-w-0">
-                                        <a href="<?= $ipViewHref ?>" class="text-decoration-none text-muted fw-semibold"><?= $ipLabelHtml ?></a>
-                                        <span class="small text-muted ms-2"><?= htmlspecialchars(implode(' , ', $ip['reasons']), ENT_QUOTES, 'UTF-8') ?></span>
+                                <div class="ipo-item p-2 px-3 bg-light" data-ipo-id="<?= $ipId ?>">
+                                    <div class="ipo-item__main">
+                                        <div class="text-truncate">
+                                            <a href="<?= $ipViewHref ?>" class="text-decoration-none text-muted fw-semibold"><?= $ipLabelHtml ?></a>
+                                            <span class="small text-muted ms-2"><?= htmlspecialchars(implode(' , ', $ip['reasons']), ENT_QUOTES, 'UTF-8') ?></span>
+                                        </div>
                                     </div>
+                                    <div class="ipo-item__actions">
                                     <button type="button" class="btn btn-sm btn-outline-orange rounded-pill px-3 js-po-unignore" data-po-id="<?= $ipId ?>" title="นำกลับมานับใหม่">
                                         <i class="bi bi-arrow-counterclockwise me-1"></i>คืนค่า
                                     </button>
+                                    </div>
                                 </div>
                             <?php endforeach; ?>
                         </div>

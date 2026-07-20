@@ -713,6 +713,58 @@ button.hub-action-tile {
 .hub-doc-detail-modal .modal-dialog {
     max-width: min(960px, 96vw);
 }
+.hub-doc-detail-modal.is-edit-mode .modal-dialog {
+    max-width: min(1180px, 96vw);
+    height: calc(100vh - 2rem);
+    margin: 1rem auto;
+}
+.hub-doc-detail-modal.is-edit-mode .modal-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+.hub-doc-detail-modal.is-edit-mode .modal-body {
+    display: none;
+}
+.hub-doc-detail-modal .hub-doc-detail-edit-pane {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    background: #f8fafc;
+}
+.hub-doc-detail-modal.is-edit-mode .hub-doc-detail-edit-pane {
+    display: block !important;
+}
+.hub-doc-detail-edit-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(248, 250, 252, 0.92);
+}
+.hub-doc-detail-edit-loading.is-hidden {
+    display: none;
+}
+.hub-doc-detail-edit-frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
+}
+@media (max-width: 991.98px) {
+    .hub-doc-detail-modal.is-edit-mode .modal-dialog {
+        max-width: 100%;
+        height: 100%;
+        margin: 0;
+    }
+    .hub-doc-detail-modal.is-edit-mode .modal-content {
+        border-radius: 0;
+    }
+}
 .hub-doc-detail-meta th.hub-doc-detail-meta__label {
     width: 10.5rem;
     white-space: nowrap;
@@ -740,6 +792,10 @@ button.hub-action-tile {
 .hub-doc-detail-modal .modal-footer {
     border-top: 1px solid #fed7aa;
     background: #fffaf5;
+}
+/* SweetAlert ยืนยันลบ ต้องอยู่เหนือ stacked Bootstrap modals ของ Site Hub */
+.swal2-container.hub-doc-delete-swal {
+    z-index: 3000 !important;
 }
 @media (prefers-reduced-motion: reduce) {
     .hub-cat-progress__bar { transition: none; }

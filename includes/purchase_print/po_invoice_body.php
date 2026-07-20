@@ -17,6 +17,9 @@ declare(strict_types=1);
  * @var float $withholdingAmount
  * @var string $retentionType
  * @var float $retentionAmount
+ * @var string $retentionLabel
+ * @var list<array{label:string,sign:string,value_type:string,amount:float}> $poAdjustments
+ * @var bool $hasAdjustmentsPrint
  * @var string $poNotePo
  * @var string $poNoteQt
  * @var string $poSiteDisplay
@@ -213,12 +216,15 @@ if ($isMultiPageDoc): ?>
                     </div>
                     <?php if ($po_vat_enabled && (float) ($poVatPrint['vat_amount'] ?? 0) > 0): ?>
                     <?php
-                    $poVatModePrint = (string) ($poVatPrint['vat_mode'] ?? '');
-                    $poVatDisplayLabel = match ($poVatModePrint) {
-                        'inclusive' => 'รวม VAT',
-                        'exclusive' => 'แยก VAT',
-                        default => (string) ($poVatPrint['vat_label'] ?? 'แยก VAT'),
-                    };
+                    $poVatModeResolved = in_array((string) ($poVatMode ?? ''), ['inclusive', 'exclusive'], true)
+                        ? (string) $poVatMode
+                        : (in_array((string) ($poVatPrint['vat_mode'] ?? ''), ['inclusive', 'exclusive'], true)
+                            ? (string) $poVatPrint['vat_mode']
+                            : 'exclusive');
+                    $poVatDisplayLabel = tnc_purchase_vat_label_for_print(
+                        $poVatModeResolved,
+                        (string) ($poVatPrint['vat_label'] ?? '')
+                    );
                     ?>
                     <div class="summary-item po-vat-line vat-print-line">
                         <span><?= htmlspecialchars($poVatDisplayLabel, ENT_QUOTES, 'UTF-8'); ?></span>
@@ -227,7 +233,7 @@ if ($isMultiPageDoc): ?>
                     <?php endif; ?>
                     <?php if ($hasDeductionsPrint): ?>
                     <div class="summary-item">
-                        <span>ยอดก่อนหัก</span>
+                        <span>ยอดรวมภาษี</span>
                         <span><?= number_format($po_gross_amount, 2); ?></span>
                     </div>
                     <?php endif; ?>
@@ -237,9 +243,24 @@ if ($isMultiPageDoc): ?>
                         <span>-<?= number_format($withholdingAmount, 2); ?></span>
                     </div>
                     <?php endif; ?>
-                    <?php if ($hasRetentionPrint): ?>
+                    <?php if (!empty($hasAdjustmentsPrint) && is_array($poAdjustments ?? null)): ?>
+                    <?php foreach ($poAdjustments as $poAdj): ?>
+                    <?php
+                    if (!is_array($poAdj) || (float) ($poAdj['amount'] ?? 0) <= 0.0) {
+                        continue;
+                    }
+                    $adjSign = (($poAdj['sign'] ?? 'subtract') === 'add') ? 'add' : 'subtract';
+                    $adjLabel = trim((string) ($poAdj['label'] ?? tnc_po_retention_label_default()));
+                    $adjAmount = (float) ($poAdj['amount'] ?? 0);
+                    ?>
+                    <div class="summary-item <?= $adjSign === 'add' ? 'text-success' : 'text-danger' ?>">
+                        <span><?= htmlspecialchars($adjLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                        <span><?= $adjSign === 'add' ? '+' : '-' ?><?= number_format($adjAmount, 2); ?></span>
+                    </div>
+                    <?php endforeach; ?>
+                    <?php elseif (!empty($hasRetentionPrint)): ?>
                     <div class="summary-item text-danger">
-                        <span>หักประกันผลงาน<?= $retentionType === 'percent' ? ' (%)' : '' ?></span>
+                        <span><?= htmlspecialchars($retentionLabel ?? tnc_po_retention_label_default(), ENT_QUOTES, 'UTF-8') ?></span>
                         <span>-<?= number_format($retentionAmount, 2); ?></span>
                     </div>
                     <?php endif; ?>

@@ -104,20 +104,30 @@ $editLinkedPoViewUrl = $editPrHasLinkedPo
 
 $siteLockedFromHub = false;
 $lockedSiteHubUrl = '';
-$hubSiteIdParam = !$isEdit ? (int) ($_GET['site_id'] ?? 0) : 0;
-$isEmbed = !$isEdit && (string) ($_GET['embed'] ?? '') === '1';
-if ($hubSiteIdParam > 0 && !$isEdit) {
+$hubSiteIdParam = (int) ($_GET['site_id'] ?? 0);
+$isEmbed = (string) ($_GET['embed'] ?? '') === '1';
+$embedReturnSiteId = 0;
+if (!$isEdit && $hubSiteIdParam > 0) {
     foreach ($sites as $siteRowCheck) {
         if ((int) ($siteRowCheck['id'] ?? 0) === $hubSiteIdParam) {
             $siteLockedFromHub = true;
             $editSiteId = $hubSiteIdParam;
             $lockedSiteHubUrl = app_path('pages/sites/site-hub.php?site_id=' . $hubSiteIdParam);
+            $embedReturnSiteId = $hubSiteIdParam;
             break;
         }
     }
-}
-if ($isEmbed && !$siteLockedFromHub) {
-    $isEmbed = false;
+    if ($isEmbed && !$siteLockedFromHub) {
+        $isEmbed = false;
+    }
+} elseif ($isEdit) {
+    $embedReturnSiteId = $hubSiteIdParam > 0 ? $hubSiteIdParam : (int) $editSiteId;
+    if ($isEmbed && $embedReturnSiteId <= 0) {
+        $isEmbed = false;
+    }
+    if ($hubSiteIdParam > 0) {
+        $lockedSiteHubUrl = app_path('pages/sites/site-hub.php?site_id=' . $hubSiteIdParam);
+    }
 }
 $embedCssVer = @filemtime(dirname(__DIR__, 2) . '/assets/css/tnc-embed-page.css');
 if (!is_int($embedCssVer) || $embedCssVer <= 0) {
@@ -283,10 +293,10 @@ if (!is_int($embedCssVer) || $embedCssVer <= 0) {
         <?php if ($isEdit): ?>
             <input type="hidden" name="pr_id" value="<?= (int) $editId ?>">
         <?php endif; ?>
-        <?php if ($isEmbed && $siteLockedFromHub): ?>
+        <?php if ($isEmbed && $embedReturnSiteId > 0): ?>
             <input type="hidden" name="embed" value="1">
             <input type="hidden" name="return_to" value="site_hub">
-            <input type="hidden" name="return_site_id" value="<?= (int) $hubSiteIdParam ?>">
+            <input type="hidden" name="return_site_id" value="<?= (int) $embedReturnSiteId ?>">
         <?php endif; ?>
         <input type="hidden" name="send_line_after_save" id="send_line_after_save" value="0">
         <header class="po-create-hero p-4 p-md-4 mb-4">
@@ -471,8 +481,8 @@ if (!is_int($embedCssVer) || $embedCssVer <= 0) {
                             <div class="pr-vat-dropdown-wrap">
                                 <div id="vat_mode_wrap" class="<?= $editVatOn ? '' : 'pr-vat-select-hidden' ?>">
                                     <select class="form-select form-select-sm" name="vat_mode" id="vat_mode" onchange="calculateTotal()" aria-label="วิธีคิด VAT"<?= $editVatOn ? '' : ' disabled' ?>>
-                                        <option value="exclusive"<?= $editVatMode === 'exclusive' ? ' selected' : '' ?>>แยก VAT (บวก 7% จากฐาน)</option>
-                                        <option value="inclusive"<?= $editVatMode === 'inclusive' ? ' selected' : '' ?>>รวม VAT (ราคารวมภาษีแล้ว)</option>
+                                        <option value="exclusive"<?= $editVatMode === 'exclusive' ? ' selected' : '' ?>>แยกภาษีมูลค่าเพิ่ม (บวก 7% จากฐาน)</option>
+                                        <option value="inclusive"<?= $editVatMode === 'inclusive' ? ' selected' : '' ?>>รวมภาษีมูลค่าเพิ่ม (ราคารวมภาษีแล้ว)</option>
                                     </select>
                                 </div>
                             </div>
@@ -705,7 +715,9 @@ function calculateTotal() {
     }
     const vatLabelEl = document.getElementById('vat_label');
     if (vatLabelEl) {
-        vatLabelEl.textContent = vatOn ? (vatMode === 'inclusive' ? 'รวม VAT' : 'แยก VAT') : 'แยก VAT';
+        vatLabelEl.textContent = vatOn
+            ? (typeof tncPurchaseVatModeLabel === 'function' ? tncPurchaseVatModeLabel(vatMode) : (vatMode === 'inclusive' ? 'รวมภาษีมูลค่าเพิ่ม' : 'แยกภาษีมูลค่าเพิ่ม'))
+            : 'ภาษีมูลค่าเพิ่ม';
     }
     document.getElementById('vat_prefix').textContent = '';
     document.getElementById('vat_display').textContent = fmtNum(vat);

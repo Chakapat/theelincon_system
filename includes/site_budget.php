@@ -105,6 +105,33 @@ if (!function_exists('tnc_site_budget_cat_limit')) {
     }
 }
 
+if (!function_exists('tnc_site_budget_subcat_limit')) {
+    /** @return float|null null = หมวดย่อยไม่จำกัด (แต่ยังโดนงบหมวดหลัก) */
+    function tnc_site_budget_subcat_limit(int $siteId, int $subCategoryId): ?float
+    {
+        if ($subCategoryId <= 0) {
+            return null;
+        }
+        if (!function_exists('tnc_site_category_parent_id')) {
+            require_once __DIR__ . '/site_cost_categories.php';
+        }
+        $parentId = tnc_site_category_parent_id($subCategoryId);
+        if ($parentId <= 0) {
+            return null;
+        }
+        $parentLimit = tnc_site_budget_cat_limit($siteId, $parentId);
+        if ($parentLimit === null) {
+            return null;
+        }
+        $pct = tnc_site_budget_category_percent($subCategoryId);
+        if ($pct === null) {
+            return null;
+        }
+
+        return round($parentLimit * ($pct / 100.0), 2);
+    }
+}
+
 if (!function_exists('tnc_site_budget_purchase_orders_cached')) {
     /**
      * โหลด purchase_orders ครั้งเดียวต่อ request (ลด RTDB round-trip)
@@ -364,6 +391,25 @@ if (!function_exists('tnc_site_budget_validate')) {
             }
         }
 
+        $parentId = tnc_site_category_parent_id($categoryId);
+        if ($parentId > 0) {
+            $subLimit = tnc_site_budget_subcat_limit($siteId, $categoryId);
+            if ($subLimit !== null) {
+                $usedSub = tnc_site_budget_cat_used_direct($siteId, $categoryId, $excludePoId);
+                $remainingSub = round($subLimit - $usedSub, 2);
+                $subName = function_exists('tnc_site_category_display_name')
+                    ? tnc_site_category_display_name($categoryId)
+                    : (function_exists('tnc_site_category_name') ? tnc_site_category_name($categoryId) : ('#' . $categoryId));
+                $warnSubAt = tnc_site_budget_low_threshold($subLimit);
+                $remainingAfterSub = round($remainingSub - $amount, 2);
+                if ($remainingAfterSub < -0.0001) {
+                    $warnings[] = 'หมวดย่อย «' . $subName . '» เกินงบ (คงเหลือหลัง PO นี้ ' . number_format($remainingAfterSub, 2) . ' บาท)';
+                } elseif ($remainingAfterSub >= 0.0 && $remainingAfterSub <= $warnSubAt + 0.0001) {
+                    $warnings[] = 'หมวดย่อย «' . $subName . '» เงินเหลือน้อย (คงเหลือหลัง PO นี้ ' . number_format($remainingAfterSub, 2) . ' บาท)';
+                }
+            }
+        }
+
         return [
             'ok' => true,
             'error_code' => null,
@@ -483,12 +529,30 @@ if (!function_exists('tnc_site_budget_category_rows_for_site')) {
             }
             $catSiteId = (int) ($cat['site_id'] ?? 0);
             $children = [];
+            $subPercentUsed = 0.0;
             foreach (tnc_site_category_child_ids($cid) as $childId) {
                 $childRow = $categoryById[$childId] ?? null;
                 if (!is_array($childRow)) {
                     continue;
                 }
+                if ((int) ($childRow['site_id'] ?? 0) !== $siteId) {
+                    continue;
+                }
+                $childPct = null;
+                if (array_key_exists('budget_percent', $childRow) && $childRow['budget_percent'] !== '' && $childRow['budget_percent'] !== null) {
+                    $childPct = round((float) $childRow['budget_percent'], 2);
+                    if ($childPct > 0.0) {
+                        $subPercentUsed += $childPct;
+                    }
+                }
                 $childUsed = round($directUsed[$childId] ?? 0.0, 2);
+                $childLimit = tnc_site_budget_subcat_limit($siteId, $childId);
+                $childRemaining = $childLimit !== null ? round($childLimit - $childUsed, 2) : null;
+                $childOverBudget = $childLimit !== null && $childRemaining !== null && $childRemaining < -0.0001;
+                $childLow = false;
+                if ($childLimit !== null && $childRemaining !== null && $childRemaining > 0.0001 && $childRemaining <= tnc_site_budget_low_threshold($childLimit) + 0.0001) {
+                    $childLow = true;
+                }
                 $children[] = [
                     'id' => $childId,
                     'name' => (string) ($childRow['name'] ?? ''),
@@ -496,9 +560,16 @@ if (!function_exists('tnc_site_budget_category_rows_for_site')) {
                     'is_global' => (int) ($childRow['site_id'] ?? 0) === 0,
                     'can_manage' => (int) ($childRow['site_id'] ?? 0) === $siteId,
                     'parent_id' => $cid,
+                    'budget_percent' => $childPct,
+                    'limit' => $childLimit,
                     'used' => $childUsed,
+                    'remaining' => $childRemaining,
+                    'low' => $childLow,
+                    'over_budget' => $childOverBudget,
+                    'unlimited' => $childLimit === null && $limit !== null,
                 ];
             }
+            $subPercentUsed = round($subPercentUsed, 2);
             $rows[] = [
                 'id' => $cid,
                 'name' => (string) ($cat['name'] ?? ''),
@@ -508,6 +579,8 @@ if (!function_exists('tnc_site_budget_category_rows_for_site')) {
                 'can_manage' => $catSiteId === $siteId,
                 'has_children' => $children !== [],
                 'children' => $children,
+                'sub_percent_used' => $children !== [] ? $subPercentUsed : null,
+                'sub_percent_room' => $children !== [] ? round(max(0.0, 100.0 - $subPercentUsed), 2) : null,
                 'budget_percent' => $pct,
                 'limit' => $limit,
                 'used' => $used,

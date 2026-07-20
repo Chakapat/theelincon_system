@@ -108,7 +108,8 @@ if ($billedVatStored < 0) {
 
 $installmentNo = (int) ($po['installment_no'] ?? 0);
 $installmentTotal = max(1, (int) ($po['installment_total'] ?? 1));
-$retentionValueEdit = (float) ($po['retention_amount'] ?? 0);
+require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_po_adjustments_ui.php';
 $errorCode = trim((string) ($_GET['error'] ?? ''));
 
 $oldPayable = (float) ($po['payable_amount'] ?? 0);
@@ -144,6 +145,19 @@ if (true) {
     if ($poSiteId > 0) {
         $siteCategoriesForPo = tnc_site_category_build_select_options($poSiteId);
     }
+}
+
+$isEmbed = (string) ($_GET['embed'] ?? '') === '1';
+$embedReturnSiteId = (int) ($_GET['site_id'] ?? 0);
+if ($embedReturnSiteId <= 0) {
+    $embedReturnSiteId = $poSiteId;
+}
+if ($isEmbed && $embedReturnSiteId <= 0) {
+    $isEmbed = false;
+}
+$embedCssVer = @filemtime(dirname(__DIR__, 2) . '/assets/css/tnc-embed-page.css');
+if (!is_int($embedCssVer) || $embedCssVer <= 0) {
+    $embedCssVer = time();
 }
 
 ?>
@@ -226,18 +240,30 @@ if (true) {
     }
     ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/po-line-table-mobile.css') . '?v=' . $poLineMobileVer, ENT_QUOTES, 'UTF-8') ?>">
+    <?php if ($isEmbed): ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(app_path('assets/css/tnc-embed-page.css') . '?v=' . $embedCssVer, ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
 </head>
-<body class="purchase-module tnc-app-body tnc-layout-form">
+<body class="purchase-module tnc-app-body tnc-layout-form<?= $isEmbed ? ' tnc-embed-page' : '' ?>">
+<?php if (!$isEmbed): ?>
 <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
+<?php endif; ?>
 
 <div class="container container-lg py-4 py-md-5 mb-5 po-create-wrap">
+    <?php if (!$isEmbed): ?>
     <?php include dirname(__DIR__, 2) . '/components/purchase-subnav.php'; ?>
+    <?php endif; ?>
     <?php
     $poEditDraftKey = 'u' . (int) ($_SESSION['user_id'] ?? 0) . ':po:edit:' . (int) $poId;
     ?>
-    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_po_direct&id=<?= (int) $poId ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1" data-tnc-draft="1" data-tnc-draft-key="<?= htmlspecialchars($poEditDraftKey, ENT_QUOTES, 'UTF-8') ?>" data-tnc-draft-table="#poTable">
+    <form action="<?= htmlspecialchars(app_path('actions/action-handler.php')) ?>?action=update_po_direct&id=<?= (int) $poId ?>" method="POST" enctype="multipart/form-data" data-tnc-fullnav="1" data-tnc-draft="1" data-tnc-draft-key="<?= htmlspecialchars($poEditDraftKey, ENT_QUOTES, 'UTF-8') ?>" data-tnc-draft-table="#poTable"<?= $isEmbed ? ' target="_top"' : '' ?>>
         <input type="hidden" name="confirm_over_contract" id="confirm_over_contract" value="">
         <?php csrf_field(); ?>
+        <?php if ($isEmbed && $embedReturnSiteId > 0): ?>
+            <input type="hidden" name="embed" value="1">
+            <input type="hidden" name="return_to" value="site_hub">
+            <input type="hidden" name="return_site_id" value="<?= (int) $embedReturnSiteId ?>">
+        <?php endif; ?>
 
         <?php if ($errorCode === 'no_items'): ?>
             <div class="alert alert-warning py-2 mb-3">กรุณาระบุรายการอย่างน้อย 1 รายการ</div>
@@ -266,11 +292,13 @@ if (true) {
                 <div class="col-lg">
                     <h1 class="mb-2 mt-1"><i class="bi bi-pencil-square me-2 opacity-90"></i>แก้ไขใบสั่งซื้อ</h1>
                 </div>
+                <?php if (!$isEmbed): ?>
                 <div class="col-lg-auto d-none d-lg-flex flex-wrap gap-2 justify-content-lg-end">
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php')) ?>" class="btn btn-light rounded-pill px-4 shadow-sm"><i class="bi bi-arrow-left me-1"></i>กลับหน้ารายการใบสั่งซื้อ</a>
                     <button type="submit" class="btn btn-orange rounded-pill px-4 shadow"><i class="bi bi-check2-circle me-1"></i>บันทึกการแก้ไข</button>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-view.php')) ?>?id=<?= (int) $poId ?>" class="btn btn-outline-light rounded-pill px-3"><i class="bi bi-eye me-1"></i>ดูใบสั่งซื้อ</a>
                 </div>
+                <?php endif; ?>
             </div>
         </header>
 
@@ -462,7 +490,7 @@ if (true) {
                         <?php if ($poVatEnabledStored): ?>
                         <div class="small mb-2">
                             <span class="badge bg-success-subtle text-success border border-success-subtle">
-                                <?= $poVatModeStored === 'inclusive' ? 'รวม VAT' : 'แยก VAT' ?>
+                                <?= htmlspecialchars(tnc_purchase_vat_mode_label($poVatModeStored), ENT_QUOTES, 'UTF-8') ?>
                             </span>
                         </div>
                         <?php else: ?>
@@ -488,30 +516,31 @@ if (true) {
                         <div id="vat_basis_wrap" class="pt-2 border-top border-secondary border-opacity-25">
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="radio" name="vat_basis" id="vat_basis_inclusive" value="inclusive"<?= $poVatModeStored === 'exclusive' ? '' : ' checked' ?> onchange="calculateTotal()">
-                                <label class="form-check-label" for="vat_basis_inclusive">รวม VAT <span class="text-muted small">(ราคารวมภาษีแล้ว)</span></label>
+                                <label class="form-check-label" for="vat_basis_inclusive">รวมภาษีมูลค่าเพิ่ม <span class="text-muted small">(ราคารวมภาษีแล้ว)</span></label>
                             </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="vat_basis" id="vat_basis_exclusive" value="exclusive"<?= $poVatModeStored === 'exclusive' ? ' checked' : '' ?> onchange="calculateTotal()">
-                                <label class="form-check-label" for="vat_basis_exclusive">แยก VAT <span class="text-muted small">(บวก 7% จากฐาน)</span></label>
+                                <label class="form-check-label" for="vat_basis_exclusive">แยกภาษีมูลค่าเพิ่ม <span class="text-muted small">(บวก 7% จากฐาน)</span></label>
                             </div>
                         </div>
                         <?php endif; ?>
                     </div>
+                    <?php tnc_po_render_adjustments_panel(tnc_po_adjustments_editor_seed($po)); ?>
                 </div>
                 <div class="col-lg-5 order-1 order-lg-2">
                     <div class="summary-box po-summary-sticky">
-                        <label class="small fw-bold text-secondary text-uppercase mb-2" style="letter-spacing:0.05em;"></label>
+                        <div class="summary-box__title">สรุปยอด</div>
                         <div class="summary-line small text-muted"><span class="summary-label" id="subtotal_label">ยอดรายการ</span><strong class="summary-value text-end"><span id="subtotal_display">0.00</span> บาท</strong></div>
                         <div class="summary-line small text-muted d-none" id="vat_exempt_row"><span class="summary-label">ไม่คิด VAT</span><strong class="summary-value text-end"><span id="vat_exempt_display">0.00</span> บาท</strong></div>
                         <div class="summary-line small text-success" id="vat_row" style="display:none;"><span class="summary-label" id="vat_label">ภาษีมูลค่าเพิ่ม</span><strong class="summary-value text-end"><span id="vat_display">0.00</span> บาท</strong></div>
+                        <div class="summary-line small text-muted" id="gross_row"><span class="summary-label" id="gross_label">ยอดรวมภาษี</span><strong class="summary-value text-end"><span id="gross_display">0.00</span> บาท</strong></div>
+                        <?php tnc_po_render_adjustments_summary_slot(); ?>
                         <div class="summary-line summary-grand fw-bold"><span class="summary-label">ยอดสุทธิ</span><strong class="summary-value text-end text-tnc-orange"><span id="grand_total">0.00</span> บาท</strong></div>
                     </div>
                     <input type="hidden" name="total_amount" id="total_amount_input" value="0">
                     <input type="hidden" name="billed_total_amount" id="billed_total_amount" value="<?= htmlspecialchars(number_format($billedTotalStored, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="billed_vat_amount" id="billed_vat_amount" value="<?= htmlspecialchars(number_format($billedVatStored, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="withholding_type" id="withholding_type" value="none">
-                    <input type="hidden" name="retention_type" value="none">
-                    <input type="hidden" name="retention_value" value="0">
                 </div>
             </div>
         </div>
@@ -550,24 +579,35 @@ if (true) {
             </div>
         </div>
 
-        <div class="tnc-mobile-sticky-cta d-lg-none">
+        <div class="po-submit-panel mb-2 tnc-mobile-sticky-cta d-lg-none">
             <div class="tnc-mobile-sticky-inner">
                 <div class="tnc-mobile-sticky-meta">
                     <div class="tnc-mobile-sticky-label">ยอดสุทธิ</div>
                     <div class="tnc-mobile-sticky-total" id="grand_total_mobile_sticky"><?= number_format((float) ($po['total_amount'] ?? 0), 2) ?></div>
                 </div>
                 <div class="tnc-mobile-sticky-actions">
+                    <?php if (!$isEmbed): ?>
                     <a href="<?= htmlspecialchars(app_path('pages/purchase/purchase-order-list.php')) ?>" class="btn btn-outline-secondary rounded-pill btn-sm">ยกเลิก</a>
-                    <button type="submit" class="btn btn-orange rounded-pill fw-bold"><i class="bi bi-check2-circle me-1"></i>บันทึก</button>
+                    <?php endif; ?>
+                    <button type="submit" class="btn btn-orange rounded-pill fw-bold po-submit-btn"><i class="bi bi-check2-circle me-1"></i>บันทึก</button>
                 </div>
             </div>
         </div>
+        <?php if ($isEmbed): ?>
+        <div class="card card-soft po-submit-panel mb-2 d-none d-lg-block">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 p-3">
+                <div class="small text-muted">ตรวจสอบรายการแล้วกดบันทึกการแก้ไข</div>
+                <button type="submit" class="btn btn-orange rounded-pill px-4 fw-bold po-submit-btn"><i class="bi bi-check2-circle me-1"></i>บันทึกการแก้ไข</button>
+            </div>
+        </div>
+        <?php endif; ?>
     </form>
 </div>
 
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <script src="<?= htmlspecialchars(app_path('assets/js/site-category-select.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(tnc_asset_href('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(tnc_asset_href('assets/js/po-adjustments.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(tnc_asset_href('assets/js/tnc-form-draft.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script>
 (function () {
@@ -782,7 +822,13 @@ function calculateTotal() {
     const subtotal = split.subtotal;
     const vat = split.vat;
     const gross = split.gross;
-    const grand = gross;
+    const adjResult = (typeof tncPurchaseApplyAdjustmentsToTotals === 'function')
+        ? tncPurchaseApplyAdjustmentsToTotals(gross, subtotal)
+        : { net: gross, items: [] };
+    const grand = adjResult.net;
+    if (typeof tncPurchaseRenderAdjustmentsSummary === 'function') {
+        tncPurchaseRenderAdjustmentsSummary(adjResult.items || []);
+    }
     const withholdingTypeInput = document.getElementById('withholding_type');
     if (withholdingTypeInput) {
         withholdingTypeInput.value = 'none';
@@ -808,11 +854,13 @@ function calculateTotal() {
     }
     if (vatLabel) {
         if (!vatOn) {
-            vatLabel.textContent = 'แยก VAT';
+            vatLabel.textContent = 'ภาษีมูลค่าเพิ่ม';
+        } else if (typeof tncPurchaseVatModeLabel === 'function') {
+            vatLabel.textContent = tncPurchaseVatModeLabel(vatMode);
         } else if (vatMode === 'inclusive') {
-            vatLabel.textContent = 'รวม VAT';
+            vatLabel.textContent = 'รวมภาษีมูลค่าเพิ่ม';
         } else {
-            vatLabel.textContent = 'แยก VAT';
+            vatLabel.textContent = 'แยกภาษีมูลค่าเพิ่ม';
         }
     }
 
@@ -824,7 +872,15 @@ function calculateTotal() {
     } else {
         vatRow.style.display = 'none';
     }
+    const grossDisplay = document.getElementById('gross_display');
+    if (grossDisplay) {
+        grossDisplay.innerText = gross.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
     document.getElementById('grand_total').innerText = grand.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const mobileStickyTotal = document.getElementById('grand_total_mobile_sticky');
+    if (mobileStickyTotal) {
+        mobileStickyTotal.innerText = grand.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
     document.getElementById('total_amount_input').value = grand.toFixed(2);
     const billedTotalEl = document.getElementById('billed_total_amount');
     const billedVatEl = document.getElementById('billed_vat_amount');
@@ -845,6 +901,8 @@ document.addEventListener('DOMContentLoaded', function () {
     calculateTotal();
 });
 </script>
+<?php if (!$isEmbed): ?>
 <?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
+<?php endif; ?>
 </body>
 </html>

@@ -32,7 +32,7 @@ function cash_ledger_vat_label(array $row): string
     if ($mode === 'exclusive') {
         return 'ยอดรายการ + VAT ' . rtrim(rtrim((string) $rate, '0'), '.') . '% (฿' . number_format($vat, 2) . ')';
     }
-    return 'รวม VAT แล้ว (แยก VAT ฿' . number_format($vat, 2) . ')';
+    return 'รวมภาษีมูลค่าเพิ่ม แล้ว (แยกภาษีมูลค่าเพิ่ม ฿' . number_format($vat, 2) . ')';
 }
 
 /**

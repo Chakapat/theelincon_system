@@ -357,12 +357,16 @@ if (!in_array($pr_fix_vat_mode, ['exclusive', 'inclusive'], true)) {
             subtotalLabel.textContent = 'ยอดรายการ:';
         }
         if (vatLabel) {
-            if (!vatOn) {
-                vatLabel.textContent = 'แยก VAT:';
+            if (typeof tncPurchaseVatModeLabel === 'function') {
+                vatLabel.textContent = vatOn
+                    ? tncPurchaseVatModeLabel(vatMode, true)
+                    : tncPurchaseVatModeLabel('exclusive', true);
+            } else if (!vatOn) {
+                vatLabel.textContent = 'แยกภาษีมูลค่าเพิ่ม:';
             } else if (vatMode === 'inclusive') {
-                vatLabel.textContent = 'รวม VAT:';
+                vatLabel.textContent = 'รวมภาษีมูลค่าเพิ่ม:';
             } else {
-                vatLabel.textContent = 'แยก VAT:';
+                vatLabel.textContent = 'แยกภาษีมูลค่าเพิ่ม:';
             }
         }
         if (subtotalDisplay) {

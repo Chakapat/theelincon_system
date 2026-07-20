@@ -223,9 +223,9 @@ function tnc_audit_purchase_order_created(int $poId, string $sourceAction): void
 /**
  * PO totals aligned with purchase-order-create / purchase-order-edit JS (VAT 7%, WHT 3% on pre-VAT base).
  *
- * @return array{subtotal: float, vat: float, gross: float, wht: float, net: float, withholding_type: string, vat_mode: string}
+ * @return array{subtotal: float, vat: float, gross: float, wht: float, net: float, withholding_type: string, vat_mode: string, po_adjustments: list<array<string,mixed>>, adjustment_delta: float, payable_amount: float, retention_type: string, retention_value: string|float, retention_amount: float}
  */
-function tnc_po_compute_totals(float $taxableSum, int $vatEnabled, string $vatMode, string $withholdingType, float $exemptSum = 0.0, bool $roundToBaht = false): array
+function tnc_po_compute_totals(float $taxableSum, int $vatEnabled, string $vatMode, string $withholdingType, float $exemptSum = 0.0, bool $roundToBaht = false, array $adjustmentLines = []): array
 {
     $split = tnc_purchase_vat_split_from_line_sums($taxableSum, $exemptSum, $vatEnabled === 1, $vatMode, $roundToBaht);
     $subtotal = $split['subtotal'];
@@ -234,7 +234,13 @@ function tnc_po_compute_totals(float $taxableSum, int $vatEnabled, string $vatMo
     $whtType = ($withholdingType === 'wht3') ? 'wht3' : 'none';
     // WHT / สุทธิ ใช้สตางค์เสมอ (ไม่ปัดเต็มบาท)
     $wht = $whtType === 'wht3' ? tnc_money_round2($subtotal * 0.03) : 0.0;
-    $net = tnc_money_round2($gross - $wht);
+    $parsedAdjustments = tnc_po_parse_adjustment_lines($adjustmentLines, $subtotal);
+    $adjustmentDelta = tnc_po_adjustment_delta($parsedAdjustments);
+    $net = tnc_money_round2($gross - $wht + $adjustmentDelta);
+    if ($net < 0.0) {
+        $net = 0.0;
+    }
+    $legacyRetention = tnc_po_legacy_retention_fields($parsedAdjustments);
     $storedVatMode = $vatEnabled ? (in_array($vatMode, ['exclusive', 'inclusive'], true) ? $vatMode : 'exclusive') : 'exclusive';
 
     return [
@@ -246,6 +252,12 @@ function tnc_po_compute_totals(float $taxableSum, int $vatEnabled, string $vatMo
         'withholding_type' => $whtType,
         'vat_mode' => $storedVatMode,
         'exempt_sum' => $split['exempt_sum'],
+        'po_adjustments' => $parsedAdjustments,
+        'adjustment_delta' => $adjustmentDelta,
+        'payable_amount' => $net,
+        'retention_type' => (string) ($legacyRetention['retention_type'] ?? 'none'),
+        'retention_value' => $legacyRetention['retention_value'] ?? '',
+        'retention_amount' => (float) ($legacyRetention['retention_amount'] ?? 0),
     ];
 }
 
@@ -941,6 +953,12 @@ if ($action === 'update_pr') {
         tnc_action_redirect(app_path('pages/purchase/purchase-order-from-pr.php') . '?pr_id=' . $pr_id . '&pr_updated=1' . $lineNotifyQ . tnc_pr_po_sync_query_suffix($poSyncResult));
     }
 
+    $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+    $returnSiteId = (int) ($_POST['return_site_id'] ?? 0);
+    if ($returnTo === 'site_hub' && $returnSiteId > 0) {
+        tnc_action_redirect(app_path('pages/sites/site-hub.php') . '?site_id=' . $returnSiteId . '&pr_updated=1' . $lineNotifyQ);
+    }
+
     tnc_action_redirect(app_path('pages/purchase/purchase-request-view.php') . '?id=' . $pr_id . '&updated=1' . $lineNotifyQ . tnc_pr_po_sync_query_suffix($poSyncResult));
 }
 
@@ -1107,10 +1125,19 @@ if ($action === 'create_po_from_pr') {
     if ($purchaseLineCount <= 0 || $subtotal <= 0) {
         tnc_action_redirect($poCreateFromPrUrl . '&error=no_items');
     }
-    $totalsPr = tnc_po_compute_totals($lineSums['taxable'], $vat_en, $vat_mode_post, 'none', $lineSums['exempt'], tnc_purchase_round_to_baht_from_post());
+    $totalsPr = tnc_po_compute_totals(
+        $lineSums['taxable'],
+        $vat_en,
+        $vat_mode_post,
+        'none',
+        $lineSums['exempt'],
+        tnc_purchase_round_to_baht_from_post(),
+        tnc_po_adjustment_lines_from_post()
+    );
     $sub_amt = $totalsPr['subtotal'];
     $vat_amt = $totalsPr['vat'];
-    $total_amount = $totalsPr['gross'];
+    $total_amount = $totalsPr['net'];
+    $gross_amount = $totalsPr['gross'];
     $vat_mode_stored = $totalsPr['vat_mode'];
 
     $postedBillTotal = trim((string) ($_POST['billed_total_amount'] ?? ''));
@@ -1128,7 +1155,7 @@ if ($action === 'create_po_from_pr') {
         }
     }
 
-    $poExceedsPr = tnc_pr_new_po_would_exceed($pr_id, $poItemsToSave, (float) $total_amount);
+    $poExceedsPr = tnc_pr_new_po_would_exceed($pr_id, $poItemsToSave, (float) $gross_amount);
 
     $quotation_number = mb_substr(trim((string) ($_POST['quotation_number'] ?? '')), 0, 120);
     $quotation_date = trim((string) ($_POST['quotation_date'] ?? ''));
@@ -1272,14 +1299,14 @@ if ($action === 'create_po_from_pr') {
         'vat_mode' => $vat_mode_stored,
         'subtotal_amount' => $sub_amt,
         'vat_amount' => $vat_amt,
-        'gross_amount' => $total_amount,
+        'gross_amount' => $gross_amount,
         'order_type' => 'purchase',
         'site_id' => $prSiteId,
         'site_name' => $prSiteName,
         'cost_category_id' => $prCostCategoryId,
         'cost_category_name' => $prCostCategoryName,
         'exceeds_pr' => $poExceedsPr ? 1 : 0,
-    ], $optionalExtras['po_fields']));
+    ], tnc_po_adjustment_save_fields($totalsPr), $optionalExtras['po_fields']));
 
     foreach ($poItemsToSave as $item) {
         $iid = Db::nextNumericId('purchase_order_items', 'id');
@@ -1371,7 +1398,15 @@ if ($action === 'create_po_direct') {
         $wht_post = 'none';
     }
 
-    $totals = tnc_po_compute_totals($lineSums['taxable'], $vat_enabled, $vat_mode_post, $wht_post, $lineSums['exempt'], tnc_purchase_round_to_baht_from_post());
+    $totals = tnc_po_compute_totals(
+        $lineSums['taxable'],
+        $vat_enabled,
+        $vat_mode_post,
+        $wht_post,
+        $lineSums['exempt'],
+        tnc_purchase_round_to_baht_from_post(),
+        tnc_po_adjustment_lines_from_post()
+    );
     $vat_amt = $totals['vat'];
     $gross = $totals['gross'];
     $subtotal_db = $totals['subtotal'];
@@ -1529,7 +1564,7 @@ if ($action === 'create_po_direct') {
         'gross_amount' => $gross,
         'withholding_type' => $totals['withholding_type'],
         'withholding_amount' => $totals['wht'],
-    ], $isStandalonePurchasePo ? [
+    ], tnc_po_adjustment_save_fields($totals), $isStandalonePurchasePo ? [
         'site_id' => $poSiteId,
         'site_name' => $poSiteName,
         'cost_category_id' => $poCostCategoryId,
@@ -1648,7 +1683,15 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
             $vat_mode_post = in_array($vmPoPr, ['exclusive', 'inclusive'], true) ? $vmPoPr : 'exclusive';
         }
     }
-    $totals = tnc_po_compute_totals($lineSums['taxable'], $vat_enabled, $vat_mode_post, 'none', $lineSums['exempt'], tnc_purchase_round_to_baht_from_post());
+    $totals = tnc_po_compute_totals(
+        $lineSums['taxable'],
+        $vat_enabled,
+        $vat_mode_post,
+        'none',
+        $lineSums['exempt'],
+        tnc_purchase_round_to_baht_from_post(),
+        tnc_po_adjustment_lines_from_post()
+    );
 
     $issue_date = trim((string) ($_POST['issue_date'] ?? ''));
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $issue_date)) {
@@ -1747,7 +1790,7 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         'vat_mode' => $totals['vat_mode'],
         'withholding_type' => $totals['withholding_type'],
         'withholding_amount' => $totals['wht'],
-    ]));
+    ], tnc_po_adjustment_save_fields($totals)));
 
     tnc_po_delete_line_items($po_id);
     foreach ($_POST['item_description'] ?? [] as $key => $desc) {
@@ -1819,6 +1862,11 @@ if ($action === 'update_po_direct' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'PO
         'after' => $afterSnap,
     ]);
 
+    $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+    $returnSiteId = (int) ($_POST['return_site_id'] ?? 0);
+    if ($returnTo === 'site_hub' && $returnSiteId > 0) {
+        tnc_action_redirect(app_path('pages/sites/site-hub.php') . '?site_id=' . $returnSiteId . '&po_updated=1');
+    }
     tnc_action_redirect($listUrl . '?updated=1');
 }
 

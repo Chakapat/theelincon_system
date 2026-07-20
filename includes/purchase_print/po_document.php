@@ -200,6 +200,7 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         $retentionType = 'none';
     }
     $retentionAmount = (float) ($data['retention_amount'] ?? 0);
+    $retentionLabel = tnc_po_retention_label_display($data);
     $poNotePo = trim((string) ($data['po_note'] ?? ''));
     $poNoteQt = trim((string) ($data['quotation_note'] ?? ''));
 
@@ -270,13 +271,22 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         $po_vat_amount,
         $po_grand_total
     );
-    $hasRetentionPrint = ($retentionType !== 'none' && $retentionAmount > 0);
+    $poAdjustments = tnc_po_adjustments_from_row($data, $po_subtotal);
+    $adjustmentDelta = tnc_po_adjustment_delta($poAdjustments);
+    $hasAdjustmentsPrint = false;
+    foreach ($poAdjustments as $adj) {
+        if (is_array($adj) && (float) ($adj['amount'] ?? 0) > 0.0) {
+            $hasAdjustmentsPrint = true;
+            break;
+        }
+    }
+    $hasRetentionPrint = $hasAdjustmentsPrint;
     $hasWhtPrint = ($withholdingType !== 'none' && $withholdingAmount > 0);
-    $hasDeductionsPrint = $hasRetentionPrint || $hasWhtPrint;
+    $hasDeductionsPrint = $hasAdjustmentsPrint || $hasWhtPrint;
     $poPayableAmount = round((float) ($data['payable_amount'] ?? 0), 2);
     if ($hasDeductionsPrint) {
         if ($poPayableAmount <= 0) {
-            $poPayableAmount = round($po_gross_amount - $withholdingAmount - $retentionAmount, 2);
+            $poPayableAmount = round($po_gross_amount - $withholdingAmount + $adjustmentDelta, 2);
         }
         if ($poPayableAmount < 0) {
             $poPayableAmount = 0.0;
@@ -305,6 +315,9 @@ function tnc_purchase_po_print_prepare(int $id): ?array
         'withholdingAmount' => $withholdingAmount,
         'retentionType' => $retentionType,
         'retentionAmount' => $retentionAmount,
+        'retentionLabel' => $retentionLabel,
+        'poAdjustments' => $poAdjustments,
+        'hasAdjustmentsPrint' => $hasAdjustmentsPrint,
         'poNotePo' => $poNotePo,
         'poNoteQt' => $poNoteQt,
         'poSiteDisplay' => $poSiteDisplay,

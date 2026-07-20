@@ -114,7 +114,8 @@ if (!function_exists('tnc_pr_sync_purchase_po_from_pr')) {
         if (!in_array($vatMode, ['exclusive', 'inclusive'], true)) {
             $vatMode = 'exclusive';
         }
-        $totals = tnc_po_compute_totals($lineSums['taxable'], $vatEnabled, $vatMode, 'none', $lineSums['exempt']);
+        $adjustmentLines = tnc_po_adjustment_lines_from_row($before);
+        $totals = tnc_po_compute_totals($lineSums['taxable'], $vatEnabled, $vatMode, 'none', $lineSums['exempt'], false, $adjustmentLines);
 
         $siteId = (int) ($prRow['site_id'] ?? 0);
         $catId = (int) ($prRow['cost_category_id'] ?? 0);
@@ -138,7 +139,7 @@ if (!function_exists('tnc_pr_sync_purchase_po_from_pr')) {
             'vat_mode' => $totals['vat_mode'],
             'withholding_type' => $totals['withholding_type'],
             'withholding_amount' => $totals['wht'],
-        ]));
+        ], tnc_po_adjustment_save_fields($totals)));
 
         tnc_po_delete_line_items($poId);
         foreach ($prItems as $item) {
