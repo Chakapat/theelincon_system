@@ -45,7 +45,37 @@ if ($poNumberDisplay === '') {
 }
 $poDocDateSubtitle = $poNumberDisplay . ' · ' . tnc_po_format_date_thai($issueDate);
 $poTableColCount = 6;
-$itemPageChunks = tnc_doc_paginate_items($items);
+$tncCompanyLogoUrl = tnc_company_logo_url($data['logo'] ?? '');
+if (!function_exists('tnc_purchase_quotation_info')) {
+    require_once dirname(__DIR__) . '/purchase_quotation_attachment.php';
+}
+$poQtInfoHeader = tnc_purchase_quotation_info($data, !empty($data['quotation_attachment_from_pr']));
+$poAdjPrintCount = 0;
+if (!empty($hasAdjustmentsPrint) && is_array($poAdjustments ?? null)) {
+    foreach ($poAdjustments as $poAdjRow) {
+        if (is_array($poAdjRow) && (float) ($poAdjRow['amount'] ?? 0) > 0.0) {
+            $poAdjPrintCount++;
+        }
+    }
+}
+$itemPageChunks = tnc_doc_paginate_items($items, [
+    'doc' => 'po',
+    'first_page_overhead_mm' => tnc_doc_po_first_page_overhead_mm([
+        'has_logo' => $tncCompanyLogoUrl !== '',
+        'has_site' => $poSiteDisplay !== '' || trim((string) ($poCostCategoryName ?? '')) !== '',
+        'has_supplier_address' => trim((string) ($data['s_address'] ?? '')) !== '' || trim((string) ($data['s_tax'] ?? '')) !== '',
+        'has_reference_pr' => $referencePrNumber !== '',
+        'has_qt_header' => trim((string) ($data['quotation_number'] ?? '')) !== '' || !empty($poQtInfoHeader['has']),
+    ]),
+    'footer_mm' => tnc_doc_po_footer_height_mm([
+        'po_note_po' => $poNotePo,
+        'po_note_qt' => $poNoteQt,
+        'has_deductions' => $hasDeductionsPrint,
+        'has_wht' => $hasWhtPrint,
+        'has_retention' => !empty($hasRetentionPrint),
+        'adjustment_count' => $poAdjPrintCount,
+    ]),
+]);
 $totalDocPages = count($itemPageChunks);
 $isMultiPageDoc = $totalDocPages > 1;
 
@@ -72,7 +102,6 @@ if ($isMultiPageDoc): ?>
     <?php if ($isFirstPage): ?>
     <div class="row align-items-start mb-2 tnc-doc-header tnc-doc-header--full">
         <div class="col-6">
-            <?php $tncCompanyLogoUrl = tnc_company_logo_url($data['logo'] ?? ''); ?>
             <?php if ($tncCompanyLogoUrl !== ''): ?>
                 <img src="<?= htmlspecialchars($tncCompanyLogoUrl, ENT_QUOTES, 'UTF-8') ?>" class="company-logo" alt="Logo">
             <?php endif; ?>
@@ -88,10 +117,6 @@ if ($isMultiPageDoc): ?>
             <div class="invoice-title">PURCHASE ORDER</div>
             <div class="fw-bold text-muted small"><?= htmlspecialchars($poDocDateSubtitle, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php
-            if (!function_exists('tnc_purchase_quotation_info')) {
-                require_once dirname(__DIR__) . '/purchase_quotation_attachment.php';
-            }
-            $poQtInfoHeader = tnc_purchase_quotation_info($data, !empty($data['quotation_attachment_from_pr']));
             echo tnc_purchase_quotation_doc_header_html(
                 $poQtInfoHeader,
                 trim((string) ($data['quotation_number'] ?? ''))
@@ -147,10 +172,10 @@ if ($isMultiPageDoc): ?>
 
     <table class="table table-custom po-items-table<?= $isFirstPage ? ' mt-2' : ' mt-0' ?>">
         <thead>
-            <tr class="text-center">
+            <tr>
                 <th style="width:38%;" class="text-start po-th-desc">รายละเอียดสินค้า / บริการ</th>
-                <th style="width:10%;" class="text-center po-th-num">จำนวน</th>
-                <th style="width:8%;" class="text-center po-th-num">หน่วย</th>
+                <th style="width:10%;" class="text-end po-th-num">จำนวน</th>
+                <th style="width:8%;" class="text-center po-th-unit">หน่วย</th>
                 <th style="width:11%;" class="text-end po-th-num po-th-price"><span class="text-nowrap">ราคา/หน่วย</span></th>
                 <th style="width:11%;" class="text-end po-th-num">ส่วนลด</th>
                 <th style="width:13%;" class="text-end po-th-num">ยอดรวม</th>
@@ -167,8 +192,8 @@ if ($isMultiPageDoc): ?>
                 ?>
                 <tr>
                     <td class="fw-bold text-dark text-start"><?= htmlspecialchars((string) ($item['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?><?php if ((int) ($item['vat_exempt'] ?? 0) === 1): ?><span class="text-muted fw-normal small"> (ไม่คิด VAT)</span><?php endif; ?></td>
-                    <td class="text-center po-td-num"><?= number_format((float) ($item['quantity'] ?? 0), 2); ?></td>
-                    <td class="text-center po-td-num text-muted"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—'; ?></td>
+                    <td class="text-end po-td-num"><?= number_format((float) ($item['quantity'] ?? 0), 2); ?></td>
+                    <td class="text-center po-td-unit text-muted"><?= $unitCell !== '' ? htmlspecialchars($unitCell, ENT_QUOTES, 'UTF-8') : '—'; ?></td>
                     <td class="text-end po-td-num"><?= number_format((float) ($item['unit_price'] ?? 0), 2); ?></td>
                     <td class="text-end text-muted small po-td-num">
                         <?php
@@ -276,10 +301,6 @@ if ($isMultiPageDoc): ?>
             <div>
                 <div class="sig-space"></div>
                 <div class="sig-box">ผู้สั่งซื้อ / สั่งจ้าง<br><small>(Authorized Signature)</small></div>
-            </div>
-            <div>
-                <div class="sig-space"></div>
-                <div class="sig-box">ผู้อนุมัติสั่งซื้อ / สั่งจ่าย<br><small>(Approver Signature)</small></div>
             </div>
         </div>
     </div>

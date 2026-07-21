@@ -32,7 +32,27 @@ if ($prNumberDisplay === '') {
 $prDocDateSubtitle = $prNumberDisplay . ' · ' . $docDateDisplay;
 $requesterLine = trim($requesterDisplay !== '' ? $requesterDisplay : '-');
 $prFooterHasNotes = $detailsText !== '';
-$itemPageChunks = tnc_doc_paginate_items($item_rows);
+$tncCompanyLogoUrl = tnc_company_logo_url($com['logo'] ?? '');
+$prHasCreatorLine = $creatorDisplay !== '' && $creatorDisplay !== $requesterDisplay;
+if (!function_exists('tnc_purchase_quotation_info')) {
+    require_once dirname(__DIR__) . '/purchase_quotation_attachment.php';
+}
+$prQtInfoHeader = tnc_purchase_quotation_info([
+    'quotation_attachment_path' => $quotationAttach,
+    'quotation_attachment_name' => $quotationName,
+]);
+$itemPageChunks = tnc_doc_paginate_items($item_rows, [
+    'doc' => 'pr',
+    'first_page_overhead_mm' => tnc_doc_pr_first_page_overhead_mm([
+        'has_logo' => $tncCompanyLogoUrl !== '',
+        'has_creator_line' => $prHasCreatorLine,
+        'has_qt_header' => !empty($prQtInfoHeader['has']),
+    ]),
+    'footer_mm' => tnc_doc_pr_footer_height_mm([
+        'details_text' => $detailsText,
+        'has_vat_line' => $vatOn && (float) ($vatPrint['vat_amount'] ?? 0) > 0,
+    ]),
+]);
 $totalDocPages = count($itemPageChunks);
 $isMultiPageDoc = $totalDocPages > 1;
 
@@ -69,7 +89,6 @@ if ($isMultiPageDoc): ?>
         <?php if ($isFirstPage): ?>
         <div class="row align-items-start mb-2 tnc-doc-header tnc-doc-header--full">
             <div class="col-6">
-                <?php $tncCompanyLogoUrl = tnc_company_logo_url($com['logo'] ?? ''); ?>
                 <?php if ($tncCompanyLogoUrl !== ''): ?>
                     <img src="<?= htmlspecialchars($tncCompanyLogoUrl, ENT_QUOTES, 'UTF-8') ?>" class="company-logo" alt="Logo">
                 <?php endif; ?>
@@ -85,15 +104,7 @@ if ($isMultiPageDoc): ?>
                 <div class="invoice-title">PURCHASE REQUISITION</div>
                 <div class="fw-bold text-muted small"><?= htmlspecialchars($prDocDateSubtitle, ENT_QUOTES, 'UTF-8') ?></div>
                 <?php
-                if (!function_exists('tnc_purchase_quotation_info')) {
-                    require_once dirname(__DIR__) . '/purchase_quotation_attachment.php';
-                }
-                echo tnc_purchase_quotation_doc_header_html(
-                    tnc_purchase_quotation_info([
-                        'quotation_attachment_path' => $quotationAttach,
-                        'quotation_attachment_name' => $quotationName,
-                    ])
-                );
+                echo tnc_purchase_quotation_doc_header_html($prQtInfoHeader);
                 ?>
             </div>
         </div>

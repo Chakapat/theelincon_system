@@ -216,6 +216,7 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
             background: var(--doc-pr-primary, #28a745); color: #fff; padding: 12px; border-radius: 5px; margin-top: 8px;
         }
         .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; text-align: center; margin-top: 22px; page-break-inside: avoid; break-inside: avoid; }
+        .invoice-box.po-purchase-order-doc .signature-grid { grid-template-columns: minmax(0, 16rem); justify-content: start; gap: 0; }
         .sig-space { height: 72px; }
         .sig-box { border-top: 1px solid #333; padding-top: 10px; font-size: 13px; font-weight: 600; }
         .pr-doc-main,
@@ -289,6 +290,19 @@ $pageTitle = $kind === 'po' ? 'พิมพ์ใบสั่งซื้อ (�
                 border-top-width: 0 !important;
                 outline: none !important;
                 box-shadow: none !important;
+            }
+            .invoice-box.po-purchase-order-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator,
+            .invoice-box.pr-purchase-requisition-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator {
+                position: absolute !important;
+                right: 0 !important;
+                bottom: 10mm !important;
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+                z-index: 2 !important;
+            }
+            .invoice-box.po-purchase-order-doc.tnc-doc-sheet,
+            .invoice-box.pr-purchase-requisition-doc.tnc-doc-sheet {
+                position: relative !important;
             }
             .invoice-box.po-purchase-order-doc .po-doc-main,
             .invoice-box.pr-purchase-requisition-doc .pr-doc-main {

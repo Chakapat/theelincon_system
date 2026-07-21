@@ -403,6 +403,32 @@
 .po-purchase-order-doc .po-th-num,
 .po-purchase-order-doc .po-td-num {
     font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.po-purchase-order-doc .po-th-unit,
+.po-purchase-order-doc .po-td-unit {
+    text-align: center;
+}
+
+.po-purchase-order-doc .signature-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 16rem);
+    justify-content: start;
+    gap: 0;
+    text-align: center;
+    margin-top: 18px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+.po-purchase-order-doc .sig-space {
+    height: 72px;
+}
+
+.po-purchase-order-doc .sig-box {
+    border-top: 1px solid #333;
+    padding-top: 10px;
 }
 
 /* กล่องสรุปยอดแบบ PR — โทนส้ม PO */
@@ -572,7 +598,7 @@
     min-height: 0;
 }
 
-/* --- Doc Breakpoint: แบ่งหน้า PO/PR สูงสุด 15 รายการต่อหน้า --- */
+/* --- Doc Breakpoint: แบ่งหน้า PO/PR ตามงบความสูง (mm) ไม่ใช่จำนวนแถวคงที่ --- */
 .tnc-doc-pages-wrap {
     display: block;
     width: 100%;
@@ -612,6 +638,24 @@
     font-weight: 700;
     color: #64748b;
     letter-spacing: 0.02em;
+}
+
+/* หน้ากลาง — ปักหมายเลขหน้ามุมล่างขวา A4 */
+.po-purchase-order-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator,
+.pr-purchase-requisition-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator {
+    position: absolute;
+    right: 0;
+    bottom: 10mm;
+    margin-top: 0;
+    padding-top: 0;
+    z-index: 2;
+}
+
+.po-purchase-order-doc.tnc-doc-sheet,
+.pr-purchase-requisition-doc.tnc-doc-sheet,
+.po-purchase-order-doc:not(.tnc-doc-sheet),
+.pr-purchase-requisition-doc:not(.tnc-doc-sheet) {
+    position: relative;
 }
 
 .tnc-doc-sheet--last .tnc-doc-page-indicator {
@@ -1410,6 +1454,16 @@
         font-weight: 500 !important;
     }
 
+    .po-purchase-order-doc .po-th-num,
+    .po-purchase-order-doc .po-td-num {
+        text-align: right !important;
+    }
+
+    .po-purchase-order-doc .po-th-unit,
+    .po-purchase-order-doc .po-td-unit {
+        text-align: center !important;
+    }
+
     .po-purchase-order-doc .po-total-sheet .summary-item {
         font-size: 14px !important;
         font-weight: 500 !important;
@@ -1688,6 +1742,12 @@
         flex-direction: column !important;
     }
 
+    .po-purchase-order-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) {
+        min-height: 297mm;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
     .invoice-box.pr-purchase-requisition-doc,
     .invoice-box.po-purchase-order-doc {
         border: none !important;
@@ -1712,6 +1772,17 @@
         min-height: calc(297mm - 20mm) !important;
         width: 100% !important;
         padding-bottom: 0 !important;
+    }
+
+    .po-purchase-order-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .po-doc-main {
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: calc(297mm - 20mm) !important;
+    }
+
+    .po-purchase-order-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .po-doc-content {
+        flex: 1 1 auto !important;
     }
 
     .pr-purchase-requisition-doc .pr-doc-content,
@@ -1908,6 +1979,15 @@
     .tnc-doc-page-indicator {
         color: #475569 !important;
         font-size: 0.72rem !important;
+    }
+
+    .po-purchase-order-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator,
+    .pr-purchase-requisition-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator {
+        position: absolute !important;
+        right: 0 !important;
+        bottom: 10mm !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
     }
 
     .po-payment-slip-print-wrap {

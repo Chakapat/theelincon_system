@@ -204,6 +204,10 @@ if (!is_int($embedCssVer) || $embedCssVer <= 0) {
             white-space: nowrap;
         }
         .po-table-wrap tbody td { padding: 0.5rem 0.45rem; vertical-align: middle; }
+        .po-table-wrap .po-cell-qty,
+        .po-table-wrap .po-cell-price,
+        .po-table-wrap .po-cell-disc,
+        .po-table-wrap .po-cell-total { text-align: right; }
         .po-table-wrap .form-control-sm { min-height: calc(1.5em + 0.6rem + 2px); }
         .summary-box {
             background: linear-gradient(180deg, #fffbf5 0%, var(--tnc-orange-soft) 100%);
@@ -867,7 +871,7 @@ function calculateTotal() {
     document.getElementById('subtotal_display').innerText = lineDisplay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     const vatRow = document.getElementById('vat_row');
     if (vatOn) {
-        vatRow.style.display = 'block';
+        vatRow.style.display = 'grid';
         document.getElementById('vat_display').innerText = vat.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     } else {
         vatRow.style.display = 'none';

@@ -141,12 +141,26 @@ if (!function_exists('tnc_po_retention_save_fields')) {
     }
 }
 
+if (!function_exists('tnc_po_adjustment_pct_base_normalize')) {
+    function tnc_po_adjustment_pct_base_normalize(?string $base): string
+    {
+        return ($base === 'after_vat') ? 'after_vat' : 'before_vat';
+    }
+}
+
+if (!function_exists('tnc_po_adjustment_pct_base_label')) {
+    function tnc_po_adjustment_pct_base_label(string $base): string
+    {
+        return tnc_po_adjustment_pct_base_normalize($base) === 'after_vat' ? 'หลัง VAT' : 'ก่อน VAT';
+    }
+}
+
 if (!function_exists('tnc_po_parse_adjustment_lines')) {
     /**
-     * @param list<array{label?:string,input?:string,sign?:string}> $lines
-     * @return list<array{label:string,input:string,sign:string,value_type:string,value:string|float,amount:float}>
+     * @param list<array{label?:string,input?:string,sign?:string,pct_base?:string}> $lines
+     * @return list<array{label:string,input:string,sign:string,pct_base:string,value_type:string,value:string|float,amount:float}>
      */
-    function tnc_po_parse_adjustment_lines(array $lines, float $subtotal): array
+    function tnc_po_parse_adjustment_lines(array $lines, float $subtotal, float $gross = 0.0): array
     {
         $out = [];
         foreach ($lines as $line) {
@@ -158,9 +172,11 @@ if (!function_exists('tnc_po_parse_adjustment_lines')) {
                 continue;
             }
             $sign = (($line['sign'] ?? 'subtract') === 'add') ? 'add' : 'subtract';
+            $pctBase = tnc_po_adjustment_pct_base_normalize((string) ($line['pct_base'] ?? 'before_vat'));
             $labelRaw = trim((string) ($line['label'] ?? ''));
             $label = $labelRaw !== '' ? tnc_po_retention_label_normalize($labelRaw) : tnc_po_retention_label_default();
-            $parsed = tnc_po_parse_retention($inputRaw, $subtotal);
+            $percentBase = $pctBase === 'after_vat' ? max(0.0, $gross) : max(0.0, $subtotal);
+            $parsed = tnc_po_parse_retention($inputRaw, $percentBase);
             $amount = (float) ($parsed['retention_amount'] ?? 0);
             if ($amount <= 0.0) {
                 continue;
@@ -169,6 +185,7 @@ if (!function_exists('tnc_po_parse_adjustment_lines')) {
                 'label' => $label,
                 'input' => trim((string) ($line['input'] ?? '')),
                 'sign' => $sign,
+                'pct_base' => $pctBase,
                 'value_type' => (string) ($parsed['retention_type'] ?? 'fixed'),
                 'value' => $parsed['retention_value'] ?? '',
                 'amount' => $amount,
@@ -199,7 +216,7 @@ if (!function_exists('tnc_po_adjustment_delta')) {
 }
 
 if (!function_exists('tnc_po_adjustment_lines_from_post')) {
-    /** @return list<array{label:string,input:string,sign:string}> */
+    /** @return list<array{label:string,input:string,sign:string,pct_base:string}> */
     function tnc_po_adjustment_lines_from_post(): array
     {
         $labels = $_POST['adjustment_label'] ?? null;
@@ -207,11 +224,13 @@ if (!function_exists('tnc_po_adjustment_lines_from_post')) {
             $lines = [];
             $inputs = is_array($_POST['adjustment_input'] ?? null) ? $_POST['adjustment_input'] : [];
             $signs = is_array($_POST['adjustment_sign'] ?? null) ? $_POST['adjustment_sign'] : [];
+            $pctBases = is_array($_POST['adjustment_pct_base'] ?? null) ? $_POST['adjustment_pct_base'] : [];
             foreach ($labels as $idx => $label) {
                 $lines[] = [
                     'label' => trim((string) $label),
                     'input' => trim((string) ($inputs[$idx] ?? '')),
                     'sign' => (($signs[$idx] ?? 'subtract') === 'add') ? 'add' : 'subtract',
+                    'pct_base' => tnc_po_adjustment_pct_base_normalize((string) ($pctBases[$idx] ?? 'before_vat')),
                 ];
             }
 
@@ -226,12 +245,13 @@ if (!function_exists('tnc_po_adjustment_lines_from_post')) {
             'label' => tnc_po_retention_label_from_post(),
             'input' => trim((string) ($_POST['retention_input'] ?? '')),
             'sign' => 'subtract',
+            'pct_base' => 'before_vat',
         ]];
     }
 }
 
 if (!function_exists('tnc_po_adjustment_lines_from_row')) {
-    /** @return list<array{label:string,input:string,sign:string}> */
+    /** @return list<array{label:string,input:string,sign:string,pct_base:string}> */
     function tnc_po_adjustment_lines_from_row(array $row): array
     {
         $stored = $row['po_adjustments'] ?? null;
@@ -254,6 +274,7 @@ if (!function_exists('tnc_po_adjustment_lines_from_row')) {
                     'label' => trim((string) ($item['label'] ?? '')),
                     'input' => $input,
                     'sign' => (($item['sign'] ?? 'subtract') === 'add') ? 'add' : 'subtract',
+                    'pct_base' => tnc_po_adjustment_pct_base_normalize((string) ($item['pct_base'] ?? 'before_vat')),
                 ];
             }
             if ($lines !== []) {
@@ -269,24 +290,31 @@ if (!function_exists('tnc_po_adjustment_lines_from_row')) {
             'label' => tnc_po_retention_label_display($row),
             'input' => $legacyInput,
             'sign' => 'subtract',
+            'pct_base' => 'before_vat',
         ]];
     }
 }
 
 if (!function_exists('tnc_po_adjustments_from_row')) {
-    /** @return list<array{label:string,input:string,sign:string,value_type:string,value:string|float,amount:float}> */
-    function tnc_po_adjustments_from_row(array $row, ?float $subtotal = null): array
+    /** @return list<array{label:string,input:string,sign:string,pct_base:string,value_type:string,value:string|float,amount:float}> */
+    function tnc_po_adjustments_from_row(array $row, ?float $subtotal = null, ?float $gross = null): array
     {
         if ($subtotal === null) {
             $subtotal = (float) ($row['subtotal_amount'] ?? 0);
             if ($subtotal <= 0.0) {
-                $gross = (float) ($row['gross_amount'] ?? ($row['total_amount'] ?? 0));
+                $grossStored = (float) ($row['gross_amount'] ?? ($row['total_amount'] ?? 0));
                 $vat = (float) ($row['vat_amount'] ?? 0);
-                $subtotal = tnc_money_round2(max(0.0, $gross - $vat));
+                $subtotal = tnc_money_round2(max(0.0, $grossStored - $vat));
+            }
+        }
+        if ($gross === null) {
+            $gross = (float) ($row['gross_amount'] ?? ($row['total_amount'] ?? 0));
+            if ($gross <= 0.0) {
+                $gross = tnc_money_round2(max(0.0, (float) $subtotal + (float) ($row['vat_amount'] ?? 0)));
             }
         }
 
-        return tnc_po_parse_adjustment_lines(tnc_po_adjustment_lines_from_row($row), $subtotal);
+        return tnc_po_parse_adjustment_lines(tnc_po_adjustment_lines_from_row($row), (float) $subtotal, (float) $gross);
     }
 }
 

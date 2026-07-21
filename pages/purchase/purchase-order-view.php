@@ -460,8 +460,37 @@ $supplierInvoiceDateViewDisplay = $supplierInvoiceDateYmd !== '' ? tnc_po_ymd_to
         }
 
         .invoice-box.po-purchase-order-doc .signature-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 16rem);
+            justify-content: start;
+            gap: 0;
             page-break-inside: avoid;
             break-inside: avoid;
+        }
+
+        .invoice-box.po-purchase-order-doc.tnc-doc-sheet,
+        .invoice-box.pr-purchase-requisition-doc.tnc-doc-sheet {
+            position: relative;
+        }
+
+        .invoice-box.po-purchase-order-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator,
+        .invoice-box.pr-purchase-requisition-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator {
+            position: absolute;
+            right: 0;
+            bottom: 10mm;
+            margin-top: 0;
+            padding-top: 0;
+            z-index: 2;
+        }
+
+        .tnc-doc-page-indicator {
+            flex: 0 0 auto;
+            margin-top: auto;
+            padding-top: 0.65rem;
+            text-align: right;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #64748b;
         }
 
         .invoice-box .po-total-sheet {
@@ -528,6 +557,17 @@ $supplierInvoiceDateViewDisplay = $supplierInvoiceDateYmd !== '' ? tnc_po_ymd_to
             padding: 7px 8px;
             font-size: 11px;
             border-bottom: 1px solid #f2f2f2;
+        }
+
+        .invoice-box.po-purchase-order-doc .po-th-num,
+        .invoice-box.po-purchase-order-doc .po-td-num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .invoice-box.po-purchase-order-doc .po-th-unit,
+        .invoice-box.po-purchase-order-doc .po-td-unit {
+            text-align: center;
         }
 
 
@@ -702,14 +742,31 @@ $supplierInvoiceDateViewDisplay = $supplierInvoiceDateYmd !== '' ? tnc_po_ymd_to
                 box-shadow: none !important;
                 padding: 10mm 15mm !important;
             }
-            .invoice-box.po-purchase-order-doc {
-                display: flex !important;
-                flex-direction: column !important;
+            .invoice-box.po-purchase-order-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator,
+            .invoice-box.pr-purchase-requisition-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator {
+                position: absolute !important;
+                right: 0 !important;
+                bottom: 10mm !important;
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+                z-index: 2 !important;
+            }
+            .invoice-box.po-purchase-order-doc.tnc-doc-sheet,
+            .invoice-box.pr-purchase-requisition-doc.tnc-doc-sheet {
+                position: relative !important;
             }
             .invoice-box.po-purchase-order-doc .po-doc-main {
                 min-height: calc(297mm - 20mm) !important;
                 display: flex !important;
                 flex-direction: column !important;
+            }
+            .invoice-box.po-purchase-order-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .po-doc-main {
+                min-height: calc(297mm - 20mm) !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            .invoice-box.po-purchase-order-doc .po-doc-content {
+                flex: 1 1 auto !important;
             }
             .invoice-box.po-purchase-order-doc .footer-sticky {
                 margin-top: auto !important;

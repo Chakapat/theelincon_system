@@ -234,7 +234,7 @@ function tnc_po_compute_totals(float $taxableSum, int $vatEnabled, string $vatMo
     $whtType = ($withholdingType === 'wht3') ? 'wht3' : 'none';
     // WHT / สุทธิ ใช้สตางค์เสมอ (ไม่ปัดเต็มบาท)
     $wht = $whtType === 'wht3' ? tnc_money_round2($subtotal * 0.03) : 0.0;
-    $parsedAdjustments = tnc_po_parse_adjustment_lines($adjustmentLines, $subtotal);
+    $parsedAdjustments = tnc_po_parse_adjustment_lines($adjustmentLines, $subtotal, $gross);
     $adjustmentDelta = tnc_po_adjustment_delta($parsedAdjustments);
     $net = tnc_money_round2($gross - $wht + $adjustmentDelta);
     if ($net < 0.0) {

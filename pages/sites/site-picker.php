@@ -9,6 +9,7 @@ require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/site_budget.php';
 require_once dirname(__DIR__, 2) . '/includes/site_cost_categories.php';
 require_once dirname(__DIR__, 2) . '/includes/site_favorites.php';
+require_once dirname(__DIR__, 2) . '/includes/site_picker_order.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_flash.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_shell_head.php';
 
@@ -25,6 +26,34 @@ if (!user_can('page.site.picker')) {
 $pickerUrl = app_path('pages/sites/site-picker.php');
 $canCreateSite = user_can('site.manage');
 $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_site_picker_order'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    if (!csrf_verify_request()) {
+        echo json_encode(['ok' => false, 'error' => 'csrf'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    $rawOrder = $_POST['site_order'] ?? '[]';
+    $decoded = is_string($rawOrder) ? json_decode($rawOrder, true) : $rawOrder;
+    if (!is_array($decoded)) {
+        echo json_encode(['ok' => false, 'error' => 'invalid'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    $orderIds = tnc_site_picker_order_normalize_ids($decoded);
+    foreach ($orderIds as $siteId) {
+        if (Db::rowByIdField('sites', $siteId) === null) {
+            echo json_encode(['ok' => false, 'error' => 'not_found'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
+    $saved = tnc_site_picker_order_save_for_user($currentUserId, $orderIds);
+    echo json_encode([
+        'ok' => $saved,
+        'order' => $orderIds,
+        'error' => $saved ? null : 'save_failed',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_site_favorite'])) {
     header('Content-Type: application/json; charset=utf-8');
@@ -110,6 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_site'])) {
 $sites = Db::tableRows('sites');
 $favoriteSiteIds = tnc_site_favorites_for_user($currentUserId);
 $favoriteSiteIdSet = array_fill_keys($favoriteSiteIds, true);
+$userSiteOrder = tnc_site_picker_order_for_user($currentUserId);
 usort($sites, static function (array $a, array $b): int {
     $so = ((int) ($a['sort_order'] ?? 0)) <=> ((int) ($b['sort_order'] ?? 0));
     if ($so !== 0) {
@@ -118,7 +148,11 @@ usort($sites, static function (array $a, array $b): int {
 
     return strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
 });
-$sites = tnc_site_favorites_sort_sites($sites, $favoriteSiteIds);
+if ($userSiteOrder !== []) {
+    $sites = tnc_site_picker_order_sort_sites($sites, $userSiteOrder);
+} else {
+    $sites = tnc_site_favorites_sort_sites($sites, $favoriteSiteIds);
+}
 
 $hubBase = app_path('pages/sites/site-hub.php');
 $openCreateModal = !empty($_GET['open_create']) || (isset($_GET['error']) && in_array((string) $_GET['error'], ['invalid_name', 'percent_sum'], true));
@@ -148,13 +182,17 @@ if (user_can('page.po')) {
         'tone' => 'success',
     ];
 }
+$sitePickerAssetVer = max(
+    (int) (@filemtime(dirname(__DIR__, 2) . '/assets/js/site-picker.js') ?: 0),
+    (int) (@filemtime(dirname(__DIR__, 2) . '/assets/css/site-picker.css') ?: 0)
+) ?: time();
 ?>
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <?php tnc_shell_head([
         'title' => 'เลือกไซต์งาน | THEELIN CON',
-        'extra_css' => ['assets/css/site-picker.css'],
+        'extra_css' => ['assets/css/site-picker.css?v=' . $sitePickerAssetVer],
         'sarabun_weights' => '400;600;700;800',
     ]); ?>
 </head>
@@ -214,7 +252,7 @@ if (user_can('page.po')) {
                 <span class="site-picker-search__mark" aria-hidden="true"><i class="bi bi-search"></i></span>
                 <div class="site-picker-search__copy">
                     <h2 class="site-picker-search__title">ค้นหาไซต์</h2>
-                    <p class="site-picker-search__hint">พิมพ์ชื่อไซต์ ผลที่ตรงที่สุดจะขึ้นตำแหน่งแรก</p>
+                    <p class="site-picker-search__hint">พิมพ์ชื่อไซต์ ผลที่ตรงที่สุดจะขึ้นตำแหน่งแรก · ลากจากไอคอน <i class="bi bi-grip-vertical" aria-hidden="true"></i> มุมซ้ายบนของการ์ดเพื่อจัดลำดับ</p>
                 </div>
             </div>
             <div class="site-picker-search__field">
@@ -238,6 +276,19 @@ if (user_can('page.po')) {
     <?php endif; ?>
 
     <div class="row site-picker-grid" id="sitePickerGrid">
+        <?php if ($canCreateSite): ?>
+            <div class="col-12 col-md-6 col-lg-4 site-picker-card site-picker-add">
+                <button type="button" class="site-card site-card--add w-100 h-100 p-3" data-bs-toggle="modal" data-bs-target="#sitePickerCreateModal" aria-label="เพิ่มไซต์งานใหม่">
+                    <div class="d-flex flex-column align-items-center justify-content-center h-100 py-2">
+                        <span class="site-card-add-icon" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
+                    </div>
+                </button>
+            </div>
+        <?php elseif (!$hasSites): ?>
+            <div class="col-12">
+                <div class="alert alert-warning mb-0">ยังไม่มีไซต์งาน · ติดต่อผู้ดูแลระบบเพื่อเพิ่มไซต์</div>
+            </div>
+        <?php endif; ?>
         <?php if ($hasSites): ?>
             <?php
             $siteBudgetUsedMap = tnc_site_budget_site_used_map();
@@ -277,8 +328,14 @@ if (user_can('page.po')) {
                      data-site-id="<?= $sid ?>"
                      data-site-name="<?= htmlspecialchars((string) ($site['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                      data-favorite="<?= $isFavorite ? '1' : '0' ?>"
-                     data-sort-index="<?= (int) $siteSortIndex ?>">
+                     data-user-order="<?= (int) $siteSortIndex ?>">
                     <div class="site-card h-100<?= $isFavorite ? ' site-card--favorite' : '' ?>">
+                        <button type="button"
+                                class="site-card-drag-handle"
+                                aria-label="ลากเพื่อจัดลำดับ: <?= htmlspecialchars((string) ($site['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                title="ลากเพื่อจัดลำดับ">
+                            <i class="bi bi-grip-vertical" aria-hidden="true"></i>
+                        </button>
                         <button type="button"
                                 class="site-fav-btn<?= $isFavorite ? ' is-favorite' : '' ?>"
                                 data-site-id="<?= $sid ?>"
@@ -288,9 +345,7 @@ if (user_can('page.po')) {
                             <i class="bi <?= $isFavorite ? 'bi-star-fill' : 'bi-star' ?>" aria-hidden="true"></i>
                         </button>
                         <a class="site-card-link" href="<?= htmlspecialchars($hubBase . '?site_id=' . $sid, ENT_QUOTES, 'UTF-8') ?>">
-                            <div class="site-card__row">
-                                <span class="site-card__mark" aria-hidden="true"><i class="bi bi-building"></i></span>
-                                <div class="site-card__body">
+                            <div class="site-card__body">
                                     <p class="site-card__name"><?= htmlspecialchars((string) ($site['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
                                     <div class="site-card__stats">
                                         <div class="site-stat-box">
@@ -335,7 +390,6 @@ if (user_can('page.po')) {
                                             <?php endif; ?>
                                         </div>
                                     <?php endif; ?>
-                                </div>
                             </div>
                         </a>
                         <div class="site-card__nav-busy" aria-hidden="true">
@@ -346,19 +400,6 @@ if (user_can('page.po')) {
                 </div>
                 <?php ++$siteSortIndex; ?>
             <?php endforeach; ?>
-        <?php endif; ?>
-        <?php if ($canCreateSite): ?>
-            <div class="col-12 col-md-6 col-lg-4 site-picker-card site-picker-add">
-                <button type="button" class="site-card site-card--add w-100 h-100 p-3" data-bs-toggle="modal" data-bs-target="#sitePickerCreateModal" aria-label="เพิ่มไซต์งานใหม่">
-                    <div class="d-flex flex-column align-items-center justify-content-center h-100 py-2">
-                        <span class="site-card-add-icon" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
-                    </div>
-                </button>
-            </div>
-        <?php elseif (!$hasSites): ?>
-            <div class="col-12">
-                <div class="alert alert-warning mb-0">ยังไม่มีไซต์งาน · ติดต่อผู้ดูแลระบบเพื่อเพิ่มไซต์</div>
-            </div>
         <?php endif; ?>
     </div>
 </div>
@@ -447,10 +488,11 @@ window.__tncSitePickerBoot = {
     pickerUrl: <?= json_encode($pickerUrl, JSON_UNESCAPED_SLASHES) ?>,
     csrfToken: <?= json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>,
     canCreateSite: <?= $canCreateSite ? 'true' : 'false' ?>,
-    openCreateModal: <?= $openCreateModal ? 'true' : 'false' ?>
+    openCreateModal: <?= $openCreateModal ? 'true' : 'false' ?>,
+    hasCustomSiteOrder: <?= $userSiteOrder !== [] ? 'true' : 'false' ?>
 };
 </script>
-<script src="<?= htmlspecialchars(app_path('assets/js/site-picker.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/site-picker.js?v=' . $sitePickerAssetVer), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
 </html>

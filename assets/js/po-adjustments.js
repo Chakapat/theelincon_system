@@ -18,24 +18,31 @@
             : 'หักประกันผลงาน Retention';
     }
 
-    function parseAmount(raw, subtotal) {
+    function normalizePctBase(raw) {
+        return String(raw || '') === 'after_vat' ? 'after_vat' : 'before_vat';
+    }
+
+    function parseAmount(raw, baseAmount) {
         if (typeof global.tncPurchaseParseRetention === 'function') {
-            return global.tncPurchaseParseRetention(raw, subtotal);
+            return global.tncPurchaseParseRetention(raw, baseAmount);
         }
         raw = String(raw || '').trim().replace(/,/g, '').replace(/\s/g, '');
         if (!raw || raw === '0') {
-            return { amount: 0 };
+            return { amount: 0, value_type: 'fixed' };
         }
         if (raw.indexOf('%') !== -1) {
             var pct = parseFloat(raw.replace('%', ''));
             if (!isFinite(pct) || pct <= 0) {
-                return { amount: 0 };
+                return { amount: 0, value_type: 'percent' };
             }
             pct = Math.min(100, pct);
-            return { amount: money2(Math.max(0, Number(subtotal) || 0) * pct / 100) };
+            return {
+                amount: money2(Math.max(0, Number(baseAmount) || 0) * pct / 100),
+                value_type: 'percent'
+            };
         }
         var fixed = money2(parseFloat(raw));
-        return { amount: isFinite(fixed) && fixed > 0 ? fixed : 0 };
+        return { amount: isFinite(fixed) && fixed > 0 ? fixed : 0, value_type: 'fixed' };
     }
 
     function collectLines() {
@@ -44,17 +51,20 @@
         rows.forEach(function (row) {
             var signEl = row.querySelector('.po-adj-sign');
             var labelEl = row.querySelector('.po-adj-label');
+            var baseEl = row.querySelector('.po-adj-pct-base');
             var inputEl = row.querySelector('.po-adj-input');
             var sign = signEl && signEl.value === 'add' ? 'add' : 'subtract';
             var label = labelEl ? String(labelEl.value || '').trim() : '';
             var input = inputEl ? String(inputEl.value || '').trim() : '';
+            var pctBase = normalizePctBase(baseEl ? baseEl.value : 'before_vat');
             if (input === '' || input === '0') {
                 return;
             }
             items.push({
                 sign: sign,
                 label: label !== '' ? label : defaultLabel(),
-                input: input
+                input: input,
+                pct_base: pctBase
             });
         });
         return items;
@@ -65,7 +75,9 @@
         var delta = 0;
         var parsed = [];
         lines.forEach(function (line) {
-            var amt = parseAmount(line.input, subtotal).amount || 0;
+            var baseAmount = line.pct_base === 'after_vat' ? gross : subtotal;
+            var parsedAmount = parseAmount(line.input, baseAmount);
+            var amt = parsedAmount.amount || 0;
             if (amt <= 0) {
                 return;
             }
@@ -73,6 +85,8 @@
                 sign: line.sign,
                 label: line.label,
                 input: line.input,
+                pct_base: line.pct_base,
+                value_type: parsedAmount.value_type || (String(line.input).indexOf('%') !== -1 ? 'percent' : 'fixed'),
                 amount: amt
             });
             delta += line.sign === 'add' ? amt : -amt;
@@ -109,18 +123,32 @@
         });
     }
 
+    function syncPctBaseUi(row) {
+        var inputEl = row ? row.querySelector('.po-adj-input') : null;
+        var baseEl = row ? row.querySelector('.po-adj-pct-base') : null;
+        if (!inputEl || !baseEl) {
+            return;
+        }
+        var isPercent = String(inputEl.value || '').indexOf('%') !== -1;
+        baseEl.disabled = !isPercent;
+        baseEl.classList.toggle('is-disabled', !isPercent);
+    }
+
     function bindRow(row) {
         if (!row || row.dataset.bound === '1') {
             return;
         }
         row.dataset.bound = '1';
-        row.querySelectorAll('.po-adj-sign, .po-adj-label, .po-adj-input').forEach(function (el) {
+        syncPctBaseUi(row);
+        row.querySelectorAll('.po-adj-sign, .po-adj-label, .po-adj-pct-base, .po-adj-input').forEach(function (el) {
             el.addEventListener('input', function () {
+                syncPctBaseUi(row);
                 if (typeof global.calculateTotal === 'function') {
                     global.calculateTotal();
                 }
             });
             el.addEventListener('change', function () {
+                syncPctBaseUi(row);
                 if (typeof global.calculateTotal === 'function') {
                     global.calculateTotal();
                 }
@@ -139,6 +167,11 @@
                     if (sign) {
                         sign.value = 'subtract';
                     }
+                    var base = row.querySelector('.po-adj-pct-base');
+                    if (base) {
+                        base.value = 'before_vat';
+                    }
+                    syncPctBaseUi(row);
                 } else {
                     row.remove();
                 }
@@ -151,6 +184,7 @@
 
     function createRow(data) {
         data = data || {};
+        var pctBase = normalizePctBase(data.pct_base || 'before_vat');
         var row = document.createElement('div');
         row.className = 'po-adjustment-row';
         row.innerHTML =
@@ -159,6 +193,10 @@
                 '<option value="add"' + (data.sign === 'add' ? ' selected' : '') + '>+ บวก</option>' +
             '</select>' +
             '<input type="text" name="adjustment_label[]" class="form-control form-control-sm po-adj-label" maxlength="120" placeholder="เช่น หักประกันผลงาน" value="' + String(data.label || '').replace(/"/g, '&quot;') + '" autocomplete="off">' +
+            '<select name="adjustment_pct_base[]" class="form-select form-select-sm po-adj-pct-base" aria-label="ฐานคิดเปอร์เซ็นต์">' +
+                '<option value="before_vat"' + (pctBase === 'before_vat' ? ' selected' : '') + '>ก่อน VAT</option>' +
+                '<option value="after_vat"' + (pctBase === 'after_vat' ? ' selected' : '') + '>หลัง VAT</option>' +
+            '</select>' +
             '<input type="text" name="adjustment_input[]" class="form-control form-control-sm po-adj-input text-end" maxlength="20" inputmode="decimal" placeholder="500 หรือ 5%" value="' + String(data.input || '').replace(/"/g, '&quot;') + '" autocomplete="off">' +
             '<button type="button" class="btn btn-sm btn-outline-danger po-adj-remove" title="ลบรายการ" aria-label="ลบรายการ"><i class="bi bi-trash3" aria-hidden="true"></i></button>';
         bindRow(row);
@@ -174,7 +212,7 @@
         var addBtn = document.getElementById('po_adjustment_add');
         if (addBtn) {
             addBtn.addEventListener('click', function () {
-                wrap.appendChild(createRow({ sign: 'subtract', label: '', input: '' }));
+                wrap.appendChild(createRow({ sign: 'subtract', label: '', input: '', pct_base: 'before_vat' }));
                 if (typeof global.calculateTotal === 'function') {
                     global.calculateTotal();
                 }

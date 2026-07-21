@@ -91,7 +91,358 @@
         if (!card) {
             return '';
         }
-        return String(card.getAttribute('data-site-name') || card.querySelector('.site-card__name')?.textContent || '').trim();
+        var fromAttr = card.getAttribute('data-site-name') || '';
+        var nameEl = card.querySelector('.site-card__name');
+        var fromText = nameEl ? nameEl.textContent : '';
+
+        return String(fromAttr || fromText || '').trim();
+    }
+
+    function pinAddCardFirst(grid, addCard) {
+        if (addCard) {
+            grid.prepend(addCard);
+        }
+    }
+
+    function insertSiteCardsAfterAdd(grid, addCard, cards) {
+        pinAddCardFirst(grid, addCard);
+        var anchor = addCard;
+        cards.forEach(function (card) {
+            if (anchor) {
+                anchor.insertAdjacentElement('afterend', card);
+            } else {
+                grid.appendChild(card);
+            }
+            anchor = card;
+        });
+        pinAddCardFirst(grid, addCard);
+    }
+
+    function syncUserOrderAttributes() {
+        var grid = document.getElementById('sitePickerGrid');
+        if (!grid) {
+            return;
+        }
+        Array.prototype.slice.call(grid.querySelectorAll('.site-picker-card:not(.site-picker-add)')).forEach(function (card, index) {
+            card.setAttribute('data-user-order', String(index));
+        });
+    }
+
+    function isSiteSearchActive() {
+        return !!(searchInput && normalizeSiteSearchText(searchInput.value) !== '');
+    }
+
+    function getUserOrderValue(card) {
+        return parseInt(card.getAttribute('data-user-order') || '0', 10) || 0;
+    }
+
+    function collectSiteOrderIds() {
+        var grid = document.getElementById('sitePickerGrid');
+        if (!grid) {
+            return [];
+        }
+        return Array.prototype.slice.call(grid.querySelectorAll('.site-picker-card:not(.site-picker-add)'))
+            .map(function (card) {
+                return parseInt(card.getAttribute('data-site-id') || '0', 10) || 0;
+            })
+            .filter(function (id) {
+                return id > 0;
+            });
+    }
+
+    var saveSiteOrderTimer = null;
+
+    function scheduleSaveSiteOrder() {
+        clearTimeout(saveSiteOrderTimer);
+        saveSiteOrderTimer = setTimeout(saveSiteOrder, 350);
+    }
+
+    function saveSiteOrder() {
+        var orderIds = collectSiteOrderIds();
+        if (orderIds.length === 0) {
+            return;
+        }
+        fetch(pickerUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-Token': csrfToken
+            },
+            body: new URLSearchParams({
+                save_site_picker_order: '1',
+                site_order: JSON.stringify(orderIds),
+                _csrf: csrfToken
+            }).toString()
+        })
+            .then(function (res) {
+                return res.json().then(function (data) {
+                    if (!res.ok || !data || !data.ok) {
+                        throw new Error((data && data.error) ? data.error : 'request_failed');
+                    }
+                    boot.hasCustomSiteOrder = true;
+                    return data;
+                });
+            })
+            .catch(function () {
+                alert('ไม่สามารถบันทึกลำดับการ์ดได้ กรุณาลองใหม่');
+            });
+    }
+
+    function getVisibleSiteCards(excludeCard) {
+        var grid = document.getElementById('sitePickerGrid');
+        if (!grid) {
+            return [];
+        }
+
+        return Array.prototype.slice.call(grid.querySelectorAll('.site-picker-card:not(.site-picker-add):not(.site-picker-placeholder)'))
+            .filter(function (card) {
+                return card !== excludeCard
+                    && !card.classList.contains('d-none')
+                    && !card.classList.contains('is-drag-floating');
+            });
+    }
+
+    function sortCardsVisually(cards) {
+        return cards.slice().sort(function (a, b) {
+            var ra = a.getBoundingClientRect();
+            var rb = b.getBoundingClientRect();
+            var rowDiff = ra.top - rb.top;
+            if (Math.abs(rowDiff) > 10) {
+                return rowDiff;
+            }
+
+            return ra.left - rb.left;
+        });
+    }
+
+    function computePlaceholderInsertRef(clientX, clientY, floatingCard, placeholder) {
+        var grid = document.getElementById('sitePickerGrid');
+        if (!grid) {
+            return null;
+        }
+        var addCard = grid.querySelector('.site-picker-add');
+        var slots = sortCardsVisually(getVisibleSiteCards(floatingCard));
+
+        for (var i = 0; i < slots.length; i++) {
+            var el = slots[i];
+            if (el === placeholder) {
+                continue;
+            }
+            var rect = el.getBoundingClientRect();
+            var midX = rect.left + (rect.width / 2);
+            var midY = rect.top + (rect.height / 2);
+            if (clientY < midY) {
+                return el;
+            }
+            if (clientY <= rect.bottom && clientY >= rect.top && clientX < midX) {
+                return el;
+            }
+        }
+
+        for (var j = slots.length - 1; j >= 0; j--) {
+            if (slots[j] !== placeholder) {
+                return slots[j].nextElementSibling;
+            }
+        }
+
+        return addCard ? addCard.nextElementSibling : null;
+    }
+
+    function createDragPlaceholder(sourceCard) {
+        var rect = sourceCard.getBoundingClientRect();
+        var placeholder = document.createElement('div');
+        placeholder.className = 'col-12 col-md-6 col-lg-4 site-picker-card site-picker-placeholder';
+        placeholder.setAttribute('aria-hidden', 'true');
+        placeholder.style.height = Math.round(rect.height) + 'px';
+        return placeholder;
+    }
+
+    function beginFloatingDrag(card, clientX, clientY) {
+        var grid = document.getElementById('sitePickerGrid');
+        var rect = card.getBoundingClientRect();
+        var placeholder = createDragPlaceholder(card);
+        var initialNext = card.nextElementSibling;
+
+        grid.insertBefore(placeholder, card);
+        card.classList.add('is-drag-floating');
+        card.style.width = Math.round(rect.width) + 'px';
+        card.style.height = Math.round(rect.height) + 'px';
+        card.style.left = Math.round(rect.left) + 'px';
+        card.style.top = Math.round(rect.top) + 'px';
+
+        return {
+            card: card,
+            placeholder: placeholder,
+            offsetX: clientX - rect.left,
+            offsetY: clientY - rect.top,
+            startX: clientX,
+            startY: clientY,
+            dragging: false,
+            initialNext: initialNext
+        };
+    }
+
+    function moveFloatingDrag(state, clientX, clientY) {
+        var grid = document.getElementById('sitePickerGrid');
+        var addCard = grid ? grid.querySelector('.site-picker-add') : null;
+        if (!state || !state.card) {
+            return;
+        }
+
+        state.card.style.left = Math.round(clientX - state.offsetX) + 'px';
+        state.card.style.top = Math.round(clientY - state.offsetY) + 'px';
+
+        var ref = computePlaceholderInsertRef(clientX, clientY, state.card, state.placeholder);
+        if (ref && ref !== state.placeholder && ref !== state.placeholder.nextElementSibling) {
+            grid.insertBefore(state.placeholder, ref);
+        }
+        pinAddCardFirst(grid, addCard);
+    }
+
+    function clearFloatingDragStyles(card) {
+        if (!card) {
+            return;
+        }
+        card.classList.remove('is-drag-floating');
+        card.style.width = '';
+        card.style.height = '';
+        card.style.left = '';
+        card.style.top = '';
+    }
+
+    function initSitePickerDragDrop() {
+        var grid = document.getElementById('sitePickerGrid');
+        if (!grid) {
+            return;
+        }
+
+        function clearDragUi(state) {
+            grid.classList.remove('is-card-dragging');
+            document.body.classList.remove('is-site-picker-dragging');
+            if (state && state.placeholder && state.placeholder.parentNode) {
+                state.placeholder.remove();
+            }
+            if (state && state.card) {
+                clearFloatingDragStyles(state.card);
+            }
+        }
+
+        function activateDrag(state) {
+            state.dragging = true;
+            grid.classList.add('is-card-dragging');
+            document.body.classList.add('is-site-picker-dragging');
+        }
+
+        function finishFloatingDrag(state, commit) {
+            if (!state) {
+                return;
+            }
+
+            var addCard = grid.querySelector('.site-picker-add');
+
+            if (state.dragging) {
+                if (commit && state.placeholder && state.placeholder.parentNode) {
+                    grid.insertBefore(state.card, state.placeholder);
+                } else if (!commit) {
+                    if (state.initialNext && state.initialNext.parentNode) {
+                        grid.insertBefore(state.card, state.initialNext);
+                    } else {
+                        grid.appendChild(state.card);
+                    }
+                }
+            }
+
+            clearDragUi(state);
+            pinAddCardFirst(grid, addCard);
+
+            if (commit && state.dragging) {
+                syncUserOrderAttributes();
+                scheduleSaveSiteOrder();
+            }
+        }
+
+        function bindPointerDrag(handle) {
+            var state = null;
+
+            function onPointerMove(event) {
+                if (!state || event.pointerId !== state.pointerId) {
+                    return;
+                }
+                var dx = event.clientX - state.startX;
+                var dy = event.clientY - state.startY;
+                if (!state.dragging) {
+                    if (Math.hypot(dx, dy) < 6) {
+                        return;
+                    }
+                    var floatingState = beginFloatingDrag(state.card, event.clientX, event.clientY);
+                    state.placeholder = floatingState.placeholder;
+                    state.offsetX = floatingState.offsetX;
+                    state.offsetY = floatingState.offsetY;
+                    state.initialNext = floatingState.initialNext;
+                    state.dragging = true;
+                    activateDrag(state);
+                }
+                event.preventDefault();
+                moveFloatingDrag(state, event.clientX, event.clientY);
+            }
+
+            function onPointerUp(event) {
+                if (!state || event.pointerId !== state.pointerId) {
+                    return;
+                }
+                if (state.handle && state.handle.releasePointerCapture) {
+                    try {
+                        state.handle.releasePointerCapture(state.pointerId);
+                    } catch (err) {
+                        // Ignore release errors.
+                    }
+                }
+                document.removeEventListener('pointermove', onPointerMove);
+                document.removeEventListener('pointerup', onPointerUp);
+                document.removeEventListener('pointercancel', onPointerUp);
+                finishFloatingDrag(state, state.dragging);
+                state = null;
+            }
+
+            handle.addEventListener('pointerdown', function (event) {
+                if (event.pointerType === 'mouse' && event.button !== 0) {
+                    return;
+                }
+                if (isSiteSearchActive() || grid.classList.contains('is-site-navigating')) {
+                    return;
+                }
+                var card = handle.closest('.site-picker-card');
+                if (!card || card.classList.contains('site-picker-add')) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                if (handle.setPointerCapture) {
+                    handle.setPointerCapture(event.pointerId);
+                }
+
+                state = {
+                    card: card,
+                    handle: handle,
+                    pointerId: event.pointerId,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    dragging: false,
+                    placeholder: null,
+                    offsetX: 0,
+                    offsetY: 0,
+                    initialNext: card.nextElementSibling
+                };
+
+                document.addEventListener('pointermove', onPointerMove, { passive: false });
+                document.addEventListener('pointerup', onPointerUp);
+                document.addEventListener('pointercancel', onPointerUp);
+            });
+        }
+
+        grid.querySelectorAll('.site-card-drag-handle').forEach(bindPointerDrag);
     }
 
     function reorderSiteCards() {
@@ -102,21 +453,9 @@
         var addCard = grid.querySelector('.site-picker-add');
         var cards = Array.prototype.slice.call(grid.querySelectorAll('.site-picker-card:not(.site-picker-add)'));
         cards.sort(function (a, b) {
-            var af = a.getAttribute('data-favorite') === '1' ? 0 : 1;
-            var bf = b.getAttribute('data-favorite') === '1' ? 0 : 1;
-            if (af !== bf) {
-                return af - bf;
-            }
-            return (parseInt(a.getAttribute('data-sort-index') || '0', 10) || 0)
-                - (parseInt(b.getAttribute('data-sort-index') || '0', 10) || 0);
+            return getUserOrderValue(a) - getUserOrderValue(b);
         });
-        cards.forEach(function (card) {
-            if (addCard) {
-                grid.insertBefore(card, addCard);
-            } else {
-                grid.appendChild(card);
-            }
-        });
+        insertSiteCardsAfterAdd(grid, addCard, cards);
     }
 
     function applySiteSearch(rawQuery) {
@@ -136,6 +475,7 @@
             searchBar.classList.toggle('is-active', query !== '');
             searchBar.classList.remove('is-empty');
         }
+        grid.classList.toggle('is-order-locked', query !== '');
 
         cards.forEach(function (card) {
             card.classList.remove('is-search-match-first');
@@ -149,7 +489,7 @@
                 matches.push({
                     card: card,
                     score: score,
-                    sortIndex: parseInt(card.getAttribute('data-sort-index') || '0', 10) || 0
+                    userOrder: getUserOrderValue(card)
                 });
             }
         });
@@ -164,16 +504,12 @@
             if (a.score !== b.score) {
                 return a.score - b.score;
             }
-            return a.sortIndex - b.sortIndex;
+            return a.userOrder - b.userOrder;
         });
 
-        matches.forEach(function (match) {
-            if (addCard) {
-                grid.insertBefore(match.card, addCard);
-            } else {
-                grid.appendChild(match.card);
-            }
-        });
+        insertSiteCardsAfterAdd(grid, addCard, matches.map(function (match) {
+            return match.card;
+        }));
 
         if (matches.length > 0) {
             matches[0].card.classList.add('is-search-match-first');
@@ -290,11 +626,6 @@
                 .then(function (data) {
                     var card = btn.closest('.site-picker-card');
                     setFavoriteUi(card, btn, !!data.favorite);
-                    if (searchInput && normalizeSiteSearchText(searchInput.value) !== '') {
-                        applySiteSearch(searchInput.value);
-                    } else {
-                        reorderSiteCards();
-                    }
                 })
                 .catch(function () {
                     alert('ไม่สามารถบันทึกรายการโปรดได้ กรุณาลองใหม่');
@@ -346,9 +677,11 @@
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             window.requestAnimationFrame(revealSitePicker);
+            initSitePickerDragDrop();
         });
     } else {
         window.requestAnimationFrame(revealSitePicker);
+        initSitePickerDragDrop();
     }
 
     if (!boot.canCreateSite) {

@@ -406,6 +406,27 @@
         break-inside: avoid !important;
     }
 
+    /* PO — หน้ากลาง: ปักเลขหน้ามุมล่างขวา (ไม่มี footer) */
+    body.purchase-module .invoice-box.po-purchase-order-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator,
+    body.tnc-batch-print-body .invoice-box.po-purchase-order-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator,
+    body.purchase-module .invoice-box.pr-purchase-requisition-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator,
+    body.tnc-batch-print-body .invoice-box.pr-purchase-requisition-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator {
+        position: absolute !important;
+        right: 0 !important;
+        bottom: 10mm !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        text-align: right !important;
+        z-index: 2 !important;
+    }
+
+    body.purchase-module .invoice-box.po-purchase-order-doc.tnc-doc-sheet,
+    body.purchase-module .invoice-box.pr-purchase-requisition-doc.tnc-doc-sheet,
+    body.tnc-batch-print-body .invoice-box.po-purchase-order-doc.tnc-doc-sheet,
+    body.tnc-batch-print-body .invoice-box.pr-purchase-requisition-doc.tnc-doc-sheet {
+        position: relative !important;
+    }
+
     body.purchase-module .po-purchase-order-doc .signature-grid,
     body.purchase-module .pr-purchase-requisition-doc .signature-grid,
     body.tnc-batch-print-body .po-purchase-order-doc .signature-grid,

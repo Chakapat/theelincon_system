@@ -21,6 +21,7 @@ if (!function_exists('tnc_po_adjustments_editor_seed')) {
             'label' => '',
             'input' => '',
             'sign' => 'subtract',
+            'pct_base' => 'before_vat',
         ]];
     }
 }
@@ -43,6 +44,7 @@ if (!function_exists('tnc_po_render_adjustments_panel')) {
                 'label' => '',
                 'input' => '',
                 'sign' => 'subtract',
+                'pct_base' => 'before_vat',
             ]];
         }
         ?>
@@ -59,6 +61,7 @@ if (!function_exists('tnc_po_render_adjustments_panel')) {
             <div class="po-adjustment-row po-adjustment-row--head" aria-hidden="true">
                 <span>บวก/ลบ</span>
                 <span>ชื่อรายการ</span>
+                <span>ฐาน %</span>
                 <span>จำนวน</span>
                 <span></span>
             </div>
@@ -68,6 +71,7 @@ if (!function_exists('tnc_po_render_adjustments_panel')) {
                     $adjSign = (($line['sign'] ?? 'subtract') === 'add') ? 'add' : 'subtract';
                     $adjLabel = trim((string) ($line['label'] ?? ''));
                     $adjInput = trim((string) ($line['input'] ?? ''));
+                    $adjPctBase = tnc_po_adjustment_pct_base_normalize((string) ($line['pct_base'] ?? 'before_vat'));
                     ?>
                     <div class="po-adjustment-row">
                         <select name="adjustment_sign[]" class="form-select form-select-sm po-adj-sign" aria-label="บวกหรือลบ">
@@ -75,12 +79,16 @@ if (!function_exists('tnc_po_render_adjustments_panel')) {
                             <option value="add"<?= $adjSign === 'add' ? ' selected' : '' ?>>+ บวก</option>
                         </select>
                         <input type="text" name="adjustment_label[]" class="form-control form-control-sm po-adj-label" maxlength="120" placeholder="เช่น หักประกันผลงาน" value="<?= htmlspecialchars($adjLabel, ENT_QUOTES, 'UTF-8') ?>" autocomplete="off">
+                        <select name="adjustment_pct_base[]" class="form-select form-select-sm po-adj-pct-base" aria-label="ฐานคิดเปอร์เซ็นต์">
+                            <option value="before_vat"<?= $adjPctBase === 'before_vat' ? ' selected' : '' ?>>ก่อน VAT</option>
+                            <option value="after_vat"<?= $adjPctBase === 'after_vat' ? ' selected' : '' ?>>หลัง VAT</option>
+                        </select>
                         <input type="text" name="adjustment_input[]" class="form-control form-control-sm po-adj-input text-end" maxlength="20" inputmode="decimal" placeholder="500 หรือ 5%" value="<?= htmlspecialchars($adjInput, ENT_QUOTES, 'UTF-8') ?>" autocomplete="off">
                         <button type="button" class="btn btn-sm btn-outline-danger po-adj-remove" title="ลบรายการ" aria-label="ลบรายการ"><i class="bi bi-trash3" aria-hidden="true"></i></button>
                     </div>
                 <?php endforeach; ?>
             </div>
-            <p class="po-adjustments-panel__foot form-text mb-0">% คิดจากฐานก่อน VAT · ว่างจำนวน = ไม่นับรายการนั้น</p>
+            <p class="po-adjustments-panel__foot form-text mb-0">% เลือกฐานก่อน/หลัง VAT · จำนวนบาทใช้ค่าตรง · ว่างจำนวน = ไม่นับรายการนั้น</p>
         </div>
         <?php
     }
