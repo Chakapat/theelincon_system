@@ -1,0 +1,289 @@
+.supplier-form-page {
+    --supplier-form-orange: var(--tnc-orange, #ea580c);
+    --supplier-form-orange-dark: var(--tnc-orange-dark, #c2410c);
+    --supplier-form-soft: var(--tnc-orange-soft, #ffedd5);
+    --supplier-form-ink: var(--tnc-ink, #0f172a);
+    --supplier-form-muted: #526175;
+    --supplier-form-border: var(--tnc-border, #e2e8f0);
+    max-width: 960px;
+}
+
+.supplier-form-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.supplier-form-head__main {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    min-width: 0;
+}
+
+.supplier-form-head__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 2.75rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    color: var(--supplier-form-orange-dark);
+    background: var(--supplier-form-soft);
+    font-size: 1.25rem;
+}
+
+.supplier-form-title {
+    margin: 0;
+    color: var(--supplier-form-ink);
+    font-size: 1.45rem;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+}
+
+.supplier-form-subtitle {
+    max-width: 62ch;
+    margin: 0.3rem 0 0;
+    color: var(--supplier-form-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.supplier-form-mode {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 0 0 auto;
+    padding: 0.4rem 0.7rem;
+    border-radius: 50rem;
+    background: #fff;
+    color: var(--supplier-form-orange-dark);
+    box-shadow: inset 0 0 0 1px #fdba74;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.supplier-form-surface {
+    overflow: hidden;
+    border: 0;
+    border-radius: 0.875rem;
+    background: #fff;
+    box-shadow: 0 4px 8px rgba(15, 23, 42, 0.08);
+}
+
+.supplier-form-section {
+    padding: 1.5rem;
+}
+
+.supplier-form-section + .supplier-form-section {
+    border-top: 1px solid var(--supplier-form-border);
+}
+
+.supplier-form-section__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.supplier-form-section__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 2.25rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.625rem;
+    background: #f3f4f6;
+    color: var(--supplier-form-orange-dark);
+}
+
+.supplier-form-section__title {
+    margin: 0;
+    color: var(--supplier-form-ink);
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+.supplier-form-section__hint {
+    margin: 0.15rem 0 0;
+    color: var(--supplier-form-muted);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.supplier-form-field .form-label {
+    margin-bottom: 0.45rem;
+    color: #243044;
+    font-size: 0.875rem;
+    font-weight: 700;
+}
+
+.supplier-form-required {
+    color: #b42318;
+}
+
+.supplier-form-control {
+    position: relative;
+}
+
+.supplier-form-control > .bi {
+    position: absolute;
+    top: 50%;
+    left: 0.9rem;
+    z-index: 2;
+    color: #718096;
+    font-size: 1rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.supplier-form-control--textarea > .bi {
+    top: 0.95rem;
+    transform: none;
+}
+
+.supplier-form-control .form-control,
+.supplier-form-control .form-select {
+    min-height: 2.85rem;
+    border: 1px solid #c7d0dc;
+    border-radius: 0.625rem;
+    padding-left: 2.65rem;
+    color: var(--supplier-form-ink);
+    background-color: #fff;
+    font-size: 0.95rem;
+}
+
+.supplier-form-control textarea.form-control {
+    min-height: 6.5rem;
+    resize: vertical;
+}
+
+.supplier-form-control .form-control::placeholder {
+    color: #66758a;
+    opacity: 1;
+}
+
+.supplier-form-control .form-control:hover,
+.supplier-form-control .form-select:hover {
+    border-color: #9aa8ba;
+}
+
+.supplier-form-control .form-control:focus,
+.supplier-form-control .form-select:focus {
+    border-color: var(--supplier-form-orange);
+    box-shadow: 0 0 0 0.2rem rgba(234, 88, 12, 0.13);
+}
+
+.supplier-form-help {
+    margin-top: 0.4rem;
+    color: var(--supplier-form-muted);
+    font-size: 0.76rem;
+    line-height: 1.4;
+}
+
+.supplier-form-page .bank-select-preview {
+    min-height: 1.75rem;
+    margin-top: 0.45rem !important;
+    padding-left: 0.15rem;
+    color: #425168;
+}
+
+.supplier-form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.65rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--supplier-form-border);
+    background: #f8fafc;
+}
+
+.supplier-form-actions .btn {
+    min-height: 2.65rem;
+    border-radius: 50rem;
+    padding: 0.55rem 1.25rem;
+    font-weight: 700;
+}
+
+.supplier-form-cancel {
+    border-color: #cbd5e1;
+    background: #fff;
+    color: #334155;
+}
+
+.supplier-form-cancel:hover,
+.supplier-form-cancel:focus-visible {
+    border-color: #94a3b8;
+    background: #f8fafc;
+    color: #0f172a;
+}
+
+.supplier-form-save {
+    border-color: var(--supplier-form-orange);
+    background: var(--supplier-form-orange);
+    color: #fff;
+    transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.supplier-form-save:hover,
+.supplier-form-save:focus-visible {
+    border-color: var(--supplier-form-orange-dark);
+    background: var(--supplier-form-orange-dark);
+    color: #fff;
+}
+
+.supplier-form-save:disabled {
+    border-color: #cbd5e1;
+    background: #cbd5e1;
+    color: #475569;
+}
+
+@media (max-width: 767.98px) {
+    .supplier-form-page {
+        padding-top: 1.25rem !important;
+        padding-bottom: 1.25rem !important;
+    }
+
+    .supplier-form-head {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .supplier-form-mode {
+        margin-left: 3.65rem;
+    }
+
+    .supplier-form-section {
+        padding: 1.25rem 1rem;
+    }
+
+    .supplier-form-actions {
+        padding: 0.85rem 1rem;
+    }
+
+    .supplier-form-actions .btn {
+        flex: 1 1 0;
+    }
+}
+
+@media (max-width: 420px) {
+    .supplier-form-head__icon {
+        display: none;
+    }
+
+    .supplier-form-mode {
+        margin-left: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .supplier-form-save {
+        transition: none;
+    }
+}

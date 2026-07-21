@@ -476,7 +476,7 @@ $supplierInvoiceDateViewDisplay = $supplierInvoiceDateYmd !== '' ? tnc_po_ymd_to
         .invoice-box.po-purchase-order-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator,
         .invoice-box.pr-purchase-requisition-doc.tnc-doc-sheet:not(.tnc-doc-sheet--last) .tnc-doc-page-indicator {
             position: absolute;
-            right: 0;
+            right: 15mm;
             bottom: 10mm;
             margin-top: 0;
             padding-top: 0;

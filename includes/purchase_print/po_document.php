@@ -165,7 +165,6 @@ function tnc_purchase_po_print_prepare(int $id): ?array
     $data['s_name'] = $sup['name'] ?? '';
     $data['s_address'] = $sup['address'] ?? '';
     $data['s_tax'] = $sup['tax_id'] ?? '';
-    $data['contact_person'] = $sup['contact_person'] ?? '';
     $data['pr_number'] = is_array($pr) ? (string) ($pr['pr_number'] ?? '') : '';
 
     if (!function_exists('tnc_purchase_quotation_info_for_po')) {

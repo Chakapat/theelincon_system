@@ -469,13 +469,11 @@ if ($action === 'save_supplier') {
     $s_id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
     $name = trim((string) ($_POST['name'] ?? ''));
     $tax = trim((string) ($_POST['tax_id'] ?? ''));
-    $contact = trim((string) ($_POST['contact_person'] ?? ''));
     $addr = trim((string) ($_POST['address'] ?? ''));
 
     $data = array_merge([
         'name' => $name,
         'tax_id' => $tax,
-        'contact_person' => $contact,
         'address' => $addr,
     ], tnc_supplier_bank_fields_from_post($_POST));
 
