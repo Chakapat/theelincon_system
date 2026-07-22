@@ -9,6 +9,7 @@ session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_invoice_head.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_po_adjustments_ui.php';
 
 if(!isset($_SESSION['user_id'])){
     header('Location: ' . app_path('sign-in.php'));
@@ -53,16 +54,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_invoice'])) {
     }
 
     $vat_amount = isset($_POST['vat_enabled']) ? $money2($subtotal * 0.07) : 0; 
-    $wht_amount = isset($_POST['withholding_enabled']) ? $money2($subtotal * 0.03) : 0; 
-    $retention_amount = floatval($_POST['retention_amount'] ?? 0); 
-    $total_amount = $money2(($subtotal + $vat_amount) - $wht_amount - $retention_amount);
+    $wht_amount = isset($_POST['withholding_enabled']) ? $money2($subtotal * 0.03) : 0;
+    $gross_after_vat = $money2($subtotal + $vat_amount);
+    $adjustmentLines = tnc_po_adjustment_lines_from_post();
+    $parsedAdjustments = tnc_po_parse_adjustment_lines($adjustmentLines, (float) $subtotal, (float) $gross_after_vat);
+    $adjustmentDelta = tnc_po_adjustment_delta($parsedAdjustments);
+    $adjustmentFields = tnc_invoice_adjustment_save_fields($parsedAdjustments);
+    $retention_amount = (float) ($adjustmentFields['retention_amount'] ?? 0);
+    $total_amount = $money2($gross_after_vat - $wht_amount + $adjustmentDelta);
+    if ($total_amount < 0) {
+        $total_amount = 0.0;
+    }
 
     $new_inv_number = Invoice::nextInvoiceNumber($issue_date);
 
     $created_by = (int) $_SESSION['user_id'];
     $invoice_id = Db::nextNumericId('invoices', 'id');
 
-    $inv_row = [
+    $inv_row = array_merge([
         'id' => $invoice_id,
         'invoice_number' => $new_inv_number,
         'company_id' => (int) $company_id,
@@ -76,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_invoice'])) {
         'rounding_enabled' => $rounding_enabled ? 1 : 0,
         'status' => 'pending',
         'created_by' => $created_by,
-    ];
+    ], $adjustmentFields);
     Db::setRow('invoices', (string) $invoice_id, $inv_row);
 
     $current_running = 0.0;
@@ -252,8 +261,7 @@ Db::sortRows($customer_data, 'name', false);
                         <input type="checkbox" name="withholding_enabled" class="form-check-input" id="whtCheck">
                         <label class="form-check-label fw-bold text-danger">หัก ณ ที่จ่าย 3% (-) <span class="text-muted small fw-normal">(คิดจากยอดก่อน VAT)</span></label>
                     </div>
-                    <label class="form-label text-danger fw-bold">หักประกันผลงาน Retention (บาท)</label>
-                    <input type="number" name="retention_amount" id="retentionInput" class="form-control shadow-sm" value="0" step="0.01">
+                    <?php tnc_po_render_adjustments_panel(tnc_po_adjustments_editor_seed(null), ['hint' => 'ไม่บังคับ · หักหรือบวกหลัง VAT · แสดงบนใบแจ้งหนี้']); ?>
                     <div class="form-check form-switch mt-3">
                         <input type="checkbox" name="rounding_enabled" class="form-check-input" id="roundingCheck" checked>
                         <label class="form-check-label fw-bold text-secondary" for="roundingCheck">ปัดเศษทศนิยม (หลักตัวที่ 3 ตั้งแต่ 5 ขึ้นไป)</label>
@@ -267,7 +275,7 @@ Db::sortRows($customer_data, 'name', false);
                     <div class="d-flex justify-content-between mb-2 border-bottom pb-2 mb-2"><span class="text-muted fw-bold">ยอดรวม VAT:</span> <span id="total_after_vat_text" class="fw-bold">0.00</span></div>
                     <div class="d-flex justify-content-between mb-2 text-danger"><span>หัก ณ ที่จ่าย 3% (-) <small class="text-muted fw-normal">(คิดจากยอดก่อน VAT)</small></span> <span id="wht_text" class="fw-bold">0.00</span></div>
                     <div class="d-flex justify-content-between mb-2 small"><span class="text-muted">ยอดรวมหลังหัก ณ ที่จ่าย:</span> <span id="after_wht_text" class="fw-bold text-dark">0.00</span></div>
-                    <div id="retention_summary_row" class="d-flex justify-content-between mb-2 text-danger" style="display: none;"><span>หักประกันผลงาน (-):</span> <span id="retention_display" class="fw-bold">0.00</span></div>
+                    <?php tnc_po_render_adjustments_summary_slot(); ?>
                     <hr>
                     <div class="d-flex justify-content-between align-items-center grand-total-wrap">
                         <span class="h5 fw-bold mb-0">ยอดสุทธิ:</span>
@@ -387,8 +395,18 @@ function calculate(){
     let totalAfterVat = money2(subtotal + vat);
     let wht = document.getElementById("whtCheck").checked ? money2(subtotal * 0.03) : 0;
     let afterWht = money2(totalAfterVat - wht);
-    let ret = parseFloat(document.getElementById("retentionInput").value) || 0;
-    let grand = money2(afterWht - ret);
+    let adjDelta = 0;
+    let adjItems = [];
+    if (typeof tncPurchaseApplyAdjustmentsToTotals === 'function') {
+        const adj = tncPurchaseApplyAdjustmentsToTotals(totalAfterVat, subtotal);
+        adjDelta = Number(adj.delta) || 0;
+        adjItems = adj.items || [];
+    }
+    let grand = money2(afterWht + adjDelta);
+    if (grand < 0) grand = 0;
+    if (typeof tncPurchaseRenderAdjustmentsSummary === 'function') {
+        tncPurchaseRenderAdjustmentsSummary(adjItems);
+    }
 
     const fmt = { minimumFractionDigits: 2 };
     document.getElementById("subtotal_text").innerText = subtotal.toLocaleString(undefined, fmt);
@@ -396,9 +414,6 @@ function calculate(){
     document.getElementById("total_after_vat_text").innerText = totalAfterVat.toLocaleString(undefined, fmt);
     document.getElementById("wht_text").innerText = "- " + wht.toLocaleString(undefined, fmt);
     document.getElementById("after_wht_text").innerText = afterWht.toLocaleString(undefined, fmt);
-    document.getElementById("retention_display").innerText = "- " + ret.toLocaleString(undefined, fmt);
-    const retRow = document.getElementById("retention_summary_row");
-    if (retRow) retRow.style.display = ret > 0 ? "flex" : "none";
     document.getElementById("grand_total").innerText = grand.toLocaleString(undefined, fmt);
     const stickyTotal = document.getElementById("grand_total_sticky");
     if (stickyTotal) stickyTotal.innerText = grand.toLocaleString(undefined, fmt);
@@ -410,6 +425,8 @@ document.addEventListener('DOMContentLoaded', calculate);
     Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: 'บันทึกเลขที่ <?= $new_inv_number ?> เรียบร้อยแล้ว' }).then(() => { window.location.href = <?= json_encode(app_path('index.php'), JSON_UNESCAPED_SLASHES) ?>; });
 <?php endif; ?>
 </script>
+<script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/po-adjustments.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>

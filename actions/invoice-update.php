@@ -9,6 +9,7 @@ require_once __DIR__ . '/../config/connect_database.php';
 require_once __DIR__ . '/../includes/tnc_action_response.php';
 require_once __DIR__ . '/../includes/tnc_audit_log.php';
 require_once __DIR__ . '/../includes/invoice_cancel_helpers.php';
+require_once __DIR__ . '/../includes/purchase_print/vat_print_summary.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -36,7 +37,6 @@ $invoice_number = trim((string) ($_POST['invoice_number'] ?? ''));
 $issue_date = trim((string) ($_POST['issue_date'] ?? ''));
 $vat_enabled = isset($_POST['vat_enabled']);
 $withholding_enabled = isset($_POST['withholding_enabled']);
-$retention_amount = (float) ($_POST['retention_amount'] ?? 0);
 $rounding_enabled = isset($_POST['rounding_enabled']);
 
 $money2 = static function (float $value) use ($rounding_enabled): float {
@@ -105,7 +105,16 @@ foreach ($_POST['description'] ?? [] as $key => $desc) {
 $subtotal = $money2($subtotal);
 $vat_amount = $vat_enabled ? $money2($subtotal * 0.07) : 0.0;
 $wht_amount = $withholding_enabled ? $money2($subtotal * 0.03) : 0.0;
-$total_amount = $money2($subtotal + $vat_amount - $wht_amount - $retention_amount);
+$gross_after_vat = $money2($subtotal + $vat_amount);
+$adjustmentLines = tnc_po_adjustment_lines_from_post();
+$parsedAdjustments = tnc_po_parse_adjustment_lines($adjustmentLines, (float) $subtotal, (float) $gross_after_vat);
+$adjustmentDelta = tnc_po_adjustment_delta($parsedAdjustments);
+$adjustmentFields = tnc_invoice_adjustment_save_fields($parsedAdjustments);
+$retention_amount = (float) ($adjustmentFields['retention_amount'] ?? 0);
+$total_amount = $money2($gross_after_vat - $wht_amount + $adjustmentDelta);
+if ($total_amount < 0) {
+    $total_amount = 0.0;
+}
 
 $cur = Db::row('invoices', (string) $invoice_id) ?? [];
 Db::setRow('invoices', (string) $invoice_id, array_merge($cur, [
@@ -119,7 +128,7 @@ Db::setRow('invoices', (string) $invoice_id, array_merge($cur, [
     'retention_amount' => $retention_amount,
     'total_amount' => $total_amount,
     'rounding_enabled' => $rounding_enabled ? 1 : 0,
-]));
+], $adjustmentFields));
 
 $afterInv = Db::row('invoices', (string) $invoice_id) ?? [];
 $afterLines = [];

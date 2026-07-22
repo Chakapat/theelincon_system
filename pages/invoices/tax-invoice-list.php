@@ -29,27 +29,30 @@ $users = Db::tableKeyed('users');
 $listRows = [];
 $grandTotalSum = 0.0;
 foreach ($taxRows as $tax) {
-    $invoiceId = (string) ($tax['invoice_id'] ?? '');
-    $inv = $invoices[$invoiceId] ?? null;
-    if ($inv === null) {
-        continue;
-    }
+    $invoiceId = (int) ($tax['invoice_id'] ?? 0);
+    $inv = $invoiceId > 0 ? ($invoices[(string) $invoiceId] ?? null) : null;
 
-    $cust = $customers[(string) ($inv['customer_id'] ?? '')] ?? null;
-    $issuer = $users[(string) ($inv['created_by'] ?? '')] ?? null;
-    $grand = (float) ($tax['grand_total'] ?? ($inv['total_amount'] ?? 0));
+    $customerId = (int) ($tax['customer_id'] ?? 0);
+    if ($customerId <= 0 && is_array($inv)) {
+        $customerId = (int) ($inv['customer_id'] ?? 0);
+    }
+    $cust = $customers[(string) $customerId] ?? null;
+
+    $issuerUserId = is_array($inv) ? (string) ($inv['created_by'] ?? '') : '';
+    $issuer = $issuerUserId !== '' ? ($users[$issuerUserId] ?? null) : null;
+    $grand = (float) ($tax['grand_total'] ?? (is_array($inv) ? ($inv['total_amount'] ?? 0) : 0));
 
     $listRows[] = [
         'tax_id' => (int) ($tax['id'] ?? 0),
         'tax_invoice_number' => strtoupper((string) ($tax['tax_invoice_number'] ?? '')),
         'tax_date' => (string) ($tax['tax_date'] ?? ''),
-        'invoice_id' => (int) ($inv['id'] ?? 0),
-        'invoice_number' => (string) ($inv['invoice_number'] ?? ''),
+        'invoice_id' => $invoiceId,
+        'invoice_number' => is_array($inv) ? (string) ($inv['invoice_number'] ?? '') : '',
         'customer_name' => (string) ($cust['name'] ?? ''),
         'customer_logo' => trim((string) ($cust['logo'] ?? '')),
         'issuer_name' => trim((string) (($issuer['fname'] ?? '') . ' ' . ($issuer['lname'] ?? ''))),
         'grand_total' => $grand,
-        'is_cancelled' => tnc_tax_invoice_is_cancelled($tax) || tnc_invoice_is_cancelled($inv),
+        'is_cancelled' => tnc_tax_invoice_is_cancelled($tax) || (is_array($inv) && tnc_invoice_is_cancelled($inv)),
         'is_tax_cancelled' => tnc_tax_invoice_is_cancelled($tax),
     ];
     $grandTotalSum += $grand;
@@ -133,6 +136,9 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
                             $taxDateAttr = $taxDateRaw !== '' ? htmlspecialchars($taxDateRaw, ENT_QUOTES, 'UTF-8') : '';
                             $custLogo = trim((string) ($row['customer_logo'] ?? ''));
                             $taxSortOrder = sprintf('%010d', (int) ($row['tax_id'] ?? 0));
+                            $receiptQuery = ((int) ($row['invoice_id'] ?? 0) > 0)
+                                ? ('id=' . (int) $row['invoice_id'])
+                                : ('tax_id=' . (int) $row['tax_id']);
                             ?>
                             <tr<?= $taxDateAttr !== '' ? ' data-tax-date="' . $taxDateAttr . '"' : '' ?><?= !empty($row['is_cancelled']) ? ' class="inv-row-cancelled"' : '' ?>>
                                 <td class="tnc-mobile-primary" data-label="เลขที่" data-order="<?= htmlspecialchars($taxSortOrder, ENT_QUOTES, 'UTF-8') ?>">
@@ -153,9 +159,9 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
                                 <td class="fw-bold text-dark tabular-nums" data-label="ยอดสุทธิ">฿<?= number_format((float) $row['grand_total'], 2) ?></td>
                                 <td class="text-end pe-4 tnc-mobile-actions" data-label="จัดการ">
                                     <div class="d-inline-flex flex-wrap align-items-center justify-content-end gap-2">
-                                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>" class="btn btn-invoice-action btn-invoice-action-view" title="ดูเอกสาร Tax INV"><i class="bi bi-eye-fill"></i></a>
+                                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?<?= htmlspecialchars($receiptQuery, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-invoice-action btn-invoice-action-view" title="ดูเอกสาร Tax INV"><i class="bi bi-eye-fill"></i></a>
                                         <?php if ($can_edit_tax && empty($row['is_cancelled'])): ?>
-                                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $row['invoice_id'] ?>&edit=1" class="btn btn-invoice-action btn-invoice-action-edit" title="แก้ไข Tax INV"><i class="bi bi-pencil-square"></i></a>
+                                        <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?<?= htmlspecialchars($receiptQuery, ENT_QUOTES, 'UTF-8') ?>&edit=1" class="btn btn-invoice-action btn-invoice-action-edit" title="แก้ไข Tax INV"><i class="bi bi-pencil-square"></i></a>
                                         <?php endif; ?>
                                         <?php if ($can_cancel_tax && empty($row['is_tax_cancelled'])): ?>
                                         <button type="button" class="btn btn-invoice-action btn-invoice-action-cancel" data-tnc-cancel-tax-invoice data-tax-id="<?= (int) $row['tax_id'] ?>" data-invoice-id="<?= (int) $row['invoice_id'] ?>" title="ยกเลิก Tax INV"><i class="bi bi-x-circle"></i></button>
@@ -190,13 +196,17 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
                     <div class="tir-modal-search-wrap mb-3">
                         <i class="bi bi-search tir-modal-search-ico" aria-hidden="true"></i>
                         <label class="visually-hidden" for="tirModalRefInput">ค้นหา Invoice</label>
-                        <input type="text" id="tirModalRefInput" class="form-control tir-modal-ref-input tir-modal-ref-field" autocomplete="off" placeholder="พิมพ์เลข Invoice หรือชื่อลูกค้า" required>
+                        <input type="text" id="tirModalRefInput" class="form-control tir-modal-ref-input tir-modal-ref-field" autocomplete="off" placeholder="พิมพ์เลข Invoice หรือชื่อลูกค้า (ไม่บังคับ)">
                         <div id="tirModalAutocomplete" class="tir-modal-autocomplete list-group" role="listbox" aria-label="รายการแนะนำ"></div>
                     </div>
                     <button type="submit" id="tirModalSubmit" class="btn tir-modal-btn-search w-100">
-                        <i class="bi bi-file-earmark-search me-2" aria-hidden="true"></i>สร้างเลย
+                        <i class="bi bi-file-earmark-search me-2" aria-hidden="true"></i>สร้างจาก Invoice อ้างอิง
                     </button>
                 </form>
+                <div class="text-center my-3"><span class="text-muted small">หรือ</span></div>
+                <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?standalone=1" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-file-earmark-plus me-2" aria-hidden="true"></i>สร้างโดยไม่ระบุใบแจ้งหนี้
+                </a>
             </div>
         </div>
     </div>
@@ -294,7 +304,7 @@ $tirSearchCatalog = tnc_invoice_ref_search_catalog();
         }
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="bi bi-file-earmark-search me-2" aria-hidden="true"></i>ค้นหารายละเอียด Invoice';
+            submitBtn.innerHTML = '<i class="bi bi-file-earmark-search me-2" aria-hidden="true"></i>สร้างจาก Invoice อ้างอิง';
         }
     }
 

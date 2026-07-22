@@ -60,7 +60,7 @@ if (!function_exists('tnc_po_parse_retention')) {
 }
 
 if (!function_exists('tnc_po_retention_input_display')) {
-    /** ค่าในช่อง retention_input สำหรับแก้ไข PO */
+    /** ค่าในช่อง retention_input สำหรับแก้ไข PO / INV (รองรับใบเก่าที่มีแค่ retention_amount) */
     function tnc_po_retention_input_display(array $po): string
     {
         $type = trim((string) ($po['retention_type'] ?? 'none'));
@@ -76,6 +76,11 @@ if (!function_exists('tnc_po_retention_input_display')) {
             if ($amt > 0.0) {
                 return rtrim(rtrim(number_format($amt, 2, '.', ''), '0'), '.');
             }
+        }
+
+        $legacyAmt = (float) ($po['retention_amount'] ?? 0);
+        if ($legacyAmt > 0.0) {
+            return rtrim(rtrim(number_format($legacyAmt, 2, '.', ''), '0'), '.');
         }
 
         return '';
@@ -254,7 +259,7 @@ if (!function_exists('tnc_po_adjustment_lines_from_row')) {
     /** @return list<array{label:string,input:string,sign:string,pct_base:string}> */
     function tnc_po_adjustment_lines_from_row(array $row): array
     {
-        $stored = $row['po_adjustments'] ?? null;
+        $stored = $row['invoice_adjustments'] ?? $row['po_adjustments'] ?? null;
         if (is_array($stored) && $stored !== []) {
             $lines = [];
             foreach ($stored as $item) {
@@ -300,21 +305,36 @@ if (!function_exists('tnc_po_adjustments_from_row')) {
     function tnc_po_adjustments_from_row(array $row, ?float $subtotal = null, ?float $gross = null): array
     {
         if ($subtotal === null) {
-            $subtotal = (float) ($row['subtotal_amount'] ?? 0);
+            $subtotal = (float) ($row['subtotal_amount'] ?? ($row['subtotal'] ?? 0));
             if ($subtotal <= 0.0) {
-                $grossStored = (float) ($row['gross_amount'] ?? ($row['total_amount'] ?? 0));
+                $grossStored = (float) ($row['gross_amount'] ?? ($row['total_amount'] ?? ($row['grand_total'] ?? 0)));
                 $vat = (float) ($row['vat_amount'] ?? 0);
                 $subtotal = tnc_money_round2(max(0.0, $grossStored - $vat));
             }
         }
         if ($gross === null) {
-            $gross = (float) ($row['gross_amount'] ?? ($row['total_amount'] ?? 0));
+            $gross = (float) ($row['gross_amount'] ?? 0);
             if ($gross <= 0.0) {
                 $gross = tnc_money_round2(max(0.0, (float) $subtotal + (float) ($row['vat_amount'] ?? 0)));
             }
         }
 
         return tnc_po_parse_adjustment_lines(tnc_po_adjustment_lines_from_row($row), (float) $subtotal, (float) $gross);
+    }
+}
+
+if (!function_exists('tnc_invoice_adjustment_save_fields')) {
+    /**
+     * ฟิลด์บันทึกปรับยอดสุทธิสำหรับ Invoice / Tax Invoice
+     *
+     * @param list<array<string,mixed>> $adjustments
+     * @return array<string,mixed>
+     */
+    function tnc_invoice_adjustment_save_fields(array $adjustments): array
+    {
+        return array_merge([
+            'invoice_adjustments' => $adjustments,
+        ], tnc_po_legacy_retention_fields($adjustments));
     }
 }
 

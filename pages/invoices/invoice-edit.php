@@ -8,6 +8,7 @@ session_start();
 require_once dirname(__DIR__, 2) . '/config/connect_database.php';
 require_once dirname(__DIR__, 2) . '/includes/invoice_cancel_helpers.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_invoice_head.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_po_adjustments_ui.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -149,9 +150,7 @@ Db::sortRows($customers, 'name', false);
                         <input type="checkbox" name="withholding_enabled" class="form-check-input" id="whtCheck" <?= $invoice['withholding_tax'] > 0 ? 'checked' : '' ?>>
                         <label class="form-check-label fw-bold text-danger" for="whtCheck">หัก ณ ที่จ่าย 3% <span class="text-muted small fw-normal"></span></label>
                     </div>
-                    <hr>
-                    <label class="form-label text-danger fw-bold">หักประกันผลงาน Retention (บาท)</label>
-                    <input type="number" name="retention_amount" id="retentionInput" class="form-control shadow-sm" value="<?= $invoice['retention_amount'] ?>" step="0.01">
+                    <?php tnc_po_render_adjustments_panel(tnc_po_adjustments_editor_seed($invoice), ['hint' => 'ไม่บังคับ · หักหรือบวกหลัง VAT · แสดงบนใบแจ้งหนี้']); ?>
                     <?php $roundingOn = !isset($invoice['rounding_enabled']) || (int) $invoice['rounding_enabled'] === 1; ?>
                     <div class="form-check form-switch mt-3">
                         <input type="checkbox" name="rounding_enabled" class="form-check-input" id="roundingCheck" <?= $roundingOn ? 'checked' : '' ?>>
@@ -183,12 +182,7 @@ Db::sortRows($customers, 'name', false);
                     <span class="small text-muted fw-bold">ยอดรวมหลังหัก ณ ที่จ่าย</span>
                     <span id="after_wht_text" class="fw-bold text-dark">0.00</span>
                 </div>
-                <hr class="my-2">
-
-                <div id="retention_summary_row" class="d-flex justify-content-between mb-2 text-danger" style="display: none;">
-                    <span>หักประกันผลงาน</span>
-                    <span id="retention_display" class="fw-bold">0.00</span>
-                </div>
+                <?php tnc_po_render_adjustments_summary_slot(); ?>
                 <hr class="my-3" style="border-top: 2px solid #FF6600;">
                 
                 <div class="total-container">
@@ -259,23 +253,32 @@ function calculate(){
     let wht = document.getElementById("whtCheck").checked ? money2(subtotal * 0.03) : 0;
     let afterWht = money2(totalAfterVat - wht);
 
-    let ret = parseFloat(document.getElementById("retentionInput").value) || 0;
-    let grand = money2(afterWht - ret);
+    let adjDelta = 0;
+    let adjItems = [];
+    if (typeof tncPurchaseApplyAdjustmentsToTotals === 'function') {
+        const adj = tncPurchaseApplyAdjustmentsToTotals(totalAfterVat, subtotal);
+        adjDelta = Number(adj.delta) || 0;
+        adjItems = adj.items || [];
+    }
+    let grand = money2(afterWht + adjDelta);
+    if (grand < 0) grand = 0;
+    if (typeof tncPurchaseRenderAdjustmentsSummary === 'function') {
+        tncPurchaseRenderAdjustmentsSummary(adjItems);
+    }
 
     document.getElementById("subtotal_text").innerText = subtotal.toLocaleString('th-TH', opt);
     document.getElementById("vat_text").innerText = "+ " + vat.toLocaleString('th-TH', opt);
     document.getElementById("total_after_vat_text").innerText = totalAfterVat.toLocaleString('th-TH', opt);
     document.getElementById("wht_text").innerText = "- " + wht.toLocaleString('th-TH', opt);
     document.getElementById("after_wht_text").innerText = afterWht.toLocaleString('th-TH', opt);
-    document.getElementById("retention_display").innerText = "- " + ret.toLocaleString('th-TH', opt);
-    const retRow = document.getElementById("retention_summary_row");
-    if (retRow) retRow.style.display = ret > 0 ? "flex" : "none";
     
     // แสดงยอดสุทธิตัวใหญ่แบบมี Comma
     document.getElementById("grand_total_display").innerText = grand.toLocaleString('th-TH', opt);
     
     // เก็บค่าตัวเลขดิบไว้ใน hidden input (เพื่อส่งไป save)
     document.getElementById("grand_total").value = grand.toFixed(2);
+    const stickyTotal = document.getElementById("grand_total_sticky");
+    if (stickyTotal) stickyTotal.innerText = grand.toLocaleString('th-TH', opt);
 }
 
 // ฟังก์ชันอื่นๆ เหมือนเดิม (addRow, confirmUpdate, etc.)
@@ -364,6 +367,8 @@ async function confirmUpdate() {
 
 window.onload = calculate;
 </script>
+<script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/po-adjustments.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>

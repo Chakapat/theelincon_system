@@ -145,12 +145,16 @@
                 syncPctBaseUi(row);
                 if (typeof global.calculateTotal === 'function') {
                     global.calculateTotal();
+                } else if (typeof global.calculate === 'function') {
+                    global.calculate();
                 }
             });
             el.addEventListener('change', function () {
                 syncPctBaseUi(row);
                 if (typeof global.calculateTotal === 'function') {
                     global.calculateTotal();
+                } else if (typeof global.calculate === 'function') {
+                    global.calculate();
                 }
             });
         });
@@ -177,6 +181,8 @@
                 }
                 if (typeof global.calculateTotal === 'function') {
                     global.calculateTotal();
+                } else if (typeof global.calculate === 'function') {
+                    global.calculate();
                 }
             });
         }
@@ -215,6 +221,8 @@
                 wrap.appendChild(createRow({ sign: 'subtract', label: '', input: '', pct_base: 'before_vat' }));
                 if (typeof global.calculateTotal === 'function') {
                     global.calculateTotal();
+                } else if (typeof global.calculate === 'function') {
+                    global.calculate();
                 }
             });
         }

@@ -13,6 +13,7 @@ require_once dirname(__DIR__, 2) . '/includes/tnc_audit_log.php';
 require_once dirname(__DIR__, 2) . '/includes/document_color_css.php';
 require_once dirname(__DIR__, 2) . '/includes/tnc_invoice_head.php';
 require_once dirname(__DIR__, 2) . '/includes/invoice_cancel_helpers.php';
+require_once dirname(__DIR__, 2) . '/includes/purchase_po_adjustments_ui.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ' . app_path('sign-in.php'));
@@ -20,6 +21,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $id = (int) ($_GET['id'] ?? 0);
+$taxIdParam = (int) ($_GET['tax_id'] ?? 0);
+$standaloneMode = isset($_GET['standalone']) && (string) $_GET['standalone'] === '1';
 $print_modes = [
     ['key' => 'original', 'text' => 'ต้นฉบับ / ORIGINAL'],
     ['key' => 'copy', 'text' => 'สำเนา / COPY'],
@@ -91,6 +94,15 @@ function findLatestTaxInvoiceByInvoiceId(int $invoiceId): ?array
         return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0)); // id มากกว่าคือใหม่กว่า
     });
     return $rows[0];
+}
+
+function findTaxInvoiceById(int $taxId): ?array
+{
+    if ($taxId <= 0) {
+        return null;
+    }
+    $row = Db::rowByIdField('tax_invoices', $taxId);
+    return is_array($row) ? $row : null;
 }
 
 function formatDateThai(string $date): string
@@ -240,25 +252,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($isCreateSubmit || $isUpdateSubmit
     }
 
     $input_ref = trim((string) ($_POST['invoice_ref'] ?? ''));
-    $targetInv = findInvoiceByReference($input_ref);
-    if ($targetInv === null) {
+    $postedTaxId = (int) ($_POST['tax_id'] ?? 0);
+    $targetInv = $input_ref !== '' ? findInvoiceByReference($input_ref) : null;
+    $linkedInvoiceRequired = $input_ref !== '';
+
+    if ($linkedInvoiceRequired && $targetInv === null) {
         $error = 'ไม่พบเลข Invoice ที่อ้างอิง';
-    } elseif (tnc_invoice_is_cancelled($targetInv)) {
+    } elseif ($linkedInvoiceRequired && tnc_invoice_is_cancelled($targetInv)) {
         $error = 'ใบแจ้งหนี้นี้ถูกยกเลิกแล้ว — ไม่สามารถบันทึกใบกำกับภาษีได้';
     } else {
-        $targetId = (int) ($targetInv['id'] ?? 0);
-        $exists = findLatestTaxInvoiceByInvoiceId($targetId);
+        $targetId = $targetInv !== null ? (int) ($targetInv['id'] ?? 0) : 0;
+        $exists = null;
+        if ($postedTaxId > 0) {
+            $exists = findTaxInvoiceById($postedTaxId);
+        } elseif ($targetId > 0) {
+            $exists = findLatestTaxInvoiceByInvoiceId($targetId);
+        }
 
         if ($exists !== null && tnc_tax_invoice_is_cancelled($exists) && $isUpdateSubmit) {
             $error = 'ใบกำกับภาษีนี้ถูกยกเลิกแล้ว — ไม่สามารถแก้ไขได้';
-        } elseif ($exists !== null && !$isUpdateSubmit) {
+        } elseif ($exists !== null && !$isUpdateSubmit && $targetId > 0) {
             $id = $targetId;
             $message = 'Invoice นี้มี Tax Invoice แล้ว';
         } else {
             $companyId = (int) ($_POST['company_id'] ?? 0);
             $customerId = (int) ($_POST['customer_id'] ?? 0);
             $taxDateRaw = trim((string) ($_POST['tax_date'] ?? ''));
-            $issueDateForSeq = $taxDateRaw !== '' ? $taxDateRaw : (string) ($targetInv['issue_date'] ?? date('Y-m-d'));
+            $fallbackIssueDate = is_array($targetInv) ? (string) ($targetInv['issue_date'] ?? date('Y-m-d')) : date('Y-m-d');
+            $issueDateForSeq = $taxDateRaw !== '' ? $taxDateRaw : $fallbackIssueDate;
             $taxNumber = nextTaxInvoiceNumber($issueDateForSeq);
             $taxDateSave = $taxDateRaw !== '' ? $taxDateRaw : date('Y-m-d');
             $paymentMethod = trim((string) ($_POST['payment_method'] ?? ''));
@@ -287,7 +308,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($isCreateSubmit || $isUpdateSubmit
             }
             $subtotal = $money2($subtotal);
 
-            if (count($itemPayloads) === 0) {
+            if (count($itemPayloads) === 0 && $targetId > 0) {
                 $sourceItems = Db::filter('invoice_items', static function (array $r) use ($targetId): bool {
                     return isset($r['invoice_id']) && (int) $r['invoice_id'] === $targetId;
                 });
@@ -308,128 +329,170 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($isCreateSubmit || $isUpdateSubmit
                 $subtotal = $money2($subtotal);
             }
 
-            $retentionRawValue = parseRetentionRaw($retentionRaw, $subtotal);
-            $retentionAmount = $money2($retentionRawValue);
-            $vatRaw = $vatEnabled ? ($subtotal * 0.07) : 0.0;
-            $withholdingRaw = $withholdingEnabled ? ($subtotal * 0.03) : 0.0;
-            $vatAmount = $money2($vatRaw);
-            $withholdingAmount = $money2($withholdingRaw);
-            $grandTotal = $roundingEnabled
-                ? $money2($subtotal + $vatAmount - $withholdingAmount - $retentionAmount)
-                : $money2($subtotal + $vatRaw - $withholdingRaw - $retentionRawValue);
+            $fallbackCompanyId = is_array($targetInv) ? (int) ($targetInv['company_id'] ?? 0) : 0;
+            if ($fallbackCompanyId <= 0 && is_array($exists)) {
+                $fallbackCompanyId = (int) ($exists['company_id'] ?? 0);
+            }
+            $fallbackCustomerId = is_array($targetInv) ? (int) ($targetInv['customer_id'] ?? 0) : 0;
+            if ($fallbackCustomerId <= 0 && is_array($exists)) {
+                $fallbackCustomerId = (int) ($exists['customer_id'] ?? 0);
+            }
+            $resolvedCompanyId = $companyId > 0 ? $companyId : $fallbackCompanyId;
+            $resolvedCustomerId = $customerId > 0 ? $customerId : $fallbackCustomerId;
 
-            try {
-                $isUpdate = $exists !== null && $isUpdateSubmit;
-                $beforeTaxSnap = null;
-                $beforeTaxItems = [];
-                if ($isUpdate) {
-                    $tid = (int) ($exists['id'] ?? 0);
-                    $tpk = Db::pkForLogicalId('tax_invoices', $tid);
-                    $beforeTaxSnap = Db::row('tax_invoices', $tpk);
+            if ($resolvedCompanyId <= 0 || $resolvedCustomerId <= 0) {
+                $error = 'กรุณาเลือกบริษัทผู้ออกและบริษัทผู้รับเอกสาร';
+            } elseif (count($itemPayloads) === 0) {
+                $error = 'กรุณาระบุรายการอย่างน้อย 1 รายการ';
+            } else {
+                $vatRaw = $vatEnabled ? ($subtotal * 0.07) : 0.0;
+                $withholdingRaw = $withholdingEnabled ? ($subtotal * 0.03) : 0.0;
+                $vatAmount = $money2($vatRaw);
+                $withholdingAmount = $money2($withholdingRaw);
+                $grossAfterVat = $money2($subtotal + $vatAmount);
+                $adjustmentLines = tnc_po_adjustment_lines_from_post();
+                if ($adjustmentLines === [] && $retentionRaw !== '' && $retentionRaw !== '0') {
+                    $adjustmentLines = [[
+                        'label' => tnc_po_retention_label_default(),
+                        'input' => $retentionRaw,
+                        'sign' => 'subtract',
+                        'pct_base' => 'before_vat',
+                    ]];
+                }
+                $parsedAdjustments = tnc_po_parse_adjustment_lines($adjustmentLines, (float) $subtotal, (float) $grossAfterVat);
+                $adjustmentDelta = tnc_po_adjustment_delta($parsedAdjustments);
+                $adjustmentFields = tnc_invoice_adjustment_save_fields($parsedAdjustments);
+                $retentionAmount = (float) ($adjustmentFields['retention_amount'] ?? 0);
+                $grandTotal = $roundingEnabled
+                    ? $money2($grossAfterVat - $withholdingAmount + $adjustmentDelta)
+                    : $money2($subtotal + $vatRaw - $withholdingRaw + $adjustmentDelta);
+                if ($grandTotal < 0) {
+                    $grandTotal = 0.0;
+                }
+
+                $saveInvoiceId = $targetId;
+                if ($saveInvoiceId <= 0 && is_array($exists)) {
+                    $saveInvoiceId = (int) ($exists['invoice_id'] ?? 0);
+                }
+
+                try {
+                    $isUpdate = $exists !== null && $isUpdateSubmit;
+                    $beforeTaxSnap = null;
+                    $beforeTaxItems = [];
+                    if ($isUpdate) {
+                        $tid = (int) ($exists['id'] ?? 0);
+                        $tpk = Db::pkForLogicalId('tax_invoices', $tid);
+                        $beforeTaxSnap = Db::row('tax_invoices', $tpk);
+                        foreach (Db::filter('tax_invoice_items', static function (array $r) use ($tid): bool {
+                            return isset($r['tax_invoice_id']) && (int) $r['tax_invoice_id'] === $tid;
+                        }) as $tiRow) {
+                            if (!is_array($tiRow)) {
+                                continue;
+                            }
+                            $beforeTaxItems[] = $tiRow;
+                            if (count($beforeTaxItems) >= 120) {
+                                break;
+                            }
+                        }
+                        $curTax = Db::row('tax_invoices', $tpk) ?? [];
+                        Db::setRow('tax_invoices', $tpk, array_merge($curTax, [
+                            'id' => $tid,
+                            'invoice_id' => $saveInvoiceId,
+                            'tax_date' => $taxDateSave,
+                            'company_id' => $resolvedCompanyId,
+                            'customer_id' => $resolvedCustomerId,
+                            'subtotal' => $subtotal,
+                            'vat_amount' => $vatAmount,
+                            'withholding_tax' => $withholdingAmount,
+                            'retention_amount' => $retentionAmount,
+                            'grand_total' => $grandTotal,
+                            'rounding_enabled' => $roundingEnabled ? 1 : 0,
+                            'payment_method' => $paymentMethod,
+                        ], $adjustmentFields));
+                        Db::deleteWhereEquals('tax_invoice_items', 'tax_invoice_id', (string) $tid);
+                    } else {
+                        $tid = Db::nextNumericId('tax_invoices', 'id');
+                        Db::setRow('tax_invoices', (string) $tid, array_merge([
+                            'id' => $tid,
+                            'invoice_id' => $saveInvoiceId,
+                            'tax_invoice_number' => $taxNumber,
+                            'tax_date' => $taxDateSave,
+                            'company_id' => $resolvedCompanyId,
+                            'customer_id' => $resolvedCustomerId,
+                            'subtotal' => $subtotal,
+                            'vat_amount' => $vatAmount,
+                            'withholding_tax' => $withholdingAmount,
+                            'retention_amount' => $retentionAmount,
+                            'grand_total' => $grandTotal,
+                            'rounding_enabled' => $roundingEnabled ? 1 : 0,
+                            'payment_method' => $paymentMethod,
+                        ], $adjustmentFields));
+                    }
+
+                    foreach ($itemPayloads as $itemRow) {
+                        $taxItemId = Db::nextNumericId('tax_invoice_items', 'id');
+                        Db::setRow('tax_invoice_items', (string) $taxItemId, [
+                            'id' => $taxItemId,
+                            'tax_invoice_id' => $tid,
+                            'description' => $itemRow['description'],
+                            'quantity' => $itemRow['quantity'],
+                            'unit' => $itemRow['unit'],
+                            'unit_price' => $itemRow['unit_price'],
+                            'total' => $itemRow['total'],
+                        ]);
+                    }
+
+                    $tpkFinal = Db::pkForLogicalId('tax_invoices', $tid);
+                    $afterTax = Db::row('tax_invoices', $tpkFinal);
+                    $afterTaxItems = [];
                     foreach (Db::filter('tax_invoice_items', static function (array $r) use ($tid): bool {
                         return isset($r['tax_invoice_id']) && (int) $r['tax_invoice_id'] === $tid;
-                    }) as $tiRow) {
-                        if (!is_array($tiRow)) {
+                    }) as $tiRow2) {
+                        if (!is_array($tiRow2)) {
                             continue;
                         }
-                        $beforeTaxItems[] = $tiRow;
-                        if (count($beforeTaxItems) >= 120) {
+                        $afterTaxItems[] = $tiRow2;
+                        if (count($afterTaxItems) >= 120) {
                             break;
                         }
                     }
-                    $curTax = Db::row('tax_invoices', $tpk) ?? [];
-                    Db::setRow('tax_invoices', $tpk, array_merge($curTax, [
-                        'id' => $tid,
-                        'invoice_id' => $targetId,
-                        'tax_date' => $taxDateSave,
-                        'company_id' => $companyId > 0 ? $companyId : (int) ($targetInv['company_id'] ?? 0),
-                        'customer_id' => $customerId > 0 ? $customerId : (int) ($targetInv['customer_id'] ?? 0),
-                        'subtotal' => $subtotal,
-                        'vat_amount' => $vatAmount,
-                        'withholding_tax' => $withholdingAmount,
-                        'retention_amount' => $retentionAmount,
-                        'grand_total' => $grandTotal,
-                        'rounding_enabled' => $roundingEnabled ? 1 : 0,
-                        'payment_method' => $paymentMethod,
-                    ]));
-                    Db::deleteWhereEquals('tax_invoice_items', 'tax_invoice_id', (string) $tid);
-                } else {
-                    $tid = Db::nextNumericId('tax_invoices', 'id');
-                    Db::setRow('tax_invoices', (string) $tid, [
-                        'id' => $tid,
-                        'invoice_id' => $targetId,
-                        'tax_invoice_number' => $taxNumber,
-                        'tax_date' => $taxDateSave,
-                        'company_id' => $companyId > 0 ? $companyId : (int) ($targetInv['company_id'] ?? 0),
-                        'customer_id' => $customerId > 0 ? $customerId : (int) ($targetInv['customer_id'] ?? 0),
-                        'subtotal' => $subtotal,
-                        'vat_amount' => $vatAmount,
-                        'withholding_tax' => $withholdingAmount,
-                        'retention_amount' => $retentionAmount,
-                        'grand_total' => $grandTotal,
-                        'rounding_enabled' => $roundingEnabled ? 1 : 0,
-                        'payment_method' => $paymentMethod,
-                    ]);
+                    $taxNoLabel = $afterTax !== null ? trim((string) ($afterTax['tax_invoice_number'] ?? '')) : '';
+                    tnc_audit_log(
+                        $isUpdate ? 'update' : 'create',
+                        'tax_invoice',
+                        (string) $tid,
+                        $taxNoLabel !== '' ? $taxNoLabel : ('#' . $tid),
+                        [
+                            'source' => 'tax-invoice-receipt.php',
+                            'action' => $isUpdate ? 'save_tax_invoice' : 'create_tax_invoice',
+                            'before' => $beforeTaxSnap,
+                            'after' => $afterTax,
+                            'meta' => [
+                                'invoice_id' => $saveInvoiceId,
+                                'standalone' => $saveInvoiceId <= 0,
+                                'lines_before' => $beforeTaxItems,
+                                'lines_after' => $afterTaxItems,
+                            ],
+                        ]
+                    );
+                } catch (Throwable $e) {
+                    $error = 'บันทึก Tax INV ลง Firebase ไม่สำเร็จ: ' . $e->getMessage();
                 }
 
-                foreach ($itemPayloads as $itemRow) {
-                    $taxItemId = Db::nextNumericId('tax_invoice_items', 'id');
-                    Db::setRow('tax_invoice_items', (string) $taxItemId, [
-                        'id' => $taxItemId,
-                        'tax_invoice_id' => $tid,
-                        'description' => $itemRow['description'],
-                        'quantity' => $itemRow['quantity'],
-                        'unit' => $itemRow['unit'],
-                        'unit_price' => $itemRow['unit_price'],
-                        'total' => $itemRow['total'],
-                    ]);
-                }
-
-                $tpkFinal = Db::pkForLogicalId('tax_invoices', $tid);
-                $afterTax = Db::row('tax_invoices', $tpkFinal);
-                $afterTaxItems = [];
-                foreach (Db::filter('tax_invoice_items', static function (array $r) use ($tid): bool {
-                    return isset($r['tax_invoice_id']) && (int) $r['tax_invoice_id'] === $tid;
-                }) as $tiRow2) {
-                    if (!is_array($tiRow2)) {
-                        continue;
+                if ($error === '') {
+                    if ($exists !== null && $isUpdateSubmit) {
+                        if ($saveInvoiceId > 0) {
+                            $q = http_build_query(['id' => $saveInvoiceId, 'updated' => '1'], '', '&', PHP_QUERY_RFC3986);
+                        } else {
+                            $q = http_build_query(['tax_id' => $tid, 'updated' => '1'], '', '&', PHP_QUERY_RFC3986);
+                        }
+                        header('Location: ' . app_path('pages/invoices/tax-invoice-receipt.php') . '?' . $q);
+                    } else {
+                        $q = http_build_query(['created' => '1', 'tax_no' => $taxNumber], '', '&', PHP_QUERY_RFC3986);
+                        header('Location: ' . app_path('pages/invoices/tax-invoice-list.php') . '?' . $q);
                     }
-                    $afterTaxItems[] = $tiRow2;
-                    if (count($afterTaxItems) >= 120) {
-                        break;
-                    }
+                    exit;
                 }
-                $taxNoLabel = $afterTax !== null ? trim((string) ($afterTax['tax_invoice_number'] ?? '')) : '';
-                tnc_audit_log(
-                    $isUpdate ? 'update' : 'create',
-                    'tax_invoice',
-                    (string) $tid,
-                    $taxNoLabel !== '' ? $taxNoLabel : ('#' . $tid),
-                    [
-                        'source' => 'tax-invoice-receipt.php',
-                        'action' => $isUpdate ? 'save_tax_invoice' : 'create_tax_invoice',
-                        'before' => $beforeTaxSnap,
-                        'after' => $afterTax,
-                        'meta' => [
-                            'invoice_id' => $targetId,
-                            'lines_before' => $beforeTaxItems,
-                            'lines_after' => $afterTaxItems,
-                        ],
-                    ]
-                );
-            } catch (Throwable $e) {
-                $error = 'บันทึก Tax INV ลง Firebase ไม่สำเร็จ: ' . $e->getMessage();
-            }
-
-            if ($error === '') {
-                if ($exists !== null && $isUpdateSubmit) {
-                    $q = http_build_query(['id' => $targetId, 'updated' => '1'], '', '&', PHP_QUERY_RFC3986);
-                    header('Location: ' . app_path('pages/invoices/tax-invoice-receipt.php') . '?' . $q);
-                } else {
-                    $q = http_build_query(['created' => '1', 'tax_no' => $taxNumber], '', '&', PHP_QUERY_RFC3986);
-                    header('Location: ' . app_path('pages/invoices/tax-invoice-list.php') . '?' . $q);
-                }
-                exit;
             }
         }
     }
@@ -444,11 +507,27 @@ if ($id <= 0 && $input_ref !== '') {
     }
 }
 
+$tax = null;
+if ($taxIdParam > 0) {
+    $tax = findTaxInvoiceById($taxIdParam);
+    if (is_array($tax)) {
+        $linkedFromTax = (int) ($tax['invoice_id'] ?? 0);
+        if ($linkedFromTax > 0 && $id <= 0) {
+            $id = $linkedFromTax;
+        }
+    } elseif ($error === '') {
+        $error = 'ไม่พบใบกำกับภาษีที่ระบุ';
+    }
+}
+
 $inv = $id > 0 ? Db::rowByIdField('invoices', $id) : null;
-if (!$inv) {
+$allowStandaloneDraft = $standaloneMode || (is_array($tax) && (int) ($tax['invoice_id'] ?? 0) <= 0);
+
+if (!$inv && !$allowStandaloneDraft) {
     $tirCatalog = tnc_invoice_ref_search_catalog();
     $autocompleteOptions = $tirCatalog['autocomplete'];
     $invoiceSearchOptions = $tirCatalog['options'];
+    $standaloneCreateUrl = app_path('pages/invoices/tax-invoice-receipt.php') . '?standalone=1';
 
     ?>
     <!DOCTYPE html>
@@ -570,6 +649,35 @@ if (!$inv) {
                 cursor: wait;
                 transform: none;
             }
+            .tir-btn-standalone {
+                height: 3.25rem;
+                font-weight: 600;
+                border-radius: 12px;
+                border: 1px solid rgba(15, 23, 42, 0.14);
+                background: #fff;
+                color: #334155;
+                transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+            }
+            .tir-btn-standalone:hover {
+                background: rgba(15, 23, 42, 0.03);
+                border-color: rgba(15, 23, 42, 0.28);
+                color: #0f172a;
+            }
+            .tir-or-divider {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                margin: 1.1rem 0;
+                color: #94a3b8;
+                font-size: 0.8rem;
+            }
+            .tir-or-divider::before,
+            .tir-or-divider::after {
+                content: '';
+                flex: 1;
+                height: 1px;
+                background: rgba(15, 23, 42, 0.1);
+            }
             .tir-back-ghost {
                 display: inline-flex;
                 align-items: center;
@@ -595,7 +703,7 @@ if (!$inv) {
     <?php include dirname(__DIR__, 2) . '/components/navbar.php'; ?>
     <div class="container py-4 py-md-5 px-3">
         <div class="tir-hero-card">
-            <h1 class="tir-page-title mb-2">สร้าง Tax Invoice จาก Invoice อ้างอิง</h1>
+            <h1 class="tir-page-title mb-2">สร้างใบกำกับภาษี</h1>
             <?php if ($error !== ''): ?>
                 <div class="alert alert-danger mt-3 mb-0"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
             <?php endif; ?>
@@ -603,16 +711,22 @@ if (!$inv) {
                 <div class="tir-search-wrap mb-2">
                     <i class="bi bi-search tir-search-ico" aria-hidden="true"></i>
                     <label class="visually-hidden" for="tir_ref_input">เลข Invoice</label>
-                    <input type="text" name="ref" id="tir_ref_input" class="form-control tir-ref-input invoice-ref-input w-100" autocomplete="off" placeholder="เช่น 0426-001 หรือ INV-TNC-0426-001" required>
+                    <input type="text" name="ref" id="tir_ref_input" class="form-control tir-ref-input invoice-ref-input w-100" autocomplete="off" placeholder="เช่น 0426-001 หรือ INV-TNC-0426-001">
                     <div class="tir-autocomplete-list list-group autocomplete-list" role="listbox" aria-label="รายการแนะนำเลข Invoice"></div>
                 </div>
-                <p class="tir-helper mb-3">พิมพ์เลข Invoice เท่านั้น — ระบบแสดงรายการแนะนำทันที แล้วเลือกหรือกดปุ่มค้นหา</p>
+                <p class="tir-helper mb-3">พิมพ์เลขใบแจ้งหนี้เพื่อสร้างจาก Invoice อ้างอิง — หรือสร้างโดยไม่ระบุใบแจ้งหนี้ด้านล่าง</p>
                 <div class="d-grid">
                     <button type="submit" id="tirSearchSubmit" class="btn tir-btn-search">
                         <i class="bi bi-file-earmark-search me-2" aria-hidden="true"></i>ค้นหารายละเอียด Invoice
                     </button>
                 </div>
             </form>
+            <div class="tir-or-divider"><span>หรือ</span></div>
+            <div class="d-grid">
+                <a href="<?= htmlspecialchars($standaloneCreateUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn tir-btn-standalone d-inline-flex align-items-center justify-content-center">
+                    <i class="bi bi-file-earmark-plus me-2" aria-hidden="true"></i>สร้างโดยไม่ระบุใบแจ้งหนี้
+                </a>
+            </div>
             <div class="mt-4 pt-1">
                 <?php
                 require_once dirname(__DIR__, 2) . '/includes/tnc_ui.php';
@@ -713,9 +827,14 @@ if (!$inv) {
 
         var form = document.getElementById('tirSearchForm');
         var submitBtn = document.getElementById('tirSearchSubmit');
-        if (form && submitBtn) {
-            form.addEventListener('submit', function () {
-                if (!form.checkValidity()) return;
+        var refInput = document.getElementById('tir_ref_input');
+        if (form && submitBtn && refInput) {
+            form.addEventListener('submit', function (e) {
+                if (!String(refInput.value || '').trim()) {
+                    e.preventDefault();
+                    refInput.focus();
+                    return;
+                }
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>กำลังค้นหา…';
             });
@@ -729,32 +848,41 @@ if (!$inv) {
     exit;
 }
 
-$creator = Db::rowByIdField('users', (int) ($inv['created_by'] ?? 0), 'userid') ?? [];
-$tax = findLatestTaxInvoiceByInvoiceId($id);
+$invRow = is_array($inv) ? $inv : [];
+$creator = Db::rowByIdField('users', (int) ($invRow['created_by'] ?? 0), 'userid') ?? [];
+if (!is_array($tax) && $id > 0) {
+    $tax = findLatestTaxInvoiceByInvoiceId($id);
+}
 
-$isInvCancelled = tnc_invoice_is_cancelled($inv);
+$isInvCancelled = is_array($inv) && tnc_invoice_is_cancelled($inv);
 $isTaxCancelled = is_array($tax) && tnc_tax_invoice_is_cancelled($tax);
 $taxCancelReason = is_array($tax) ? tnc_doc_cancellation_reason($tax) : '';
-$invCancelReason = tnc_doc_cancellation_reason($inv);
+$invCancelReason = is_array($inv) ? tnc_doc_cancellation_reason($inv) : '';
 $canCancelTaxInvoice = user_can('invoice.tax_cancel') && is_array($tax) && !$isTaxCancelled && !$isInvCancelled;
 $canEditTaxInvoice = user_can('invoice.edit') && !$isInvCancelled && !$isTaxCancelled;
 
+$taxId = (int) ($tax['id'] ?? 0);
+$receiptBaseQuery = $id > 0
+    ? ['id' => $id]
+    : ['tax_id' => $taxId > 0 ? $taxId : $taxIdParam];
+
 if ($edit_mode && ($isInvCancelled || $isTaxCancelled)) {
-    header('Location: ' . app_path('pages/invoices/tax-invoice-receipt.php') . '?id=' . $id);
+    header('Location: ' . app_path('pages/invoices/tax-invoice-receipt.php') . '?' . http_build_query($receiptBaseQuery, '', '&', PHP_QUERY_RFC3986));
     exit;
 }
 
-$invoice_number = (string) ($inv['invoice_number'] ?? '');
-$has_tax_invoice = $tax !== null && trim((string) ($tax['tax_invoice_number'] ?? '')) !== '';
+$invoice_number = (string) ($invRow['invoice_number'] ?? '');
+$has_tax_invoice = is_array($tax) && trim((string) ($tax['tax_invoice_number'] ?? '')) !== '';
+$selectedCompanyId = (int) ((is_array($tax) ? ($tax['company_id'] ?? 0) : 0) ?: ($invRow['company_id'] ?? 0));
+$selectedCustomerId = (int) ((is_array($tax) ? ($tax['customer_id'] ?? 0) : 0) ?: ($invRow['customer_id'] ?? 0));
 
-$taxId = (int) ($tax['id'] ?? 0);
 $draftItems = [];
 if ($taxId > 0) {
     $draftItems = Db::filter('tax_invoice_items', static function (array $r) use ($taxId): bool {
         return isset($r['tax_invoice_id']) && (int) $r['tax_invoice_id'] === $taxId;
     });
 }
-if (count($draftItems) === 0) {
+if (count($draftItems) === 0 && $id > 0) {
     $draftItems = Db::filter('invoice_items', static function (array $r) use ($id): bool {
         return isset($r['invoice_id']) && (int) $r['invoice_id'] === $id;
     });
@@ -771,19 +899,30 @@ if ((!$has_tax_invoice || $edit_mode) && !$isInvCancelled && !$isTaxCancelled) {
     Db::sortRows($companies, 'id', false);
     $customers = Db::tableRows('customers');
     Db::sortRows($customers, 'name', false);
-    $creatorDraft = Db::rowByIdField('users', (int) ($inv['created_by'] ?? 0), 'userid') ?? [];
+    $creatorDraft = $creator;
     $creatorDraftName = trim(($creatorDraft['fname'] ?? '') . ' ' . ($creatorDraft['lname'] ?? ''));
+    $taxDraft = is_array($tax) ? $tax : [];
     /** ชื่อแท็บ / ชื่อไฟล์เริ่มต้นตอนพิมพ์หรือบันทึก PDF */
     $tirDraftDocTitle = '';
     if ($has_tax_invoice) {
-        $tirDraftDocTitle = trim((string) ($tax['tax_invoice_number'] ?? ''));
+        $tirDraftDocTitle = trim((string) ($taxDraft['tax_invoice_number'] ?? ''));
     }
     if ($tirDraftDocTitle === '') {
         $tirDraftDocTitle = trim((string) $invoice_number);
     }
     if ($tirDraftDocTitle === '') {
-        $tirDraftDocTitle = 'INV-' . (int) $id;
+        $tirDraftDocTitle = $id > 0 ? ('INV-' . (int) $id) : 'ใบกำกับภาษีใหม่';
     }
+    $draftBackUrl = $has_tax_invoice
+        ? (app_path('pages/invoices/tax-invoice-receipt.php') . '?' . http_build_query($receiptBaseQuery, '', '&', PHP_QUERY_RFC3986))
+        : app_path('pages/invoices/tax-invoice-list.php');
+    $draftVatOn = ((float) (($taxDraft['vat_amount'] ?? $invRow['vat_amount'] ?? 0)) > 0);
+    $draftWhtOn = ((float) (($taxDraft['withholding_tax'] ?? $invRow['withholding_tax'] ?? 0)) > 0);
+    $roundingEnabledDraft = (($taxDraft['rounding_enabled'] ?? $invRow['rounding_enabled'] ?? 0) === 1 || (string) ($taxDraft['rounding_enabled'] ?? $invRow['rounding_enabled'] ?? '0') === '1');
+    $pmDraft = trim((string) ($taxDraft['payment_method'] ?? 'transfer'));
+    $draftTaxDate = (string) ($taxDraft['tax_date'] ?? date('Y-m-d'));
+    $adjSeedSource = $taxDraft !== [] ? $taxDraft : $invRow;
+    $adjSeedLines = tnc_po_adjustments_editor_seed($adjSeedSource !== [] ? $adjSeedSource : null);
     ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -804,12 +943,15 @@ if ((!$has_tax_invoice || $edit_mode) && !$isInvCancelled && !$isTaxCancelled) {
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="fw-bold"><i class="bi bi-file-earmark-break text-success"></i> <?= $has_tax_invoice ? 'แก้ไขใบกำกับภาษี' : 'สร้างใบกำกับภาษี' ?></h3>
-        <a href="<?= htmlspecialchars($has_tax_invoice ? (app_path('pages/invoices/tax-invoice-receipt.php') . '?id=' . $id) : app_path('index.php')) ?>" class="btn btn-outline-secondary rounded-pill">กลับ</a>
+        <a href="<?= htmlspecialchars($draftBackUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary rounded-pill">กลับ</a>
     </div>
 
     <form method="post" id="taxDraftForm">
         <?php csrf_field(); ?>
         <input type="hidden" name="invoice_ref" value="<?= htmlspecialchars($invoice_number, ENT_QUOTES, 'UTF-8') ?>">
+        <?php if ($taxId > 0): ?>
+            <input type="hidden" name="tax_id" value="<?= (int) $taxId ?>">
+        <?php endif; ?>
         <?php if ($has_tax_invoice): ?>
             <input type="hidden" name="update_tax_invoice" value="1">
         <?php else: ?>
@@ -821,26 +963,32 @@ if ((!$has_tax_invoice || $edit_mode) && !$isInvCancelled && !$isTaxCancelled) {
                 <div class="card h-100 border-orange p-4 shadow-sm">
                     <label class="form-label fw-bold">ผู้ออกเอกสาร (บริษัท)</label>
                     <select name="company_id" class="form-select mb-3 shadow-sm" required>
+                        <?php if ($selectedCompanyId <= 0): ?>
+                            <option value="" selected disabled>เลือกบริษัท</option>
+                        <?php endif; ?>
                         <?php foreach ($companies as $com): ?>
-                            <option value="<?= (int) $com['id'] ?>" <?= ((int) $com['id'] === (int) ($inv['company_id'] ?? 0)) ? 'selected' : '' ?>><?= htmlspecialchars((string) $com['name'], ENT_QUOTES, 'UTF-8') ?></option>
+                            <option value="<?= (int) $com['id'] ?>" <?= ((int) $com['id'] === $selectedCompanyId) ? 'selected' : '' ?>><?= htmlspecialchars((string) $com['name'], ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <label class="form-label fw-bold text-muted small">เลขที่ใบแจ้งหนี้อ้างอิง</label>
-                    <input type="text" class="form-control bg-light" value="<?= htmlspecialchars($invoice_number, ENT_QUOTES, 'UTF-8') ?>" readonly>
+                    <label class="form-label fw-bold text-muted small">เลขที่ใบแจ้งหนี้อ้างอิง<?= $invoice_number === '' ? ' (ไม่บังคับ)' : '' ?></label>
+                    <input type="text" class="form-control bg-light" value="<?= htmlspecialchars($invoice_number !== '' ? $invoice_number : '— ไม่ระบุ —', ENT_QUOTES, 'UTF-8') ?>" readonly>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="card h-100 border-orange p-4 shadow-sm">
                     <label class="form-label fw-bold">บริษัทผู้รับเอกสาร</label>
                     <select name="customer_id" class="form-select mb-3 shadow-sm" required>
+                        <?php if ($selectedCustomerId <= 0): ?>
+                            <option value="" selected disabled>เลือกลูกค้า</option>
+                        <?php endif; ?>
                         <?php foreach ($customers as $cus): ?>
-                            <option value="<?= (int) $cus['id'] ?>" <?= ((int) $cus['id'] === (int) ($inv['customer_id'] ?? 0)) ? 'selected' : '' ?>><?= htmlspecialchars((string) $cus['name'], ENT_QUOTES, 'UTF-8') ?></option>
+                            <option value="<?= (int) $cus['id'] ?>" <?= ((int) $cus['id'] === $selectedCustomerId) ? 'selected' : '' ?>><?= htmlspecialchars((string) $cus['name'], ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
                     <div class="row g-2">
                         <div class="col-12">
                             <label class="form-label small fw-bold">วันที่ออกใบกำกับภาษี</label>
-                            <input type="date" name="tax_date" class="form-control" value="<?= htmlspecialchars((string) ($tax['tax_date'] ?? date('Y-m-d')), ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="date" name="tax_date" class="form-control" value="<?= htmlspecialchars($draftTaxDate, ENT_QUOTES, 'UTF-8') ?>">
                         </div>
                     </div>
                 </div>
@@ -885,23 +1033,19 @@ if ((!$has_tax_invoice || $edit_mode) && !$isInvCancelled && !$isTaxCancelled) {
                 <div class="card p-4 border-orange h-100 shadow-sm">
                     <h6 class="fw-bold mb-3">การตั้งค่าภาษีและเงินหัก</h6>
                     <div class="form-check form-switch mb-3">
-                        <input type="checkbox" name="vat_enabled" class="form-check-input" id="vatCheck" <?= ((float) (($tax['vat_amount'] ?? $inv['vat_amount'] ?? 0)) > 0) ? 'checked' : '' ?>>
+                        <input type="checkbox" name="vat_enabled" class="form-check-input" id="vatCheck" <?= $draftVatOn ? 'checked' : '' ?>>
                         <label class="form-check-label fw-bold text-primary" for="vatCheck">บวกภาษีมูลค่าเพิ่ม VAT 7% (+)</label>
                     </div>
                     <div class="form-check form-switch mb-3">
-                        <input type="checkbox" name="withholding_enabled" class="form-check-input" id="whtCheck" <?= ((float) (($tax['withholding_tax'] ?? $inv['withholding_tax'] ?? 0)) > 0) ? 'checked' : '' ?>>
+                        <input type="checkbox" name="withholding_enabled" class="form-check-input" id="whtCheck" <?= $draftWhtOn ? 'checked' : '' ?>>
                         <label class="form-check-label fw-bold text-danger" for="whtCheck">หัก ณ ที่จ่าย 3% (-) <span class="text-muted small fw-normal">(คิดจากยอดก่อน VAT)</span></label>
                     </div>
-                    <hr>
-                    <label class="form-label text-danger fw-bold">หักประกันผลงาน Retention (บาท หรือ %)</label>
-                    <input type="text" name="retention_amount" id="retentionInput" class="form-control shadow-sm" value="<?= htmlspecialchars((string) (($tax['retention_amount'] ?? $inv['retention_amount'] ?? 0)), ENT_QUOTES, 'UTF-8') ?>" placeholder="เช่น 500 หรือ 5%">
-                    <?php $roundingEnabledDraft = (($tax['rounding_enabled'] ?? $inv['rounding_enabled'] ?? 0) === 1 || (string) ($tax['rounding_enabled'] ?? $inv['rounding_enabled'] ?? '0') === '1'); ?>
+                    <?php tnc_po_render_adjustments_panel($adjSeedLines, ['hint' => 'ไม่บังคับ · หักหรือบวกหลัง VAT · แสดงบนใบกำกับภาษี']); ?>
                     <div class="form-check form-switch mt-3">
                         <input type="hidden" name="rounding_enabled" id="roundingEnabledInput" value="<?= $roundingEnabledDraft ? '1' : '0' ?>">
                         <input type="checkbox" class="form-check-input" id="roundingCheck" <?= $roundingEnabledDraft ? 'checked' : '' ?>>
                         <label class="form-check-label fw-bold text-secondary" for="roundingCheck">ปัดเศษทศนิยม (หลักตัวที่ 3 ตั้งแต่ 5 ขึ้นไป)</label>
                     </div>
-                    <?php $pmDraft = trim((string) ($tax['payment_method'] ?? 'transfer')); ?>
                     <hr>
                     <label class="form-label fw-bold">วิธีชำระเงิน</label>
                     <div class="d-flex flex-wrap gap-3">
@@ -943,11 +1087,7 @@ if ((!$has_tax_invoice || $edit_mode) && !$isInvCancelled && !$isTaxCancelled) {
                         <span class="small text-muted fw-bold">ยอดรวมหลังหัก ณ ที่จ่าย:</span>
                         <span id="after_wht_text" class="fw-bold text-dark">0.00</span>
                     </div>
-                    <hr class="my-2">
-                    <div id="retention_summary_row" class="d-flex justify-content-between mb-2 text-danger" style="display: none;">
-                        <span>หักประกันผลงาน Retention (-):</span>
-                        <span id="retention_display" class="fw-bold">0.00</span>
-                    </div>
+                    <?php tnc_po_render_adjustments_summary_slot(); ?>
                     <hr class="my-3" style="border-top: 2px solid #FF6600;">
                     <div class="total-container">
                         <label class="form-label fw-bold text-dark small mb-0">ยอดสุทธิ (ประมาณการ)</label>
@@ -1001,30 +1141,27 @@ function calculate(){
     let wht = money2(whtRaw);
     let afterWht = money2(totalAfterVat - wht);
 
-    let retInput = (document.getElementById("retentionInput").value || "").trim();
-    let ret = 0;
-    let retRaw = 0;
-    if (retInput.includes('%')) {
-        const pct = parseFloat(retInput.replace('%', '')) || 0;
-        retRaw = subtotal * (pct / 100);
-        ret = money2(retRaw);
-    } else {
-        retRaw = parseFloat(retInput) || 0;
-        ret = money2(retRaw);
+    let adjDelta = 0;
+    let adjItems = [];
+    if (typeof tncPurchaseApplyAdjustmentsToTotals === 'function') {
+        const adj = tncPurchaseApplyAdjustmentsToTotals(totalAfterVat, subtotal);
+        adjDelta = Number(adj.delta) || 0;
+        adjItems = adj.items || [];
     }
     let grandRaw = roundingEnabled
-        ? (subtotal + vat - wht - ret)
-        : (subtotal + vatRaw - whtRaw - retRaw);
+        ? (afterWht + adjDelta)
+        : (totalAfterVat - whtRaw + adjDelta);
     let grand = money2(grandRaw);
+    if (grand < 0) grand = 0;
+    if (typeof tncPurchaseRenderAdjustmentsSummary === 'function') {
+        tncPurchaseRenderAdjustmentsSummary(adjItems);
+    }
 
     document.getElementById("subtotal_text").innerText = subtotal.toLocaleString('th-TH', opt);
     document.getElementById("vat_text").innerText = "+ " + vat.toLocaleString('th-TH', opt);
     document.getElementById("total_after_vat_text").innerText = totalAfterVat.toLocaleString('th-TH', opt);
     document.getElementById("wht_text").innerText = "- " + wht.toLocaleString('th-TH', opt);
     document.getElementById("after_wht_text").innerText = afterWht.toLocaleString('th-TH', opt);
-    document.getElementById("retention_display").innerText = "- " + ret.toLocaleString('th-TH', opt);
-    const retRow = document.getElementById("retention_summary_row");
-    if (retRow) retRow.style.display = ret > 0 ? "flex" : "none";
 
     document.getElementById("grand_total_display").innerText = grand.toLocaleString('th-TH', opt);
 }
@@ -1078,7 +1215,7 @@ document.getElementById("taxDraftForm").addEventListener("submit", syncRoundingF
 async function confirmSaveTax() {
     const result = await Swal.fire({
         title: <?= json_encode($has_tax_invoice ? 'บันทึกการแก้ไข Tax INV?' : 'บันทึกเป็น Tax INV?', JSON_UNESCAPED_UNICODE) ?>,
-        text: <?= json_encode($has_tax_invoice ? 'ระบบจะอัปเดตรายการ Tax Invoice นี้ตามข้อมูลล่าสุด' : 'ระบบจะสร้างเลข Tax Invoice และเก็บรายการแยกจาก Invoice ต้นทาง', JSON_UNESCAPED_UNICODE) ?>,
+        text: <?= json_encode($has_tax_invoice ? 'ระบบจะอัปเดตรายการ Tax Invoice นี้ตามข้อมูลล่าสุด' : ($invoice_number !== '' ? 'ระบบจะสร้างเลข Tax Invoice และเก็บรายการแยกจาก Invoice ต้นทาง' : 'ระบบจะสร้างใบกำกับภาษีโดยไม่ผูกกับใบแจ้งหนี้'), JSON_UNESCAPED_UNICODE) ?>,
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#FF6600',
@@ -1092,6 +1229,8 @@ async function confirmSaveTax() {
 
 window.onload = calculate;
 </script>
+<script src="<?= htmlspecialchars(app_path('assets/js/purchase-vat-calc.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(app_path('assets/js/po-adjustments.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php require_once dirname(__DIR__, 2) . '/includes/tnc_tailwind_assets.php'; tnc_bootstrap_js_tag(); ?>
 <?php include dirname(__DIR__, 2) . '/components/shell-chrome-end.php'; ?>
 </body>
@@ -1100,19 +1239,24 @@ window.onload = calculate;
     exit;
 }
 
+if (!is_array($tax)) {
+    header('Location: ' . app_path('pages/invoices/tax-invoice-list.php'));
+    exit;
+}
+
 $custIdForDisplay = (int) ($tax['customer_id'] ?? 0);
 if ($custIdForDisplay <= 0) {
-    $custIdForDisplay = (int) ($inv['customer_id'] ?? 0);
+    $custIdForDisplay = (int) ($invRow['customer_id'] ?? 0);
 }
 $comIdForDisplay = (int) ($tax['company_id'] ?? 0);
 if ($comIdForDisplay <= 0) {
-    $comIdForDisplay = (int) ($inv['company_id'] ?? 0);
+    $comIdForDisplay = (int) ($invRow['company_id'] ?? 0);
 }
 
 $cust = Db::row('customers', (string) $custIdForDisplay);
 $com = Db::row('company', (string) $comIdForDisplay);
 
-$data = $inv;
+$data = $invRow;
 $data['customer_name'] = $cust['name'] ?? '';
 $data['customer_address'] = $cust['address'] ?? '';
 $data['customer_tax'] = $cust['tax_id'] ?? '';
@@ -1128,7 +1272,7 @@ $issuer_display = $issuer_display !== '' ? htmlspecialchars($issuer_display, ENT
 $tax_invoice_number = strtoupper(trim((string) ($data['tax_invoice_number'] ?? '')));
 $has_tax_invoice = $tax_invoice_number !== '';
 $paymentMethod = trim((string) ($tax['payment_method'] ?? ''));
-$roundingEnabledView = (($tax['rounding_enabled'] ?? $inv['rounding_enabled'] ?? 0) === 1 || (string) ($tax['rounding_enabled'] ?? $inv['rounding_enabled'] ?? '0') === '1');
+$roundingEnabledView = (($tax['rounding_enabled'] ?? $invRow['rounding_enabled'] ?? 0) === 1 || (string) ($tax['rounding_enabled'] ?? $invRow['rounding_enabled'] ?? '0') === '1');
 $pmCashMark = $paymentMethod === 'cash' ? '☑' : '☐';
 $pmTransferMark = $paymentMethod === 'transfer' ? '☑' : '☐';
 $pmChequeMark = $paymentMethod === 'cheque' ? '☑' : '☐';
@@ -1140,7 +1284,7 @@ if ($taxId > 0) {
         return isset($r['tax_invoice_id']) && (int) $r['tax_invoice_id'] === $taxId;
     });
 }
-if (count($items) === 0) {
+if (count($items) === 0 && $id > 0) {
     $items = Db::filter('invoice_items', static function (array $r) use ($id): bool {
         return isset($r['invoice_id']) && (int) $r['invoice_id'] === $id;
     });
@@ -1149,10 +1293,10 @@ Db::sortRows($items, 'id', false);
 $items = dedupeExactItems($items);
 $items = removeZeroQuantityItems($items);
 
-$subtotal = (float) (($tax['subtotal'] ?? '') !== '' ? $tax['subtotal'] : $data['subtotal']);
-$vat = (float) (($tax['vat_amount'] ?? '') !== '' ? $tax['vat_amount'] : $data['vat_amount']);
-$wht = (float) (($tax['withholding_tax'] ?? '') !== '' ? $tax['withholding_tax'] : $data['withholding_tax']);
-$retention = (float) (($tax['retention_amount'] ?? '') !== '' ? $tax['retention_amount'] : $data['retention_amount']);
+$subtotal = (float) (($tax['subtotal'] ?? '') !== '' ? $tax['subtotal'] : ($data['subtotal'] ?? 0));
+$vat = (float) (($tax['vat_amount'] ?? '') !== '' ? $tax['vat_amount'] : ($data['vat_amount'] ?? 0));
+$wht = (float) (($tax['withholding_tax'] ?? '') !== '' ? $tax['withholding_tax'] : ($data['withholding_tax'] ?? 0));
+$retention = (float) (($tax['retention_amount'] ?? '') !== '' ? $tax['retention_amount'] : ($data['retention_amount'] ?? 0));
 $storedGrandTotal = (float) (($tax['grand_total'] ?? '') !== '' ? $tax['grand_total'] : ($data['total_amount'] ?? 0));
 $subtotal = money2ByMode($subtotal, $roundingEnabledView);
 $vat = money2ByMode($vat, $roundingEnabledView);
@@ -1160,11 +1304,16 @@ $wht = money2ByMode($wht, $roundingEnabledView);
 $retention = money2ByMode($retention, $roundingEnabledView);
 $total_after_vat = money2ByMode($subtotal + $vat, $roundingEnabledView);
 $after_wht = money2ByMode($total_after_vat - $wht, $roundingEnabledView);
+$taxAdjSource = is_array($tax) ? $tax : $data;
+$taxAdjustments = tnc_po_adjustments_from_row($taxAdjSource, $subtotal, $total_after_vat);
 $final_grand_total = money2ByMode($storedGrandTotal, $roundingEnabledView);
 
-$displayIssueDate = (string) ($inv['issue_date'] ?? '');
+$displayIssueDate = (string) ($invRow['issue_date'] ?? '');
 if (!empty($tax['tax_date'])) {
     $displayIssueDate = (string) $tax['tax_date'];
+}
+if ($displayIssueDate === '') {
+    $displayIssueDate = date('Y-m-d');
 }
 
 /** แสดงที่อยู่เป็นบรรทัดเดียว (ยุบ newline ในข้อมูล) */
@@ -1177,15 +1326,17 @@ $customer_tax_trim = trim((string) ($data['customer_tax'] ?? ''));
 /** ชื่อแท็บ / ชื่อไฟล์เริ่มต้นตอนพิมพ์หรือบันทึก PDF (Ctrl+P) */
 $tirPrintDocTitle = $tax_invoice_number;
 if ($tirPrintDocTitle === '') {
-    $tirPrintDocTitle = trim((string) ($inv['invoice_number'] ?? ''));
+    $tirPrintDocTitle = trim((string) ($invRow['invoice_number'] ?? ''));
 }
 if ($tirPrintDocTitle === '') {
-    $tirPrintDocTitle = 'TAX-INV-' . (int) $id;
+    $tirPrintDocTitle = $taxId > 0 ? ('TAX-INV-' . $taxId) : ('TAX-INV-' . (int) $id);
 }
 $taxDocDateSubtitle = formatDateThai($displayIssueDate) . ' · ' . ($tax_invoice_number !== '' ? $tax_invoice_number : $tirPrintDocTitle);
 $taxHasAlerts = ($message !== '' || $error !== '' || isset($_GET['created']) || isset($_GET['updated']) || isset($_GET['cancelled']) || isset($_GET['error']));
 $docIsCancelled = $isTaxCancelled || $isInvCancelled;
 $docCancelReason = $isTaxCancelled && $taxCancelReason !== '' ? $taxCancelReason : ($isInvCancelled ? $invCancelReason : '');
+$editUrlQuery = http_build_query(array_merge($receiptBaseQuery, ['edit' => '1']), '', '&', PHP_QUERY_RFC3986);
+$viewUrlQuery = http_build_query($receiptBaseQuery, '', '&', PHP_QUERY_RFC3986);
 ?>
 
 <!DOCTYPE html>
@@ -1411,7 +1562,7 @@ $docCancelReason = $isTaxCancelled && $taxCancelReason !== '' ? $taxCancelReason
             </div>
             <div class="doc-view-toolbar-actions">
                 <?php if ($canEditTaxInvoice && $has_tax_invoice): ?>
-                <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?id=<?= (int) $id ?>&edit=1" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action">
+                <a href="<?= htmlspecialchars(app_path('pages/invoices/tax-invoice-receipt.php'), ENT_QUOTES, 'UTF-8') ?>?<?= htmlspecialchars($editUrlQuery, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 js-tnc-doc-action">
                     <i class="bi bi-pencil-square me-1"></i>แก้ไข
                 </a>
                 <?php endif; ?>
@@ -1558,11 +1709,28 @@ $docCancelReason = $isTaxCancelled && $taxCancelReason !== '' ? $taxCancelReason
                         <span><?= formatMoneyByModeOrBlank($after_wht, $roundingEnabledView); ?></span>
                     </div>
 
-                    <?php if ($retention > 0): ?>
+                    <?php if ($retention > 0 || !empty($taxAdjustments)): ?>
+                        <?php if (!empty($taxAdjustments)): ?>
+                            <?php foreach ($taxAdjustments as $taxAdj): ?>
+                                <?php
+                                if (!is_array($taxAdj) || (float) ($taxAdj['amount'] ?? 0) <= 0.0) {
+                                    continue;
+                                }
+                                $adjSign = (($taxAdj['sign'] ?? 'subtract') === 'add') ? 'add' : 'subtract';
+                                $adjLabel = trim((string) ($taxAdj['label'] ?? tnc_po_retention_label_default()));
+                                $adjAmount = (float) ($taxAdj['amount'] ?? 0);
+                                ?>
+                                <div class="summary-item <?= $adjSign === 'add' ? 'text-success' : 'text-danger' ?>">
+                                    <span><?= htmlspecialchars($adjLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                                    <span><?= $adjSign === 'add' ? '+' : '-' ?><?= formatMoneyByModeOrBlank($adjAmount, $roundingEnabledView); ?></span>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
                         <div class="summary-item text-danger">
                             <span>หักประกันผลงาน Retention (-)</span>
                             <span><?= formatMoneyByModeOrBlank($retention, $roundingEnabledView); ?></span>
                         </div>
+                        <?php endif; ?>
                     <?php endif; ?>
 
                     <div class="grand-total-row">

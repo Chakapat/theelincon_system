@@ -1976,6 +1976,9 @@ if ($action === 'cancel_tax_invoice' && ($_SERVER['REQUEST_METHOD'] ?? '') === '
             if ($invIdGuess > 0) {
                 tnc_action_redirect($taxViewUrl . '?id=' . $invIdGuess . '&error=need_cancel_reason');
             }
+            if ($taxId > 0) {
+                tnc_action_redirect($taxViewUrl . '?tax_id=' . $taxId . '&error=need_cancel_reason');
+            }
         }
         tnc_action_redirect($taxListUrl . '?error=need_cancel_reason');
     }
@@ -2000,8 +2003,11 @@ if ($action === 'cancel_tax_invoice' && ($_SERVER['REQUEST_METHOD'] ?? '') === '
         'meta' => ['cancellation_reason' => $reason, 'invoice_id' => $invoiceId],
     ]);
     $returnTo = trim((string) ($_POST['return_to'] ?? ''));
-    if ($returnTo === 'view' && $invoiceId > 0) {
-        tnc_action_redirect($taxViewUrl . '?id=' . $invoiceId . '&cancelled=1');
+    if ($returnTo === 'view') {
+        if ($invoiceId > 0) {
+            tnc_action_redirect($taxViewUrl . '?id=' . $invoiceId . '&cancelled=1');
+        }
+        tnc_action_redirect($taxViewUrl . '?tax_id=' . $taxId . '&cancelled=1');
     }
     tnc_action_redirect($taxListUrl . '?cancelled=1');
 }

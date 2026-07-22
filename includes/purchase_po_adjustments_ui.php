@@ -35,9 +35,10 @@ if (!function_exists('tnc_po_render_adjustments_summary_slot')) {
 
 if (!function_exists('tnc_po_render_adjustments_panel')) {
     /**
-     * @param list<array{label?:string,input?:string,sign?:string}> $initialLines
+     * @param list<array{label?:string,input?:string,sign?:string,pct_base?:string}> $initialLines
+     * @param array{hint?:string} $options
      */
-    function tnc_po_render_adjustments_panel(array $initialLines = []): void
+    function tnc_po_render_adjustments_panel(array $initialLines = [], array $options = []): void
     {
         if ($initialLines === []) {
             $initialLines = [[
@@ -47,12 +48,16 @@ if (!function_exists('tnc_po_render_adjustments_panel')) {
                 'pct_base' => 'before_vat',
             ]];
         }
+        $hint = trim((string) ($options['hint'] ?? 'ไม่บังคับ · หักหรือบวกหลัง VAT · แสดงบน PO'));
+        if ($hint === '') {
+            $hint = 'ไม่บังคับ · หักหรือบวกหลัง VAT · แสดงบน PO';
+        }
         ?>
         <div class="po-adjustments-panel">
             <div class="po-adjustments-panel__head">
                 <div>
                     <h3 class="po-adjustments-panel__title">ปรับยอดสุทธิ</h3>
-                    <p class="po-adjustments-panel__hint">ไม่บังคับ · หักหรือบวกหลัง VAT · แสดงบน PO</p>
+                    <p class="po-adjustments-panel__hint"><?= htmlspecialchars($hint, ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-orange rounded-pill po-adjustments-panel__add" id="po_adjustment_add">
                     <i class="bi bi-plus-lg" aria-hidden="true"></i> เพิ่มรายการ

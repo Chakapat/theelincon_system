@@ -501,3 +501,107 @@ a.btn-invoice-action { text-decoration: none; }
     cursor: wait;
     transform: none;
 }
+
+/* ???????????? (reuse PO panel outside purchase-module) */
+.po-adjustments-panel {
+    border: 1px solid #fdba74;
+    border-radius: 0.75rem;
+    padding: 0.9rem 1rem;
+    background: linear-gradient(180deg, #fff 0%, #ffedd5 120%);
+    margin-top: 1rem;
+}
+.po-adjustments-panel__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.65rem;
+}
+.po-adjustments-panel__title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 0.15rem;
+}
+.po-adjustments-panel__hint,
+.po-adjustments-panel__foot {
+    font-size: 0.78rem;
+    color: #64748b;
+    line-height: 1.4;
+}
+.po-adjustments-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+.po-adjustment-row {
+    display: grid;
+    grid-template-columns: 4.75rem minmax(0, 1fr) 5.5rem 6rem 2.1rem;
+    gap: 0.35rem;
+    align-items: center;
+}
+.po-adjustment-row--head {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.1rem;
+    padding: 0 0.05rem;
+}
+.po-adjustment-row--head span:last-child { visibility: hidden; }
+.po-adj-sign {
+    font-size: 0.78rem;
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+}
+.po-adj-pct-base {
+    font-size: 0.72rem;
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
+}
+.po-adj-pct-base.is-disabled,
+.po-adj-pct-base:disabled {
+    opacity: 0.45;
+    background: #f8fafc;
+}
+.po-adj-remove {
+    padding: 0.2rem 0.35rem;
+    line-height: 1;
+}
+.po-adjustments-summary {
+    border-top: 1px dashed rgba(234, 88, 12, 0.22);
+    margin-top: 0.45rem;
+    padding-top: 0.45rem;
+}
+.po-adjustments-summary:empty {
+    display: none;
+    border: 0;
+    margin: 0;
+    padding: 0;
+}
+.po-adjustments-summary .summary-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+}
+@media (max-width: 575.98px) {
+    .po-adjustment-row--head { display: none; }
+    .po-adjustment-row {
+        grid-template-columns: 4.25rem minmax(0, 1fr) 2.1rem;
+        grid-template-areas:
+            "sign label remove"
+            "base base base"
+            "input input input";
+        gap: 0.35rem 0.4rem;
+        padding: 0.55rem 0.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.55rem;
+        background: #fff;
+    }
+    .po-adj-sign { grid-area: sign; }
+    .po-adj-label { grid-area: label; }
+    .po-adj-pct-base { grid-area: base; }
+    .po-adj-input { grid-area: input; }
+    .po-adj-remove { grid-area: remove; align-self: start; }
+}

@@ -85,14 +85,21 @@ function formatMoneyOrBlank($amount): string
     return number_format($n, 2);
 }
 
-// --- ลำดับแสดง: ยอดรวม → VAT → ยอดรวม VAT → หัก ณ ที่จ่าย → หลังหัก ณ ที่จ่าย → retention → สุทธิ ---
+// --- ลำดับแสดง: ยอดรวม → VAT → ยอดรวม VAT → หัก ณ ที่จ่าย → หลังหัก ณ ที่จ่าย → ปรับยอด → สุทธิ ---
+require_once dirname(__DIR__, 2) . '/includes/purchase_print/vat_print_summary.php';
 $subtotal = (float) $data['subtotal'];
 $vat = (float) $data['vat_amount'];
 $wht = (float) $data['withholding_tax'];
-$retention = (float) $data['retention_amount'];
 $total_after_vat = $subtotal + $vat;
 $after_wht = $total_after_vat - $wht;
-$final_grand_total = $after_wht - $retention;
+$invoiceAdjustments = tnc_po_adjustments_from_row($data, $subtotal, $total_after_vat);
+$adjustmentDelta = tnc_po_adjustment_delta($invoiceAdjustments);
+$storedTotal = (float) ($data['total_amount'] ?? 0);
+$final_grand_total = $storedTotal;
+if ($final_grand_total <= 0.0 && ($after_wht > 0.0 || $invoiceAdjustments !== [])) {
+    $final_grand_total = max(0.0, $after_wht + $adjustmentDelta);
+}
+$retention = (float) ($data['retention_amount'] ?? 0);
 
 /** แสดงที่อยู่เป็นบรรทัดเดียว (ยุบ newline ในข้อมูล) */
 $company_address_one_line = preg_replace('/\s+/u', ' ', trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($data['address'] ?? ''))));
@@ -519,7 +526,22 @@ $invDocDateSubtitle = $invDocTitle . ' · ' . formatDateThai($data['issue_date']
                         <span><?= formatMoneyOrBlank($after_wht); ?></span>
                     </div>
 
-                    <?php if($retention > 0): ?>
+                    <?php if (!empty($invoiceAdjustments)): ?>
+                        <?php foreach ($invoiceAdjustments as $invAdj): ?>
+                            <?php
+                            if (!is_array($invAdj) || (float) ($invAdj['amount'] ?? 0) <= 0.0) {
+                                continue;
+                            }
+                            $adjSign = (($invAdj['sign'] ?? 'subtract') === 'add') ? 'add' : 'subtract';
+                            $adjLabel = trim((string) ($invAdj['label'] ?? tnc_po_retention_label_default()));
+                            $adjAmount = (float) ($invAdj['amount'] ?? 0);
+                            ?>
+                            <div class="summary-item <?= $adjSign === 'add' ? 'text-success' : 'text-danger' ?>">
+                                <span><?= htmlspecialchars($adjLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                                <span><?= $adjSign === 'add' ? '+' : '-' ?><?= formatMoneyOrBlank($adjAmount); ?></span>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php elseif ($retention > 0): ?>
                         <div class="summary-item text-danger"><span>หักประกันผลงาน (Retention) </span><span><?= formatMoneyOrBlank($retention); ?></span></div>
                     <?php endif; ?>
 
